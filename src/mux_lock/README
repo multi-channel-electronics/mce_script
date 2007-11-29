@@ -1,0 +1,83 @@
+ Revision history:
+ <date $Date: 2006/09/27 17:02:57 $>    - <initials $Author: mce $>
+ $Log: README,v $
+ Revision 1.4  2006/09/27 17:02:57  mce
+ mandana: added total_row to sq1servo params
+
+ Revision 1.3  2006/01/04 19:30:39  mandana
+ added comment for config_mce_template
+
+ Revision 1.2  2005/11/10 20:21:21  mandana
+ added cvs revision log header
+ added gain0/gain1 note
+
+
+              BRIEF SQ2SERVO/SQ1SERVO NOTES
+              B.D.Kelly 29Apr2005 
+              M. Amiri 16May2005, UBC
+
+The sq2servo and sq1servo program are designed to read the latest data 
+written by the SCUBA-2 data acquisition system (DAS) and to apply new 
+calculated servo parameters. 
+
+It then create a temporary SCUBA-2 batch file (in configfiles directory) 
+to set-up and trigger the data acquisition to take more data and append 
+it to the original data file, thereby causing the process to continue.
+
+To get started it is necessary to issue a series of wb commands to set the 
+initial values for SSA and SQ2 bias and feedback settings. The system is 
+then told to take a frame and write it to the output file (called "df" as 
+an example here). Therfore, it is important to run config_mce_template 
+(or alternatively sq2servo_setup or sq1servo_setup prior to running 
+sq1servo/sq2servo.
+
+It is then possible to start the servo by:
+
+./sq2servo df out 1 1 1 10 1 1 10 temp.bat 3 0
+./sq1servo df out 1 1 1 10 1 1 10 temp.bat 1 3 0
+
+The various arguments to the sq2servo program can be found by running it and 
+reading the Usage:
+
+alba> ./sq2servo
+usage:- sq2servo datafile outfile ssafb sq2bias sq2bstep nbias
+sq2feed sq2fstep nfeed workfile
+   outfile = name of file for output data
+   sq2bias = starting SQ2 bias
+   sq2bstep = step for SQ2 bias
+   nbias = number of bias steps
+   sq2feed = starting SQ2 feedback
+   sq2fstep = step for SQ2 feedback
+   nfeed = number of feedback steps
+   workfile = temporary batch file
+   N = readout-card number (1 to 4)
+   target= lock target
+
+alba> ./sq1servo
+usage:- sq1servo datafile outfile sq1bias sq1bstep nbias
+sq1feed sq1fstep nfeed workfile nrow
+   outfile = name of file for output data
+   sq1bias = starting SQ1 bias
+   sq1bstep = step for SQ1 bias
+   nbias = number of bias steps
+   sq1feed = starting SQ1 feedback
+   sq1fstep = step for SQ1 feedback
+   nfeed = number of feedback steps
+   workfile = temporary batch file
+   nrow = is the row number (0 to 40)
+   N = readout-card number (1 to 4)
+   target = lock target
+   total_row = total number of rows in the system
+
+The parameters of the servo are in the C code, and are currently set to 
+arbitrary values
+
+   gain0 = 1.0/50.0
+   gain1 = 1.0/25.0
+
+see the main program. By default, this program only works with rc3, unless you
+change which_rc to a different number(1 to 4) and recompile.
+
+The program is built by cd'ing to its directory and typing the command "make".
+It has been built successfully on Solaris and Linux.
+
