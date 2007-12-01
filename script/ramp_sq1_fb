@@ -97,16 +97,11 @@ while ($nbias < $total_bias)
    set   total=400
    set   loopNo=-204
    
-   if ( $nested_loop == 0) then
-      echo "sweep $total SQ1 feedback values"
-   else   
-      echo "bias $k for $total feedback values"
-   endif
-   
-   while ($loopNo < $total)
+   while ($total)
       @ i=$loopNo * 40
       echo "wb rc$n fb_const $i $i $i $i $i $i $i $i">>$tempfile
       echo "acq_go 1">>$tempfile
+      @ total--
       @ loopNo++
    end
    @ nbias++
