@@ -62,15 +62,15 @@ int main ( int argc, char **argv )
    int  which_rc;
    int  skip_sq2bias = 0;
    char tempbuf[30];
-   clock_t start, end;
-   double elapsed;
+   int  error = 0;
+   time_t start, finish;
    
-   start = clock();
+   time(&start);
    
 /* check command-line arguments */
    if ( argc != 11 && argc != 12)
    {  
-      printf ( "Rev. 1.21\n");
+      printf ( "Rev. 1.23\n");
       printf ( "usage: sq2servo outfile sq2bias sq2bstep nbias\n" );
       printf ( "sq2feed sq2fstep nfeed N target gain skip_sq2bias\n" );
       printf ( "   outfile = name of file for output data\n" );
@@ -87,12 +87,51 @@ int main ( int argc, char **argv )
       ERRPRINT("wrong number of arguments");
       return 1;
    }
+   // Load MCE config information ("xml")
+   mceconfig_t *conf;
+   if (mceconfig_load(CONFIG_FILE, &conf) != 0) {
+     sprintf(errmsg_temp, "Load MCE configuration file %s", CONFIG_FILE);
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_LCFG;
+   }
+
+   // Connect to an mce_cmd device.
+   int handle = mce_open(CMD_DEVICE);
+   if (handle < 0) {
+     sprintf(errmsg_temp, "Failed to open %s.\n", CMD_DEVICE);
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_OPEN;
+   }
+
+   // Share the config information with the mce_cmd device
+   mce_set_config(handle, conf);
+   
+   // Lookup "bc1 flux_fb"
+   mce_param_t m_safb;
+   if ((error=mce_load_param(handle, &m_safb, SAFB_CARD, "flux_fb")) != 0) {
+     sprintf(errmsg_temp, "lookup of %s flux_fb failed with %d", SAFB_CARD, error); 
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_PARA;
+   }     
+   // Lookup "bc1 flux_fb"
+   mce_param_t m_sq2fb;
+   if ((error=mce_load_param(handle, &m_sq2fb, SQ2FB_CARD, "flux_fb")) != 0) {
+     sprintf(errmsg_temp, "lookup of %s flux_fb failed with %d", SQ2FB_CARD, error); 
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_PARA;
+   }     
+   // Lookup "bc3 flux_fb"
+   mce_param_t m_sq2bias;
+   if ((error=mce_load_param(handle, &m_sq2bias, SQ2BIAS_CARD, "flux_fb")) != 0) {
+     sprintf(errmsg_temp, "lookup of %s flux_fb failed with %d", SQ2BIAS_CARD, error); 
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_PARA;
+   }     
 
    if ( (datadir=getenv("MAS_DATA")) == NULL){
       ERRPRINT("Enviro var. $MAS_DATA not set, quit");
-      return 2;
+      return ERR_DATA_DIR;
    }
-
    strcpy (datafile, argv[1]);
    sprintf (full_datafilename, "%s%s",datadir, datafile);
 
@@ -105,7 +144,7 @@ int main ( int argc, char **argv )
    strcat (safb_initfile, "safb.init");
    if ((tempf = fopen (safb_initfile, "r")) == NULL){
       ERRPRINT("failed to open safb.init to read initial settings for safb");
-      return 4;
+      return ERR_SAFB_INI;
    }
    
    /* prepare a line of init values for runfile*/   
@@ -113,7 +152,7 @@ int main ( int argc, char **argv )
    for ( j=0; j<MAXVOLTS; j++ ){
      if ( fgets (line, MAXLINE, tempf) == NULL){
        ERRPRINT("reading safb.init quitting...."); 
-       return 5;
+       return ERR_INI_READ;
      }
      ssafb[j] = atoi (line );
      sprintf(tempbuf, "%d ", ssafb[j]);
@@ -147,7 +186,7 @@ int main ( int argc, char **argv )
    if (sysret != 0){
      sprintf(errmsg_temp, "genrunfile %s.run failed with %d", full_datafilename, sysret);
      ERRPRINT(errmsg_temp);
-     return 3; 
+     return ERR_RUN_FILE; 
    }
 
    /* generate the header line for the bias file*/
@@ -163,21 +202,30 @@ int main ( int argc, char **argv )
    if ( (sysret=gengofile(datafile, workfile,  which_rc)) != 0){
      sprintf(errmsg_temp, "gengofile failed %d", sysret);
      ERRPRINT(errmsg_temp);
-     return 6;
+     return ERR_TMP_FILE;
    }  
    
    /* write the initial ssafb values, do not apply any bias, 
       Execute a go command to take one frame of data to start the algorithm */
    
-   flux_fb_set_arr(SAFB_CARD, ssafb); /*array*/
-   flux_fb_set(SQ2FB_CARD, sq2feed);
+   if ((error = mce_write_block(handle, &m_safb, MAXVOLTS, (u32 *)ssafb)) != 0) /*array*/
+     error_action("mce_write_block safb", error);
+
+   for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ ){
+     if ((error = mce_write_element(handle, &m_sq2fb, snum, sq2feed)) != 0)
+       error_action("mce_write_element sq2fb", error);
+   }
    if ( (sysret = acq(workfile)) != 0)
      return sysret;
    
    for ( j=0; j<nbias; j++ ){
       sq2bias += sq2bstep;
-      if (skip_sq2bias == 0)
-	flux_fb_set(SQ2BIAS_CARD, sq2bias);
+      if (skip_sq2bias == 0){
+        for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ )
+          if ((error = mce_write_element(handle, &m_sq2bias, snum, sq2bias)) != 0)
+            error_action("mce_write_element sq2bias", error);
+      }
+
       for ( i=0; i<nfeed; i++ ){
          /* we calculate and read sa_fb twice for every sq2feed iteration*/
          sq2feed += sq2fstep;
@@ -213,9 +261,11 @@ int main ( int argc, char **argv )
          fprintf ( fd, "\n" );
          fflush (fd);
          /* change voltages and trigguer more data acquisition */
-         flux_fb_set_arr(SAFB_CARD, ssafb);
-         flux_fb_set(SQ2FB_CARD,sq2feed);
-         /* if this is the last iteration, skip_go */
+         if ((error = mce_write_block(handle, &m_safb, MAXVOLTS, (u32 *)ssafb)) != 0) /*array*/
+           for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ )
+             error = mce_write_element(handle, &m_sq2fb, snum, sq2feed);
+         
+	 /* if this is the last iteration, skip_go */
          if ( (j != nbias-1) || (i != nfeed-1)){ 
            if ( (sysret = acq(workfile)) != 0)		   
              return sysret;
@@ -224,17 +274,23 @@ int main ( int argc, char **argv )
    }
 
    /* reset biases back to 0*/
-   for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ )
+   for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ ){
      ssafb[snum] = 0;
-   flux_fb_set_arr(SAFB_CARD, ssafb);
-   flux_fb_set(SQ2FB_CARD, 0);
+     if ((error = mce_write_element(handle, &m_sq2fb, snum, 0)) != 0)
+       error_action("mce_write_element sq2fb", error);
+   }
+   if ((error = mce_write_block(handle, &m_safb, MAXVOLTS, (u32 *)ssafb)) != 0) /*array*/
+     error_action("mce_write_block safb failed", error);
+
    if (skip_sq2bias == 0)
-     flux_fb_set(SQ2BIAS_CARD, 0); 
+     for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ )
+       if ((error = mce_write_element(handle, &m_sq2bias, snum, sq2bias)) != 0)
+         error_action("mce_write_element sq2bias", error);
    else
-      printf("This script did not apply SQ2 bias, you may need to turn biases off manually!\n");
+     printf("This script did not apply SQ2 bias, you may need to turn biases off manually!\n");
    
-   end = clock();
-   elapsed = ((double) (end - start))/CLOCKS_PER_SEC;
-   printf ("elapsed time is %f \n", elapsed);	   
-   return 0;
+   time(&finish);
+   //elapsed = ((double) (end - start))/CLOCKS_PER_SEC;
+   printf ("sq2servo: elapsed time is %fs \n", difftime(finish,start));	   
+   return SUCCESS;
 }
