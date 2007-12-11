@@ -1,3 +1,0 @@
-#!/bin/csh
-echo $1
-echo "16i ${1} p"|dc

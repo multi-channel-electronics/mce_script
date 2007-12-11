@@ -1,6 +1,6 @@
 ECHO 1
-# RB sys row_len
-# RB sys num_rows
+RB cc row_len
+RB cc num_rows
 RB psc psc_status
 RB cc ret_dat_s
 RB cc array_id

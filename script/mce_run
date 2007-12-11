@@ -16,12 +16,10 @@ if ($#argv != 3) then
   exit 1
 endif
 
-set dest_dir=$DATADIR
-
-set cmd=($argv)
-set filename=${dest_dir}/$cmd[1]
+set filename=$MAS_DATA/$1
 set runfilename=${filename}.run
-set numpts=$cmd[2]
+set numpts=$2
+set rc_num=$3
 
 
 #RUN FILE CREATION: NO MCE COMMANDS PAST THIS POINT
@@ -45,12 +43,14 @@ endif
 
 echo "FRAME_BASENAME=$filename"
 
-
-echo "w cc ret_dat_s 1 $numpts\ngo rc$rc_num ret_dat 1" | \
-    mce_cmd -C ${filename} -q -p
+mce_cmd -q <<EOF
+  acq_path /
+  acq_config $filename rc$rc_num
+  acq_go $numpts
+EOF
 
 if ($status) then
-  echo "failed to start acquisition."
+  echo "mce_cmd failed to start acquisition."
   exit 1
 endif
 
