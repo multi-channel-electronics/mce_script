@@ -94,7 +94,7 @@ while [ "$nbias" -lt "$total_bias" ]; do
    if [ $nested_loop -eq 1 ] ; then
      j=$(( $nbias * $bias_step ))
      k=$(( $start_bias + $j ))
-     m=$(( $k / 3 ))
+     m=$(( $k / 2 ))
      echo "wb rc$n offset $m $m $m $m $m $m $m $m">>$tempfile
      echo "wb rc$n sa_bias $k $k $k $k $k $k $k $k">>$tempfile
    fi
@@ -125,4 +125,4 @@ fi
 
 end_ctime=`date -u +%s`
 elapsed=$(( $end_ctime - $start_ctime))
-echo "elapsed time: $elapsed"
+echo "$0 elapsed time: $elapsed s"
