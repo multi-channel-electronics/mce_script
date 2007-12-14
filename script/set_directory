@@ -33,13 +33,6 @@ else
   cp $MAS_TEMPLATE/config_mce $new_config
 fi
 
-new_adc="config_mce_adc_offset_$today"
-if [ -e $new_adc ]; then
-  echo "There is already a config_mce_adc_offsets file in this directory"
-else
-  cp $MAS_TEMPLATE/config_mce_adc_offset $new_adc
-fi
-
 if [ ! -e analysis ]; then
     mkdir analysis
     chmod g+s $today
