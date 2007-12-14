@@ -1,0 +1,84 @@
+#!/bin/bash
+
+source ~mce/mas_env.bash
+source $MAS_SCRIPT/mas_library.bash
+
+short="$1"
+
+if [ "$1" = "" ]; then
+    short="0"
+fi
+
+RC="$2"
+
+if [ "$2" = "" ]; then
+    RC="1,2,3,4"
+fi
+
+AUTO_LOG=$MAS_DATA/auto_log.txt
+LOGGER="tee -a $AUTO_LOG"
+
+SCRNAME="auto_setup_squids_sh"
+ERRPREF="ERROR : $SCRNAME :"
+
+#SCRIPTS=`cat /home/mce/mce_config/mce_usrscriptdir.cfg`
+#IDL_PRO=`cat /home/mce/mce_config/mce_usridldir.cfg`
+
+SCRIPTS=$MAS_SCRIPT
+IDL_PRO=/home/mce/idl_pro
+
+SETUP_TARGET=99 #return value that indicates completion
+SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias, rcs=[$RC]"
+
+start_time=`date`
+ctime=`print_ctime`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+echo "INFO  : $SCRNAME : ctime=$ctime" | $LOGGER
+echo "ARGS  : $SCRNAME : $@" | $LOGGER
+
+# Check reset, and re-configure if detected
+#check_reset
+#if [ "$?" != "0" ]; then
+
+#    RECONFIG=$MAS_TEMPLATE/config_mce
+#    echo $ERRPREF "MCE reset detected! Running $RECONFIG" | $LOGGER
+#    $RECONFIG
+
+#    check_reset
+#    if [ "$?" != "0" ]; then
+#	echo $ERRPREF "$RECONFIG didn't help!" | $LOGGER
+#	exit 1
+#    fi
+#fi
+
+# Start auto_setup
+
+cd $IDL_PRO
+idl -quiet <<EOF	
+${SETUP_IDL}
+EOF
+
+err=$?
+if [ "$err" != "$SETUP_TARGET" ]; then
+    echo $ERRPREF "'$SETUP_IDL' returned error! [$err]" | $LOGGER
+    exit 1
+fi
+
+err=$?
+if [ "$err" != "0" ]; then
+   echo $ERRPREF "Archiving to $ZIP_DEST failed [$err]" | $LOGGER
+   exit 1
+fi
+
+#check_reset
+#if [ "$?" != "0" ]; then
+#   echo $ERRPREF "check_reset returned positive" | $LOGGER
+#fi
+
+# Record keeping: PCI diagnostic and time elapsed
+
+# diag=`print_dsp_diagnostic`
+# echo "INFO  : $SCRNAME : $diag" | $LOGGER
+delta_ctime=`print_elapsed $ctime`
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
