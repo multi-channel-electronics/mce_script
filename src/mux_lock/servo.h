@@ -1,13 +1,32 @@
 #include <stdio.h>
+#include <mcecmd.h>
+#include <mceconfig.h>
+#include <mcedata.h>
+
+#define CMD_DEVICE "/dev/mce_cmd0"
+#define DATA_DEVICE "/dev/mce_data0"
+#define CONFIG_FILE "/etc/mce.cfg"
+
+#define HEADER_OFFSET 43
 
 #define MAXLINE 1024
 #define MAXVOLTS 32
 #define MAXCHANNELS 8
 #define MAXROWS 41
 
-#define SAFB_CARD 1
-#define SQ2FB_CARD 2
-#define SQ2BIAS_CARD 3
+#define SAFB_CARD "bc1"
+#define SQ2FB_CARD "bc2"
+#define SQ2BIAS_CARD "bc3"
+#define SQ1BIAS_CARD "ac"
+#define SQ1BIAS_CMD "on_bias"
+
+typedef struct {
+  int fcount;
+  int row_num[MAXVOLTS];
+  int row_data[MAXVOLTS];
+  int which_rc;
+  FILE *df;
+}servo_t;
 
 int flux_fb_set(int which_bc, int value);
 int flux_fb_set_arr(int which_bc, int *arr);
@@ -15,6 +34,7 @@ int sq1fb_set(int which_rc, int value);
 int sq1bias_set(int value);
 int gengofile(char *datafile, char *workfile, int which_rc);
 int acq(char *filename);
+int error_action(char *msg, int errcode);
 
 int genrunfile (
 char *full_datafilename, /* datafilename including the path*/

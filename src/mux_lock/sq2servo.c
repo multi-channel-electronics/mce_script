@@ -8,12 +8,6 @@
 /***********************************************************
  *    sq2servo       : locks sq2 by calculating new sa_fb value and sweeping sq2_fb
  *    Author         : Mandana@ubc/Dennis@atc     4May2005
- *    History        :
- *       31May2005   : target and rc number are parameters now
- *       2May2005    : changed readline to fgets, changed fprintf to outfile, removed mcexml_split
- *       4May2005    : parametrize which RC card is going to take data
- *                   : swapped bc1, bc3
- *       18May2005   : re-ordered bc1, bc2, bc3
  *
  *  Revision history:
  *  <date $Date: 2007/10/22 23:38:35 $>    - <initials $Author: mce $>
@@ -24,6 +18,29 @@
  *    * MA renamed .fb to .bias and creates a merger-friendly format of .bias file
  *
  ***********************************************************/
+
+/***********************************************************
+ * frame_callback: to store the frame to a file and fill row_data
+ *
+ *********************************************************/ 
+int frame_callback(unsigned user_data, int frame_size, u32 *data){
+  
+  //Re-type 
+  servo_t *myservo = (servo_t*)user_data;
+  
+  fwrite(data, frame_size, sizeof(u32), myservo->df);
+  
+  myservo->fcount ++;
+  
+  int i;
+  u32 *lastrow_base;
+  lastrow_base = data + HEADER_OFFSET + (myservo->row_num[0])*MAXCHANNELS;
+  for (i=0; i<MAXCHANNELS; i++){
+    myservo->row_data[i] = (int) *(lastrow_base + i);	
+    //printf ("%d ", myservo->row_data[i]); 
+  } 
+  return 0; 
+}	
 /************************************************************
  *          M A I N
  ************************************************************/
@@ -31,28 +48,26 @@ int main ( int argc, char **argv )
 {
    char datafile[256];     /* datafile being written by DAS */
    char full_datafilename[256]; /*full path for datafile*/
-   char workfile[20];      /* temporary batch file */
-   char safb_initfile[256];      /* filename for safb.init*/
    char *datadir;
-   char errmsg_temp[256];
-   int sysret;
- 
+   char safb_initfile[256];      /* filename for safb.init*/
+   
    int i;
    int j;
+   int ncol;
+   int snum;                /* loop counter */
+   
    FILE *fd;                /* pointer to output file*/
-   FILE *df;                /* pointer to datafile*/
    FILE *tempf;             /* pointer to safb.init file*/
-   int fstatus;             /* error checking in file operation*/ 
-   double gain;             /* servo gain (=P=I) for the 0th calculation of the servo*/
-   char *endptr;
    char line[MAXLINE]; 
    char init_line[MAXLINE];    /* record a line of init values and pass it to genrunfile*/
-   int rowline[MAXCHANNELS]; /* error signal input */
-   int ncol;
+   char tempbuf[30];
+  
+   double gain;             /* servo gain (=P=I) for the 0th calculation of the servo*/
+   char *endptr;
    int nbias;
    int nfeed;
+   u32 nrows_rep;
    char outfile[256];       /* output data file */
-   int snum;                /* loop counter */
    int ssafb[MAXVOLTS];     /* series array feedback voltages */
    int sq2bias;             /* SQ2 bias voltage */
    int sq2bstep;            /* SQ2 bias voltage step */
@@ -61,8 +76,10 @@ int main ( int argc, char **argv )
    double z;                /* servo feedback offset */ 
    int  which_rc;
    int  skip_sq2bias = 0;
-   char tempbuf[30];
+
    int  error = 0;
+   char errmsg_temp[256];
+   
    time_t start, finish;
    
    time(&start);
@@ -70,7 +87,7 @@ int main ( int argc, char **argv )
 /* check command-line arguments */
    if ( argc != 11 && argc != 12)
    {  
-      printf ( "Rev. 1.23\n");
+      printf ( "Rev. 2.0\n");
       printf ( "usage: sq2servo outfile sq2bias sq2bstep nbias\n" );
       printf ( "sq2feed sq2fstep nfeed N target gain skip_sq2bias\n" );
       printf ( "   outfile = name of file for output data\n" );
@@ -85,8 +102,27 @@ int main ( int argc, char **argv )
       printf ( "   gain = servo gain (double) \n");
       printf ( "   skip_sq2bias (optional) = if specified as 1, then no sq2_bias is applied.\n");
       ERRPRINT("wrong number of arguments");
-      return 1;
+      return ERR_NUM_ARGS;
    }
+   /* Get range of values for second stage SQUIDs */
+   strcpy(datafile, argv[1]);
+   sq2bias = atoi ( argv[2] );
+   sq2bstep = atoi ( argv[3] );
+   nbias = atoi ( argv[4] );
+   sq2feed = atoi ( argv[5] );
+   sq2fstep = atoi ( argv[6] );
+   nfeed = atoi ( argv[7] );
+   which_rc = atoi ( argv[8]);
+   z = atoi (argv[9]);
+   gain = strtod(argv[10], &endptr);
+   
+   if (argc == 12){
+      skip_sq2bias = atoi(argv[11]);
+      if (nbias <1) nbias = 1;
+   }
+   else
+      skip_sq2bias = 0;
+   
    // Load MCE config information ("xml")
    mceconfig_t *conf;
    if (mceconfig_load(CONFIG_FILE, &conf) != 0) {
@@ -105,6 +141,14 @@ int main ( int argc, char **argv )
 
    // Share the config information with the mce_cmd device
    mce_set_config(handle, conf);
+
+   // Open data device
+   mcedata_t mcedata;
+   if ((error=mcedata_init(&mcedata, handle, DATA_DEVICE))!= 0) {
+     sprintf(errmsg_temp, "could not open '%s'", DATA_DEVICE);
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_DATA;
+   }     
    
    // Lookup "bc1 flux_fb"
    mce_param_t m_safb;
@@ -127,16 +171,49 @@ int main ( int argc, char **argv )
      ERRPRINT(errmsg_temp);
      return ERR_MCE_PARA;
    }     
+   // now setup a single-frame acquisition 
+   // Read back num_rows_reported
+   mce_param_t m_nrows_rep;
+   if ((error=mce_load_param(handle, &m_nrows_rep, "cc", "num_rows_reported")) != 0) {
+     sprintf(errmsg_temp, "lookup of cc num_rows_reported failed with %d code", error);
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_PARA;
+   }     
+   //int nrows_rep;
+   if ((error=mce_read_element(handle, &m_nrows_rep, 0, &nrows_rep)) != 0){
+     sprintf(errmsg_temp, "rb cc num_rows_reported failed with %d", error);
+     ERRPRINT(errmsg_temp);
+     return ERR_MCE_RB;     
+   }	   
+   // Pick a card (won't work for rcs!!)
+   int cards=(1<<(which_rc-1));
+   printf("Card bits=%#x, num_rows_reported=%d\n", cards, (int)nrows_rep);
+   mce_acq_t acq;
+   mcedata_acq_setup(&acq, &mcedata, 0, cards, (int) nrows_rep);
+   // Our callback will update the counter in this structure
+   servo_t sq2servo; 
+   sq2servo.fcount = 0;
+   sq2servo.which_rc = which_rc;
+   sq2servo.row_num[0] = nrows_rep - 1;
 
+   // setup a call back function
+   mcedata_rambuff_create(&acq, frame_callback, (unsigned) &sq2servo);   
+   
    if ( (datadir=getenv("MAS_DATA")) == NULL){
       ERRPRINT("Enviro var. $MAS_DATA not set, quit");
       return ERR_DATA_DIR;
    }
-   strcpy (datafile, argv[1]);
    sprintf (full_datafilename, "%s%s",datadir, datafile);
 
+   // open a datafile 
+   if( (sq2servo.df = fopen(full_datafilename, "w")) == NULL){
+     sprintf(errmsg_temp, "openning data file: %s", full_datafilename);
+     ERRPRINT(errmsg_temp);
+     return ERR_DATA_FIL;
+   }
+   
 /* Open output file to append modified data set */
-   sprintf(outfile, "%s%s.bias", datadir, argv[1]);
+   sprintf(outfile, "%s%s.bias", datadir, datafile);
    fd = fopen ( outfile, "a" );
 
 /* Get starting SA feedback values  from a file called safb.init*/
@@ -160,31 +237,13 @@ int main ( int argc, char **argv )
    }
    fclose(tempf);
 
-/* Get range of values for second stage SQUIDs */
-   sq2bias = atoi ( argv[2] );
-   sq2bstep = atoi ( argv[3] );
-   nbias = atoi ( argv[4] );
-   sq2feed = atoi ( argv[5] );
-   sq2fstep = atoi ( argv[6] );
-   nfeed = atoi ( argv[7] );
-   which_rc = atoi ( argv[8]);
-   z = atoi (argv[9]);
-   gain = strtod(argv[10], &endptr);
-
-   if (argc == 12){
-      skip_sq2bias = atoi(argv[11]);
-      if (nbias <1) nbias = 1;
-      printf ("No SQ2 bias is applied!\n");
-   }
-   else
-      skip_sq2bias = 0;
   
    /** generate a runfile **/
-   sysret=genrunfile (full_datafilename, datafile, 2, which_rc, 
+   error=genrunfile (full_datafilename, datafile, 2, which_rc, 
                       sq2bias, sq2bstep, nbias, sq2feed, sq2fstep, nfeed, 
                       init_line, NULL);
-   if (sysret != 0){
-     sprintf(errmsg_temp, "genrunfile %s.run failed with %d", full_datafilename, sysret);
+   if (error != 0){
+     sprintf(errmsg_temp, "genrunfile %s.run failed with %d", full_datafilename, error);
      ERRPRINT(errmsg_temp);
      return ERR_RUN_FILE; 
    }
@@ -197,17 +256,8 @@ int main ( int argc, char **argv )
      fprintf ( fd, "  <ssafb%02d> ", snum);  
    fprintf ( fd, "\n");
   
-   /* create the temp script to acquire one frame*/ 
-   strcpy (workfile, "sq2servo.temp");
-   if ( (sysret=gengofile(datafile, workfile,  which_rc)) != 0){
-     sprintf(errmsg_temp, "gengofile failed %d", sysret);
-     ERRPRINT(errmsg_temp);
-     return ERR_TMP_FILE;
-   }  
-   
    /* write the initial ssafb values, do not apply any bias, 
       Execute a go command to take one frame of data to start the algorithm */
-   
    if ((error = mce_write_block(handle, &m_safb, MAXVOLTS, (u32 *)ssafb)) != 0) /*array*/
      error_action("mce_write_block safb", error);
 
@@ -215,61 +265,46 @@ int main ( int argc, char **argv )
      if ((error = mce_write_element(handle, &m_sq2fb, snum, sq2feed)) != 0)
        error_action("mce_write_element sq2fb", error);
    }
-   if ( (sysret = acq(workfile)) != 0)
-     return sysret;
-   
+   if ( (error=mcedata_acq_go(&acq, 1)) != 0) 
+     error_action("data acquisition failed", error);
+
+   // finally, the servo loop:
    for ( j=0; j<nbias; j++ ){
       sq2bias += sq2bstep;
-      if (skip_sq2bias == 0){
+      if (!skip_sq2bias){
         for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ )
           if ((error = mce_write_element(handle, &m_sq2bias, snum, sq2bias)) != 0)
             error_action("mce_write_element sq2bias", error);
       }
 
       for ( i=0; i<nfeed; i++ ){
-         /* we calculate and read sa_fb twice for every sq2feed iteration*/
          sq2feed += sq2fstep;
-
-         /* Get the data read from the previous setting*/
-         if( (df = fopen(full_datafilename, "r")) == NULL){
-            sprintf(errmsg_temp, "openning data file: %s", full_datafilename);
-            ERRPRINT(errmsg_temp);
-            exit(7);
-         }
-         /* read the last row, skip the checksum (8+1)*4 */
-         if ((fstatus = fseek(df, -36, SEEK_END)) != 0){
-            sprintf(errmsg_temp,"fseek on %s returned %d", full_datafilename, fstatus);
-            ERRPRINT(errmsg_temp);
-            exit(8);
-         }
-         if (fread (rowline, sizeof(int), MAXCHANNELS, df) == 0){
-           sprintf (errmsg_temp,"fread on %s failed", full_datafilename);
-           ERRPRINT(errmsg_temp);
-           exit (8);
-         }
-         fclose (df);
-         /* done with reading the file*/
 
          /* now extract each column's reading*/
          for (ncol=0; ncol<MAXCHANNELS; ncol++)
-           fprintf ( fd, "%11d ", rowline[ncol] );
+	   fprintf ( fd, "%11d ", sq2servo.row_data[ncol] );
 
          for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ ){
-           ssafb[snum] += gain * (rowline[snum%8]-z );
+           ssafb[snum] += gain * ((sq2servo.row_data[snum%8])-z );
            fprintf ( fd, "%11d ", ssafb[snum] );
          }
          fprintf ( fd, "\n" );
-         fflush (fd);
-         /* change voltages and trigguer more data acquisition */
-         if ((error = mce_write_block(handle, &m_safb, MAXVOLTS, (u32 *)ssafb)) != 0) /*array*/
-           for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ )
-             error = mce_write_element(handle, &m_sq2fb, snum, sq2feed);
          
+	 /* change voltages and trigguer more data acquisition */
+         if ((error = mce_write_block(handle, &m_safb, MAXVOLTS, (u32 *)ssafb)) != 0) /*array*/
+           error_action("mce_write_block safb", error);
+         for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ ){
+           //if ((error = mce_write_element(handle, &m_safb, snum, ssafb[snum])) != 0) 
+           //  error_action("mce_write_element safb", error); 
+		 
+           if ((error = mce_write_element(handle, &m_sq2fb, snum, sq2feed)) != 0)
+             error_action("mce_write_element sq2fb", error);
+	 }
 	 /* if this is the last iteration, skip_go */
-         if ( (j != nbias-1) || (i != nfeed-1)){ 
-           if ( (sysret = acq(workfile)) != 0)		   
-             return sysret;
-	 }  
+         if ( (j != nbias-1) || (i != nfeed-1)) 
+           if ( (error=mcedata_acq_go(&acq, 1)) != 0) 
+             error_action("data acquisition failed", error);
+	 //printf("acquired %d\n", sq2servo.fcount); 
       }
    }
 
@@ -282,13 +317,19 @@ int main ( int argc, char **argv )
    if ((error = mce_write_block(handle, &m_safb, MAXVOLTS, (u32 *)ssafb)) != 0) /*array*/
      error_action("mce_write_block safb failed", error);
 
-   if (skip_sq2bias == 0)
+   if (!skip_sq2bias){
      for ( snum=(which_rc-1)*8; snum<which_rc*8; snum++ )
        if ((error = mce_write_element(handle, &m_sq2bias, snum, sq2bias)) != 0)
          error_action("mce_write_element sq2bias", error);
+   }  
    else
      printf("This script did not apply SQ2 bias, you may need to turn biases off manually!\n");
    
+   fclose(fd);
+   fclose(sq2servo.df);
+   mceconfig_destroy(conf);
+   mce_close(handle);
+
    time(&finish);
    //elapsed = ((double) (end - start))/CLOCKS_PER_SEC;
    printf ("sq2servo: elapsed time is %fs \n", difftime(finish,start));	   
