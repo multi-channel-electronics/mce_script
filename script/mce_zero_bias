@@ -1,0 +1,94 @@
+#!/bin/csh 
+#
+# Revision history:
+# <date $Date: 2007/11/27 21:09:51 $> 
+# $Log: mce_zero_bias,v $
+# Revision 1.2  2007/11/27 21:09:51  mce
+# MA logs to auto_log.txt
+#
+source ~mce/mas_env.tcsh
+set LOGFILEDIR=$MAS_DATA
+set AUTO_LOG=$LOGFILEDIR/auto_log.txt
+set LOGGER="tee -a $AUTO_LOG"
+
+set SCRNAME="mce_zero_bias"
+set ERRPREF="ERROR : $SCRNAME :"
+
+set start_time=`date`
+set start_ctime=`date -u +%s`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+echo "ARGS  : $SCRNAME : none" | $LOGGER
+
+set tempfile=$MAS_TEMP/mce_zero_bias.temp
+/bin/rm $tempfile
+#does NOT issue a reset to mce, only zeros biases
+
+# default Values:  row_len=100, num_rows=33
+#echo "wb sys row_len 100">>$tempfile
+#echo "wb sys num_rows 33">>$tempfile
+
+######################################################
+#address card setup
+#echo "wb ac row_order 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40">>$tempfile
+#echo "wb ac enbl_mux 1">>$tempfile
+
+# clear sq1_bias
+echo -n "wb ac on_bias">>$tempfile
+repeat 41 echo -n " 0">>$tempfile
+echo "">>$tempfile
+
+echo -n "wb ac off_bias">>$tempfile
+repeat 41 echo -n " 0">>$tempfile
+echo "">>$tempfile
+
+######################################################
+# clear sq2_fb
+echo -n "wb bc2 flux_fb">>$tempfile
+repeat 32 echo -n " 0">>$tempfile
+echo "">>$tempfile
+
+# clear sq2_bias
+echo -n "wb bc3 flux_fb">>$tempfile
+repeat 32 echo -n " 0">>$tempfile
+echo "">>$tempfile
+
+# clear sa_fb
+echo -n "wb bc1 flux_fb">>$tempfile
+repeat 32 echo -n " 0">>$tempfile
+echo "">>$tempfile
+
+# clear det_bias
+echo "wb bc1 bias 0">>$tempfile
+echo "wb bc2 bias 0">>$tempfile
+echo "wb bc3 bias 0">>$tempfile
+
+
+#####################################################
+# rc/cc setup
+foreach n (1 2 3 4)                                                                                                                             
+  # set rc card to const servo mode
+  echo "wb rc$n servo_mode 0">>$tempfile
+  #echo "wb rc$n data_mode 0">>$tempfile
+  echo "wb rc$n fb_const -8192 -8192 -8192 -8192 -8192 -8192 -8192 -8192">>$tempfile
+  echo "wb rc$n sa_bias 0 0 0 0 0 0 0 0">>$tempfile
+  echo "wb rc$n offset 0 0 0 0 0 0 0 0">>$tempfile
+  echo "wb rc$n flx_lp_init 1">>$tempfile
+end   
+
+# execute the batch file
+mce_cmd -q -f  $MAS_TEMP/mce_zero_bias.temp 
+if ($status) then
+  echo "FAILURE: mce_zero_bias failed!"
+  echo $ERRPREF "mce_zero_bias batch file failed!" |$LOGGER
+  exit 1
+endif
+
+#######################################################
+# Logging 
+
+set end_ctime=`date -u +%s`
+@ delta_ctime=$end_ctime - $start_ctime
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
+echo
+
