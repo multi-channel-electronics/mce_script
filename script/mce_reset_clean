@@ -1,0 +1,41 @@
+#!/bin/bash
+
+source ${MAS_SCRIPT}mas_library.bash
+
+function check_card_life {
+
+    results=`command_reply rb sys num_rows`
+    if [ "$?" != "0" ]; then
+	return 1
+    fi
+
+    for r in $results; do
+	if [ "$r" == "0" ]; then
+	    return 1
+	fi
+    done
+
+}	
+
+#Reset!
+
+tries=3
+
+for a in `seq 1 $tries`; do
+
+    dsp_cmd -qx reset_mce
+    sleep 1
+
+#First check
+
+    check_card_life
+    check_card_life
+    check_card_life
+    check_card_life
+    if [ "$?" == "0" ]; then
+	echo "MCE reset ok, probably."
+	exit 0
+    fi
+done
+
+exit 1
