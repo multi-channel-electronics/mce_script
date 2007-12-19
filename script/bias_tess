@@ -4,8 +4,8 @@ if [ $# -lt 1 ]; then
   echo "Usage: bias_tess bias_val"
   exit 1
 fi
-echo "This script assumes bias_tes is on bc3! double check"
-mce_cmd -q -x wb bc3 bias $1
+echo "This script assumes bias_tes is on bc2! double check"
+mce_cmd -q -x wb bc2 bias $1
 if [ $? -ne 0 ]; then
   echo "FAILURE: bias_tess failed!"
   exit 2
