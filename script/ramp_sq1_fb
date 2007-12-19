@@ -47,10 +47,9 @@ endif
 
 ###########################
 # now create runfile
-# careful as mcestatus by default save in $MAS_DATA
-mcestatus $MAS_DATA/$runfile 1
+mce_status -f $MAS_DATA/$runfile
 if ($status) then
-  echo "FAILURE: ($script_name: mcestatus failed)"
+  echo "FAILURE: ($script_name: mce_status failed)"
   exit 5
 endif
 
