@@ -87,7 +87,7 @@ int main ( int argc, char **argv )
 /* check command-line arguments */
    if ( argc != 11 && argc != 12)
    {  
-      printf ( "Rev. 2.0\n");
+      printf ( "Rev. 2.1\n");
       printf ( "usage: sq2servo outfile sq2bias sq2bstep nbias\n" );
       printf ( "sq2feed sq2fstep nfeed N target gain skip_sq2bias\n" );
       printf ( "   outfile = name of file for output data\n" );
@@ -166,8 +166,8 @@ int main ( int argc, char **argv )
    }     
    // Lookup "bc3 flux_fb"
    mce_param_t m_sq2bias;
-   if ((error=mce_load_param(handle, &m_sq2bias, SQ2BIAS_CARD, "flux_fb")) != 0) {
-     sprintf(errmsg_temp, "lookup of %s flux_fb failed with %d", SQ2BIAS_CARD, error); 
+   if ((error=mce_load_param(handle, &m_sq2bias, SQ2BIAS_CARD, SQ2BIAS_CMD)) != 0) {
+     sprintf(errmsg_temp, "lookup of %s %s failed with %d", SQ2BIAS_CARD, SQ2BIAS_CMD, error); 
      ERRPRINT(errmsg_temp);
      return ERR_MCE_PARA;
    }     

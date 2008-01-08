@@ -10,13 +10,16 @@
 #define HEADER_OFFSET 43
 
 #define MAXLINE 1024
-#define MAXVOLTS 32
+#define MAXVOLTS 16 
 #define MAXCHANNELS 8
 #define MAXROWS 41
 
 #define SAFB_CARD "bc1"
 #define SQ2FB_CARD "bc2"
-#define SQ2BIAS_CARD "bc3"
+
+#define SQ2BIAS_CARD "bc2"
+#define SQ2BIAS_CMD "flux_fb_upper"
+
 #define SQ1BIAS_CARD "ac"
 #define SQ1BIAS_CMD "on_bias"
 

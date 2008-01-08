@@ -14,16 +14,29 @@
 #define DATA_DEVICE "/dev/mce_data0"
 #define CONFIG_FILE "/etc/mce.cfg"
 
-
 /* Our buffer size */
 
 #define SIZE 8196
 
 
-int frame_callback(int size, u32 *data)
+/* Our acquisition structure and callback */
+
+typedef struct {
+	int frame_count;
+} my_counter_t;
+
+
+int frame_callback(unsigned user_data, int size, u32 *data)
 {
+	//Re-type 
+	my_counter_t *c = (my_counter_t*)user_data;
+
+	// Increment!
+	c->frame_count ++;
+
 	// Print the first two words of each frame as it comes in
-	printf("%08x %08x\n", data[0], data[1]);
+	printf("Frame %3i :  %08x %08x\n",
+	       c->frame_count, data[0], data[1]);
 	return 0;
 }
 
@@ -35,7 +48,6 @@ void print_u32(u32 *data, int count)
 	}
 	printf("\n");
 }
-
 
 int main()
 {
@@ -90,10 +102,15 @@ int main()
 	// Setup an acqusition structure, associated with this data device.
 	mce_acq_t acq;
 	mcedata_acq_setup(&acq, &mcedata, 0, cards, (int)num_rows);
-	      
+
+	// Our callback will update the counter in this structure
+	my_counter_t counter = {
+		frame_count: 0
+	};
+
 	// Setup the acqusition to call our callback function on each received frame:
 	//   (other options here are to set up an output file, or a file sequence)
-	mcedata_rambuff_create(&acq, frame_callback);
+	mcedata_rambuff_create( &acq, frame_callback, (unsigned)&counter );
 
 	// Now we are free to do as many go's as we want.
 
