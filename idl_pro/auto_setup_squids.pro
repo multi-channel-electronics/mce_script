@@ -61,17 +61,17 @@ on_sq2bias=abs(on_sq2bias-1)
 on_bias=on_bias+on_sq2bias
 
 ;SET DATA FORMAT, CLEAR COMUNICATIONS AND RESET THE MCE
-spawn,'resetmce_clean >> '+todays_folder+c_filename+'.log'
-spawn,'clear_fifo_mce_reply >> '+todays_folder+c_filename+'.log'
+spawn,'mce_reset_clean >> '+todays_folder+c_filename+'.log'
+;spawn,'clear_fifo_mce_reply >> '+todays_folder+c_filename+'.log'
 
 ;ENTER HERE THE VALUES RELATED TO YOUR CAMERA
 samp_num=10							;number of data coadded
 if not keyword_set(numrows) then numrows=33			;number of rows
 good_squid_amplitude = 5000					;the program recommends turning a SQUID off if its V-phi is smaller than this
 
-normtbias1=65000   	;35000					;for the 3 detector bias configuration this is the bias at which the TES go normal
+normtbias1=0   	;35000					;for the 3 detector bias configuration this is the bias at which the TES go normal
 normtbias2=65000        ;35000
-normtbias3=65000    	;35000
+normtbias3=0    	;35000
 normbias_time = 0.1						;how long should they be normal
 
 tbias1=0	;3000						;end detectors bias
@@ -79,7 +79,7 @@ tbias2=0	;3000
 tbias3=0	;3000	
 
 pidp=0								;pid parameters
-pidi=-40		
+pidi=32		
 
 final_data_mode=2						;Mode to set in the config file after all data is acquired.
 ramp_sq1_bias_run=0						;Set this to 1 to sweep the tes bias and look at squid v-phi response.
@@ -94,17 +94,17 @@ SQ2_feedback_file=lon64arr(32)
 SQ2_feedback_file(*)=10000
 
 if n_elements(ROW) eq 0 then begin				;row used in the last frametest plot
-	print,'Row = 2 is used for frametest_plot by default!'
-	ROW=2
+	print,'Row = 4 is used for frametest_plot by default!'
+	ROW=4
 endif
 
 
 ;DETECTOR BIAS
 ;Setting detectors bias by first driving them normal and then to the transition.
 ;Here we specify three different detector bias corresponding to 3 different groups of detectors
-spawn,'bias_tess '+strtrim(normtbias1,1)+' '+strtrim(normtbias2,1)+' '+strtrim(normtbias3,1) 
+spawn,'bias_tess '+strtrim(normtbias2,1);+' '+strtrim(normtbias2,1)+' '+strtrim(normtbias3,1) 
 wait,normbias_time
-spawn,'bias_tess '+strtrim(tbias1,1)+' '+strtrim(tbias2,1)+' '+strtrim(tbias3,1)
+spawn,'bias_tess '+strtrim(tbias2,1);+' '+strtrim(tbias2,1)+' '+strtrim(tbias3,1)
 
 ;WRITING INTO THE CONFIG FILE
 openu,1,config_mce_file
@@ -353,7 +353,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 		;Divide by 2 when using the new type of readout card with the 1S40 FPGA. It also depends on the cable resistance. 
 		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/3) 
-		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/2)
+		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/4)
 		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch*5./12)
 	
 		repeat readf,1,line until strmid(line,0,22) eq '#Setting SA offset '+strcompress('RC'+string(RC),/remove_all)
@@ -394,7 +394,7 @@ for jj=0,n_elements(RCs)-1 do begin
 		endfor
 	
 		;sa_offset_MCE2=floor(def_sa_bias*5./12)  
-		sa_offset_MCE2=floor(def_sa_bias/2.)
+		sa_offset_MCE2=floor(def_sa_bias/4.)
 	
 		repeat readf,1,line until strmid(line,0,22) eq '#Setting SA offset '+strcompress('RC'+string(RC),/remove_all)
 		for j=0,7 do begin

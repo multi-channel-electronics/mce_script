@@ -1,0 +1,152 @@
+#!/bin/csh
+#
+# Revision History:
+# <date $Date: 2007/05/16 23:42:44 $> - <initials: $Author: mce $>
+# $Log: ramp_tes_bias,v $
+# Revision 1.4  2007/05/16 23:42:44  mce
+# elia: changes from ACT input ...
+#
+source ~mce/mas_env.tcsh
+
+if ($#argv != 2) then
+  echo "----------------"
+  echo "Usage: ramp_tes_bias datafile n"
+  echo "   datafile is the name of the datafile"
+  echo "   n        is the rc card number (1 to 4)"
+  echo "Note that the file will be saved under the data directory."
+  echo "----------------"
+  exit 1
+endif
+
+set script_name=$0
+set datafile=$1
+set n=$2
+
+set data_pause=0.5
+
+@ total_bias = 1000  #number of steps to decrement
+@ bias_step  = 40
+@ start_bias = 40000
+@ bias_normal = 65535
+@ initial_wait = 10
+@ end_bias = 9000
+
+
+set tempfile=$MAS_TEMP/ramp_tes_bias.tmp
+/bin/rm $tempfile
+echo "acq_path $MAS_DATA">>$tempfile 
+echo "acq_config $datafile rc$n">>$tempfile
+echo "acq_go 1">>$tempfile
+
+echo "Driving detectors normal before I-V curve acquisition using ramp_tes_bias script." >> $MAS_DATA/../script_log.txt #
+#mcecmd cmd wb bc$b bias $bias_normal
+#mcecmd cmd wb bc$b2 bias $bias_normal
+bias_tess $bias_normal  >> $MAS_DATA/../script_log.txt 
+if ($status) then
+  echo "FAILURE: ($script_name: bias_tess failed)"
+  exit 2
+endif
+sleep 1
+
+echo "waiting $initial_wait sec for temperature to stabilize" >> $MAS_DATA/../script_log.txt 
+echo "Will wait $data_pause sec between each data point." >> $MAS_DATA/../script_log.txt 
+bias_tess $start_bias
+if ($status) then
+  echo "FAILURE: ($script_name: bias_tess failed)"
+  exit 2
+endif
+sleep $initial_wait
+
+set ct=`date -u +%s`
+
+set runfile=$datafile.run
+set biasfile=$datafile.bias
+set logfile=$datafile.log
+
+###########################
+# now create runfile
+mce_status>> $MAS_DATA/$runfile 
+if ($status) then
+  echo "FAILURE: ($script_name: mce_status failed)"
+  exit 3
+endif
+
+echo "<par_ramp>" >>$MAS_DATA/$runfile
+echo "  <loop_list> loop1">>$MAS_DATA/$runfile
+echo "    <par_list> loop1">>$MAS_DATA/$runfile
+echo "      <par_title loop1 par1> tes_bias">>$MAS_DATA/$runfile
+echo "      <par_step loop1 par1> $start_bias $bias_step $total_bias">>$MAS_DATA/$runfile
+echo "</par_ramp>">>$MAS_DATA/$runfile
+
+@ total_frames = $total_bias
+frameacq_stamp $n $datafile $total_frames>>$MAS_DATA/$runfile
+if ($status) then
+  echo "FAILURE: ($script_name: frameacq_stamp failed)"
+  exit 4
+endif
+##########################
+cat $MAS_DATA/../last_squid_tune >> $MAS_DATA/$runfile
+
+
+# Changed to start a new file upon running, instead of appending
+echo "start data:">>$MAS_DATA/$biasfile.old
+echo "rc$n">>$MAS_DATA/$biasfile.old
+
+echo "tes_heater">>$MAS_DATA/$biasfile.old
+echo "1 number of points">>$MAS_DATA/$biasfile.old
+echo "0 starting point">>$MAS_DATA/$biasfile.old
+echo "0 step size">>$MAS_DATA/$biasfile.old
+
+echo "tes_bias">>$MAS_DATA/$biasfile.old
+echo "$total_bias number of points">>$MAS_DATA/$biasfile.old
+echo "$start_bias starting point">>$MAS_DATA/$biasfile.old
+echo "$bias_step step size">>$MAS_DATA/$biasfile.old
+echo "<tes_bias>">>$MAS_DATA/$biasfile
+echo "Acquiring I-V curve into data file $MAS_DATA/$datafile" >> $MAS_DATA/../script_log.txt 
+
+@ loop_no=0
+
+mce_cmd -q -x wb cc ret_dat_s 1 1 
+if ($status) then
+  echo "FAILURE: ($script_name: mce_cmd failed)"
+  exit 5
+endif
+
+
+#echo "executing ramp"
+while ($loop_no < $total_bias)
+   @ bias = $start_bias - ($loop_no * $bias_step)
+   bias_tess $bias >>$MAS_DATA/$logfile
+   if ($status) then
+     echo "FAILURE: ($script_name: bias_tess failed)"
+     exit 2
+   endif
+   echo "$bias" >>$MAS_DATA/$biasfile
+   mce_cmd -q -f $tempfile >>$MAS_DATA/$logfile
+   if ($status) then
+     echo "FAILURE: ($script_name: mce_cmd for acq_go failed)"
+     exit 6
+   endif
+   sleep $data_pause
+   @ loop_no++
+end
+
+
+echo "Completed I-V acquisition!"
+echo "Driving detectors normal, then setting detector bias to $end_bias"
+bias_tess $bias_normal  >> $MAS_DATA/../script_log.txt 
+if ($status) then
+  echo "FAILURE: ($script_name: bias_tess failed)"
+  exit 2
+endif
+sleep 0.1
+bias_tess $end_bias  >> $MAS_DATA/../script_log.txt 
+if ($status) then
+  echo "FAILURE: ($script_name: bias_tess failed)"
+  exit 2
+endif
+
+
+set ctf=`date -u +%s`
+echo "I-V start time: $ct" >> $MAS_DATA/../script_log.txt 
+echo "I-V end time: $ctf" >> $MAS_DATA/../script_log.txt 

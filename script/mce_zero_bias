@@ -66,15 +66,13 @@ echo "wb bc3 bias 0">>$tempfile
 
 #####################################################
 # rc/cc setup
-foreach n (1 2 3 4)                                                                                                                             
-  # set rc card to const servo mode
-  echo "wb rc$n servo_mode 0">>$tempfile
-  #echo "wb rc$n data_mode 0">>$tempfile
-  echo "wb rc$n fb_const -8192 -8192 -8192 -8192 -8192 -8192 -8192 -8192">>$tempfile
-  echo "wb rc$n sa_bias 0 0 0 0 0 0 0 0">>$tempfile
-  echo "wb rc$n offset 0 0 0 0 0 0 0 0">>$tempfile
-  echo "wb rc$n flx_lp_init 1">>$tempfile
-end   
+# set rc card to const servo mode
+echo "wb rca servo_mode 0">>$tempfile
+#echo "wb rca data_mode 0">>$tempfile
+echo "wb rca fb_const -8192 -8192 -8192 -8192 -8192 -8192 -8192 -8192">>$tempfile
+echo "wb rca sa_bias 0 0 0 0 0 0 0 0">>$tempfile
+echo "wb rca offset 0 0 0 0 0 0 0 0">>$tempfile
+echo "wb rca flx_lp_init 1">>$tempfile
 
 # execute the batch file
 mce_cmd -q -f  $MAS_TEMP/mce_zero_bias.temp 

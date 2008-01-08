@@ -25,7 +25,7 @@ ERRPREF="ERROR : $SCRNAME :"
 #IDL_PRO=`cat /home/mce/mce_config/mce_usridldir.cfg`
 
 SCRIPTS=$MAS_SCRIPT
-IDL_PRO=/home/mce/idl_pro
+IDL_PRO=$MAS_IDL
 
 SETUP_TARGET=99 #return value that indicates completion
 SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias, rcs=[$RC]"
