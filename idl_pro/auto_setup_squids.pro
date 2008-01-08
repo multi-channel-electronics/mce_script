@@ -61,8 +61,8 @@ on_sq2bias=abs(on_sq2bias-1)
 on_bias=on_bias+on_sq2bias
 
 ;SET DATA FORMAT, CLEAR COMUNICATIONS AND RESET THE MCE
-spawn,'resetmce_clean >> '+todays_folder+c_filename+'.log'
-spawn,'clear_fifo_mce_reply >> '+todays_folder+c_filename+'.log'
+spawn,'mce_reset_clean >> '+todays_folder+c_filename+'.log'
+;spawn,'clear_fifo_mce_reply >> '+todays_folder+c_filename+'.log'
 
 ;ENTER HERE THE VALUES RELATED TO YOUR CAMERA
 samp_num=10							;number of data coadded
