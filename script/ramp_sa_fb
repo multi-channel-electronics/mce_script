@@ -27,12 +27,23 @@ fi
 
 start_ctime=`date -u +%s`
 tempfile=$MAS_TEMP/ramp_sa_fb.temp
-script_name="ramp_sa_fb"
+script_name=$0
 
 datafile=$1
 runfile=$datafile.run
 n=$2
 nested_loop=$3
+
+#if [ $n == "s" ] ;then
+#  num_cols=16
+#  col_index=0
+#else
+#  num_cols=8
+#  col_index=$(( $(( $n - 1 )) * 8))
+#fi
+#lastcol_index=$(( $col_index + 7))
+
+num_cols=16
 
 if [ $nested_loop -eq 0 ] ; then
   total_bias=1 
@@ -101,8 +112,15 @@ while [ "$nbias" -lt "$total_bias" ]; do
    nsafb=0
    while [ "$nsafb" -lt "$total" ]; do
       i=$(($nsafb * 160))
-      echo "wb bc1 flux_fb $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i">>$tempfile 
-      #echo "go rc$n ret_dat 1">>$tempfile
+      #for ix in `seq $col_index $lastcol_index`;do 
+      #  echo "wel bc1 flux_fb $ix $i">>$tempfile
+      #done
+      #echo -ne "wb bc1 flux_fb">>$tempfile
+      #for j in `seq $num_cols`; do
+      #   echo -ne " $i">>$tempfile 
+      #done
+      #echo "">>$tempfile
+      echo "wb bc1 flux_fb $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i">>$tempfile
       echo "acq_go 1">>$tempfile
       (( nsafb += 1 ))
    done
@@ -114,7 +132,18 @@ if [ $nested_loop -eq 1 ] ; then
    echo "wb rc$n sa_bias 0 0 0 0 0 0 0 0">>$tempfile
    echo "wb rc$n offset 0 0 0 0 0 0 0 0">>$tempfile
 fi
-echo "wb bc1 flux_fb 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0">>$tempfile 
+echo "wb bc1 flux_fb 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0">>$tempfile
+#for ix in `seq $col_index $lastcol_index`;do 
+#   echo "wel bc1 flux_fb $ix 0">>$tempfile
+#done
+#echo -ne "wb bc1 flux_fb">>$tempfile 
+#for i in `seq $num_cols` ;do 
+#   echo -ne " 0">>$tempfile 
+#done
+#echo "">>$tempfile
+half_ctime=`date -u +%s`
+elapsed=$(( $half_ctime - $start_ctime))
+echo "$0 file-write time: $elapsed s"
 
 mce_cmd -q -f $tempfile
 if [ $? -ne  0 ] ; then
