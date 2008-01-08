@@ -1,0 +1,44 @@
+#!/bin/bash
+
+source ~mce/mas_env.bash
+source $MAS_SCRIPT/mas_library.bash
+
+change_bias="$1"
+
+AUTO_LOG=$MAS_DATA/auto_log.txt
+LOGGER="tee -a $AUTO_LOG"
+
+SCRNAME="auto_iv_and_bias_tes_sh"
+ERRPREF="ERROR : $SCRNAME :"
+
+SCRIPTS=$MAS_SCRIPT
+IDL_PRO=/home/mce/idl_pro
+ 
+IV_TARGET=49 #return value that indicates completion
+IV_IDL="auto_iv_and_bias_tes,change_bias="$1
+
+start_time=`date`
+start_ctime=`print_ctime`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+echo "ARGS  : $SCRNAME : $@" | $LOGGER
+
+# Start auto_iv_and_bias
+
+cd $IDL_PRO
+idl -quiet <<EOF	
+$IV_IDL
+EOF
+
+err=$?
+if [ "$err" != "$IV_TARGET" ]; then
+    echo $ERRPREF "'$IV_IDL' returned error! [$err]" | $LOGGER
+    exit 1
+fi
+
+# Record keeping: PCI diagnostic and time elapsed
+
+# diag=`print_dsp_diagnostic`
+# echo "INFO  : $SCRNAME : $diag" | $LOGGER
+delta_ctime=`print_elapsed $start_ctime`
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
