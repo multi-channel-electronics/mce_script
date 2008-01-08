@@ -19,7 +19,7 @@ endif
 ctime=string(file_name,format='(i10)')
 
 if not keyword_set(nodasscript) then begin
-	auto_setup_command,software='MAS','rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
+	auto_setup_command,'wb rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
 	;spawn,'mce_cmd -q -x wb rc'+strcompress(string(RC),/REMOVE_ALL)+' data_mode '+data_mode
 	spawn,'mce_run '+file_name+string(npts)+' '+string(rc),exit_status=status18
 	if status18 ne 0 then begin
