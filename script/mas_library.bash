@@ -93,6 +93,54 @@ function write_back_test {
     done
 }
 
+# Useful number set manipulation functions
+
+
+function replace_values {
+    # arguments are
+    #   original values, new values, new value start position
+    # e.g.
+    #    replace_values "0 1 2 3 4 5 6" "a b c" 3
+    # echos
+    #    0 1 2 a b c 6
+    orig=( $1 )
+    news=( $2 )
+    for i in `seq 0 $(( ${#news[@]} - 1 ))` ; do
+	orig[$(( $i + $3 ))]=${news[$i]}
+    done
+    echo ${orig[@]}
+}
+
+function repeat_string {
+    # arguments are prefix, token, repeat count, postfix, e.g.
+    # repeat_string "here are a bunch of hats: " "hat" 8 ""
+
+    echo -n "$1 "
+    for a in `seq 1 $3`; do
+	echo -n "$2 "
+    done
+    echo $4
+}
+
+
+#Loading of experiment configuration information
+
+function mas_param {
+    # This is a temporary solution to the configuration problem
+    # Parameters are in /etc/mce.cfg.text in the form "key:value text"
+    # There should be no spaces around the ":".
+
+    # argument is 'key'
+    # prints out value of key
+    
+    if [ "$1" == "" ]; then
+	echo "$0: Argument required!" >&2
+	return 1
+    fi
+    
+    grep "^$1:"  /etc/mas.cfg.text | cut -d ':' -f 2-
+    return $?
+}
 
 
 # HEALTH FIXES - return 0 if fix probably succeeded
