@@ -7,14 +7,15 @@ fi
 
 source $MAS_ROOT/mas_env.bash
 
+# All our new files should be group rw
+umask 002
+
 today=`date +%Y%m%d`
 cd $MAS_DATA/..
 if [ ! -e $today ]; then
     mkdir $today
     chmod g+s $today
 fi
-# Not necessary; folder permissions are used.
-# chmod 777 $today
 cd $today
 
 cp $MAS_TEMPLATE/sabias.init .
