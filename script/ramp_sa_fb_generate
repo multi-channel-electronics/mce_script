@@ -26,7 +26,7 @@ while [ "$nbias" -lt "$total_bias" ]; do
      #echo "wb rc$n offset $m $m $m $m $m $m $m $m"
      #echo "wb rc$n sa_bias $k $k $k $k $k $k $k $k"
      repeat_string "wb rc$n offset" $m 8 ""
-     repeat_string "wb rc$n sa_bias" $m 8 ""
+     repeat_string "wb rc$n sa_bias" $k 8 ""
    fi
    total=400
    nsafb=0
