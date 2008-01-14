@@ -637,9 +637,9 @@ foreach card ($RC1 $RC2 $RC3 $RC4)
 end
 
 set today=`cat /data/cryo/current_data_name`
-$MAS_DATA/config_mce_adc_offset_${today} >>$MAS_TEMP/config_mce.temp
+source $MAS_DATA/config_mce_adc_offset_${today} >>$MAS_TEMP/config_mce.temp
 if ($status) then
-  echo "$0 failed: config_mce_adc_offset_${today} failed with code $cmdstatus, config aborted..."
+  echo "$0 failed: config_mce_adc_offset_${today} failed with code $status, config aborted..."
   exit 2
 endif
 
