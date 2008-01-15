@@ -12,7 +12,7 @@ SCRNAME="auto_iv_and_bias_tes_sh"
 ERRPREF="ERROR : $SCRNAME :"
 
 SCRIPTS=$MAS_SCRIPT
-IDL_PRO=/home/mce/idl_pro
+IDL_PRO=$MAS_IDL
  
 IV_TARGET=49 #return value that indicates completion
 IV_IDL="auto_iv_and_bias_tes,change_bias="$1

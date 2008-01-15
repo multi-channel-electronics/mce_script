@@ -112,34 +112,14 @@ function replace_values {
 }
 
 function repeat_string {
-    # arguments are prefix, token, repeat count, postfix, e.g.
-    # repeat_string "here are a bunch of hats: " "hat" 8 ""
+    # arguments are token, repeat count, prefix, postfix, e.g.
+    # repeat_string "hat" 8 "here are a bunch of hats: " ""
 
     echo -n "$1 "
     for a in `seq 1 $3`; do
 	echo -n "$2 "
     done
     echo $4
-}
-
-
-#Loading of experiment configuration information
-
-function mas_param {
-    # This is a temporary solution to the configuration problem
-    # Parameters are in /etc/mce.cfg.text in the form "key:value text"
-    # There should be no spaces around the ":".
-
-    # argument is 'key'
-    # prints out value of key
-    
-    if [ "$1" == "" ]; then
-	echo "$0: Argument required!" >&2
-	return 1
-    fi
-    
-    grep "^$1:"  /etc/mas.cfg.text | cut -d ':' -f 2-
-    return $?
 }
 
 

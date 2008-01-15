@@ -25,6 +25,8 @@ cp $MAS_TEMPLATE/sq2fb.init .
 cp $MAS_TEMPLATE/sq1bias.init .
 cp $MAS_TEMPLATE/row.init .
 
+cp /etc/mce/experiment.cfg .
+
 #chmod g+w $MAS_DATA/*.init
 
 new_config="config_mce_auto_setup_$today"
