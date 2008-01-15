@@ -85,7 +85,7 @@ if [ "$MAS_ROOT" == "" ]; then
 fi
 source $MAS_SCRIPT/mas_library.bash
 
-cfg_file=/etc/mce/experiment.mce    # default source file
+cfg_file=/etc/mce/experiment.cfg    # default source file
 cfg_align=20                        # alignment column
 idl_name="mas_param"       # idl function names will be load_... and save_...
 
