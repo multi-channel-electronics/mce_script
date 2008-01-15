@@ -34,6 +34,17 @@ if [ -e $new_config ]; then
   echo "There is already a config_mce_auto_setup file in this directory"
 else
   cp $MAS_TEMPLATE/config_mce $new_config
+  chmod u+rwx $new_config
+  chmod g+rws $new_config
+fi
+
+new_adc="config_mce_adc_offset_$today"
+if [ -e $new_adc ]; then
+  echo "There is already a config_mce_adc_offset file in this directory"
+else
+    touch $new_adc
+    chmod u+rwx $new_adc
+    chmod g+rws $new_adc
 fi
 
 if [ ! -e analysis ]; then
