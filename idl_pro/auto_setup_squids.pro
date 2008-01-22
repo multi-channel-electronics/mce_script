@@ -61,7 +61,8 @@ on_sq2bias=abs(on_sq2bias-1)
 on_bias=on_bias+on_sq2bias
 
 ;SET DATA FORMAT, CLEAR COMUNICATIONS AND RESET THE MCE
-spawn,'mce_reset_clean >> '+todays_folder+c_filename+'.log'
+print, 'mce_reset_clean suppressed!'
+;spawn,'mce_reset_clean >> '+todays_folder+c_filename+'.log'
 ;spawn,'clear_fifo_mce_reply >> '+todays_folder+c_filename+'.log'
 
 ;ENTER HERE THE VALUES RELATED TO YOUR CAMERA
@@ -91,10 +92,10 @@ SA_feedback_file=lon64arr(32)
 SA_feedback_file(*)=32000
 
 SQ2_feedback_file=lon64arr(32)
-SQ2_feedback_file(*)=10000
+SQ2_feedback_file(*)=8200
 
 if n_elements(ROW) eq 0 then begin				;row used in the last frametest plot
-	print,'Row = 2 is used for frametest_plot by default!'
+	print,'Row = 0 is used for frametest_plot by default!'
 	ROW=2
 endif
 
@@ -538,7 +539,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	;Sets the initial SA fb (found in the previous step or set to mid-range) for the SQ2 servo
 	zero=(rc-1)*8
 	;SA_feedback_file=intarr(32)
-	;SA_feedback_file(*)=32000
+	SA_feedback_file(*)=32000
 	for i=zero,zero+7 do begin 
 		SA_feedback_file(i)=SA_fb_init(i-zero)	
 	endfor
@@ -643,17 +644,22 @@ for jj=0,n_elements(RCs)-1 do begin
                 		exit,status=9
         		endif
 			SQ2_feedback=lon64arr(8)
-                        SQ2_feedback(*)=10000
-			initial_sq2_fb=10000
+                        SQ2_feedback(*)=8200
+			initial_sq2_fb=8200
 		endelse
 	endif else begin
 	        i6='Yes'
 	endelse
 	if keyword_set(short) then begin
 		SQ2_feedback=lon64arr(8)
-                SQ2_feedback(*)=10000
-                initial_sq2_fb=10000
+                SQ2_feedback(*)=8200
+                initial_sq2_fb=8200
 	endif	
+
+        SQ2_feedback=lon64arr(8)
+        SQ2_feedback(*)=8200
+        initial_sq2_fb=8200
+
 	
 	common sq1_servo_var,SQ1_target,SQ1_feedback,file_out2
 	
@@ -713,27 +719,64 @@ for jj=0,n_elements(RCs)-1 do begin
        
 	timesq1=systime(1,/utc)
         strtimesq1=string(timesq1,format='(i10)')
-        sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
+	SQ2_feedback_full_array=lon64arr(numrows,8)
+	for sq1servorow=0,numrows-1 do begin
+        	sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
+		;row=0
+                row_init_string=''
+                for j=0,31 do begin
+                        row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
+                endfor
+                row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
+                spawn,row_init_string
+  		
+		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope
 
-	auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope
-
-	if keyword_set(interactive) then begin
-		i7=dialog_message(['The auto_setup has found the SQ2 fb',$
-				   'reported in the plots for the 8 ',$
-				   'channels of the SQ1 of RC'+strcompress(string(RC),/remove_all)+'!',$
-				   ' ','DO YOU WANT TO CHANGE THEM?'], /QUESTION)
-		if i7 eq 'No' then begin
-			i8=dialog_message(['Are you happy with the previous values',$
-                                   'and you want to proceed setting up the array?'], /QUESTION)
-                        if i8 eq 'No' then begin
-                                i8=dialog_message(['The auto_setup_program was terminated'])
-                                goto, theend
-			endif else begin
-                                goto, step5
-                        endelse
+		if keyword_set(interactive) then begin
+			i7=dialog_message(['The auto_setup has found the SQ2 fb',$
+					   'reported in the plots for the 8 ',$
+					   'channels of the SQ1 of RC'+strcompress(string(RC),/remove_all)+'!',$
+					   ' ','DO YOU WANT TO CHANGE THEM?'], /QUESTION)
+			if i7 eq 'No' then begin
+				i8=dialog_message(['Are you happy with the previous values',$
+                                	   'and you want to proceed setting up the array?'], /QUESTION)
+                        	if i8 eq 'No' then begin
+                                	i8=dialog_message(['The auto_setup_program was terminated'])
+                                	goto, theend
+				endif else begin
+                                	goto, step5
+                        	endelse
+			endif
 		endif
-	endif
-	
+                SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
+                print,SQ2_feedback_full_array(sq1servorow,*)
+
+	endfor	
+
+
+; MFH - save all sq2fb points for this file.
+        sq2_filename=strcompress(todays_folder+'sq2_RC'+string(RC)+'.cfg',/remove_all)
+        load_sq2_params,sq2_filename,sq2_param
+        sq2_param.fb_numrows = numrows
+        sq2_param.fb_chan0(0:(numrows-1)) = SQ2_feedback_full_array(*,0)
+        sq2_param.fb_chan1(0:(numrows-1)) = SQ2_feedback_full_array(*,1)
+        sq2_param.fb_chan2(0:(numrows-1)) = SQ2_feedback_full_array(*,2)
+        sq2_param.fb_chan3(0:(numrows-1)) = SQ2_feedback_full_array(*,3)
+        sq2_param.fb_chan4(0:(numrows-1)) = SQ2_feedback_full_array(*,4)
+        sq2_param.fb_chan5(0:(numrows-1)) = SQ2_feedback_full_array(*,5)
+        sq2_param.fb_chan6(0:(numrows-1)) = SQ2_feedback_full_array(*,6)
+        sq2_param.fb_chan7(0:(numrows-1)) = SQ2_feedback_full_array(*,7)
+        save_sq2_params,sq2_param,sq2_filename
+
+        ; For single rowing; use the selected rows from sq2_param:
+        for j=0,7 do begin
+            sq1_target(j) = SQ2_feedback_full_array(sq2_param.fb_rows(j),j)
+        endfor
+
+; done.
+
+; Single row approach -- these will be ignored in the multi-variable case!
+
 	openu,1,config_mce_file
 	line=''
 	
@@ -829,7 +872,7 @@ for jj=0,n_elements(RCs)-1 do begin
         rsq1_file_name=strcompress(file_folder+'/'+strtimersq1+'_RC'+string(RC),/remove_all)
 	rsq1_file_name=string(rsq1_file_name)+'_sq1ramp'
 
-	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive
+	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows
 	i10='Yes'
         if keyword_set(interactive) then begin
                 i10=dialog_message(['The auto_setup has found the the new',$
@@ -902,7 +945,7 @@ for jj=0,n_elements(RCs)-1 do begin
         strtimersq1c=string(timersq1c,format='(i10)')
         rsq1c_file_name=strcompress(file_folder+'/'+strtimersq1c+'_RC'+string(RC),/remove_all)
         rsq1c_file_name=string(rsq1c_file_name)+'_sq1rampc'
-	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive
+	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows
 
 	if ramp_sq1_bias_run eq 1 then begin
 		spawn,config_mce_file + ' >> '+todays_folder+c_filename+'.log',exit_status=status16
@@ -919,7 +962,7 @@ for jj=0,n_elements(RCs)-1 do begin
 		strtimertb=string(timertb,format='(i10)')        
 		rtb_file_name=strcompress(file_folder+'/'+strtimertb+'_RC'+string(RC),/remove_all)
         	rtb_file_name=string(rtb_file_name)+'_sq1rampb'
-		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive
+		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows
 	endif
 
 step6:

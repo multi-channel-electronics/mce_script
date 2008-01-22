@@ -233,7 +233,57 @@ for chan=0,7 do begin
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
                 endelse
-		ind_half_point=round((ind_min+ind_max)/2)
+		;remove comment here
+		;ind_half_point=round((ind_min+ind_max)/2)
+		
+;		;comment from here
+		midpoint=round((sq1_v_phi(ind_min,chan)+sq1_v_phi(ind_max,chan))/2.)
+		vphi=sq1_v_phi(min([ind_min,ind_max]):max([ind_min,ind_max]),chan)
+		ind_half_point=where(abs(vphi-midpoint) eq min(abs(vphi-midpoint)))
+		ind_half_point=min([ind_min,ind_max])+ind_half_point
+		print,ind_half_point
+		ind_half_point=ind_half_point(0)
+;		;to here
+;stop
+;                ;MFH version:
+;                start_idx = 100
+;                stop_idx = n_elements(sq1_v_phi(*,chan))-50
+;                print, n_elements(sq1_v_phi), start_idx, stop_idx                
+;                v = sq1_v_phi(start_idx:stop_idx,chan)    ; don't start too close to the left...
+;                v_max = max(v)
+;                v_min = min(v)
+;                radius = (v_max - v_min) / 10.   ; we'll find points within 10% of max and min
+;                ind_max = where( v_max - v lt radius)
+;                ind_min = where( v - v_min lt radius)
+
+;                i = 0
+;                j = 0
+;                ind_half_point = 0
+;                while ( (i lt n_elements(ind_min)) and (j lt n_elements(ind_max))) do begin
+;                    if ind_min(i) lt ind_max(j) then begin
+;                        i = i + 1
+;                        if i ge n_elements(ind_min) then break
+;                        if ind_min(i) gt ind_max(j) then begin
+;                            ind_half_point = (ind_max(j) + ind_min(i-1))/2
+;                            print,'rising!'+string(ind_half_point)
+;                            if slope gt 0 then break
+;                        endif
+;                        continue
+;                    endif
+;                    if ind_max(j) lt ind_min(i) then begin
+;                        j = j + 1
+;                        if j ge n_elements(ind_max) then break 
+;                        if ind_min(i) lt ind_max(j) then begin
+;                            ind_half_point = (ind_min(i) + ind_max(j-1))/2
+;                                ;print,'falling!'+string(ind_half_point)
+;                            if slope lt 0 then break
+;                        endif
+;                    endif
+;                endwhile
+
+;                ind_half_point = ind_half_point + start_idx
+;                ; end MFH
+
 		target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
 		fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
 		print, fb1(ind_half_point,chan)

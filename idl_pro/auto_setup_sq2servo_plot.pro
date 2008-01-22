@@ -36,7 +36,7 @@ if RC eq 1 then gain=1./5.
 
 ;Run the shell script:
 ;spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 temp.bat '+string(rc)+' '+string(target)
-spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 150 400 '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
+spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 150 100 '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
 if status7 ne 0 then begin
         print,''
         print,'################################################################'
@@ -209,17 +209,20 @@ print,''
 print,'###########################################################################'
 print,'SQ2 bias, and SA fb channel by channel:'
 print,'###########################################################################'
+
+lo_index = 25
+hi_index = 80
 for chan=0,7 do begin
 	print,'Channel:',chan
 		if slope lt 0 then begin
-			min_point=min(sq2_v_phi(100:350,chan),ind_min)
-			ind_min=100+ind_min
+			min_point=min(sq2_v_phi(lo_index:hi_index,chan),ind_min)
+			ind_min=lo_index+ind_min
 			ind_pos_der=where(deriv_fb1(0:ind_min-5,chan) gt 0)
 			if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
 			ind_max=max(ind_pos_der)
 		endif else begin
-			max_point=max(sq2_v_phi(100:350,chan),ind_max)
-                        ind_max=100+ind_max
+			max_point=max(sq2_v_phi(lo_index:hi_index,chan),ind_max)
+                        ind_max=lo_index+ind_max
                         ind_neg_der=where(deriv_fb1(0:ind_max-5,chan) lt 0)
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
@@ -259,9 +262,11 @@ SQ2_feedback=fb_half_point_ch_by_ch
 ;SQ2_target(2)=66000		;for testing purposes
 ;SQ2_feedback(3)=-5
 
+print,'Hardcoding for DAC range!!'
+dac_range=65536/4
 for chan=0,7 do begin
-	if (SQ2_feedback(chan) gt 65535) or (SQ2_feedback(chan) le 0) then begin
-		SQ2_feedback(chan)=32000
+	if (SQ2_feedback(chan) ge dac_range) or (SQ2_feedback(chan) le 0) then begin
+		SQ2_feedback(chan)=dac_range/2
 		print,' '
 		print,'###########################################################################'
 		print,' '
