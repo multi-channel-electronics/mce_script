@@ -51,15 +51,34 @@ function idl_template {
 
     shift 1
 
-    echo pro load_$idl_name,filename,m
+    # IDL is mean to me.
+    echo "function str_flat,a"
+    echo "    s = ''"
+    echo "    for i=0,n_elements(a)-1 do begin"
+    echo "        s=s+' '+strcompress(string(a(i)))"
+    echo "    endfor"
+    echo "    return,s"
+    echo -e "end\n"
+
+    # save routine should be first so it is compiled when a load is done.
+
+    save_string=" \
+        spawn,'mas_param -f '+filename+' set %s \\\"'+str_flat(m.%s)+'\\\"'\\n"
+    echo pro save_$idl_name,m,filename
+    cat $cfg_file |  \
+	awk "$filt_string {sub(/:/,\" \"); printf \"$save_string\", \$1, \$1; "}
 
     load_string=" \
-	spawn,'mas_param get %s',r,exit_status=status\n \
+	spawn,'mas_param -f '+filename+' get %s',r,exit_status=status\n \
 	if status eq 0 then begin\n \
 	  %s = fix(strsplit(r,/extract))\n \
 	endif else begin\n \
 	  print,'Failed to load parameter %s\n \
 	endelse\n"
+
+    echo -e "end\n\n"
+
+    echo pro load_$idl_name,filename,m
 
     cat $cfg_file |  \
 	awk "$filt_string {sub(/:/,\" \"); printf \"$load_string\", \$1, \$1, \$1; "}
@@ -67,14 +86,8 @@ function idl_template {
     echo -ne "\n        m = create_struct('source',filename "
     cat $cfg_file | \
 	awk "$filt_string {sub(/:/,\" \"); printf \", '%s',%s\", \$1, \$1 }"
-    echo -e ")\nend\n\n"
+    echo -e ")\nend\n"
 
-    save_string=" \
-        spawn,'mas_param set %s '+string(m.%s)\\n"
-    echo pro save_$idl_name,m,filename
-    cat $cfg_file |  \
-	awk "$filt_string {sub(/:/,\" \"); printf \"$save_string\", \$1, \$1; "}
-    echo -e "end\n"
 }    
 
 

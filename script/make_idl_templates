@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mas_param -i exp_params -f /etc/mce/experiment.cfg idl_template > $MAS_IDL/load_exp_params.pro
+mas_param -i autotune_params -f /etc/mce/auto_tune.cfg idl_template > $MAS_IDL/load_autotune_params.pro
+mas_param -i sq2_params -f $MAS_DATA/sq2_RC1.cfg idl_template > $MAS_IDL/load_sq2_params.pro

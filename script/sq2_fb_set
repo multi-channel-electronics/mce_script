@@ -1,0 +1,15 @@
+#!/bin/bash
+
+rcs_on=( $1 $2 $3 $4 )
+
+for i in `seq 0 3`; do
+	if [ "${rcs_on[$i]}" != "1" ]; then
+		continue
+	fi
+	rc=RC$(( $i + 1 ))
+	offset=$(( $i * 8 ))
+	for a in `seq 0 7`; do
+		echo -n "wb sq2 fb_col$(( $a + $offset)) "
+		mas_param -f $MAS_DATA/sq2_${rc}.cfg get fb_chan$a
+	done
+done

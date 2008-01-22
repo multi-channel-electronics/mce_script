@@ -44,23 +44,23 @@ echo "">>$tempfile
 
 ######################################################
 # clear sq2_fb
-echo -n "wb bc2 flux_fb">>$tempfile
+echo -n "wb sq2 fb">>$tempfile
 repeat 32 echo -n " 0">>$tempfile
 echo "">>$tempfile
 
 # clear sq2_bias
-echo -n "wb bc3 flux_fb">>$tempfile
+echo -n "wb sq2 bias">>$tempfile
 repeat 32 echo -n " 0">>$tempfile
 echo "">>$tempfile
 
 # clear sa_fb
-echo -n "wb bc1 flux_fb">>$tempfile
+echo -n "wb sa fb">>$tempfile
 repeat 32 echo -n " 0">>$tempfile
 echo "">>$tempfile
 
 # clear det_bias
 echo "wb bc1 bias 0">>$tempfile
-echo "wb bc2 bias 0">>$tempfile
+# echo "wb bc2 bias 0">>$tempfile
 echo "wb bc3 bias 0">>$tempfile
 
 
