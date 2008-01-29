@@ -25,7 +25,6 @@ for f in $files_to_copy; do
 	cp $MAS_TEMPLATE/$f .
     fi
 done
-fi
 
 new_config="config_mce_auto_setup_$today"
 if [ -e $new_config ]; then
