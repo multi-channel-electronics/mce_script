@@ -18,16 +18,14 @@ if [ ! -e $today ]; then
 fi
 cd $today
 
-cp $MAS_TEMPLATE/sabias.init .
-cp $MAS_TEMPLATE/safb.init .
-cp $MAS_TEMPLATE/sq2bias.init .
-cp $MAS_TEMPLATE/sq2fb.init .
-cp $MAS_TEMPLATE/sq1bias.init .
-cp $MAS_TEMPLATE/row.init .
+files_to_copy=" sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
 
-cp /etc/mce/experiment.cfg .
-
-#chmod g+w $MAS_DATA/*.init
+for f in $files_to_copy; do
+    if [ ! -e $f ]; then
+	cp $MAS_TEMPLATE/$f .
+    fi
+done
+fi
 
 new_config="config_mce_auto_setup_$today"
 if [ -e $new_config ]; then
@@ -49,7 +47,7 @@ fi
 
 if [ ! -e analysis ]; then
     mkdir analysis
-    chmod g+s $today
+    chmod g+s analysis
 fi
 
 /bin/rm /data/cryo/current_data
