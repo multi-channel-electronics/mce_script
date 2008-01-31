@@ -58,7 +58,7 @@ for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
     
     ch_ofs=$(( ($rc-1)*8 ))
-    echo "Readout card $rc:" `print_elapsed $create_start` >&2
+    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
     echo "wb rc$rc en_fb_jump   0" >> $mce_script
     echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
@@ -89,7 +89,7 @@ done
 #fi
 
 
-echo "Other cards:" `print_elapsed $create_start` >&2
+echo "Other cards: time=" `print_elapsed $create_start` >&2
 
 #----------------------------------------------
 # Address Card
