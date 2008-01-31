@@ -3,7 +3,12 @@
 # Revision history:
 #   Based on scuba2 CVS version 1.13
 
-#Functions, mostly to make for fewer file redirects
+#Functions!
+
+function float_multiply {
+    # Is there a better way to do floating point calcs in bash?
+    echo "$1 * $2 + 0.5" | bc | sed 's/\..*//g'
+}
 
 function runfile_loop_structure {
 #   Variables of environment are inherited
@@ -39,7 +44,7 @@ source ${MAS_SCRIPT}mas_library.bash
 
 if [ $# -lt 3 ]; then 
   echo "----------------" >&2
-  echo "Usage: ramp_sa_fb datafile n d" >&2
+  echo "Usage: ramp_sa_fb datafile n d [offset_bias_ratio]" >&2
   echo "where : datafile is the name of the datafile" >&2
   echo "        n        is the rc card number (1 to 4 or s for all)" >&2
   echo "        d        is 0 for sweeping sa_fb only and 1 for sweeping sa_fb and sa_bias/offset" >&2
@@ -48,12 +53,15 @@ if [ $# -lt 3 ]; then
   exit 1
 fi  
 
-# cable offset to sa_bias ratio
-cable_offset_sa_bias_ratio=2
+expcfg="/etc/mce/experiment.cfg"
+
+# The cable offset to SA bias ratio
+cable_offset_sa_bias_ratio=`mas_param -s $expcfg get sa_offset_bias_ratio`
 
 # Ramp parameters: should cover the 64k DAC range
-ramp_count=400
-ramp_step=160
+ramp_count=`mas_param -s $expcfg get sa_ramp_flux_count`
+ramp_step=`mas_param -s $expcfg get sa_ramp_flux_step`
+echo count=$ramp_count step=$ramp_step ratio=$cable_offset_sa_bias_ratio
 
 start_ctime=`date -u +%s`
 tempfile=$MAS_TEMP/ramp_sa_fb.temp
@@ -118,8 +126,10 @@ if [ $nested_loop -eq 0 ]; then
     repeat_string "wb bc1 flux_fb" "0" 16 "" >> $tempfile
 
 else
-    offset_step=$(( $bias_step / $cable_offset_sa_bias_ratio ))
-    start_offset=$(( $start_bias / $cable_offset_sa_bias_ratio ))
+    # Offset is a multiple of the bias
+    offset_step=`float_multiply $bias_step $cable_offset_sa_bias_ratio`
+    start_offset=`float_multiply $start_bias $cable_offset_sa_bias_ratio`
+    echo $offset_step $start_offset
 
     mce_ramp \
 	-M "acq_config $datafile rc$n" \
@@ -130,9 +140,9 @@ else
              	    -P "wb bc1 flux_fb" 16 \
 	            -P "acq_go 1" 0  >> $tempfile
 
-   repeat_string "wb rc$n sa_bias" "0" 8 "" >> $tempfile
-   repeat_string "wb rc$n offset" "0" 8 ""  >> $tempfile
-   repeat_string "wb bc1 flux_fb" "0" 16 "" >> $tempfile
+   repeat_string "0" 8 "wb rc$n sa_bias" >> $tempfile
+   repeat_string "0" 8  "wb rc$n offset" >> $tempfile
+   repeat_string "0" 16 "wb bc1 flux_fb" >> $tempfile
 
 fi
 

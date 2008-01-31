@@ -1,5 +1,7 @@
-#!/bin/csh 
+#!/bin/bash
 #
+source $MAS_SCRIPT/mas_library.bash
+
 # Revision History:
 # <date $Date: 2007/11/13 04:11:09 $> - <initials: $Author: preaction $>
 # $Log: ramp_tes_bias,v $
@@ -116,7 +118,7 @@
 # Mandana: new script to ramp tes bias, edit the loop(ramp) parameters inside the script
 #
 #
-if ($#argv != 2) then
+if [ $# != 2 ]; then
   echo "----------------"
   echo "Usage: ramp_tes_bias datafile n"
   echo "   datafile is the name of the datafile"
@@ -124,17 +126,17 @@ if ($#argv != 2) then
   echo "Note that the file will be saved under the data directory."
   echo "----------------"
   exit 1
-endif  
+fi
 
-@ total_bias = 400  	#480   #number of steps to decrement
-@ bias_step  = 25  	#25
-@ start_bias = 10000	#12000 
-@ bias_normal1 = 65000	#Bias to drive detectors normal on each bias card
-@ bias_normal2 = 65000
-@ bias_normal3 = 65000
-set normal_time = 0.1
-@ initial_wait = 10
-@ end_bias = 3000	#4000
+total_bias=60  	#480   #number of steps to decrement
+bias_step=100	#25
+start_bias=6000	#12000 
+bias_normal1=6000	#Bias to drive detectors normal on each bias card
+bias_normal2=6000
+bias_normal3=6000
+normal_time=0.1
+initial_wait=10
+end_bias=0	#4000
 
 #@ total_bias = 200  	#number of steps to decrement
 #@ bias_step  = 150
@@ -143,13 +145,16 @@ set normal_time = 0.1
 #@ initial_wait = 120
 #@ end_bias = 9000
 
-set data_pause=0.1
-set cmd=($argv)
-set datafile=$cmd[1]
-set n=$cmd[2]
+data_pause_us=100000    # step period in microseconds 
+ct=`print_ctime`
+dt=`cat /data/cryo/current_data_name`
 
-/bin/rm $MAS_TEMP/ramp_tes_bias.bat
-echo "go rc$n ret_dat 1">$MAS_TEMP/ramp_tes_bias.bat
+datafile=$1
+n=$2
+
+runfile=$datafile.run
+biasfile=$datafile.bias
+logfile=$datafile.log
 
 echo "Driving detectors normal before I-V curve acquisition using ramp_tes_bias script." #>> /data/cryo/script_log.txt #
 bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> /data/cryo/script_log.txt #
@@ -162,21 +167,12 @@ sleep $normal_time
 
 echo "waiting $initial_wait sec for temperature to stabilize" #>> /data/cryo/script_log.txt #
 bias_tess $start_bias
-echo "Will wait $data_pause sec between each data point." #>> /data/cryo/script_log.txt #
+echo "Will wait $data_pause_us usec between each data point." #>> /data/cryo/script_log.txt #
 sleep $initial_wait
-
-set ct=`date -u +%s`
-set dt=`cat /data/cryo/current_data_name`
-
-set datafile=${ct}_$datafile
-set datafile=$datafile
-set runfile=$datafile.run
-set biasfile=$datafile.bias
-set logfile=$datafile.log
 
 cat /data/cryo/last_squid_tune >> $MAS_DATA/$runfile
 #Generate .run file
-mcestatus $runfile 1
+mce_status >> $runfile
 
 # Apply frameacq stamp
 #frameacq_stamp $n $datafile $total_bias >> $MAS_DATA/$runfile
@@ -191,16 +187,8 @@ mcestatus $runfile 1
 #  echo "<RC> $n" >> $MAS_DATA/$runfile
 #endif
 
-echo "<tes_bias>">>$MAS_DATA/$biasfile
+echo "<tes_bias>" >> $MAS_DATA/$biasfile
 echo "Acquiring I-V curve into data file $MAS_DATA/$datafile" #>> /data/cryo/script_log.txt #
-
-@ loop_no=0
-
-mce_cmd -q -x wb cc ret_dat_s 1 1  >> /data/cryo/script_log.txt 
-if ($status) then
-  exit 2
-endif
-#mcecmd cmd wb rc$n data_mode 4
 
 #touch /data/cryo/${dt}/$datafile
 #ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
@@ -208,17 +196,20 @@ endif
 #ln /data/cryo/${dt}/$biasfile /data/mce_ctimes/$biasfile
 
 #echo "executing ramp"
-while ($loop_no < $total_bias)
-   @ bias = $start_bias - ($loop_no * $bias_step)
-   bias_tess $bias >>$MAS_DATA/$logfile
-   echo "$bias" >>$MAS_DATA/$biasfile
-   mcebatchgo cmd $datafile ramp_tes_bias.bat >>$MAS_DATA/$logfile
-   if ($status) then
-     exit 3
-   endif
-   sleep $data_pause
-   @ loop_no++
-end
+for i in `seq 0 $(( $total_bias - 1 ))`; do
+   bias=$(( $start_bias - $i * $bias_step ))
+   bias_tess $bias >> $MAS_DATA/$logfile
+   echo "$bias" >> $MAS_DATA/$biasfile
+
+   mce_cmd -q <<EOF
+    acq_config $MAS_DATA/$datafile rc$n
+    acq_go 1
+    sleep $data_pause_us
+EOF
+    if [ "$?" != "0" ]; then
+	    exit 3
+    fi
+done
 
 echo "Completed I-V acquisition!"
 echo "Driving detectors normal, then setting detector bias to $end_bias"
@@ -226,11 +217,12 @@ bias_tess $bias_normal1 $bias_normal2 $bias_normal3  >> /data/cryo/script_log.tx
 sleep $normal_time
 bias_tess $end_bias  >> /data/cryo/script_log.txt 
 
-set ctf=`date -u +%s`
+set ctf=`print_ctime`
 echo "I-V start time: $ct" >> /data/cryo/script_log.txt 
 echo "I-V end time: $ctf" >> /data/cryo/script_log.txt 
 
-rm -f /data/cryo/last_iv_completed
-ln -s /data/cryo/${dt}/$datafile /data/cryo/last_iv_completed
+last_iv=/data/cryo/last_iv_completed
+[ -e $last_iv ] && rm -f $last_iv
+ln -s /data/cryo/${dt}/$datafile $last_iv
 
 echo "/data/cryo/${dt}/$datafile" > /data/cryo/last_iv_completed_name

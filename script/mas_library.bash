@@ -115,9 +115,9 @@ function repeat_string {
     # arguments are token, repeat count, prefix, postfix, e.g.
     # repeat_string "hat" 8 "here are a bunch of hats: " ""
 
-    echo -n "$1 "
-    for a in `seq 1 $3`; do
-	echo -n "$2 "
+    echo -n "$3 "
+    for a in `seq 1 $2`; do
+	echo -n "$1 "
     done
     echo $4
 }
