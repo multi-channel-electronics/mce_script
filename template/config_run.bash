@@ -8,11 +8,11 @@ fi
 
 # Hopefully that script exists...
 
-if [ -ne "$mce_script" ]; then
+if ! [ -e "$mce_script" ]; then
 	echo "Script '$mce_script' does not exist!" >& 2
 	exit 1
 fi
 
-mce_cmd -f $mce_script
+mce_cmd -qf $mce_script
 
 #END config_run.bash
