@@ -6,7 +6,7 @@
 # Revision 1.2  2007/11/27 21:09:51  mce
 # MA logs to auto_log.txt
 #
-source ~mce/mas_env.tcsh
+## source ~mce/mas_env.tcsh
 set LOGFILEDIR=$MAS_DATA
 set AUTO_LOG=$LOGFILEDIR/auto_log.txt
 set LOGGER="tee -a $AUTO_LOG"

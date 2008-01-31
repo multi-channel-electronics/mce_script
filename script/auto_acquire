@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~mce/mas_env.bash
+## source ~mce/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 
 AUTO_LOG=$MAS_DATA/auto_log.txt

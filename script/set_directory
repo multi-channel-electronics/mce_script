@@ -5,8 +5,6 @@ if [ "$MAS_ROOT" == "" ]; then
     exit 1
 fi
 
-source $MAS_ROOT/mas_env.bash
-
 # All our new files should be group rw
 umask 002
 

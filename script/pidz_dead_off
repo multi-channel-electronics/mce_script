@@ -4,7 +4,7 @@
 # <date $Date: 2007/10/22 16:24:46 $>    - <initials $Author: preaction $>
 # $Log: pidz_dead_off,v $
 # Revision 1.3  2007/10/22 16:24:46  preaction
-source ~mce/mas_env.tcsh
+## source ~mce/mas_env.tcsh
 
 if ($#argv < 3 ) then
   echo "----------------"

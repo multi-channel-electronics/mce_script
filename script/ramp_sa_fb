@@ -39,7 +39,7 @@ function runfile_loop_structure {
 #
 
 # this should set $MAS_DATA and $MAS_TEMP
-source ~mce/mas_env.bash
+## source ~mce/mas_env.bash
 source ${MAS_SCRIPT}mas_library.bash
 
 if [ $# -lt 3 ]; then 
@@ -53,7 +53,7 @@ if [ $# -lt 3 ]; then
   exit 1
 fi  
 
-expcfg="/etc/mce/experiment.cfg"
+expcfg="$MAS_DATA/experiment.cfg"
 
 # The cable offset to SA bias ratio
 cable_offset_sa_bias_ratio=`mas_param -s $expcfg get sa_offset_bias_ratio`

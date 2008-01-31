@@ -4,7 +4,7 @@
 #  - runs today's config file to bias the system to the last recorded config
 #  - runs bias_tess to drive dets normal then runs /data/cryo/tes_bias_recommended to bias the dets 
 
-source /home/mce/mas_env.bash
+## source /home/mce/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 
 AUTO_LOG=$MAS_DATA/auto_log.txt
