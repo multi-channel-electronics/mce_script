@@ -1,5 +1,6 @@
 pro iv_anal_mce_ar1_bias, filename=filename, DACbias=DACbias, plotgen=plotgen, filtered=filtered, ascii=ascii, $
-		datagen=datagen, biasfile=biasfile, setpntgen=setpntgen
+		datagen=datagen, biasfile=biasfile, setpntgen=setpntgen,  $
+                          n_columns=n_columns
 
 ;	Analyzes I-V curve data and generates a summary plot, with the options of additional plots and data files.
 ;		Input files are an MCE ramp_tes_bias data file with 33 rows
@@ -38,11 +39,13 @@ pro iv_anal_mce_ar1_bias, filename=filename, DACbias=DACbias, plotgen=plotgen, f
 ;
 
 
+;n_columns = 32		; Number of columns being analyzed
+if not keyword_set(n_columns) then n_columns = 32
+
 FBbits = 14			; 26 for FB only data mode, currently 14 for fb + er mode and for filtered mode
 Rfb = 7006.             ; S1FB resistances measured in MBAC using MCE continuity checker
 M_ratio = 8.5		; For Mux06a chips
 filtergain = 1216./2	; Data mode 8 drops the bottom filtered bit so the gain is the normal filtergain / 2 = 1216./2 = 606.
-n_columns = 32		; Number of columns being analyzed
 fb_normalize = 1       ; This depends on whether you have a nyquist inductor as well as the polarity of the detector bias.
 ;per_Rn_bias = 0.4	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
 ;  Changed to 0.3 11-6-2007
@@ -62,10 +65,15 @@ Rbias_cable = [211.,210.,153.]
 
 Rbias_arr = Rbias_arr + Rbias_cable
 
-bias1_cols = indgen(8)+16	; List of columns connected to the original bias line from bias card 1
-bias2_cols = indgen(17)	; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
-bias2_cols(16) = 31
-bias3_cols = indgen(7)+24	; List of columns connected to the new detector bias line from bias card 3 (set to -1 if nothing is connected)
+;!MFH
+bias1_cols = indgen(n_columns)
+bias2_cols = bias1_cols
+bias3_cols = bias1_cols
+
+;bias1_cols = indgen(8)+16	; List of columns connected to the original bias line from bias card 1
+;bias2_cols = indgen(17)	; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
+;bias2_cols(16) = 31
+;bias3_cols = indgen(7)+24	; List of columns connected to the new detector bias line from bias card 3 (set to -1 if nothing is connected)
 bias_step = 50	;100		; This is the allowed step size that the applied biases will be rounded to, changed to 50 11-11-2007 MDN
 biases = lonarr(3)	; These are the biases that will be applied to the 3 different bias lines
 
@@ -106,7 +114,8 @@ raw_bias = raw_bias.field1
 numpts = n_elements(raw_bias)
 
 ;Load Sweeper data from mce file. Removed IVfile keyword now that bias data is read in separately
-if keyword_set(filtered) then data=load_mce_stream_funct(filename,binary=binary,npts=numpts,bitpart=8) else data=load_mce_stream_funct(filename,bitpart=14,binary=binary,npts=numpts)
+if keyword_set(filtered) then data=load_mce_stream_funct(filename,binary=binary,npts=numpts,bitpart=8) else data=load_mce_stream_funct(filename,bitpart=14,binary=binary,npts=numpts,numcols=8)
+print,'MFH:  Column count hardwired to 8!!!!'
 
 good_ivs=lonarr(n_columns)
 
@@ -120,6 +129,7 @@ iv_data_all=fltarr(n_columns,33,2,numpts)
 
 for MuxColumn=0,n_columns-1 do begin
 
+;!MFH
 b1c = where(bias1_cols eq muxcolumn)
 b2c = where(bias2_cols eq muxcolumn)
 b3c = where(bias3_cols eq muxcolumn)
@@ -136,15 +146,17 @@ jshuntfile='/home/mce/script/srdp_data/AR1/johnson_res.dat.C'+Mcol
 ; Path on Feynman
 ;jshuntfile='/mnt/act2/srdp/AR1/johnson_res.dat.C'+Mcol
 
-j_res = read_ascii(jshuntfile, data_start=2)
+;!MFH - no srdp...
+;j_res = read_ascii(jshuntfile, data_start=2)
 Rshunt_arr=fltarr(33)
-Rshunt_arr(j_res.field1(0,*)) = j_res.field1(1,*)
+Rshunt_arr(*) = 0.0034
+;Rshunt_arr(j_res.field1(0,*)) = j_res.field1(1,*)
 ;print, 'Shunt Path: '+jshuntfile
 good_sh_rows = where(Rshunt_arr gt 0.0002 and Rshunt_arr lt 0.0015)
 ;print, 'Rows with shunts between 0.2-1.0 mOhms from SRDP: ', good_sh_rows
 
 no_srdp_shunt=where(Rshunt_arr eq 0)
-Rshunt_arr(no_srdp_shunt) = 0.0007
+if no_srdp_shunt ne -1 then Rshunt_arr(no_srdp_shunt) = 0.0007
 
 if keyword_set(R_oper) then R_oper = R_oper else R_oper = 0.5
 
