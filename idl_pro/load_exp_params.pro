@@ -57,6 +57,8 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set sa_ramp_flux_count '+str_flat(m.sa_ramp_flux_count)
     spawn,'mas_param -s '+filename+' set sa_ramp_flux_step '+str_flat(m.sa_ramp_flux_step)
     spawn,'mas_param -s '+filename+' set sq2_rows '+str_flat(m.sq2_rows)
+    spawn,'mas_param -s '+filename+' set sq1servo_gain '+str_flat(m.sq1servo_gain)
+    spawn,'mas_param -s '+filename+' set sq2servo_gain '+str_flat(m.sq2servo_gain)
     spawn,'mas_param -s '+filename+' set sq2_fb_set '+str_flat(m.sq2_fb_set)
 end
 
@@ -111,5 +113,7 @@ pro load_exp_params,filename,m
         'sa_ramp_flux_count',mas_param_int(filename,'sa_ramp_flux_count'),  $
         'sa_ramp_flux_step',mas_param_int(filename,'sa_ramp_flux_step'),  $
         'sq2_rows',mas_param_int(filename,'sq2_rows'),  $
+        'sq1servo_gain',mas_param_float(filename,'sq1servo_gain'),  $
+        'sq2servo_gain',mas_param_float(filename,'sq2servo_gain'),  $
         'sq2_fb_set',mas_param_int(filename,'sq2_fb_set')    )
 end

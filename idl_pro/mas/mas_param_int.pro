@@ -9,7 +9,7 @@ function mas_param_int,filename,key
           ; type=3 is longint
           x = [ x, fix(strsplit(r(i),/extract),type=3) ] $
         else $
-          x = fix(strsplit(r(i),/extract))
+          x = fix(strsplit(r(i),/extract),type=3)
     endfor
     return,x
 end

@@ -20,10 +20,10 @@
 # MN & EB
 
 # set MAS Environment
-source ~mce/mas_env.tcsh
+# source ~mce/mas_env.tcsh
 
 #MFH - new commands - don't implement in IDL!!
-set biasing_ac    = 1
+set biasing_ac    = 0
 set full_sq2fb    = 0
 
 #Setting RC

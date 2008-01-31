@@ -17,22 +17,18 @@ endif
 
 ; Create the config
 print,'Make command: '+make_command
-spawn,make_command,exit_status=status
-if status ne 0 then begin
+spawn,make_command,exit_status=exit_status
+if exit_status ne 0 then begin
     print,'Config creation failed: ' + make_command
+    return
 endif
 
-if status ne 0 then begin
-    if keyword_set(run_now) then begin
-;        print,'config run suppressed!'
-
-        spawn,config_command,exit_status=status
-        if status ne 0 then begin
-            print,'Config run failed: ' + config_command
-        endif
+if keyword_set(run_now) then begin
+    print,'Running config: ' + config_command
+    spawn,config_command,exit_status=exit_status
+    if exit_status ne 0 then begin
+        print,'Config run failed: ' + config_command
     endif
 endif
-
-exit_status=status
 
 end  ; make_config_file

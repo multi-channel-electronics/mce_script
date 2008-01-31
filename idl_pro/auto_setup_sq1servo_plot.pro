@@ -1,4 +1,4 @@
-pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope
+pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope,gain=gain
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq1servo_plot.pro 
@@ -28,9 +28,11 @@ logfile=ctime+'/'+ctime+'.log'
 
 
 ; Use gain = 1./25 for shallow S2 SQUID slope or gain = -1./100. for steep S2 SQUID slope
-if sq2slope lt 0 then gain=1./25.  $ ;The sq2_slope parameter in auto_setup_squids.pro should have the opposite sign from this.
-	else gain=-1./100.
-if rc eq 1 then gain=gain/2.	; RC1 currently locks better with a smaller gain than the others.  9-9-2007 MDN
+;if sq2slope lt 0 then gain=1./25.  $ ;The sq2_slope parameter in auto_setup_squids.pro should have the opposite sign from this.
+;	else gain=-1./100.
+;if rc eq 1 then gain=gain/2.	; RC1 currently locks better with a smaller gain than the others.  9-9-2007 MDN
+
+if not keyword_set(gain) then gain = 1./100
 
 ;Run the shell script:
 ;spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 -8000 40 400 '+string(rc)+' '+string(target)+' '+string(numrows)

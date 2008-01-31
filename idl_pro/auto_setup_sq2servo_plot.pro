@@ -1,4 +1,4 @@
-pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp
+pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq2servo_plot.pro 
@@ -31,12 +31,16 @@ ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
 
-gain=1./50.
-if RC eq 1 then gain=1./5.
+if not keyword_set(gain) then gain=1./50.
+;if RC eq 1 then gain=1./5.
+
+ramp_step=400
 
 ;Run the shell script:
 ;spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 temp.bat '+string(rc)+' '+string(target)
-spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
+
+spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 '+string(ramp_step)+' '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
+
 if status7 ne 0 then begin
         print,''
         print,'################################################################'

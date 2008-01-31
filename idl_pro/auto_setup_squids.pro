@@ -95,10 +95,12 @@ normtbias2 = exp_config.tes_bias_bc2_normal
 normtbias3 = exp_config.tes_bias_bc3_normal
 normbias_time = exp_config.tes_bias_normal_time
 
-;!
+;pidp=0								;pid parameters
+;pidi=-40		
 
-pidp=0								;pid parameters
-pidi=-40		
+pidp = exp_config.servo_p
+pidi = exp_config.servo_i
+;!
 
 final_data_mode=2						;Mode to set in the config file after all data is acquired.
 ramp_sq1_bias_run=0						;Set this to 1 to sweep the tes bias and look at squid v-phi response.
@@ -208,14 +210,6 @@ exp_config.sq2_bias = sq2_bias
 ;!MFH
 ; ;INITIALIZE THE adc_offset CONFIG FILE
 column_adc_offset=lon64arr(32)
-; adc_off_run_file=todays_folder+'config_mce_adc_offset_'+current_data
-; spawn, 'echo "" > '+adc_off_run_file
-; spawn, 'chmod 777 '+adc_off_run_file
-; openw,20,adc_off_run_file
-; printf,20,'#!/bin/csh'
-; printf,20,''
-; ;printf,20,'echo "ADC offset file is currently empty."'
-; close,20
 
 ; Save experiment params, make config script, run it.
 save_exp_params,exp_config,exp_config_file
@@ -364,8 +358,8 @@ for jj=0,n_elements(RCs)-1 do begin
 
         exp_config.data_mode = 0
         exp_config.servo_mode = 1
-        exp_config.adc_offset(RC_indices) = intarr(n_elements(RC_indices))
-        exp_config.sq2_bias(RC_indices) = intarr(n_elements(RC_indices))
+        exp_config.adc_offset(RC_indices) = lonarr(n_elements(RC_indices))
+        exp_config.sq2_bias(RC_indices) = lonarr(n_elements(RC_indices))
 	
 ; 	close,1
 	
@@ -421,9 +415,10 @@ for jj=0,n_elements(RCs)-1 do begin
                 exp_config.sa_bias(RC_indices) = final_sa_bias_ch_by_ch
 
  		;Divide by 2 when using the new type of readout card with the 1S40 FPGA. It also depends on the cable resistance. 
- 		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/3) 
- 		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/2)
- 		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch*5./12)
+; 		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/3) 
+; 		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/2)
+; 		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch*5./12)
+                sa_offset_MCE2=floor(final_sa_bias_ch_by_ch * exp_config.sa_offset_bias_ratio)
 
 ;!MFH	
 ; 		repeat readf,1,line until strmid(line,0,22) eq '#Setting SA offset '+strcompress('RC'+string(RC),/remove_all)
@@ -473,8 +468,9 @@ for jj=0,n_elements(RCs)-1 do begin
 
                 exp_config.sa_bias(RC_indices) = def_sa_bias(RC_indices)
 	
-		;sa_offset_MCE2=floor(def_sa_bias*5./12)  
-		sa_offset_MCE2=floor(def_sa_bias/2.)
+;		;sa_offset_MCE2=floor(def_sa_bias*5./12)  
+;		sa_offset_MCE2=floor(def_sa_bias/2.)
+                sa_offset_MCE2=floor(final_sa_bias_ch_by_ch * exp_config.sa_offset_bias_ratio)
 
 ;!MFH	
 ; 		repeat readf,1,line until strmid(line,0,22) eq '#Setting SA offset '+strcompress('RC'+string(RC),/remove_all)
@@ -653,7 +649,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 	;Sets the initial SA fb (found in the previous step or set to mid-range) for the SQ2 servo
 	zero=(rc-1)*8
-	;SA_feedback_file=intarr(32)
+	;SA_feedback_file=lonarr(32)
 	SA_feedback_file(*)=32000
 	for i=zero,zero+7 do begin 
 		SA_feedback_file(i)=SA_fb_init(i-zero)	
@@ -670,7 +666,7 @@ for jj=0,n_elements(RCs)-1 do begin
         strtimesq2=string(timesq2,format='(i10)')
         sq2_file_name=strcompress(file_folder+'/'+strtimesq2+'_RC'+string(RC),/remove_all)
 
-	auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope ;,/lockamp
+	auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain ;,/lockamp
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -882,7 +878,7 @@ for jj=0,n_elements(RCs)-1 do begin
                 row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
                 spawn,row_init_string
   	
-		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope
+		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope,gain=exp_config.sq1servo_gain
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
 
