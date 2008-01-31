@@ -62,6 +62,8 @@ close, 3
 
 device, filename=file_out2, /landscape
 
+; Read the loop parameters from the run file
+
 openr,1,full_name+'.run'
 line=""
 
@@ -95,31 +97,15 @@ start_2nd=fix(namearr(3))
 step_2nd=fix(namearr(4))
 n_2nd=fix(namearr(5))
 
-;readf, 1, line
-;reads, line, sq2_bias, format='(8x,I)'
-;print, 'SQ2_BIAS:', sq2_bias
 sq2_bias=start_1st
-;readf, 1, line
-;reads, line, sq2_bstep, format='(9x,I)'
-;print, 'SQ2_BSTEP:', sq2_bstep
 sq2_bstep=step_1st
-;readf, 1, line
-;reads, line, n_bias, format='(6x,I)'
-;print, 'n_BIAS:', n_bias
 n_bias=n_1st
-;readf, 1, line
-;reads, line, SQ2_FB, format='(8x,I)'
-;print, 'SQ2_FB:', sq2_fb
 sq2_fb=start_2nd
-;readf, 1, line
-;reads, line, sq2_fb_s, format='(9x,I)'
-;print, 'SQ2_FB_S:', sq2_fb_s
 sq2_fb_s=step_2nd
-;readf, 1, line
-;reads, line, npts, format='(6x,I)'
-;print, 'NPTS:', npts
 npts=n_2nd
 close,1
+
+; Done reading loop parameters from run file
 
 r0=fltarr(npts,8)
 r1 = fltarr(npts,8)
@@ -128,42 +114,17 @@ fb1 = fltarr(npts,8)
 values = fltarr(16)
 lockrow = intarr(32)
 
+
+; Process the sq1servo output file.  First line is header.
 openr,1,full_name+'.bias'
-
 readf, 1, line
-;readf, 1, line
-;print,'Rows selected='+line
-;t = strsplit(line,'=',/extract)
-
-;if n_elements(t) gt 1 then reads, t(1), lockrow
 
 for n=0, npts-1 do begin
 
-;stop
-
-;	readf, 1, line
-;	data=strmid(line, 14)
-;	reads, data, values
-;	r0[n,*]=values[*]
-
-;	readf, 1, line
-;	data=strmid(line, 14)
-;	reads, data, values
-;	fb0[n,*]=values[*]
-
-;	readf, 1, line
-
-	readf, 1, line
+ 	readf, 1, line
 	data=strmid(line, 0)
 	reads,data, values
 	r1[n,*]=values[0:7]
-
-;	readf, 1, line
-;	data=strmid(line, 0)
-;	reads,data, values
-	fb1[n,*]=values[8:15]
-
-;	readf, 1, line
 
 endfor
 
@@ -200,6 +161,8 @@ device, /close
 
 close,3
 
+
+; Discover locking points
 
 target_half_point_ch_by_ch=lonarr(8)
 fb_half_point_ch_by_ch=lonarr(8)
@@ -241,7 +204,7 @@ for chan=0,7 do begin
 		vphi=sq1_v_phi(min([ind_min,ind_max]):max([ind_min,ind_max]),chan)
 		ind_half_point=where(abs(vphi-midpoint) eq min(abs(vphi-midpoint)))
 		ind_half_point=min([ind_min,ind_max])+ind_half_point
-		print,ind_half_point
+		;print,ind_half_point
 		ind_half_point=ind_half_point(0)
 ;		;to here
 ;stop
