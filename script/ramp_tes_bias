@@ -149,7 +149,8 @@ data_pause_us=100000    # step period in microseconds
 ct=`print_ctime`
 dt=`cat /data/cryo/current_data_name`
 
-datafile=$1
+data_root=$1
+datafile=$MAS_DATA/$data_root
 n=$2
 
 runfile=$datafile.run
@@ -175,11 +176,11 @@ cat /data/cryo/last_squid_tune >> $MAS_DATA/$runfile
 mce_status >> $runfile
 
 # Apply frameacq stamp
-#frameacq_stamp $n $datafile $total_bias >> $MAS_DATA/$runfile
-#if ($status) then
-#  echo "frameacq_stamp failed!"
-#  exit 1
-#endif
+frameacq_stamp $n $datafile $total_bias >> $runfile
+if [ "$?" != "0" ]; then
+  echo "frameacq_stamp failed!"
+  exit 1
+fi
 
 #if ($n == s) then
 #  echo "<RC> 1 2 3 4" >> $MAS_DATA/$runfile
@@ -187,8 +188,10 @@ mce_status >> $runfile
 #  echo "<RC> $n" >> $MAS_DATA/$runfile
 #endif
 
-echo "<tes_bias>" >> $MAS_DATA/$biasfile
-echo "Acquiring I-V curve into data file $MAS_DATA/$datafile" #>> /data/cryo/script_log.txt #
+[ -e $biasfile ] && rm $biasfile
+
+echo "<tes_bias>" >> $biasfile
+echo "Acquiring I-V curve into data file $datafile" #>> /data/cryo/script_log.txt #
 
 #touch /data/cryo/${dt}/$datafile
 #ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
@@ -198,31 +201,33 @@ echo "Acquiring I-V curve into data file $MAS_DATA/$datafile" #>> /data/cryo/scr
 #echo "executing ramp"
 for i in `seq 0 $(( $total_bias - 1 ))`; do
    bias=$(( $start_bias - $i * $bias_step ))
-   bias_tess $bias >> $MAS_DATA/$logfile
-   echo "$bias" >> $MAS_DATA/$biasfile
+   bias_tess $bias >> $logfile
+   echo "$bias" >> $biasfile
 
-   mce_cmd -q <<EOF
-    acq_config $MAS_DATA/$datafile rc$n
-    acq_go 1
-    sleep $data_pause_us
-EOF
+   echo -e \
+       "acq_config $datafile rc$n\n" \
+       "acq_go 1\n" \
+       "sleep $data_pause_us" | \
+       mce_cmd -q
     if [ "$?" != "0" ]; then
 	    exit 3
     fi
 done
 
+my_data=/data/cryo
+
 echo "Completed I-V acquisition!"
 echo "Driving detectors normal, then setting detector bias to $end_bias"
-bias_tess $bias_normal1 $bias_normal2 $bias_normal3  >> /data/cryo/script_log.txt #
+bias_tess $bias_normal1 $bias_normal2 $bias_normal3  >> $my_data/script_log.txt #
 sleep $normal_time
-bias_tess $end_bias  >> /data/cryo/script_log.txt 
+bias_tess $end_bias  >> $my_data/script_log.txt 
 
 set ctf=`print_ctime`
-echo "I-V start time: $ct" >> /data/cryo/script_log.txt 
-echo "I-V end time: $ctf" >> /data/cryo/script_log.txt 
+echo "I-V start time: $ct" >> $my_data/script_log.txt 
+echo "I-V end time: $ctf" >> $my_data/script_log.txt 
 
-last_iv=/data/cryo/last_iv_completed
+last_iv=$my_data/last_iv_completed
 [ -e $last_iv ] && rm -f $last_iv
-ln -s /data/cryo/${dt}/$datafile $last_iv
+ln -s $datafile $last_iv
 
-echo "/data/cryo/${dt}/$datafile" > /data/cryo/last_iv_completed_name
+echo "$datafile" > $my_data/last_iv_completed_name
