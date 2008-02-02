@@ -49,7 +49,8 @@ if [ $# -lt 3 ]; then
 fi  
 
 # cable offset to sa_bias ratio
-cable_offset_sa_bias_ratio=2
+cable_offset_sa_bias_numer=1
+cable_offset_sa_bias_denom=2
 
 # Ramp parameters: should cover the 64k DAC range
 ramp_count=400
@@ -118,8 +119,8 @@ if [ $nested_loop -eq 0 ]; then
     repeat_string "wb bc1 flux_fb" "0" 16 "" >> $tempfile
 
 else
-    offset_step=$(( $bias_step / $cable_offset_sa_bias_ratio ))
-    start_offset=$(( $start_bias / $cable_offset_sa_bias_ratio ))
+    offset_step=$(( $bias_step * $cable_offset_sa_bias_numer / $cable_offset_sa_bias_denom ))
+    start_offset=$(( $start_bias * $cable_offset_sa_bias_numer / $cable_offset_sa_bias_denom ))
 
     mce_ramp \
 	-M "acq_config $datafile rc$n" \

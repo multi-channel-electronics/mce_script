@@ -1,4 +1,4 @@
-pro auto_setup_ramp_tes_bias_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts
+pro ramp_tes_sc_turns, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts
 
 ;if not keyword_set(numrows) then numrows=41
 
@@ -12,6 +12,12 @@ if data_mode eq '4' then bitpart=14 else bitpart=0
 
 rcdatamode=rc
 
+; new lines added to get superconducting M=Ifb/Iin
+tesramp=6000.		;starting tes bias, ramp full swing in DAC units
+vtes=(tesramp/(2^16.))*5.   ;converting tesramp DAC -> Voltage
+rfb1=2250.
+rtes=1300.
+
 if rc eq 5 then begin 
 	numcol=32
 	rc='s'
@@ -23,7 +29,7 @@ ctime=1111111111;string(file_name,format='(i10)')
 if not keyword_set(nodasscript) then begin
 ;	auto_setup_command,software='MAS','rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
 	auto_setup_command,'rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
-	spawn,'ramp_tes_bias '+file_name+' '+strcompress(string(RC),/REMOVE_ALL)
+	spawn,'ramp_tes_bias_sc_turns '+file_name+' '+strcompress(string(RC),/REMOVE_ALL)
 endif
 
 default_date = 'current_data/'
@@ -204,7 +210,10 @@ npts = m   ; set npts to actual number of  frames read.
 error=data
 fb=data
 fb=floor(data/2.^bitpart)
+fb_corr=fb/(2^14.)
 error=abs(floor(data-fb*2.^bitpart))
+
+fb_xdata=findgen(n_elements(fb_corr(*,0,0)))*(vtes/n_elements(fb_corr(*,0,0)))
 
 ;error calculation for the whole array
 for n_row=0,numrows-1 do begin
@@ -246,10 +255,18 @@ for n_row = rmin, rmax  do begin
 		;	print, max(spec(2:nf-1))
 		;endif
 
-		;print, 'C ', n_col, 'R ', n_row, 'fb: ', fb[0:9,n_col, n_row]
-     		plot, fb[*,n_col, n_row], /ynozero, thick=4,title='fb'; , yrange=[-35000., -40000.]
-		towrite='st. dev.'+string(stddev(fb[*,n_col, n_row]))
-		xyouts,npts/4.,max(fb[*,n_col, n_row]),towrite
+		;slope calculation in superconducting bias mode for M=Ifb1/In
+                fit=linfit(fb_xdata,fb_corr[*,n_col,n_row])
+                m_infb=fit[1]*(rtes/rfb1)
+
+                ;print, 'C ', n_col, 'R ', n_row, 'fb', fb[0:9,n_col, n_row]
+     		plot, fb_xdata, fb_corr[*,n_col, n_row], /ynozero, thick=4,title='fb'; , yrange=[-35000., -40000.]
+;               plot,fb_corr[*,n_col, n_row],/ynozero,thick=4,title='fb';
+;               towrite='st. dev.'+string(stddev(fb[*,n_col, n_row]))
+                towrite='M= '+string(m_infb)
+
+                xyouts,.25,max(fb_corr[*,n_col,n_row]),towrite
+;                xyouts,npts/4.,max(fb_corr[*,n_col, n_row]),towrite
 		spec = abs(fft(fb[*, n_col, n_row]))
 
 		nf = n_elements(spec)/2

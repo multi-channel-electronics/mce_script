@@ -31,12 +31,15 @@ ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
 
-gain=1./50.
+gain=1./10.
 if RC eq 1 then gain=1./5.
 
 ;Run the shell script:
 ;spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 temp.bat '+string(rc)+' '+string(target)
-spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 150 400 '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
+spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
+
+; Double ramp - make sure to apply sq2 bias
+;spawn,'sq2servo '+file_name_sq2_servo+' 10000 1000 10  0 160 400 '+string(rc)+' '+string(target)+' '+string(gain)+' 0'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
 if status7 ne 0 then begin
         print,''
         print,'################################################################'
@@ -80,6 +83,8 @@ first=(firstarr(3))
 readf,1,name
 namearr=strsplit(name,/extract)
 start_1st=fix(namearr(3))
+print,'Is this negative? ' + namearr(3) + ' restringed: ' + string(start_1st)
+
 step_1st=fix(namearr(4))
 n_1st=fix(namearr(5))
 readf,1,second
@@ -94,11 +99,14 @@ step_2nd=fix(namearr(4))
 n_2nd=fix(namearr(5))
 
 
-
 ;readf, 1, line
 ;reads, line, sq2_bias, format='(8x,I)'
 ;print, 'SQ2_BIAS:', sq2_bias 
 sq2_bias=start_1st
+;!MFH
+print,sq2_bias
+print,'Is *this* negative?: '+string(sq2_bias)
+
 ;readf, 1, line
 ;reads, line, sq2_bstep, format='(9x,I)'
 ;print, 'SQ2_BSTEP:', sq2_bstep 
@@ -118,7 +126,14 @@ sq2_fb_s=step_2nd
 ;readf, 1, line
 ;reads, line, npts, format='(6x,I)'
 ;print, 'NPTS:', npts 
+
 npts=n_2nd
+
+;uncomment these to run double ramp and comment out previous line
+;npts=n_2nd * n_bias
+;print,' npts = ', npts
+
+
 close,1
 
 r0=fltarr(npts,8)

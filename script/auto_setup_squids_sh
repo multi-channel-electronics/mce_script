@@ -10,9 +10,14 @@ if [ "$1" = "" ]; then
 fi
 
 RC="$2"
+row="$3"
 
 if [ "$2" = "" ]; then
     RC="1,2,3,4"
+fi
+
+if [ "$3" = "" ]; then
+    row="2"
 fi
 
 AUTO_LOG=$MAS_DATA/auto_log.txt
@@ -25,7 +30,7 @@ SCRIPTS=$MAS_SCRIPT
 IDL_PRO=$MAS_IDL
 
 SETUP_TARGET=99 #return value that indicates completion
-SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias, rcs=[$RC]"
+SETUP_IDL="auto_setup_squids,row=$row,short=$short,/ramp_sa_bias, rcs=[$RC]"
 
 start_time=`date`
 ctime=`print_ctime`

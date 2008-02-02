@@ -28,9 +28,11 @@ logfile=ctime+'/'+ctime+'.log'
 
 
 ; Use gain = 1./25 for shallow S2 SQUID slope or gain = -1./100. for steep S2 SQUID slope
-if sq2slope lt 0 then gain=1./25.  $ ;The sq2_slope parameter in auto_setup_squids.pro should have the opposite sign from this.
-	else gain=-1./100.
-if rc eq 1 then gain=gain/2.	; RC1 currently locks better with a smaller gain than the others.  9-9-2007 MDN
+;if sq2slope lt 0 then gain=1./25.  $ ;The sq2_slope parameter in auto_setup_squids.pro should have the opposite sign from this.
+;	else gain=-1./100.
+;if rc eq 1 then gain=gain/2.	; RC1 currently locks better with a smaller gain than the others.  9-9-2007 MDN
+
+gain=1./10.                    ; commented out 3 lines above to play with gain settings 20080130 JAB
 
 ;Run the shell script:
 ;spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 -8000 40 400 '+string(rc)+' '+string(target)+' '+string(numrows)

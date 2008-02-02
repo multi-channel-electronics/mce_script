@@ -7,6 +7,10 @@ pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,te
 ;PRELIMINARY PROCEDURES: set the RC if not set among the rest
 ;----------------------------------------------------------------------------------------------------------
 
+; Experiment dependent conversion factor
+;cable_ratio = 0.33333333
+cable_ratio = 0.5
+
 step1:
 
 ;COMUNICATION:
@@ -79,7 +83,7 @@ tbias2=0	;3000
 tbias3=0	;3000	
 
 pidp=0								;pid parameters
-pidi=-40		
+pidi=20		
 
 final_data_mode=2						;Mode to set in the config file after all data is acquired.
 ramp_sq1_bias_run=0						;Set this to 1 to sweep the tes bias and look at squid v-phi response.
@@ -352,9 +356,10 @@ for jj=0,n_elements(RCs)-1 do begin
 		endfor
 	
 		;Divide by 2 when using the new type of readout card with the 1S40 FPGA. It also depends on the cable resistance. 
-		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/3) 
-		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/2)
-		;sa_offset_MCE2=floor(final_sa_bias_ch_by_ch*5./12)
+                sa_offset_MCE2=floor(final_sa_bias_ch_by_ch * cable_ratio)
+; 		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/3) 
+; 		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch/2)
+; 		sa_offset_MCE2=floor(final_sa_bias_ch_by_ch*5./12)
 	
 		repeat readf,1,line until strmid(line,0,22) eq '#Setting SA offset '+strcompress('RC'+string(RC),/remove_all)
 		for j=0,7 do begin
@@ -393,9 +398,10 @@ for jj=0,n_elements(RCs)-1 do begin
 			readf,1,line
 		endfor
 	
-		;sa_offset_MCE2=floor(def_sa_bias*5./12)  
-		sa_offset_MCE2=floor(def_sa_bias/2.)
-	
+;		;sa_offset_MCE2=floor(def_sa_bias*5./12)  
+;		sa_offset_MCE2=floor(def_sa_bias/2.)
+                sa_offset_MCE2=floor(def_sa_bias * cable_ratio);
+
 		repeat readf,1,line until strmid(line,0,22) eq '#Setting SA offset '+strcompress('RC'+string(RC),/remove_all)
 		for j=0,7 do begin
 			set_offset='set '+strcompress('sa_offset'+string(j+8*(RC-1)),/remove_all)+'   = '+strtrim(sa_offset_MCE2(j+(RC-1)*8),1)
