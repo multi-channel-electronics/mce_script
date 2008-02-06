@@ -20,7 +20,11 @@
 # MN & EB
 
 # set MAS Environment
-source ~mce/mas_env.tcsh
+# source ~mce/mas_env.tcsh
+
+#MFH - new commands - don't implement in IDL!!
+set biasing_ac    = 0
+set full_sq2fb    = 0
 
 #Setting RC
 set RC1           = 0 #                                  #
@@ -661,9 +665,41 @@ echo "wb bc1 bias $tes_bias_bc1">>$MAS_TEMP/config_mce.temp
 #----------------------------------------------
 # Bias Card 2 (flux_fb on BC2 sets sq2_fb)
 #----------------------------------------------
-echo "wb bc2 flux_fb $sq2fb0 $sq2fb1 $sq2fb2 $sq2fb3 $sq2fb4 $sq2fb5 $sq2fb6 $sq2fb7 $sq2fb8 $sq2fb9 $sq2fb10 $sq2fb11 $sq2fb12 $sq2fb13 $sq2fb14 $sq2fb15 $sq2fb16 $sq2fb17 $sq2fb18 $sq2fb19 $sq2fb20 $sq2fb21 $sq2fb22 $sq2fb23 $sq2fb24 $sq2fb25 $sq2fb26 $sq2fb27 $sq2fb28 $sq2fb29 $sq2fb30 $sq2fb31">>$MAS_TEMP/config_mce.temp
-echo "wb bc2 bias $tes_bias_bc2">>$MAS_TEMP/config_mce.temp
-                                                                                                                             
+##MFH - biasing AC!!
+
+if ($biasing_ac) then
+
+    echo "wb bac enbl_mux 2">>$MAS_TEMP/config_mce.temp
+    echo "wb bac row_order 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 40 32 33 34 35 36 37 38 39">>$MAS_TEMP/config_mce.temp
+
+    if ($full_sq2fb) then
+
+	# This section applies the full set of sq2 biases
+    
+	sq2_fb_set $RC1 $RC2 $RC3 $RC4 >>$MAS_TEMP/config_mce.temp
+
+    else
+	# This section duplicates the behaviour of bc2...
+    
+	set fb_array = ( $sq2fb0 $sq2fb1 $sq2fb2 $sq2fb3 $sq2fb4 $sq2fb5 $sq2fb6 $sq2fb7 $sq2fb8 $sq2fb9 $sq2fb10 $sq2fb11 $sq2fb12 $sq2fb13 $sq2fb14 $sq2fb15 $sq2fb16 $sq2fb17 $sq2fb18 $sq2fb19 $sq2fb20 $sq2fb21 $sq2fb22 $sq2fb23 $sq2fb24 $sq2fb25 $sq2fb26 $sq2fb27 $sq2fb28 $sq2fb29 $sq2fb30 $sq2fb31 )
+	foreach ch ( `seq 0 31` )
+	    echo -n "wb sq2 fb_col$ch ">>$MAS_TEMP/config_mce.temp
+	    set chx = 1
+	    @ chx = ( $ch + 1 )
+	    echo -n " $fb_array[$chx] " >>$MAS_TEMP/config_mce.temp
+	    repeat 40 echo -n " $fb_array[$chx]" >>$MAS_TEMP/config_mce.temp
+    #	repeat 41 echo -n " $fb_array[$chx]" >>$MAS_TEMP/config_mce.temp
+	    echo "" >>$MAS_TEMP/config_mce.temp
+	end
+
+    endif
+    
+else
+
+    echo "wb bc2 flux_fb $sq2fb0 $sq2fb1 $sq2fb2 $sq2fb3 $sq2fb4 $sq2fb5 $sq2fb6 $sq2fb7 $sq2fb8 $sq2fb9 $sq2fb10 $sq2fb11 $sq2fb12 $sq2fb13 $sq2fb14 $sq2fb15 $sq2fb16 $sq2fb17 $sq2fb18 $sq2fb19 $sq2fb20 $sq2fb21 $sq2fb22 $sq2fb23 $sq2fb24 $sq2fb25 $sq2fb26 $sq2fb27 $sq2fb28 $sq2fb29 $sq2fb30 $sq2fb31">>$MAS_TEMP/config_mce.temp
+    echo "wb bc2 bias $tes_bias_bc2">>$MAS_TEMP/config_mce.temp
+
+endif                                                                                                                             
 #----------------------------------------------
 # Bias Card 3 (flux_fb on BC3 sets sq2_bias)
 #----------------------------------------------

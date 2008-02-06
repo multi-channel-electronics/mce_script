@@ -202,7 +202,6 @@ echo "Acquiring I-V curve into data file $datafile" #>> /data/cryo/script_log.tx
 for i in `seq 0 $(( $total_bias - 1 ))`; do
    bias=$(( $start_bias - $i * $bias_step ))
    bias_tess $bias >> $logfile
-#   mce_cmd -qx rb bc2 bias
    echo "$bias" >> $biasfile
 
    echo -e \

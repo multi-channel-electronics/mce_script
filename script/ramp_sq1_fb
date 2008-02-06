@@ -7,7 +7,7 @@
 # MA updated the <par_ramp> block of the runfile
 #
 
-source ~mce/mas_env.tcsh
+## source ~mce/mas_env.tcsh
 
 if ($#argv < 2 ) then
   echo "Usage: ramp_sq1_fb datafile n on_bias"

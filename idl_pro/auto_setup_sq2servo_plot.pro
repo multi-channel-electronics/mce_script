@@ -1,4 +1,4 @@
-pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp
+pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq2servo_plot.pro 
@@ -31,15 +31,20 @@ ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
 
-gain=1./10.
-if RC eq 1 then gain=1./5.
+if not keyword_set(gain) then gain=1./50.
+;if RC eq 1 then gain=1./5.
+
+print,'Hardcoding for sq2 fb DAC range!!'
+dac_range=65536
+ramp_step=160
+ramp_count=400
 
 ;Run the shell script:
-;spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 temp.bat '+string(rc)+' '+string(target)
-spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
+spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
+  '0 '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+  string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
+  ' >> /data/cryo/current_data/'+logfile,exit_status=status7
 
-; Double ramp - make sure to apply sq2 bias
-;spawn,'sq2servo '+file_name_sq2_servo+' 10000 1000 10  0 160 400 '+string(rc)+' '+string(target)+' '+string(gain)+' 0'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
 if status7 ne 0 then begin
         print,''
         print,'################################################################'
@@ -62,6 +67,9 @@ set_plot, 'ps'
 file_out = '/data/cryo/current_data/analysis/' + file_name_sq2_servo + '.ps'
 
 device, filename=file_out, /landscape
+
+
+; Read ramp parameters from runfile
 
 openr,1,full_name+'.run'
 line=""
@@ -98,34 +106,11 @@ start_2nd=fix(namearr(3))
 step_2nd=fix(namearr(4))
 n_2nd=fix(namearr(5))
 
-
-;readf, 1, line
-;reads, line, sq2_bias, format='(8x,I)'
-;print, 'SQ2_BIAS:', sq2_bias 
 sq2_bias=start_1st
-;!MFH
-print,sq2_bias
-print,'Is *this* negative?: '+string(sq2_bias)
-
-;readf, 1, line
-;reads, line, sq2_bstep, format='(9x,I)'
-;print, 'SQ2_BSTEP:', sq2_bstep 
 sq2_bstep=step_1st
-;readf, 1, line
-;reads, line, n_bias, format='(6x,I)'
-;print, 'n_BIAS:', n_bias 
 n_bias=n_1st
-;readf, 1, line
-;reads, line, SQ2_FB, format='(8x,I)'
-;print, 'SQ2_FB:', sq2_fb 
 sq2_fb=start_2nd
-;readf, 1, line
-;reads, line, sq2_fb_s, format='(9x,I)'
-;print, 'SQ2_FB_S:', sq2_fb_s 
 sq2_fb_s=step_2nd
-;readf, 1, line
-;reads, line, npts, format='(6x,I)'
-;print, 'NPTS:', npts 
 
 npts=n_2nd
 
@@ -136,45 +121,27 @@ npts=n_2nd
 
 close,1
 
+; done reading loop parameters from runfile
+
+
 r0=fltarr(npts,8)
 r1 = fltarr(npts,8)
 fb0=fltarr(npts,8)
 fb1 = fltarr(npts,8)
 values = fltarr(16)
 
+
+; Read sq2servo output from .bias file
+
 openr,1,full_name+'.bias'
 readf, 1, line
 
 for n=0, npts-1 do begin
-;print,n
-;	readf, 1, line
-;	;data=strmid(line, 14,72)
-;	data=strmid(line, 14)
-;	reads, data, values
-;	r0[n,*]=values[*]
-
-;	readf, 1, line
-;	;data=strmid(line, 14,72)
-;	data=strmid(line, 14)
-;	reads, data, values
-;	fb0[n,*]=values[*]
-
-;	readf, 1, line
-
 	readf, 1, line
-	;data=strmid(line, 14,72)
 	data=strmid(line, 0)
 	reads,data, values
 	r1[n,*]=values[0:7]
-
-;	readf, 1, line
-;	;data=strmid(line, 14,72)
-;	data=strmid(line, 0)
-;	reads,data, values
 	fb1[n,*]=values[8:15]
-
-;	readf, 1, line
-
 endfor
 
 close, 1
@@ -224,17 +191,22 @@ print,''
 print,'###########################################################################'
 print,'SQ2 bias, and SA fb channel by channel:'
 print,'###########################################################################'
+
+; Elia analyses only samples 100:350 of a 400 point curve.
+
+lo_index = ramp_count / 4.
+hi_index = ramp_count * 7. / 8.
 for chan=0,7 do begin
 	print,'Channel:',chan
 		if slope lt 0 then begin
-			min_point=min(sq2_v_phi(100:350,chan),ind_min)
-			ind_min=100+ind_min
+			min_point=min(sq2_v_phi(lo_index:hi_index,chan),ind_min)
+			ind_min=lo_index+ind_min
 			ind_pos_der=where(deriv_fb1(0:ind_min-5,chan) gt 0)
 			if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
 			ind_max=max(ind_pos_der)
 		endif else begin
-			max_point=max(sq2_v_phi(100:350,chan),ind_max)
-                        ind_max=100+ind_max
+			max_point=max(sq2_v_phi(lo_index:hi_index,chan),ind_max)
+                        ind_max=lo_index+ind_max
                         ind_neg_der=where(deriv_fb1(0:ind_max-5,chan) lt 0)
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
@@ -275,8 +247,8 @@ SQ2_feedback=fb_half_point_ch_by_ch
 ;SQ2_feedback(3)=-5
 
 for chan=0,7 do begin
-	if (SQ2_feedback(chan) gt 65535) or (SQ2_feedback(chan) le 0) then begin
-		SQ2_feedback(chan)=32000
+	if (SQ2_feedback(chan) ge dac_range) or (SQ2_feedback(chan) le 0) then begin
+		SQ2_feedback(chan)=dac_range/2
 		print,' '
 		print,'###########################################################################'
 		print,' '

@@ -1,17 +1,33 @@
 #!/bin/bash
 
+# Parse options
+
+## getopt...
+
+
 # First argument can override the experiment config file.
 
-expt="${MAS_DATA}/experiment.mce"
+expt="${MAS_DATA}/experiment.cfg"
 
 if [ "$1" != "" ]; then
     expt="$1"
 else
-    echo "Using default configuration file, $exp!" >&2
+    echo "Using default configuration file, '$expt'" >&2
 fi
 
-outfile=$MAS_DATA/config_mce_x
-if [ -e "$outfile" ]; then
+if [ "$2" != "" ]; then
+    outfile="$2"
+else
+    today=`cat /data/cryo/current_data_name`
+    outfile=$MAS_DATA/config_mce_auto_setup_${today}
+    if [ -e "$outfile" ]; then
+	rm $outfile
+    fi
+fi
+
+# Remove existing file
+if [ -e $outfile ]; then
+    echo "Removing existing '$outfile'"
     rm $outfile
 fi
 
@@ -22,7 +38,7 @@ echo "#!/bin/bash" >> $outfile
 cat ${MAS_TEMPLATE}/config_header.bash >> $outfile
 
 # Write MCE variables
-mas_param bash $expt >> $outfile
+mas_param -s $expt bash >> $outfile
 
 # Set the output MCE script name
 echo "mce_script=$MAS_TEMP/config_mce.scr" >> $outfile
@@ -32,3 +48,6 @@ cat ${MAS_TEMPLATE}/config_create.bash >> $outfile
 
 # Run the output MCE script
 cat ${MAS_TEMPLATE}/config_run.bash >> $outfile
+
+# Make the script executable
+chmod a+x $outfile

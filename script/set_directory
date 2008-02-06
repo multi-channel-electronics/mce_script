@@ -5,8 +5,6 @@ if [ "$MAS_ROOT" == "" ]; then
     exit 1
 fi
 
-source $MAS_ROOT/mas_env.bash
-
 # All our new files should be group rw
 umask 002
 
@@ -18,7 +16,7 @@ if [ ! -e $today ]; then
 fi
 cd $today
 
-files_to_copy=" sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
+files_to_copy="experiment.cfg sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
 
 for f in $files_to_copy; do
     if [ ! -e $f ]; then
@@ -30,18 +28,9 @@ new_config="config_mce_auto_setup_$today"
 if [ -e $new_config ]; then
   echo "There is already a config_mce_auto_setup file in this directory"
 else
-  cp $MAS_TEMPLATE/config_mce $new_config
-  chmod u+rwx $new_config
-  chmod g+rws $new_config
-fi
-
-new_adc="config_mce_adc_offset_$today"
-if [ -e $new_adc ]; then
-  echo "There is already a config_mce_adc_offset file in this directory"
-else
-    touch $new_adc
-    chmod u+rwx $new_adc
-    chmod g+rws $new_adc
+    mce_make_config
+    chmod u+rwx $new_config
+    chmod g+rws $new_config
 fi
 
 if [ ! -e analysis ]; then

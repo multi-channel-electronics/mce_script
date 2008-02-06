@@ -5,6 +5,7 @@ pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=bin
 stpt=1000
 if keyword_set(npts) then npts=npts else npts=200;1435406 ;npts=number of data points, 1 point = 0.0025s
 numcol=8
+print,'DATA MODE IS HARD-CODED in FRAMTEST PLOT!!!!!'
 data_mode='4'	;'6'
 if data_mode eq '4' then bitpart=14 else bitpart=0
 
@@ -131,20 +132,20 @@ endif else begin
 ;print, col_name ; TEST
 endelse
 
-if n_elements(row) eq 0 then begin
+;if n_elements(row) eq 0 then begin
   rmin=0
   rmax=numrows-1
-endif else begin
-  rmin=row
-  rmax=row
+;endif else begin
+;  rmin=row
+;  rmax=row
   !p.multi=[0,1,2]
   ;row_name =  'r'+ string(row, format='(i1)')
-  row_name =  strcompress('r'+ string(row),/REMOVE_ALL)
+  row_name ='';  strcompress('r'+ string(row),/REMOVE_ALL)
 ;print, row_name ; TEST
-endelse
+;endelse
 
 pixel_flag_name=plot_name+'_pixel_flag.ps'
-plot_name = plot_name+'_' + col_name + row_name + '.ps'
+plot_name = plot_name + '.ps'
 
 print, plot_name
 

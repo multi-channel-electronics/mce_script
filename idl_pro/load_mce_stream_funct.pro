@@ -3,7 +3,7 @@
 
 ;--------------------------------------------------------------------------------------
 
-function load_mce_stream_funct, file_in, NPTS=npts, BITPART=bitpart, numrows=numrows, IV_FILE=iv_file,binary=binary
+function load_mce_stream_funct, file_in, NPTS=npts, BITPART=bitpart, numrows=numrows, numcols=numcols, IV_FILE=iv_file,binary=binary
   ;----------------------------------------------------------------------------
   header_size    = 43         ; entries in the data header
   num_col_MCE    = 32          ; columns in the output fits file
@@ -14,6 +14,7 @@ function load_mce_stream_funct, file_in, NPTS=npts, BITPART=bitpart, numrows=num
   len_IV_header  = 10         ; length of IV curve information header
   ;----------------------------------------------------------------------------
 if keyword_set(numrows) then num_row_MCE = numrows
+if keyword_set(numcols) then num_col_MCE = numcols
 if num_row_MCE lt num_row_ACT then nom_row_ACT = numrows
 
   ;----------------------------------------------------------------------------

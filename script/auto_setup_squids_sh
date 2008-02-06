@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~mce/mas_env.bash
+## source ~mce/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 
 short="$1"
@@ -9,11 +9,11 @@ if [ "$1" = "" ]; then
     short="0"
 fi
 
-RC="$2"
+RC=",rcs=[$2]"
 row="$3"
 
 if [ "$2" = "" ]; then
-    RC="1,2,3,4"
+    RC=""
 fi
 
 if [ "$3" = "" ]; then
