@@ -925,6 +925,14 @@ for jj=0,n_elements(RCs)-1 do begin
         endif else begin
             ; This block uses original sq1servo to
             ; lock on a specific row for each column
+            
+            ; Rewrite the row.init file using the exp_config information.
+            row_init_string=''
+            for j=0,31 do begin
+                row_init_string=row_init_string+strcompress(string(exp_config.sq2_rows(j))+'\n',/remove_all)
+            endfor
+            row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
+            spawn,row_init_string
 
             sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
             
