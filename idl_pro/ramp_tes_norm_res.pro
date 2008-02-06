@@ -1,4 +1,4 @@
-pro ramp_tes_sc_turns, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts,RAMPMAX=rampmax
+pro ramp_tes_norm_res, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts,RAMPMAX=rampmax
 
 ;if not keyword_set(numrows) then numrows=41
 
@@ -15,8 +15,11 @@ rcdatamode=rc
 ; new lines added to get superconducting M=Ifb/Iin
 tesramp=rampmax		;starting tes bias, ramp full swing in DAC units
 vtes=(tesramp/(2^16.))*5.   ;converting tesramp DAC -> Voltage
-rfb1=[4240.,4233.,4235.,4240.,0.,0.,0.,0.]	;rfb1 & rtes data from IB test 4K 20080204.xls
+
+rfb1=[4240., 4233., 4235., 4240.,0,0,0,0]     ; rfb1 & rtes from IB_test_4K_20080203.xls [col0,col1,col2,col3]
 rtes=2252.
+rsh=.0034
+m_infb1=15.2
 
 if rc eq 5 then begin 
 	numcol=32
@@ -29,7 +32,7 @@ ctime=1111111111;string(file_name,format='(i10)')
 if not keyword_set(nodasscript) then begin
 ;	auto_setup_command,software='MAS','rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
 	auto_setup_command,'rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
-	spawn,'ramp_tes_bias_sc_turns '+file_name+' '+strcompress(string(RC),/REMOVE_ALL)
+	spawn,'ramp_tes_norm_res '+file_name+' '+strcompress(string(RC),/REMOVE_ALL)
 endif
 
 default_date = 'current_data/'
@@ -210,7 +213,7 @@ npts = m   ; set npts to actual number of  frames read.
 error=data
 fb=data
 fb=floor(data/2.^bitpart)
-fb_corr=fb/(2^14.)
+fb_corr=fb/(2^14.)                                  ; fb_corr in Volts
 error=abs(floor(data-fb*2.^bitpart))
 
 fb_xdata=reverse(findgen(n_elements(fb_corr(*,0,0)))*(vtes/(n_elements(fb_corr(*,0,0))-1)))
@@ -255,12 +258,12 @@ for n_row = rmin, rmax  do begin
 		;	print, max(spec(2:nf-1))
 		;endif
 
-		;slope calculation in superconducting bias mode for M=Ifb1/In
+		;slope calculation in normal tes resistance mode for Rn,tes
                 fit=linfit(fb_xdata,fb_corr[*,n_col,n_row])
-                m_infb=abs(fit[1]*(rtes/rfb1[n_col]))
-
+                rtesnorm=abs(rsh*((m_infb1*(rfb1[n_col]/rtes)*(1/fit[1]))-1))
+                
      		plot, fb_xdata, fb_corr[*,n_col, n_row], /ynozero, thick=4,title='fb',xtitle='TES BIAS (V)',ytitle='FB1 (V)'
-                towrite='M= '+string(m_infb)
+                towrite='Rtes,norm= '+string(rtesnorm)
 
                 xyouts,vtes/4.,max(fb_corr[*,n_col,n_row]),towrite
 		spec = abs(fft(fb[*, n_col, n_row]))

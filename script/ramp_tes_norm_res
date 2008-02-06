@@ -131,9 +131,9 @@ fi
 total_bias=1000 #60  	#480   #number of steps to decrement
 bias_step=1 #100	#25
 start_bias=1000	#12000 
-bias_normal1=6000	#Bias to drive detectors normal on each bias card
-bias_normal2=6000
-bias_normal3=6000
+bias_normal1=1000	#Bias to drive detectors normal on each bias card
+bias_normal2=1000
+bias_normal3=1000
 normal_time=0.1
 initial_wait=1   #10 
 end_bias=0	#4000
