@@ -5,7 +5,8 @@ pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=bin
 stpt=1000
 if keyword_set(npts) then npts=npts else npts=200;1435406 ;npts=number of data points, 1 point = 0.0025s
 numcol=8
-data_mode='1'	;'6'
+print,'DATA MODE IS HARD-CODED in FRAMTEST PLOT!!!!!'
+data_mode='4'	;'6'
 if data_mode eq '4' then bitpart=14 else bitpart=0
 
 rcdatamode=rc

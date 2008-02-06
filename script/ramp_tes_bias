@@ -128,8 +128,8 @@ if [ $# != 2 ]; then
   exit 1
 fi
 
-total_bias=60  	#480   #number of steps to decrement
-bias_step=100	#25
+total_bias=1000 #60  	#480   #number of steps to decrement
+bias_step=6 #100	#25
 start_bias=6000	#12000 
 bias_normal1=6000	#Bias to drive detectors normal on each bias card
 bias_normal2=6000
@@ -171,7 +171,7 @@ bias_tess $start_bias
 echo "Will wait $data_pause_us usec between each data point." #>> /data/cryo/script_log.txt #
 sleep $initial_wait
 
-cat /data/cryo/last_squid_tune >> $MAS_DATA/$runfile
+cat /data/cryo/last_squid_tune >> $runfile
 #Generate .run file
 mce_status >> $runfile
 
@@ -202,6 +202,7 @@ echo "Acquiring I-V curve into data file $datafile" #>> /data/cryo/script_log.tx
 for i in `seq 0 $(( $total_bias - 1 ))`; do
    bias=$(( $start_bias - $i * $bias_step ))
    bias_tess $bias >> $logfile
+   mce_cmd -qx rb bc2 bias
    echo "$bias" >> $biasfile
 
    echo -e \

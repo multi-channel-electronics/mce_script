@@ -34,12 +34,16 @@ logfile=ctime+'/'+ctime+'.log'
 if not keyword_set(gain) then gain=1./50.
 ;if RC eq 1 then gain=1./5.
 
-ramp_step=400
+print,'Hardcoding for sq2 fb DAC range!!'
+dac_range=65536
+ramp_step=160
+ramp_count=400
 
 ;Run the shell script:
-;spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 400 temp.bat '+string(rc)+' '+string(target)
-
-spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 0 160 '+string(ramp_step)+' '+string(rc)+' '+string(target)+' '+string(gain)+' 1'+' >> /data/cryo/current_data/'+logfile,exit_status=status7
+spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
+  '0 '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+  string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
+  ' >> /data/cryo/current_data/'+logfile,exit_status=status7
 
 if status7 ne 0 then begin
         print,''
@@ -179,8 +183,10 @@ print,'#########################################################################
 print,'SQ2 bias, and SA fb channel by channel:'
 print,'###########################################################################'
 
-lo_index = 25
-hi_index = 80
+; Elia analyses only samples 100:350 of a 400 point curve.
+
+lo_index = ramp_count / 4.
+hi_index = ramp_count * 7. / 8.
 for chan=0,7 do begin
 	print,'Channel:',chan
 		if slope lt 0 then begin
@@ -231,8 +237,6 @@ SQ2_feedback=fb_half_point_ch_by_ch
 ;SQ2_target(2)=66000		;for testing purposes
 ;SQ2_feedback(3)=-5
 
-print,'Hardcoding for DAC range!!'
-dac_range=65536/4
 for chan=0,7 do begin
 	if (SQ2_feedback(chan) ge dac_range) or (SQ2_feedback(chan) le 0) then begin
 		SQ2_feedback(chan)=dac_range/2

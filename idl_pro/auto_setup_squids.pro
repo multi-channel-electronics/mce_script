@@ -292,7 +292,8 @@ for jj=0,n_elements(RCs)-1 do begin
 ; 			column_adc_offset(j+8*(RC-1))=fix(off(3))
 ; 		endfor
 ; 		close,1
-                column_adc_offset(RC_indices) = exp_config.adc_offset(RC_indices)
+
+                column_adc_offset(RC_indices) = exp_config.adc_offset_c(RC_indices)
 
 		if short eq 1 then goto, step4 else goto, step5
 	endif
@@ -358,8 +359,9 @@ for jj=0,n_elements(RCs)-1 do begin
 
         exp_config.data_mode = 0
         exp_config.servo_mode = 1
-        exp_config.adc_offset(RC_indices) = lonarr(n_elements(RC_indices))
-        exp_config.sq2_bias(RC_indices) = lonarr(n_elements(RC_indices))
+        exp_config.config_adc_offset_all = 0      ; configure one adc_offset for the whole column
+        exp_config.adc_offset_c(RC_indices) = 0
+        exp_config.sq2_bias(RC_indices) = 0
 	
 ; 	close,1
 	
@@ -439,7 +441,8 @@ for jj=0,n_elements(RCs)-1 do begin
 ; 		endfor
 ; 		close,1
 
-                exp_config.adc_offset(RC_indices) = SA_target
+                exp_config.config_adc_offset_all = 0
+                exp_config.adc_offset_c(RC_indices) = SA_target
 	        
 ;!MFH
 ; 		for j=0,7 do column_adc_offset(j+8*(RC-1))=SA_target(j)
@@ -451,6 +454,8 @@ for jj=0,n_elements(RCs)-1 do begin
         	;        writeu,1,set_sq2_bias+' #'
         	;        readf,1,line
         	;endfor
+                ;; MFH - the sq2_bias set here is commented out in Elia's latest code!
+                ;exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
 
 	endif else begin
 
@@ -470,7 +475,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 ;		;sa_offset_MCE2=floor(def_sa_bias*5./12)  
 ;		sa_offset_MCE2=floor(def_sa_bias/2.)
-                sa_offset_MCE2=floor(final_sa_bias_ch_by_ch * exp_config.sa_offset_bias_ratio)
+                sa_offset_MCE2=floor(def_sa_bias * exp_config.sa_offset_bias_ratio)
 
 ;!MFH	
 ; 		repeat readf,1,line until strmid(line,0,22) eq '#Setting SA offset '+strcompress('RC'+string(RC),/remove_all)
@@ -480,7 +485,7 @@ for jj=0,n_elements(RCs)-1 do begin
 ; 			readf,1,line
 ; 		endfor
                 
-                exp_config.sa_offset(RC_indices) = sa_offset_MCE2
+                exp_config.sa_offset(RC_indices) = sa_offset_MCE2(RC_indices)
                 
 ; 		close,1
 
@@ -511,7 +516,9 @@ for jj=0,n_elements(RCs)-1 do begin
 ; 			readf,1,line
 ; 		endfor
 ; 		close,1
-                exp_config.adc_offset(RC_indices) = SA_target
+
+                exp_config.config_adc_offset_all = 0
+                exp_config.adc_offset_c(RC_indices) = SA_target
 
 ; 		for j=0,7 do column_adc_offset(j+8*(RC-1))=SA_target(j)
                 column_adc_offset(RC_indices) = SA_target
@@ -878,7 +885,9 @@ for jj=0,n_elements(RCs)-1 do begin
                 row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
                 spawn,row_init_string
   	
-		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope,gain=exp_config.sq1servo_gain
+		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+                  numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                  gain=exp_config.sq1servo_gain,LOCK_ROWS=(lonarr(32) + sq1servorow)
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
 
@@ -909,7 +918,7 @@ for jj=0,n_elements(RCs)-1 do begin
 
             ; For single rowing; use the selected rows from sq2_param:
             for j=0,7 do begin
-                sq1_target(j) = SQ2_feedback_full_array(exp_config.sq2_rows(RC_indices(0)+j),j)
+                sq1_target(j) = SQ2_feedback_full_array(exp_config.sq2_rows(RC_indices(j)),j)
             endfor
 
 
@@ -920,7 +929,8 @@ for jj=0,n_elements(RCs)-1 do begin
             sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
-              RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope
+              RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+              gain=exp_config.sq1servo_gain,lock_rows=exp_config.sq2_rows
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -957,6 +967,7 @@ for jj=0,n_elements(RCs)-1 do begin
 ; 	endfor
 ; 	close,1
 
+        print,'sq1_target = ',string(sq1_target)
         exp_config.sq2_fb(RC_indices) = sq1_target
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -987,7 +998,7 @@ endfor
 ;SQ1 ramp check:
 ;----------------------------------------------------------------------------------------------------------
 
-;!MFH
+;!MFH - replaced with adc_offset_cr
 ; ;Generate adc_offset files which will contain the adc offset values for each individual detector.
 ; ;The adc_off_run_file is called and run by the config file
 ; openw,20,adc_off_run_file
@@ -1106,7 +1117,12 @@ for jj=0,n_elements(RCs)-1 do begin
         	for j=0,7 do begin
                 	setting_new_adc='echo "wb rc'+strcompress(string(RC),/REMOVE_ALL)+' adc_offset'+strcompress(string(j),/REMOVE_ALL)
                 	for i=0,numrows-1 do begin
-                        	setting_new_adc=setting_new_adc+' '+string(all_adc_offsets((rc-1)*8+j,i), format='(i11)')
+
+;!MFH
+;                         	setting_new_adc=setting_new_adc+' '+string(all_adc_offsets((rc-1)*8+j,i), format='(i11)')
+                            exp_config.adc_offset_cr( ((rc-1)*8 + j)*exp_config.array_width + i ) = $
+                              all_adc_offsets((rc-1)*8+j,i)
+
                         	new_adc_arr((rc-1)*8+j)=new_adc_arr((rc-1)*8+j)+' '+string(all_adc_offsets((rc-1)*8+j,i), format='(i6)')
                         	squid_p2p_arr((rc-1)*8+j)=squid_p2p_arr((rc-1)*8+j)+' '+string(all_squid_p2p((rc-1)*8+j,i), format='(i6)')
                                 squid_lockrange_arr((rc-1)*8+j)=squid_lockrange_arr((rc-1)*8+j)+' '+string(all_squid_lockrange((rc-1)*8+j,i), format='(i6)')
@@ -1119,9 +1135,19 @@ for jj=0,n_elements(RCs)-1 do begin
 ;!MFH
 ;                        spawn,'echo -e "'+setting_new_adc+'" '+'\n">>'+adc_off_run_file
       		endfor
-	endif
-	
-	spawn,config_mce_file + ' >> '+todays_folder+c_filename+'.log',exit_status=status14
+            endif
+
+;!MFH
+        ; Turn on adc_offset config for all columns.
+        exp_config.config_adc_offset_all = 1
+
+        save_exp_params,exp_config,exp_config_file
+        mce_make_config, params_file=exp_config_file, $
+          filename=config_mce_file, $
+          $                ;logfile=todays_folder+c_filename+'.log', $
+          /run_now, exit_status=status14
+
+; 	spawn,config_mce_file + ' >> '+todays_folder+c_filename+'.log',exit_status=status14
         if status14 ne 0 then begin
                 print,''
                 print,'###############################################################'

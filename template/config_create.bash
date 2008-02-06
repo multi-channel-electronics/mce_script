@@ -23,9 +23,9 @@ else
 fi
 
 # Calculate the corrected adc offset.
-adc_offset_divided=( adc_offset )
-for i in `seq 0 $(( ${#adc_offset[@]} - 1))` ; do
-	adc_offset_divided[$i]=$(( ${adc_offset[$i]} / $sample_num ))
+adc_offset_divided=( adc_offset_c )
+for i in `seq 0 $(( ${#adc_offset_c[@]} - 1))` ; do
+	adc_offset_divided[$i]=$(( ${adc_offset_c[$i]} / $sample_num ))
 done
 
 # For readability, translate config_rc[0-3] to config_rc1-4
@@ -73,7 +73,13 @@ for rc in 1 2 3 4; do
     for c in `seq 0 7`; do 
 	chan=$(( $c +  $ch_ofs ))
 	repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
-	repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script
+
+	if [ "${config_adc_offset_all}" != "0" ]; then
+	    r_off=$(( $array_width * $chan ))
+	    echo "wb rc$rc adc_offset$c ${adc_offset_cr[@]:$r_off:$array_width}" >> $mce_script
+	else
+	    repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script
+	fi
     done
 
     pidz_dead_off $servo_p $servo_i $servo_d $rc >> $mce_script
@@ -127,11 +133,11 @@ for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
  
     ch_ofs=$(( ($rc-1)*8 ))
-    echo "wra sa  fb    0  ${sa_fb[@]:$ch_ofs:8}"    >> $mce_script
-    echo "wra sq2 bias  0  ${sq2_bias[@]:$ch_ofs:8}" >> $mce_script
+    echo "wra sa  fb    $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"    >> $mce_script
+    echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}" >> $mce_script
 
     if [ "$hardware_bac" == "0" ]; then
-	echo "wra sq2 fb    0  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
+	echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
     else
 #	for a in `seq 0 7`; do
 #	    echo -n "wb sq2 fb_col$(( $a + $ch_ofs)) " >> $mce_script

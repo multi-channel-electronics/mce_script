@@ -9,6 +9,7 @@ function str_flat,a
 end
 
 pro save_exp_params,m,filename
+    spawn,'mas_param -s '+filename+' set array_width '+str_flat(m.array_width)
     spawn,'mas_param -s '+filename+' set hardware_rc '+str_flat(m.hardware_rc)
     spawn,'mas_param -s '+filename+' set hardware_sync '+str_flat(m.hardware_sync)
     spawn,'mas_param -s '+filename+' set hardware_bac '+str_flat(m.hardware_bac)
@@ -51,7 +52,6 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set sa_bias '+str_flat(m.sa_bias)
     spawn,'mas_param -s '+filename+' set sa_fb '+str_flat(m.sa_fb)
     spawn,'mas_param -s '+filename+' set sa_offset '+str_flat(m.sa_offset)
-    spawn,'mas_param -s '+filename+' set adc_offset '+str_flat(m.adc_offset)
     spawn,'mas_param -s '+filename+' set sa_offset_bias_ratio '+str_flat(m.sa_offset_bias_ratio)
     spawn,'mas_param -s '+filename+' set sa_ramp_flux_start '+str_flat(m.sa_ramp_flux_start)
     spawn,'mas_param -s '+filename+' set sa_ramp_flux_count '+str_flat(m.sa_ramp_flux_count)
@@ -59,12 +59,16 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set sq2_rows '+str_flat(m.sq2_rows)
     spawn,'mas_param -s '+filename+' set sq1servo_gain '+str_flat(m.sq1servo_gain)
     spawn,'mas_param -s '+filename+' set sq2servo_gain '+str_flat(m.sq2servo_gain)
+    spawn,'mas_param -s '+filename+' set config_adc_offset_all '+str_flat(m.config_adc_offset_all)
+    spawn,'mas_param -s '+filename+' set adc_offset_c '+str_flat(m.adc_offset_c)
+    spawn,'mas_param -s '+filename+' set adc_offset_cr '+str_flat(m.adc_offset_cr)
     spawn,'mas_param -s '+filename+' set sq2_fb_set '+str_flat(m.sq2_fb_set)
 end
 
 
 pro load_exp_params,filename,m
     m = create_struct('_source',filename,  $
+        'array_width',mas_param_int(filename,'array_width'),  $
         'hardware_rc',mas_param_int(filename,'hardware_rc'),  $
         'hardware_sync',mas_param_int(filename,'hardware_sync'),  $
         'hardware_bac',mas_param_int(filename,'hardware_bac'),  $
@@ -107,7 +111,6 @@ pro load_exp_params,filename,m
         'sa_bias',mas_param_int(filename,'sa_bias'),  $
         'sa_fb',mas_param_int(filename,'sa_fb'),  $
         'sa_offset',mas_param_int(filename,'sa_offset'),  $
-        'adc_offset',mas_param_int(filename,'adc_offset'),  $
         'sa_offset_bias_ratio',mas_param_float(filename,'sa_offset_bias_ratio'),  $
         'sa_ramp_flux_start',mas_param_int(filename,'sa_ramp_flux_start'),  $
         'sa_ramp_flux_count',mas_param_int(filename,'sa_ramp_flux_count'),  $
@@ -115,5 +118,8 @@ pro load_exp_params,filename,m
         'sq2_rows',mas_param_int(filename,'sq2_rows'),  $
         'sq1servo_gain',mas_param_float(filename,'sq1servo_gain'),  $
         'sq2servo_gain',mas_param_float(filename,'sq2servo_gain'),  $
+        'config_adc_offset_all',mas_param_int(filename,'config_adc_offset_all'),  $
+        'adc_offset_c',mas_param_int(filename,'adc_offset_c'),  $
+        'adc_offset_cr',mas_param_int(filename,'adc_offset_cr'),  $
         'sq2_fb_set',mas_param_int(filename,'sq2_fb_set')    )
 end

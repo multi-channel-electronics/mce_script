@@ -34,8 +34,8 @@ for i=0,3 do begin
         rc = string(strcompress(i+1,/REMOVE_ALL))
         spawn, 'ramp_tes_bias iv '+rc
         if change_bias eq 1 then $
-          iv_anal_mce_ar1_bias, /biasfile, n_columns=8 $;, /plotgen $	;, /filtered $
-        else iv_anal_mce_ar1_bias, n_columns=8 ;, /plotgen
+          iv_anal_mce_ar1_bias, /biasfile, n_columns=8, /plotgen $	;, /filtered $
+        else iv_anal_mce_ar1_bias, n_columns=8, /plotgen
         spawn, '/data/cryo/tes_bias_recommended'
     endif
 endfor

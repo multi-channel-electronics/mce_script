@@ -1,4 +1,4 @@
-pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope,gain=gain
+pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope,gain=gain,lock_rows=lock_rows
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq1servo_plot.pro 
@@ -114,7 +114,6 @@ r1 = fltarr(npts,8)
 ;fb0=fltarr(npts,8)
 fb1 = fltarr(npts,8)
 values = fltarr(16)
-lockrow = intarr(32)
 
 
 ; Process the sq1servo output file.  First line is header.
@@ -127,6 +126,7 @@ for n=0, npts-1 do begin
 	data=strmid(line, 0)
 	reads,data, values
 	r1[n,*]=values[0:7]
+        fb1[n,*]=values[8:15]
 
 endfor
 
@@ -142,14 +142,14 @@ for j=0,7 do begin
 	fbmax = max(fb1[10:*,j] )/1000.
 	fbmin = min(fb1[10:*,j] )/1000.
 	plot,sq2_sweep, fb1[*,j]/1000,/ys, ytitle ='SQ2_FB/1000',$
-        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SA Channel '+ label+' Row '+strtrim(lockrow(j+(rc-1)*8),1)
+        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SA Channel '+ label+' Row '+strtrim(lock_rows(j+(rc-1)*8),1)
 	;oplot,sq2_sweep, fb1[*,j]/1000, linestyle=1
 
 	rmax = max( r1[10:*,j])/1000. + 2.
 	rmin = min( r1[10:*,j])/1000.-2.
 	plot, sq2_sweep, r1[*,j]/1000, ytitle=' AD_reading/1000',$
         xtitle='SQ1_FB/1000',$
-	yrange=[rmin, rmax], /ys, /xs, title='AD Output, SA Channel'+ label+' Row '+strtrim(lockrow(j+(rc-1)*8),1)
+	yrange=[rmin, rmax], /ys, /xs, title='AD Output, SA Channel'+ label+' Row '+strtrim(lock_rows(j+(rc-1)*8),1)
 	;oplot,sq2_sweep, r1[*,j]/1000., linestyle=1
 
 	label = 'SQ1_BIAS = ' + string(sq2_bias, format='(f7.0)')
@@ -302,7 +302,7 @@ for j=0,7 do begin
 	fbmax = max(fb1[10:*,j])/1000
 	fbmin=min(fb1[10:*,j])/1000
 	plot,sq2_sweep, fb1[*,j]/1000,/ys, ytitle ='SQ2_FB/1000',$
-        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SQ2 Channel '+ label+' Row '+strtrim(lockrow(j+(rc-1)*8),1),$
+        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SQ2 Channel '+ label+' Row '+strtrim(lock_rows(j+(rc-1)*8),1),$
         yrange=[fbmin,fbmax],charsize=charsz
 	;oplot,sq2_sweep, fb1[*,j]/1000, linestyle=1
 	oplot, [sq2_sweep(0),sq2_sweep(n_elements(sq2_sweep)-1)],[SQ1_target(j),SQ1_target(j)]/1000.
