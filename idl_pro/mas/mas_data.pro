@@ -28,8 +28,10 @@ fn_name='mas_data.pro'
 allowed_headers = [6]
 
 ; no bit split by default...
+if not keyword_set(split_bits) then split_bits = 0
+
 if keyword_set(data_mode) then begin
-    if data_mode eq 2 then bit_split = 14
+    if data_mode eq 2 then split_bits = 14
 endif
 
 ;
@@ -110,11 +112,11 @@ for i=0,frame_info.n_frames-1 do begin
     data(*,*,i) = sample
 endfor
 
-; Split the upper bits into data2 if bit_split is defined and no_split has not been set
-if bit_split ne 0 and not keyword_set(no_split) then begin
+; Split the upper bits into data2 if split_bits is defined and no_split has not been set
+if split_bits ne 0 and not keyword_set(no_split) then begin
     if keyword_set(no_split) then return,data
-    data2 = data AND (2^bit_split - 1)
-    data = ishft(data,-bit_split)
+    data2 = data AND (2^split_bits - 1)
+    data = ishft(data,-split_bits)
 endif
 
 return,data
