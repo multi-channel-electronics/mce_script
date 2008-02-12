@@ -5,7 +5,8 @@ if [ "$MAS_ROOT" == "" ]; then
     exit 1
 fi
 
-source $MAS_ROOT/mas_env.bash
+# All our new files should be group rw
+umask 002
 
 today=`date +%Y%m%d`
 cd $MAS_DATA/..
@@ -13,29 +14,28 @@ if [ ! -e $today ]; then
     mkdir $today
     chmod g+s $today
 fi
-# Not necessary; folder permissions are used.
-# chmod 777 $today
 cd $today
 
-cp $MAS_TEMPLATE/sabias.init .
-cp $MAS_TEMPLATE/safb.init .
-cp $MAS_TEMPLATE/sq2bias.init .
-cp $MAS_TEMPLATE/sq2fb.init .
-cp $MAS_TEMPLATE/sq1bias.init .
-cp $MAS_TEMPLATE/row.init .
+files_to_copy="experiment.cfg sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
 
-#chmod g+w $MAS_DATA/*.init
+for f in $files_to_copy; do
+    if [ ! -e $f ]; then
+	cp $MAS_TEMPLATE/$f .
+    fi
+done
 
 new_config="config_mce_auto_setup_$today"
 if [ -e $new_config ]; then
   echo "There is already a config_mce_auto_setup file in this directory"
 else
-  cp $MAS_TEMPLATE/config_mce $new_config
+    mce_make_config
+    chmod u+rwx $new_config
+    chmod g+rws $new_config
 fi
 
 if [ ! -e analysis ]; then
     mkdir analysis
-    chmod g+s $today
+    chmod g+s analysis
 fi
 
 /bin/rm /data/cryo/current_data

@@ -1,5 +1,5 @@
 #!/bin/bash
-source ~mce/mas_env.bash
+## source ~mce/mas_env.bash
 if [ $# -lt 1 ]; then
   echo "Usage: bias_tess bias_val"
   exit 1

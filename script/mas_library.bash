@@ -95,6 +95,33 @@ function write_back_test {
 
 
 
+function replace_values {
+    # arguments are
+    #   original values, new values, new value start position
+    # e.g.
+    #    replace_values "0 1 2 3 4 5 6" "a b c" 3
+    # echos
+    #    0 1 2 a b c 6
+    orig=( $1 )
+    news=( $2 )
+    for i in `seq 0 $(( ${#news[@]} - 1 ))` ; do
+	orig[$(( $i + $3 ))]=${news[$i]}
+    done
+    echo ${orig[@]}
+}
+
+function repeat_string {
+    # arguments are token, repeat count, prefix, postfix, e.g.
+    # repeat_string "hat" 8 "here are a bunch of hats: " ""
+
+    echo -n "$3 "
+    for a in `seq 1 $2`; do
+	echo -n "$1 "
+    done
+    echo $4
+}
+
+
 # HEALTH FIXES - return 0 if fix probably succeeded
 
 

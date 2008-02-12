@@ -4,7 +4,7 @@
 #
 # Run file name is obtained with script mce_runfile_name
 
-source $MAS_ROOT/mas_env.tcsh
+## source $MAS_ROOT/mas_env.tcsh
 
 if ($#argv != 3) then
   echo "----------------"

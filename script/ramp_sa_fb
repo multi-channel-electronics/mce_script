@@ -1,38 +1,86 @@
 #!/bin/bash 
 #
 # Revision history:
-# <date $Date: 2007/10/04 05:24:56 $>    - <initials $Author: preaction $>
-# $Log: ramp_sa_fb,v $
-# Revision 1.3  2007/10/04 05:24:56  preaction
-# MA generates runfile with <par_ramp> block
-#    when no bias is specified, no bias is applied!
-#    the temp file is renamed
+#   Based on scuba2 CVS version 1.13
+
+#Functions!
+
+function float_multiply {
+    # Is there a better way to do floating point calcs in bash?
+    echo "$1 * $2 + 0.5" | bc | sed 's/\..*//g'
+}
+
+function runfile_loop_structure {
+#   Variables of environment are inherited
+#   par2 is the outer loop
+    echo "<par_ramp>" 
+    if [ $nested_loop -eq 0 ] ; then
+	echo "  <loop_list> loop1"
+	echo "    <par_list loop1> par1"
+	echo "      <par_title loop1 par1> sa_fb"
+	echo "      <par_step loop1 par1> 0 $ramp_step $ramp_count"
+    else
+	echo "  <loop_list> loop1 loop2"
+	echo "    <par_list loop1> par1 par2"
+	echo "       <par_title loop1 par1> sa_bias"
+	echo "       <par_step loop1 par1> $start_bias $bias_step $total_bias"
+	echo "       <par_title loop1 par2> offset"
+	echo "       <par_step loop1 par2> $start_bias $bias_step $total_bias"
+	echo "    <par_list loop2> par1" 
+	echo "       <par_title loop2 par1> sa_fb"
+	echo "       <par_step loop2 par1> 0 $ramp_step $ramp_count"
+    fi
+    echo "</par_ramp>"
+    echo ""
+}
+
 #
-# Revision 1.13  2007/09/28 23:08:14  mce
-# MA generates runfile now
+# START OF MAIN ROUTINE
 #
 
 # this should set $MAS_DATA and $MAS_TEMP
-source ~mce/mas_env.bash
+## source ~mce/mas_env.bash
+source ${MAS_SCRIPT}mas_library.bash
+
 if [ $# -lt 3 ]; then 
-  echo "----------------"
-  echo "Usage: ramp_sa_fb datafile n d"
-  echo "where : datafile is the name of the datafile"
-  echo "        n        is the rc card number (1 to 4 or s for all)"
-  echo "        d        is 0 for sweeping sa_fb only and 1 for sweeping sa_fb and sa_bias/offset"
-  echo "Note that the file will be saved under the data directory."
-  echo "----------------"
+  echo "----------------" >&2
+  echo "Usage: ramp_sa_fb datafile n d [offset_bias_ratio]" >&2
+  echo "where : datafile is the name of the datafile" >&2
+  echo "        n        is the rc card number (1 to 4 or s for all)" >&2
+  echo "        d        is 0 for sweeping sa_fb only and 1 for sweeping sa_fb and sa_bias/offset" >&2
+  echo "Note that the file will be saved under the data directory." >&2
+  echo "----------------" >&2
   exit 1
 fi  
 
+expcfg="$MAS_DATA/experiment.cfg"
+
+# The cable offset to SA bias ratio
+cable_offset_sa_bias_ratio=`mas_param -s $expcfg get sa_offset_bias_ratio`
+
+# Ramp parameters: should cover the 64k DAC range
+ramp_count=`mas_param -s $expcfg get sa_ramp_flux_count`
+ramp_step=`mas_param -s $expcfg get sa_ramp_flux_step`
+echo count=$ramp_count step=$ramp_step ratio=$cable_offset_sa_bias_ratio
+
 start_ctime=`date -u +%s`
 tempfile=$MAS_TEMP/ramp_sa_fb.temp
-script_name="ramp_sa_fb"
+script_name=$0
 
-datafile=$1
-runfile=$datafile.run
+datafile=$MAS_DATA/$1
+runfile=${datafile}.run
+
 n=$2
 nested_loop=$3
+
+if [ $n == "s" ] ;then
+  num_cols=`mce_param FLUX_FB_COLUMNS`
+  col_index=0
+else
+  num_cols=8
+  col_index=$(( $(( $n - 1 )) * 8))
+fi
+lastcol_index=$(( $col_index + 7))
 
 if [ $nested_loop -eq 0 ] ; then
   total_bias=1 
@@ -45,77 +93,60 @@ fi
 
 ########################
 # now create runfile
-# careful as mcestatus by default stores in $MAS_DATA
-mcestatus $MAS_DATA/$runfile 1
+mce_status -f $runfile
 if [ $? -ne 0 ] ; then
-  echo "FAILURE ($script_name: mcestatus failed)"
+  echo "FAILURE ($script_name: mce_status failed)" >&2
   exit 5
 fi 
 
-#par2 is the outer loop
-echo "<par_ramp>" >>$MAS_DATA/$runfile
-if [ $nested_loop -eq 0 ] ; then
-   echo "  <loop_list> loop1">>$MAS_DATA/$runfile
-   echo "    <par_list loop1> par1">>$MAS_DATA/$runfile
-   echo "      <par_title loop1 par1> sa_fb">>$MAS_DATA/$runfile
-   echo "      <par_step loop1 par1> 0 160 400">>$MAS_DATA/$runfile
-else
-   echo "  <loop_list> loop1 loop2">>$MAS_DATA/$runfile
-   echo "    <par_list loop1> par1 par2">>$MAS_DATA/$runfile
-   echo "       <par_title loop1 par1> sa_bias">>$MAS_DATA/$runfile
-   echo "       <par_step loop1 par1> $start_bias $bias_step $total_bias">>$MAS_DATA/$runfile
-   echo "       <par_title loop1 par2> offset">>$MAS_DATA/$runfile
-   echo "       <par_step loop1 par2> $start_bias $bias_step $total_bias">>$MAS_DATA/$runfile
-   echo "    <par_list loop2> par1">>$MAS_DATA/$runfile 
-   echo "       <par_title loop2 par1> sa_fb">>$MAS_DATA/$runfile
-   echo "       <par_step loop2 par1> 0 160 400">>$MAS_DATA/$runfile
-fi
-echo "</par_ramp>">>$MAS_DATA/$runfile
-echo "">>$MAS_DATA/$runfile
+runfile_loop_structure >> $runfile
 
-total_frames=$(( $total_bias * 400 ))
-frameacq_stamp $n $datafile $total_frames>>$MAS_DATA/$runfile
+total_frames=$(( $total_bias * $ramp_count ))
+frameacq_stamp $n $datafile $total_frames >> $runfile
 if [ "$?" != "0" ] ; then
-  echo "FAILURE: ($script_name: frameacq_stamp failed)"
+  echo "FAILURE: ($script_name: frameacq_stamp failed)" >&2
   exit 5
 fi
 #########################
 
-echo "Now running a sweep of sa_fb (0 to 400*160) for each of $total_bias bias value(s)"
+echo "Now running a sweep of sa_fb (0 to $ramp_count*$ramp_step) for each of $total_bias bias value(s)"
 #########################
 # now create mcebatch file to run 
-/bin/rm $tempfile
 
-echo "acq_path $MAS_DATA">>$tempfile 
-echo "acq_config $datafile rc$n">>$tempfile
-
-nbias=0
-while [ "$nbias" -lt "$total_bias" ]; do
-   if [ $nested_loop -eq 1 ] ; then
-     j=$(( $nbias * $bias_step ))
-     k=$(( $start_bias + $j ))
-     m=$(( $k / 4 ))
-     echo "wb rc$n offset $m $m $m $m $m $m $m $m">>$tempfile
-     echo "wb rc$n sa_bias $k $k $k $k $k $k $k $k">>$tempfile
-   fi
-   total=400
-   nsafb=0
-   while [ "$nsafb" -lt "$total" ]; do
-      i=$(($nsafb * 160))
-      echo "wb bc1 flux_fb $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i $i">>$tempfile 
-      #echo "go rc$n ret_dat 1">>$tempfile
-      echo "acq_go 1">>$tempfile
-      (( nsafb += 1 ))
-   done
-   (( nbias +=1 ))
-done 
-
-# reset values
-if [ $nested_loop -eq 1 ] ; then
-   echo "wb rc$n sa_bias 0 0 0 0 0 0 0 0">>$tempfile
-   echo "wb rc$n offset 0 0 0 0 0 0 0 0">>$tempfile
+if [ -e $tempfile ]; then
+    /bin/rm $tempfile
 fi
-echo "wb bc1 flux_fb 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0">>$tempfile 
+
+if [ $nested_loop -eq 0 ]; then
+    mce_ramp -M "acq_config $datafile rc$n" \
+	-L $ramp_count  -V 0 $ramp_step \
+	    -P "wb bc1 flux_fb" 16 \
+  	    -P "acq_go 1" 0  >> $tempfile
+    
+    repeat_string "wb bc1 flux_fb" "0" 16 "" >> $tempfile
+
+else
+    # Offset is a multiple of the bias
+    offset_step=`float_multiply $bias_step $cable_offset_sa_bias_ratio`
+    start_offset=`float_multiply $start_bias $cable_offset_sa_bias_ratio`
+    echo $offset_step $start_offset
+
+    mce_ramp \
+	-M "acq_config $datafile rc$n" \
+	-L $total_bias \
+	    -V $start_offset $offset_step  -P "wb rc$n offset " 8 \
+  	    -V $start_bias   $bias_step    -P "wb rc$n sa_bias " 8 \
+	        -L $ramp_count  -V 0 $ramp_step \
+             	    -P "wb bc1 flux_fb" 16 \
+	            -P "acq_go 1" 0  >> $tempfile
+
+   repeat_string "0" 8 "wb rc$n sa_bias" >> $tempfile
+   repeat_string "0" 8  "wb rc$n offset" >> $tempfile
+   repeat_string "0" 16 "wb bc1 flux_fb" >> $tempfile
+
+fi
+
+echo "$0 file-write time: " `print_elapsed $start_ctime` " s"
 
 mce_cmd -q -f $tempfile
 if [ $? -ne  0 ] ; then
@@ -123,6 +154,4 @@ if [ $? -ne  0 ] ; then
   exit 4
 fi
 
-end_ctime=`date -u +%s`
-elapsed=$(( $end_ctime - $start_ctime))
-echo "$0 elapsed time: $elapsed s"
+echo "$0 elapsed time: " `print_elapsed $start_ctime` " s"
