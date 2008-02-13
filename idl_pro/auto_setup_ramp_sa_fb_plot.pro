@@ -1,4 +1,4 @@
-pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive
+pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive,numrows=numrows
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from ramp_sa_fb_plot.pro 
@@ -8,6 +8,8 @@ common ramp_sa_var
 
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
+
+if not keyword_set(numrows) then numrows = 33
 
 ;Comunication:
 print,''
@@ -23,6 +25,9 @@ file_name_ramp_sa=file_name+'_ssa'
 ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
+
+;print,'Pausing before ramp_sa_fb'
+;wait,1
 
 ;Run the shell script:
 spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 1'+ ' >> /data/cryo/current_data/'+logfile,exit_status=status4
@@ -76,7 +81,7 @@ sa_bias = 0 * vmax * ma2uA  / ( RL* full_scale)
 !p.region=[0,0,0,0]         ;Plot region.
  
 ;Reading the 2-dim data array from the file:
-readin=auto_setup_read_2d_ramp(full_name)  ;Read in file.
+readin=auto_setup_read_2d_ramp(full_name,numrows=numrows)  ;Read in file.
 
 ;Read labels, loop sizes, etc.
 horiz_label=readin.labels[2]

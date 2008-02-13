@@ -1,4 +1,4 @@
-pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope
+pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope,gain=gain,lock_rows=lock_rows
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq1servo_plot.pro 
@@ -28,9 +28,11 @@ logfile=ctime+'/'+ctime+'.log'
 
 
 ; Use gain = 1./25 for shallow S2 SQUID slope or gain = -1./100. for steep S2 SQUID slope
-if sq2slope lt 0 then gain=1./25.  $ ;The sq2_slope parameter in auto_setup_squids.pro should have the opposite sign from this.
-	else gain=-1./100.
-if rc eq 1 then gain=gain/2.	; RC1 currently locks better with a smaller gain than the others.  9-9-2007 MDN
+;if sq2slope lt 0 then gain=1./25.  $ ;The sq2_slope parameter in auto_setup_squids.pro should have the opposite sign from this.
+;	else gain=-1./100.
+;if rc eq 1 then gain=gain/2.	; RC1 currently locks better with a smaller gain than the others.  9-9-2007 MDN
+
+if not keyword_set(gain) then gain = 1./100
 
 ;Run the shell script:
 ;spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 -8000 40 400 '+string(rc)+' '+string(target)+' '+string(numrows)
@@ -61,6 +63,8 @@ file_label = '/data/cryo/current_data/analysis/' + cn + '/' + file_name
 close, 3
 
 device, filename=file_out2, /landscape
+
+; Read the loop parameters from the run file
 
 openr,1,full_name+'.run'
 line=""
@@ -95,75 +99,34 @@ start_2nd=fix(namearr(3))
 step_2nd=fix(namearr(4))
 n_2nd=fix(namearr(5))
 
-;readf, 1, line
-;reads, line, sq2_bias, format='(8x,I)'
-;print, 'SQ2_BIAS:', sq2_bias
 sq2_bias=start_1st
-;readf, 1, line
-;reads, line, sq2_bstep, format='(9x,I)'
-;print, 'SQ2_BSTEP:', sq2_bstep
 sq2_bstep=step_1st
-;readf, 1, line
-;reads, line, n_bias, format='(6x,I)'
-;print, 'n_BIAS:', n_bias
 n_bias=n_1st
-;readf, 1, line
-;reads, line, SQ2_FB, format='(8x,I)'
-;print, 'SQ2_FB:', sq2_fb
 sq2_fb=start_2nd
-;readf, 1, line
-;reads, line, sq2_fb_s, format='(9x,I)'
-;print, 'SQ2_FB_S:', sq2_fb_s
 sq2_fb_s=step_2nd
-;readf, 1, line
-;reads, line, npts, format='(6x,I)'
-;print, 'NPTS:', npts
 npts=n_2nd
 close,1
+
+; Done reading loop parameters from run file
 
 r0=fltarr(npts,8)
 r1 = fltarr(npts,8)
 ;fb0=fltarr(npts,8)
 fb1 = fltarr(npts,8)
 values = fltarr(16)
-lockrow = intarr(32)
 
+
+; Process the sq1servo output file.  First line is header.
 openr,1,full_name+'.bias'
-
 readf, 1, line
-;readf, 1, line
-;print,'Rows selected='+line
-;t = strsplit(line,'=',/extract)
-
-;if n_elements(t) gt 1 then reads, t(1), lockrow
 
 for n=0, npts-1 do begin
 
-;stop
-
-;	readf, 1, line
-;	data=strmid(line, 14)
-;	reads, data, values
-;	r0[n,*]=values[*]
-
-;	readf, 1, line
-;	data=strmid(line, 14)
-;	reads, data, values
-;	fb0[n,*]=values[*]
-
-;	readf, 1, line
-
-	readf, 1, line
+ 	readf, 1, line
 	data=strmid(line, 0)
 	reads,data, values
 	r1[n,*]=values[0:7]
-
-;	readf, 1, line
-;	data=strmid(line, 0)
-;	reads,data, values
-	fb1[n,*]=values[8:15]
-
-;	readf, 1, line
+        fb1[n,*]=values[8:15]
 
 endfor
 
@@ -179,14 +142,14 @@ for j=0,7 do begin
 	fbmax = max(fb1[10:*,j] )/1000.
 	fbmin = min(fb1[10:*,j] )/1000.
 	plot,sq2_sweep, fb1[*,j]/1000,/ys, ytitle ='SQ2_FB/1000',$
-        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SA Channel '+ label+' Row '+strtrim(lockrow(j+(rc-1)*8),1)
+        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SA Channel '+ label+' Row '+strtrim(lock_rows(j+(rc-1)*8),1)
 	;oplot,sq2_sweep, fb1[*,j]/1000, linestyle=1
 
 	rmax = max( r1[10:*,j])/1000. + 2.
 	rmin = min( r1[10:*,j])/1000.-2.
 	plot, sq2_sweep, r1[*,j]/1000, ytitle=' AD_reading/1000',$
         xtitle='SQ1_FB/1000',$
-	yrange=[rmin, rmax], /ys, /xs, title='AD Output, SA Channel'+ label+' Row '+strtrim(lockrow(j+(rc-1)*8),1)
+	yrange=[rmin, rmax], /ys, /xs, title='AD Output, SA Channel'+ label+' Row '+strtrim(lock_rows(j+(rc-1)*8),1)
 	;oplot,sq2_sweep, r1[*,j]/1000., linestyle=1
 
 	label = 'SQ1_BIAS = ' + string(sq2_bias, format='(f7.0)')
@@ -200,6 +163,8 @@ device, /close
 
 close,3
 
+
+; Discover locking points
 
 target_half_point_ch_by_ch=lonarr(8)
 fb_half_point_ch_by_ch=lonarr(8)
@@ -233,7 +198,57 @@ for chan=0,7 do begin
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
                 endelse
-		ind_half_point=round((ind_min+ind_max)/2)
+		;remove comment here
+		;ind_half_point=round((ind_min+ind_max)/2)
+		
+;		;comment from here
+		midpoint=round((sq1_v_phi(ind_min,chan)+sq1_v_phi(ind_max,chan))/2.)
+		vphi=sq1_v_phi(min([ind_min,ind_max]):max([ind_min,ind_max]),chan)
+		ind_half_point=where(abs(vphi-midpoint) eq min(abs(vphi-midpoint)))
+		ind_half_point=min([ind_min,ind_max])+ind_half_point
+		;print,ind_half_point
+		ind_half_point=ind_half_point(0)
+;		;to here
+;stop
+;                ;MFH version:
+;                start_idx = 100
+;                stop_idx = n_elements(sq1_v_phi(*,chan))-50
+;                print, n_elements(sq1_v_phi), start_idx, stop_idx                
+;                v = sq1_v_phi(start_idx:stop_idx,chan)    ; don't start too close to the left...
+;                v_max = max(v)
+;                v_min = min(v)
+;                radius = (v_max - v_min) / 10.   ; we'll find points within 10% of max and min
+;                ind_max = where( v_max - v lt radius)
+;                ind_min = where( v - v_min lt radius)
+
+;                i = 0
+;                j = 0
+;                ind_half_point = 0
+;                while ( (i lt n_elements(ind_min)) and (j lt n_elements(ind_max))) do begin
+;                    if ind_min(i) lt ind_max(j) then begin
+;                        i = i + 1
+;                        if i ge n_elements(ind_min) then break
+;                        if ind_min(i) gt ind_max(j) then begin
+;                            ind_half_point = (ind_max(j) + ind_min(i-1))/2
+;                            print,'rising!'+string(ind_half_point)
+;                            if slope gt 0 then break
+;                        endif
+;                        continue
+;                    endif
+;                    if ind_max(j) lt ind_min(i) then begin
+;                        j = j + 1
+;                        if j ge n_elements(ind_max) then break 
+;                        if ind_min(i) lt ind_max(j) then begin
+;                            ind_half_point = (ind_min(i) + ind_max(j-1))/2
+;                                ;print,'falling!'+string(ind_half_point)
+;                            if slope lt 0 then break
+;                        endif
+;                    endif
+;                endwhile
+
+;                ind_half_point = ind_half_point + start_idx
+;                ; end MFH
+
 		target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
 		fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
 		print, fb1(ind_half_point,chan)
@@ -287,7 +302,7 @@ for j=0,7 do begin
 	fbmax = max(fb1[10:*,j])/1000
 	fbmin=min(fb1[10:*,j])/1000
 	plot,sq2_sweep, fb1[*,j]/1000,/ys, ytitle ='SQ2_FB/1000',$
-        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SQ2 Channel '+ label+' Row '+strtrim(lockrow(j+(rc-1)*8),1),$
+        xtitle='SQ1_FB/1000', /xs, title='Feed Back, SQ2 Channel '+ label+' Row '+strtrim(lock_rows(j+(rc-1)*8),1),$
         yrange=[fbmin,fbmax],charsize=charsz
 	;oplot,sq2_sweep, fb1[*,j]/1000, linestyle=1
 	oplot, [sq2_sweep(0),sq2_sweep(n_elements(sq2_sweep)-1)],[SQ1_target(j),SQ1_target(j)]/1000.

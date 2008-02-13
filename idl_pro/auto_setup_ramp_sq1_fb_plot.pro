@@ -1,4 +1,4 @@
-pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive
+pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows=numrows,rows=rows
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -73,7 +73,7 @@ sa_bias = 0 * vmax * ma2uA  / ( RL* full_scale)
 
 !p.region=[0,0,0,0]         ;Plot region.
 
-readin=auto_setup_read_2d_ramp_s1(full_name)  ;Read in file
+readin=auto_setup_read_2d_ramp_s1(full_name,numrows=numrows)  ;Read in file
 
 ; Read labels, loop sizes, etc.
 
@@ -120,7 +120,9 @@ squid_multilock=intarr(sizdat(3),sizdat(4))
 
 for j=0,n_bias-1 do begin
 	s1b='the 1 set in the config file'
-	for k=0,32 do begin  ;  A new loop to put one address value per page.
+;	for k=0,numrows-1 do begin  ;  A new loop to put one address value per page.
+        for kr=0,n_elements(rows)-1 do begin
+            k = rows(kr)
 	    for i=0, 7 do begin
 	        label = 'SA Channel ' + string(i, format='(f3.0)')	
 	        plot, s1_fb[a:b]/1000., readin.data[a:b,j,i,k]/1000., xtitle="SQ1_FB"+i_units, ytitle="Voltage"+v_units,$
@@ -157,7 +159,7 @@ for j=0,n_bias-1 do begin
 					squid_multilock(i,k)=0.
 				endif else begin
 					new_adc_offset(i,k)=(smdat(low_sl(low_sl_order(select(0))))+smdat(low_sl(low_sl_order(select(0)+1))))/2
-					;new_adc_offset(i,k)=(max(smdat)+min(smdat))/2.
+					new_adc_offset(i,k)=(max(smdat)+min(smdat))/2.
 					squid_lockrange(i,k)=abs(smdat(low_sl(low_sl_order(select(0))))-smdat(low_sl(low_sl_order(select(0)+1))))
 					; Fit a line to the slope near the lockpoint to store an estimate of the slope data.
 					dnsl = where(zerocross eq -1)
@@ -187,7 +189,7 @@ for j=0,n_bias-1 do begin
                         squid_multilock(i,k)=0.
 		endelse
 		squid_p2p(i,k)=abs(max(smdat)-min(smdat))
-;		new_adc_offset(i,k)=(max(smdat)+min(smdat))/2  ; Note: Old method of selection used smnum=5
+		new_adc_offset(i,k)=(max(smdat)+min(smdat))/2  ; Note: Old method of selection used smnum=5
 	    endfor  ; end of plotting loop in 8 columns.
 	    label_bias = 'sq1 bias = ' + s1b
 	    label_row='row #'+string(k) 
