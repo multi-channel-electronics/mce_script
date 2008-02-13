@@ -81,6 +81,10 @@ echo "wb rca sa_bias 0 0 0 0 0 0 0 0">>$tempfile
 echo "wb rca offset 0 0 0 0 0 0 0 0">>$tempfile
 echo "wb rca flx_lp_init 1">>$tempfile
 
+# TES bias
+
+echo "wb tes bias 0" >> $tempfile
+
 
 # execute the batch file
 mce_cmd -q -f  $MAS_TEMP/mce_zero_bias.temp 

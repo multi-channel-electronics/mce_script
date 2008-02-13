@@ -43,11 +43,9 @@ endif
 
 echo "FRAME_BASENAME=$filename"
 
-mce_cmd -q <<EOF
-  acq_path /
-  acq_config $filename rc$rc_num
-  acq_go $numpts
-EOF
+echo "acq_path /\n" \
+    "acq_config $filename rc$rc_num\n" \
+    "acq_go $numpts" | mce_cmd -q
 
 if ($status) then
   echo "mce_cmd failed to start acquisition."

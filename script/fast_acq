@@ -1,0 +1,38 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "2" ]; then
+    echo "Usage:   fast_acq  n_frames rc [ data_rate ]"
+    echo "  where rc is 1,2,3, or 4."
+    exit 1
+fi
+
+nf=$1
+rc=$2
+
+new_data_rate=4
+if [ "$#" -gt "2" ]; then
+    new_data_rate=$3
+fi
+
+data_rate_in=`command_reply rb cc data_rate`
+
+mce_cmd -qx wb cc num_rows_reported 2
+mce_cmd -qx wb rc$rc readout_row_index 1
+mce_cmd -qx wb cc data_rate $new_data_rate
+
+data_rate=`command_reply rb cc data_rate`
+num_rows=`command_reply rb cc num_rows`
+row_len=`command_reply rb cc row_len`
+ct=`print_ctime`
+
+filename="fast_$ct"
+mux_rate=$(( 50000000 / $num_rows / $row_len ))
+echo "MCE internal frame rate (mux rate) is $mux_rate"
+echo "Readout frame rate is $(( $mux_rate / $data_rate ))"
+echo "Data will be in $MAS_DATA/$filename"
+mce_run $filename $nf $rc
+
+echo "Restoring original data_rate of $data_rate_in"
+mce_cmd -qx wb cc data_rate $data_rate_in

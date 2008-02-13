@@ -1,0 +1,12 @@
+#/bin/bash
+
+if [ "$#" != "1" ]; then
+echo "provide a filename..."
+exit 1
+fi
+
+filename=$1
+cd $MAS_IDL
+idl <<EOF
+	auto_setup_ramp_tes_bias_plot,column=0,rc=2,/binary,'$filename'
+EOF

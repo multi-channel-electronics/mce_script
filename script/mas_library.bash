@@ -20,6 +20,11 @@ function to_dec {
     echo "16i ${1} p"|dc
 }
 
+function float_multiply {
+    # Is there a better way to do floating point calcs in bash?
+    echo "$1 * $2 + 0.5" | bc | sed 's/\..*//g'
+}
+
 # FUNCTIONS FOR DSP DIAGNOSTIC #
 
 function print_pci_mem {

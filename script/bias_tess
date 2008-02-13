@@ -1,13 +1,23 @@
 #!/bin/bash
-## source ~mce/mas_env.bash
+#
+# Applies the biases from the command line to "tes bias"
+#
+
+source $MAS_SCRIPT/mas_library.bash
+
 if [ $# -lt 1 ]; then
   echo "Usage: bias_tess bias_val"
+  echo "The bias specified is applied to all tes bias lines."
   exit 1
 fi
-echo "This script assumes bias_tes is on bc2! double check"
-mce_cmd -q -x wb bc2 bias $1
+
+bias=$1
+
+bias_count=`command_reply rb tes bias | wc -w`
+bias_vals=`repeat_string $1 $bias_count`
+
+mce_cmd -q -x wb tes bias $bias_vals
 if [ $? -ne 0 ]; then
-  echo "FAILURE: bias_tess failed!"
+  echo "FAILURE : bias_tess : mce_cmd neglected to succeed"
   exit 2
 fi
-

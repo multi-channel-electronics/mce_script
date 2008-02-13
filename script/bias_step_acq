@@ -1,0 +1,100 @@
+#!/bin/bash 
+#
+# MFH - bias step script, adapted from MDN's mce_bias_step_acq - 2008/02/12
+#
+
+source $MAS_SCRIPT/mas_library.bash
+
+rc=$1
+n_points=1000
+step_depth=230
+step_period=100000
+
+if [ "$#" -lt 1 ]; then
+    echo "----------------------------------------"
+    echo "Usage: bias_step_acq rc [ n_frames [ depth time ] ]"
+    echo "where:        rc             is the readout card to use (1,2,3 or 4)"
+    echo "              n_frames       is the number of data points to acquire (default $n_points)"
+    echo "              depth          is the amplitude of the bias stepping (default $step_depth)"
+    echo "              time           is the dwell time (in us) on each bias value (default $step_period)"
+#   echo "              note           is a note attached to the acquisition"
+    echo
+    echo "This script uses internal MCE ramping to produce a square wave on the " \
+	"TES bias lines.  The maximum and minimum square wave values are calculated " \
+	"as [ current bias +/- (depth/2) ]."
+    echo "----------------------------------------"
+    exit 1
+fi
+
+if [ "$#" -gt 2 ]; then
+    n_points=$2
+fi
+
+if [ "$#" -gt 3 ]; then
+    step_depth=$3
+    step_period=$4
+fi
+
+echo $step_period
+# The card and parameter to step can, in principal be extracted from mce_status -g output.
+# For now, we get them from experiment.cfg.  Card id's will be 7,8,9 for bc1,2,3.  "bias" param is 33.
+bias_card=`mas_param -s $MAS_DATA/experiment.cfg get bias_card_id`
+bias_para=`mas_param -s $MAS_DATA/experiment.cfg get bias_card_pa`
+
+ct=`print_ctime`
+filename="bias_step_$ct"
+echo "bias_step data will be saved in $MAS_DATA/$filename"
+
+data_rate=`command_reply rb cc data_rate`
+num_rows=`command_reply rb cc num_rows`
+row_len=`command_reply rb cc row_len`
+
+frame_rate=$(( 50000000 / $num_rows / $row_len ))
+echo "Internal frame rate is currently $frame_rate Hz"
+
+step_period=$(( $frame_rate * $step_period / 1000000 ))
+
+# Round to multiple of data_rate
+step_period=$(( ($step_period + $data_rate/2) / $data_rate * $data_rate ))
+
+centre_bias=`command_reply rb bc2 bias`
+
+echo Current bias is $centre_bias
+
+
+half_step=$(( $step_depth / 2 ))
+if [ "$centre_bias" -lt "$half_step" ]; then
+    echo "Current bias value is less than half of the step value, aborting."
+    exit 1
+fi
+
+bias_lo=$(( $centre_bias - $half_step ))
+bias_hi=$(( $centre_bias + $half_step ))
+
+# Disable MCE internal commanding
+mce_cmd -qx wb cc internal_cmd_mode 0
+
+# Set tes bias ramp parameters
+
+mce_cmd -qx wb cc ramp_param_id  $bias_para
+mce_cmd -qx wb cc ramp_card_addr $bias_card
+
+mce_cmd -qx wb cc ramp_step_period $step_period
+mce_cmd -qx wb cc ramp_min_val     $bias_lo
+mce_cmd -qx wb cc ramp_max_val     $bias_hi
+mce_cmd -qx wb cc ramp_step_size   $step_depth
+
+# ramp_step_data_num is the number of data to issue per ramp step command
+# leave this set to 1, multi-ramp is untested
+mce_cmd -qx wb cc ramp_step_data_num 1
+
+# Enable the ramp and acquire
+mce_cmd -qx wb cc internal_cmd_mode 2
+
+mce_run $filename $n_points $rc
+
+# Restore bias (in a cute way), disable ramp.
+mce_cmd -qx wb cc ramp_min_val    $centre_bias
+mce_cmd -qx wb cc ramp_max_val    $centre_bias
+sleep $(( 1 + $step_period / 1000000 ))
+mce_cmd -qx wb cc internal_cmd_mode 0

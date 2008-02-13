@@ -1,152 +1,136 @@
-#!/bin/csh
+#!/bin/bash
 #
-# Revision History:
-# <date $Date: 2007/05/16 23:42:44 $> - <initials: $Author: mce $>
-# $Log: ramp_tes_bias,v $
-# Revision 1.4  2007/05/16 23:42:44  mce
-# elia: changes from ACT input ...
+# Adapted from ramp_tes_bias for DAS
 #
-source ~mce/mas_env.tcsh
 
-if ($#argv != 2) then
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "2" ]; then
   echo "----------------"
-  echo "Usage: ramp_tes_bias datafile n"
-  echo "   datafile is the name of the datafile"
-  echo "   n        is the rc card number (1 to 4)"
+  echo "Usage: ramp_tes_bias datafile n [ bias_start bias_step bias_count bias_pause first_pause [ normal_bias normal_time ] ] "
+  echo "   datafile      is the name of the datafile"
+  echo "   n             is the rc card number (1 to 4)"
+  echo
+  echo "   bias_start    is the first bias to apply"
+  echo "   bias_step     is the change in bias in each step (you probably want a *negative* value here)"
+  echo "   bias_count    is the total number of biases to apply"
+  echo "   bias_pause    is the delay time (in seconds) between biases"
+  echo "   first_pause   is the stabilization delay (in seconds) after applying the first bias"
+  echo
+  echo "   normal_bias   is the bias applied just prior to beginning the ramp"
+  echo "   normal_time   is the number of seconds to apply the normal bias (if 0, no normal bias is applied)"
+  echo
+  echo "At the end of the script, the biases are returned to the values they had when the script was called."
   echo "Note that the file will be saved under the data directory."
   echo "----------------"
   exit 1
-endif
+fi
 
-set script_name=$0
-set datafile=$1
-set n=$2
+# Set default bias step and normalizing parameters
+total_bias=200
+bias_step=-300
+start_bias=60000
+bias_normal=65535
+normal_time=0.1
+first_pause=10
+data_pause_us=100000    # step period in microseconds 
 
-set data_pause=0.5
+# Command line overrides
+if [ "$#" -gt "2" ]; then
+    start_bias=$3
+    bias_step=$4
+    total_bias=$5
+    data_pause_us=`float_multiply 1000000.0 $6`
+    first_pause=$7
+fi
 
-@ total_bias = 1000  #number of steps to decrement
-@ bias_step  = 40
-@ start_bias = 40000
-@ bias_normal = 65535
-@ initial_wait = 10
-@ end_bias = 9000
+if [ "$#" -gt "7" ]; then
+    bias_normal=$8
+    normal_time=$9
+fi
 
+ct=`print_ctime`
+dt=`cat /data/cryo/current_data_name`
 
-set tempfile=$MAS_TEMP/ramp_tes_bias.tmp
-/bin/rm $tempfile
-echo "acq_path $MAS_DATA">>$tempfile 
-echo "acq_config $datafile rc$n">>$tempfile
-echo "acq_go 1">>$tempfile
+data_root=$1
+n=$2
+datafile=$MAS_DATA/$data_root
 
-echo "Driving detectors normal before I-V curve acquisition using ramp_tes_bias script." >> $MAS_DATA/../script_log.txt #
-#mcecmd cmd wb bc$b bias $bias_normal
-#mcecmd cmd wb bc$b2 bias $bias_normal
-bias_tess $bias_normal  >> $MAS_DATA/../script_log.txt 
-if ($status) then
-  echo "FAILURE: ($script_name: bias_tess failed)"
-  exit 2
-endif
-sleep 1
+runfile=$datafile.run
+biasfile=$datafile.bias
+logfile=$datafile.log
 
-echo "waiting $initial_wait sec for temperature to stabilize" >> $MAS_DATA/../script_log.txt 
-echo "Will wait $data_pause sec between each data point." >> $MAS_DATA/../script_log.txt 
+if [ "$normal_time" != "0" ]; then
+    echo "Driving detectors normal (bias = $bias_normal)"
+    bias_tess $bias_normal
+    sleep $normal_time
+    bias_tess 0
+    sleep $normal_time
+    bias_tess $bias_normal
+    sleep $normal_time
+fi
+
+echo "Setting first bias and waiting $first_pause s; time between other points will be $data_pause_us us"
 bias_tess $start_bias
-if ($status) then
-  echo "FAILURE: ($script_name: bias_tess failed)"
-  exit 2
-endif
-sleep $initial_wait
+sleep $first_pause
 
-set ct=`date -u +%s`
+cat /data/cryo/last_squid_tune >> $runfile
 
-set runfile=$datafile.run
-set biasfile=$datafile.bias
-set logfile=$datafile.log
+#Generate .run file
+mce_status >> $runfile
 
-###########################
-# now create runfile
-mce_status>> $MAS_DATA/$runfile 
-if ($status) then
-  echo "FAILURE: ($script_name: mce_status failed)"
-  exit 3
-endif
+# Apply frameacq stamp
+frameacq_stamp $n $datafile $total_bias >> $runfile
+if [ "$?" != "0" ]; then
+  echo "frameacq_stamp failed!"
+  exit 1
+fi
 
-echo "<par_ramp>" >>$MAS_DATA/$runfile
-echo "  <loop_list> loop1">>$MAS_DATA/$runfile
-echo "    <par_list> loop1">>$MAS_DATA/$runfile
-echo "      <par_title loop1 par1> tes_bias">>$MAS_DATA/$runfile
-echo "      <par_step loop1 par1> $start_bias $bias_step $total_bias">>$MAS_DATA/$runfile
-echo "</par_ramp>">>$MAS_DATA/$runfile
+# Remove existing biasfile
+[ -e $biasfile ] && rm $biasfile
 
-@ total_frames = $total_bias
-frameacq_stamp $n $datafile $total_frames>>$MAS_DATA/$runfile
-if ($status) then
-  echo "FAILURE: ($script_name: frameacq_stamp failed)"
-  exit 4
-endif
-##########################
-cat $MAS_DATA/../last_squid_tune >> $MAS_DATA/$runfile
+echo "<tes_bias>" >> $biasfile
+echo "Acquiring I-V curve into data file $datafile"
 
+#touch /data/cryo/${dt}/$datafile
+#ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
+#ln /data/cryo/${dt}/$runfile /data/mce_ctimes/$runfile
+#ln /data/cryo/${dt}/$biasfile /data/mce_ctimes/$biasfile
 
-# Changed to start a new file upon running, instead of appending
-echo "start data:">>$MAS_DATA/$biasfile.old
-echo "rc$n">>$MAS_DATA/$biasfile.old
+for i in `seq 0 $(( $total_bias - 1 ))`; do
+   bias=$(( $start_bias + $i * $bias_step ))
+   bias_tess $bias
+   echo -e \
+       "acq_config $datafile rc$n\n" \
+       "acq_go 1\n" \
+       "sleep $data_pause_us" | \
+       mce_cmd -q
+   if [ "$?" != "0" ]; then
+       exit 3
+   fi
+done
 
-echo "tes_heater">>$MAS_DATA/$biasfile.old
-echo "1 number of points">>$MAS_DATA/$biasfile.old
-echo "0 starting point">>$MAS_DATA/$biasfile.old
-echo "0 step size">>$MAS_DATA/$biasfile.old
-
-echo "tes_bias">>$MAS_DATA/$biasfile.old
-echo "$total_bias number of points">>$MAS_DATA/$biasfile.old
-echo "$start_bias starting point">>$MAS_DATA/$biasfile.old
-echo "$bias_step step size">>$MAS_DATA/$biasfile.old
-echo "<tes_bias>">>$MAS_DATA/$biasfile
-echo "Acquiring I-V curve into data file $MAS_DATA/$datafile" >> $MAS_DATA/../script_log.txt 
-
-@ loop_no=0
-
-mce_cmd -q -x wb cc ret_dat_s 1 1 
-if ($status) then
-  echo "FAILURE: ($script_name: mce_cmd failed)"
-  exit 5
-endif
-
-
-#echo "executing ramp"
-while ($loop_no < $total_bias)
-   @ bias = $start_bias - ($loop_no * $bias_step)
-   bias_tess $bias >>$MAS_DATA/$logfile
-   if ($status) then
-     echo "FAILURE: ($script_name: bias_tess failed)"
-     exit 2
-   endif
-   echo "$bias" >>$MAS_DATA/$biasfile
-   mce_cmd -q -f $tempfile >>$MAS_DATA/$logfile
-   if ($status) then
-     echo "FAILURE: ($script_name: mce_cmd for acq_go failed)"
-     exit 6
-   endif
-   sleep $data_pause
-   @ loop_no++
-end
-
+my_data=/data/cryo
 
 echo "Completed I-V acquisition!"
-echo "Driving detectors normal, then setting detector bias to $end_bias"
-bias_tess $bias_normal  >> $MAS_DATA/../script_log.txt 
-if ($status) then
-  echo "FAILURE: ($script_name: bias_tess failed)"
-  exit 2
-endif
-sleep 0.1
-bias_tess $end_bias  >> $MAS_DATA/../script_log.txt 
-if ($status) then
-  echo "FAILURE: ($script_name: bias_tess failed)"
-  exit 2
-endif
 
+if [ "$normal_time" != "0" ]; then
+    echo "Driving detectors normal (bias=$normal_bias)"
+    bias_tess $bias_normal
+    sleep $normal_time
+    bias_tess 0
+    sleep $normal_time
+    bias_tess $bias_normal
+    sleep $normal_time
+fi
 
-set ctf=`date -u +%s`
-echo "I-V start time: $ct" >> $MAS_DATA/../script_log.txt 
-echo "I-V end time: $ctf" >> $MAS_DATA/../script_log.txt 
+echo "Setting biases to initial value of $end_bias"
+bias_tess $end_bias
+
+echo "IV run time: " `print_elapsed $ct` "s"
+
+last_iv=$my_data/last_iv_completed
+[ -e $last_iv ] && rm -f $last_iv
+ln -s $datafile $last_iv
+
+echo "$datafile" > $my_data/last_iv_completed_name
