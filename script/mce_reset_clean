@@ -3,39 +3,38 @@
 source ${MAS_SCRIPT}mas_library.bash
 
 function check_card_life {
-
-    results=`command_reply rb sys num_rows`
+    results=`mce_cmd -qpx rb sys num_rows`
     if [ "$?" != "0" ]; then
+        echo "life error: $results"
 	return 1
     fi
-
+#    results=`command_reply rb sys num_rows`
+    echo -n $results
     for r in $results; do
 	if [ "$r" == "0" ]; then
 	    return 1
 	fi
     done
-
+    return 0
 }	
 
 #Reset!
 
-tries=3
+if [ "$1" == "" ]; then
+  tries=3
+else
+  tries=$1
+fi
 
 for a in `seq 1 $tries`; do
-
     dsp_cmd -qx reset_mce
-    sleep 1
-
-#First check
-
+#    sleep 1
     check_card_life
-    check_card_life
-    check_card_life
-    check_card_life
-    if [ "$?" == "0" ]; then
-	echo "MCE reset ok, probably."
-	exit 0
+    if [ "$?" == "1" ]; then
+      echo "check_card_life failed $a"
     fi
+    echo $a
 done
 
-exit 1
+echo "MCE reset Successful."
+exit 0
