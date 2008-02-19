@@ -5,7 +5,8 @@
 
 function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range, $
                    structure_only=structure_only,data_mode=data_mode,frame_info=frame_info, $
-                   data2=data2,no_split=no_split,split_bits=split_bits
+                   data2=data2,no_split=no_split,split_bits=split_bits,no_rescale=no_rescale, $
+                   no_runfile=no_runfile,runfile_name=runfile_name
 
 ; Usage:
 ;   mas_data, filename
@@ -19,20 +20,14 @@ function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range,
 ;   data_mode      if specified, can be used to force a default bit splitting
 ;   frame_info     destination structure for frame data file information
 ;   data2          destination for upper bits of data in mixed data modes
-;
+;   no_runfile     do not attempt to process the runfile
+;   runfile_name   use this runfile name instead of filename.run
 
 
 fn_name='mas_data.pro'
 
 ; List of header version numbers that we understand
 allowed_headers = [6]
-
-; no bit split by default...
-if not keyword_set(split_bits) then split_bits = 0
-
-if keyword_set(data_mode) then begin
-    if data_mode eq 2 then split_bits = 14
-endif
 
 ;
 ; Determine the header version using initial words
@@ -74,14 +69,14 @@ frame_info = create_struct( $
                             'n_rows',      header(3), $
                             'frame_size',  0, $ ; place holder
                             'data_size',   0, $ ; place holder
-                            'footer_size',  1, $
+                            'footer_size', 1, $
                             'data_offset', 43 $
 )
 
 ;Calculate frame size and count, assuming 8 columns per card...
 frame_info.data_size = frame_info.n_columns*frame_info.n_rows
 frame_info.frame_size = frame_info.data_offset + frame_info.footer_size + frame_info.data_size
-frame_info.n_frames = fix(data_stat.size / 4 / frame_info.frame_size)
+frame_info.n_frames = fix(data_stat.size / 4L / frame_info.frame_size)
 
 if keyword_set(structure_only) then return,0
 
@@ -112,6 +107,56 @@ for i=0,frame_info.n_frames-1 do begin
     data(*,*,i) = sample
 endfor
 
+
+;
+; Attempt to load the runfile
+;
+if not keyword_set(runfile_name) then $ 
+  runfile_name = filename+'.run'
+
+if not keyword_set(no_runfile) then begin
+    rf = mas_runfile(runfile_name)
+
+    rf_RC = mas_runparam(rf,'FRAMEACQ','RC')
+    data_mode = fix(mas_runparam(rf,'HEADER','RB rc'+rf_RC+' data_mode',error=rf_error))
+
+endif
+
+; Split bits are set from data_mode, unless overridden by argument.
+
+if not keyword_set(split_bits) then split_bits = 0
+rescale = 1.            ; This is a multiplier that is applied to fb data; it depends on data mode
+
+if not keyword_set(split_bits) and data_mode ne 0 then begin
+    case data_mode of
+        1: rescale = 1./2d^12
+        4: split_bits = 14
+        5: begin
+            split_bits =  8
+            rescale = 1./2d^4
+        end
+        6: begin
+            split_bits = 14
+            rescale = 2d^10
+        end
+        7: begin
+            split_bits = 10
+            rescale = 2d^10    ; note that error is also scaled
+        end
+        8: begin
+            split_bits = 8
+            rescale = 2d^8     ; note that lower bits are flux jump counter
+        end
+        9: begin
+            split_bits = 8
+            rescale = 2d^1     ; note that lower bits are flux jump counter
+        end
+        else:
+    endcase
+
+endif
+
+
 ; Split the upper bits into data2 if split_bits is defined and no_split has not been set
 if split_bits ne 0 and not keyword_set(no_split) then begin
     if keyword_set(no_split) then return,data
@@ -121,6 +166,9 @@ if split_bits ne 0 and not keyword_set(no_split) then begin
     d_idx = where(data2 ge 2^(split_bits - 1))
     data2(d_idx) = - (data2(d_idx) AND (2^(split_bits-1)-1))
 endif
+
+if not keyword_set(no_rescale) then $
+  data = data * rescale
 
 return,data
 

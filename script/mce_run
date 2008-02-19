@@ -41,6 +41,9 @@ if ($status) then
   exit 1
 endif
 
+# Put temp(erature) block in runfile
+temperature_block >> $runfilename
+
 echo "FRAME_BASENAME=$filename"
 
 echo "acq_path /\n" \

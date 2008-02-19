@@ -301,25 +301,13 @@ endfor
 xyouts, 6, 16, 'Stars have non-zero error aka. unlocked'
 xyouts, 6, 13, 'Diamonds have fb=0 aka. turned off on purpose in pidz_dead_off.', color=1
 device,/close
-openu, 1, dotrun
-line=''
-repeat readf,1,line until strmid(line,0,11) eq "</FRAMEACQ>"
-readf,1,line
-writeu,1,' '
-;readf,1,line
-writeu,1,'<PIXEL_FLAG>'
-;readf,1,line
-writeu,1,' '
-;readf,1,line
-;for i=0,numrows-1 do begin
-writeu,1,string(pixel_flag)
-;	readf,1,line
-;endfor
-writeu,1,' '
-;readf,1,line
-writeu,1,'</PIXEL_FLAG>'
-;readf,1,line
-writeu,1,' '
+
+; MFH - the writing of this block into the runfile was previously done
+;       wrongly.  This block is compliant.
+openw, 1, dotrun, /append
+printf,1,'<PIXEL_FLAG>'
+printf,1,'<FLAGS> '+string(pixel_flag)
+printf,1,'</PIXEL_FLAG>'
 close,1
 
 if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin

@@ -37,7 +37,8 @@ fi
 
 # The card and parameter to step can, in principal be extracted from mce_status -g output.
 # For now, we get them from experiment.cfg.  Card id's will be 7,8,9 for bc1,2,3.  "bias" param is 33.
-bias_card=`mas_param -s $MAS_DATA/experiment.cfg get bias_card_id`
+#bias_card=`mas_param -s $MAS_DATA/experiment.cfg get bias_card_id`
+bias_card=7
 bias_para=`mas_param -s $MAS_DATA/experiment.cfg get bias_card_pa`
 
 ct=`print_ctime`
@@ -56,7 +57,7 @@ step_period=$(( $frame_rate * $step_period / 1000000 ))
 # Round to multiple of data_rate
 step_period=$(( ($step_period + $data_rate/2) / $data_rate * $data_rate ))
 
-centre_bias=`command_reply rb bc2 bias`
+centre_bias=`command_reply rb bc1 bias`
 
 echo Current bias is $centre_bias
 

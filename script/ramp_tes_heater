@@ -7,7 +7,7 @@ source $MAS_SCRIPT/mas_library.bash
 
 if [ "$#" -lt "2" ]; then
   echo "----------------"
-  echo "Usage: ramp_tes_bias datafile n [ bias_start bias_step bias_count bias_pause first_pause [ normal_bias normal_time ] ] "
+  echo "Usage: ramp_tes_bias datafile n [ bias_start bias_step bias_count bias_pause first_pause ] "
   echo "   datafile      is the name of the datafile"
   echo "   n             is the rc card number (1 to 4)"
   echo
@@ -17,9 +17,6 @@ if [ "$#" -lt "2" ]; then
   echo "   bias_pause    is the delay time (in seconds) between biases"
   echo "   first_pause   is the stabilization delay (in seconds) after applying the first bias"
   echo
-  echo "   normal_bias   is the bias applied just prior to beginning the ramp"
-  echo "   normal_time   is the number of seconds to apply the normal bias (if 0, no normal bias is applied)"
-  echo
   echo "At the end of the script, the biases are returned to the values they had when the script was called."
   echo "Note that the file will be saved under the data directory."
   echo "----------------"
@@ -27,13 +24,11 @@ if [ "$#" -lt "2" ]; then
 fi
 
 # Set default bias step and normalizing parameters
-total_bias=200
-bias_step=-300
-start_bias=60000
-bias_normal=65535
-normal_time=0.1
-first_pause=10
-data_pause_us=100000    # step period in microseconds 
+total_bias=300
+bias_step=20
+start_bias=0
+first_pause=1
+data_pause_us=1000    # step period in microseconds 
 
 # Command line overrides
 if [ "$#" -gt "2" ]; then
@@ -41,13 +36,7 @@ if [ "$#" -gt "2" ]; then
     bias_step=$4
     total_bias=$5
     data_pause_us=`float_multiply 1000000.0 $6`
-    if [ "$data_pause_us" == "" ]; then data_pause_us="0"; fi
     first_pause=$7
-fi
-
-if [ "$#" -gt "7" ]; then
-    bias_normal=$8
-    normal_time=$9
 fi
 
 ct=`print_ctime`
@@ -61,18 +50,10 @@ runfile=$datafile.run
 biasfile=$datafile.bias
 logfile=$datafile.log
 
-if [ "$normal_time" != "0" ]; then
-    echo "Driving detectors normal (bias = $bias_normal)"
-    bias_tess $bias_normal
-    sleep $normal_time
-    bias_tess 0
-    sleep $normal_time
-    bias_tess $bias_normal
-    sleep $normal_time
-fi
+end_bias=`command_reply rb tes heater`
 
 echo "Setting first bias and waiting $first_pause s; time between other points will be $data_pause_us us"
-bias_tess $start_bias
+mce_cmd -qx wb tes heater $start_bias
 sleep $first_pause
 
 cat /data/cryo/last_squid_tune >> $runfile
@@ -94,49 +75,29 @@ temperature_block >> $runfile
 [ -e $biasfile ] && rm $biasfile
 
 echo "<tes_bias>" >> $biasfile
-echo "Acquiring I-V curve into data file $datafile"
+echo "Acquiring heater-V curve into data file $datafile"
 
 #touch /data/cryo/${dt}/$datafile
 #ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
 #ln /data/cryo/${dt}/$runfile /data/mce_ctimes/$runfile
 #ln /data/cryo/${dt}/$biasfile /data/mce_ctimes/$biasfile
 
-script=$MAS_TEMP/ramp_tes_bias.scr
-[ -e $script ] && rm $script
-
 for i in `seq 0 $(( $total_bias - 1 ))`; do
    bias=$(( $start_bias + $i * $bias_step ))
-   echo "wb tes bias $bias"
-   echo "acq_config $datafile rc$n"
-   echo "acq_go 1"
-   if [ "$data_pause_us" -gt "0" ]; then
-       echo "sleep $data_pause_us"
+   mce_cmd -qx wb tes heater $bias
+   echo -e \
+       "acq_config $datafile rc$n\n" \
+       "acq_go 1\n" \
+       "sleep $data_pause_us" | \
+       mce_cmd -q
+   if [ "$?" != "0" ]; then
+       exit 3
    fi
-done > $script
+done
 
-mce_cmd -qf $script
-
-my_data=/data/cryo
-
-echo "Completed I-V acquisition!"
-
-if [ "$normal_time" != "0" ]; then
-    echo "Driving detectors normal (bias=$normal_bias)"
-    bias_tess $bias_normal
-    sleep $normal_time
-    bias_tess 0
-    sleep $normal_time
-    bias_tess $bias_normal
-    sleep $normal_time
-fi
+echo "Completed heater-V acquisition!"
 
 echo "Setting biases to initial value of $end_bias"
-bias_tess $end_bias
+mce_cmd -qx wb tes heater $end_bias
 
 echo "IV run time: " `print_elapsed $ct` "s"
-
-last_iv=$my_data/last_iv_completed
-[ -h $last_iv ] && rm -f $last_iv
-ln -s $datafile $last_iv
-
-echo "$datafile" > $my_data/last_iv_completed_name

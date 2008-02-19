@@ -1,0 +1,19 @@
+#!/bin/bash
+
+function temp_column {
+    echo $1 | cut -d ',' -f $2
+}
+
+temp=`cat /home/mce/oww/test.txt`
+
+echo "<TEMPERATURES>"
+echo "  <unix_time> " `temp_column "$temp" 1`
+echo "  <det_table> " `temp_column "$temp" 59`
+echo "  <350mK head> " `temp_column "$temp" 56`
+echo "  <1K heat ex> " `temp_column "$temp" 57`
+echo "  <3k base plate> " `temp_column "$temp" 58`
+echo "  <still> " `temp_column "$temp" 60`
+echo "  <mixing chambre> " `temp_column "$temp" 61`
+echo "  <condenser> " `temp_column "$temp" 62`
+echo "  <oww> $temp"
+echo "</TEMPERATURES>"
