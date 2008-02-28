@@ -1,0 +1,359 @@
+#!/bin/bash
+
+#---------------------------------------------------------------
+# This script tests the Clock Card FPGA's hardware interfaces.
+#---------------------------------------------------------------
+
+#---------------------------------------------------------------
+# CC Commands that aren't related to hardware tests:
+#---------------------------------------------------------------
+# vfy_eeprom
+# clr_error
+# resync
+# card_type
+# fw_rev
+# scratch
+# ret_dat_s
+# use_dv
+# data_rate
+# mce_bclr
+# cc_bclr
+# tes_tgl_en/ tes_tgl_max/ tes_tgl_min/ tes_tgl_rate
+# int_cmd_en (obsolete?)
+# crc_er_en
+# internal_cmd_mode
+# num_rows_reported
+# ramp_step_period/ ramp_min_val/ ramp_step_size/ ramp_max_val/ 
+# ramp_param_id/ ramp_card_addr/ ramp_step_data_num
+# upload_fw (obsolete?)
+
+#---------------------------------------------------------------
+# Unsupported Hardware Test Commands (but will be tested eventually):
+#---------------------------------------------------------------
+# config_jtag
+
+#---------------------------------------------------------------
+# Constants
+#---------------------------------------------------------------
+RESET_LENGTH=2
+DATA_RUN_SIZE=200
+source $MAS_ROOT/mas_env.bash
+source $MAS_SCRIPT/mas_library.bash
+source $MAS_TEST_SUITE/test_suite_library.bash
+
+file_name="hw_auto_cc"
+
+#---------------------------------------------------------------
+# Functions
+#---------------------------------------------------------------
+function usage {
+  echo ""
+  echo "Usage:"
+  echo "----------------------------------------------------------------"
+  echo "$file_name <path/filename> <tester_initials> <test_type> <mode> "
+  echo "----------------------------------------------------------------"
+  echo "  <path/filename>: required"
+  echo ""
+  echo "  <tester_id>: required"
+  echo ""
+  echo "  <test_type>: optional, default=0"
+  echo "    0  = ALL"
+  echo "    1  = FPGA Temperature"
+  echo "    2  = Card ID"
+  echo "    3  = Card Temperature"
+  echo "    4  = Slot ID"
+  echo "    5  = Array ID"
+  echo "    6  = Box ID"
+  echo "    7  = Box Temperature"
+  echo "    8  = DIP switch"
+  echo "    9  = LED I"
+  echo "    10 = LED II"
+  echo "    11 = Application configuration device"
+  echo "    12 = Factory configuration device"
+  echo "    13 = Sync Box interface"
+  echo "    14 = SRAM"
+  echo "    15 = EEPROM"
+  echo "    16 = nPlus7ok status"
+  echo ""
+  echo "  <mode>: optional, default=0"
+  echo "    0  = interactive"
+  echo "    1  = non-interactive"
+  echo "----------------------------------------------------------------"
+  echo ""
+  exit 1
+}
+
+#---------------------------------------------------------------
+# Main Program
+#---------------------------------------------------------------
+if [ "$#" -lt 1 ]; then
+  usage
+  exit 1
+elif [ "$#" -lt 2 ]; then
+  usage
+  exit 1
+elif [ "$#" -lt 3 ]; then
+  tlog=$1
+  tester_id=$2
+  test_type=0
+  interactive_mode=0
+elif [ "$#" -lt 4 ]; then
+  tlog=$1
+  tester_id=$2
+  test_type=$3
+  interactive_mode=0
+elif [ "$#" -lt 5 ]; then
+  tlog=$1
+  tester_id=$2
+  test_type=$3
+  interactive_mode=$4
+else
+  exit 1
+fi
+
+start_time=`date`
+start_ctime=`print_ctime`
+echo2 $tlog "----------------------------------------------------------------"
+echo2 $tlog "Start of Clock Card hardware test"
+echo2 $tlog "  Rev. ????"
+echo2 $tlog "  Test start time: $start_time"
+if [ $interactive_mode -eq 0 ]; then
+  echo2 $tlog "  Interactive mode"
+else
+  echo2 $tlog "  Non-interactive mode"
+fi
+if [ -e $tlog ]; then
+  echo2 $tlog "  Appending to file: $tlog"
+else
+  echo2 $tlog "  Creating file: $tlog"
+fi
+  echo2 $tlog "  Tester's initials:  $tester_id"
+echo2 $tlog "----------------------------------------------------------------"
+
+echo2 $tlog ""
+
+echo2 $tlog "Please ensure that:"
+echo2 $tlog "-- cc_vX.pof is loaded in the application configuration device"
+echo2 $tlog "-- cc_vY.pof is loaded in the factory configuration device"
+echo2 $tlog "-- the Sync Box fibre is connected to the front panel of the Clock Card"
+echo2 $tlog "-- both the Sync Box and MCE are powered on"
+echo2 $tlog "-- MCE is not mounted on a cryostat (Array ID unhindered)"
+if [ $interactive_mode -eq 0 ]; then
+  echo2 $tlog "Then press [ENTER]"
+  read whatever
+else
+  echo2 $tlog ""
+fi
+
+echo2 $tlog "Resetting the Clock Card.."
+echo2_and_issue $tlog "mce_cmd -q -x RS cc cc_bclr 1"
+sleep $RESET_LENGTH
+echo2 $tlog ""
+echo2 $tlog "Establishing communication with the Clock Card.."
+echo2_and_issue $tlog "mce_cmd -q -x RB cc fw_rev"
+echo2 $tlog "Clock Card Firmware Revision is: $mce_ret"
+echo2 $tlog ""
+
+# Determine if we are running all the tests, or just one
+if [ $test_type -ge 1 ]; then
+  test_num=$test_type
+else
+  test_num=1
+fi
+
+test_passes=0
+test_failures=0
+
+autotest_lb=0
+autotest_ub=0
+autotest_text="none"
+autotest_type=0
+data_filename=""
+
+while [ 1 ]; do
+  
+  # Reset test strings
+  cmd_str="command_reply"
+  test_type_str="No test type."
+  pass_crtn_str="No pass criterion."
+  autotest_type=0
+
+  echo2 $tlog "--Test $test_num:------------------------------------------------------"
+  #---------------------------------------------------------------
+  # Tests:
+  #---------------------------------------------------------------
+  if [ $test_num -eq 1 ]; then
+    echo2_and_issue $tlog "command_reply RB cc fpga_temp"
+    test_type_str="FPGA Temperature reads: $mce_ret [Deg. C.]"
+    # source: http://www.altera.com.cn/literature/wp/wp_ext_temp_devices.pdf
+    #autotest_lb=1
+    autotest_lb=65
+    autotest_ub=85
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 2 ]; then
+    echo2_and_issue $tlog "command_reply RB cc card_id"
+    test_type_str="Card ID reads: $mce_ret"
+    autotest_lb=1
+    autotest_ub=4294967295 # (2^32)-1
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 3 ]; then
+    echo2_and_issue $tlog "command_reply RB cc card_temp"
+    test_type_str="Card Temperature reads: $mce_ret [Deg. C.]"
+    autotest_lb=1
+    #autotest_ub=85 
+    autotest_ub=50 
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 4 ]; then
+    echo2_and_issue $tlog "command_reply RB cc slot_id"
+    test_type_str="Slot ID reads: $mce_ret"
+    autotest_lb=8
+    autotest_ub=8 
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 5 ]; then
+    echo2_and_issue $tlog "command_reply RB cc array_id"
+    test_type_str="Array ID (MCE unmounted) reads: $mce_ret"
+    autotest_lb=7
+    autotest_ub=7 
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 6 ]; then
+    echo2_and_issue $tlog "command_reply RB cc box_id"
+    test_type_str="Box ID reads: $mce_ret"
+    autotest_lb=1
+    autotest_ub=4294967295 # (2^32)-1
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 7 ]; then
+    echo2_and_issue $tlog "command_reply RB cc box_temp"
+    test_type_str="Box Temp reads: $mce_ret [Deg. C.]"
+    autotest_lb=1
+    #autotest_ub=85 
+    autotest_ub=50 
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 8 ]; then
+    # 'No' is a key word
+    test_type_str="No DIP Switch test yet."
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 9 ]; then
+    echo2_and_issue $tlog "command_reply RB cc led"
+    test_type_str="Default LEDs read: $mce_ret"
+    autotest_lb=3
+    autotest_ub=3 
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 10 ]; then 
+    echo2_and_issue $tlog "mce_cmd -q -x WB cc led 7"
+    echo2_and_issue $tlog "command_reply RB cc led"
+    test_type_str="Switched LEDs read: $mce_ret"
+    autotest_lb=4
+    autotest_ub=4 
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 11 ]; then
+    echo2 $tlog "Loading Application Configuration. Please wait.."  
+    echo2_and_issue $tlog "mce_cmd -q -x RS cc config_app 1"
+    sleep $RESET_LENGTH
+    echo2_and_issue $tlog "command_reply RB cc fw_rev"
+    test_type_str="Loaded Application Configuration. Firmware revision reads: $mce_ret"
+    autotest_type=1
+    autotest_text="0x"
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 12 ]; then
+    echo2 $tlog "Loading Factory Configuration. Please wait.."  
+    echo2_and_issue $tlog "mce_cmd -q -x RS cc config_fac 1"
+    sleep $RESET_LENGTH
+    echo2_and_issue $tlog "command_reply RB cc fw_rev"
+    test_type_str="Loaded Factory Configuration. Firmware revision reads: $mce_ret"
+    autotest_type=1
+    autotest_text="0x"
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 13 ]; then
+    echo2 $tlog "Sourcing Sync, DV and Clock from Sync Box.."
+    echo2_and_issue $tlog "mce_cmd -q -x WB cc use_sync 2"
+    echo2_and_issue $tlog "mce_cmd -q -x WB cc use_dv 2"
+    echo2_and_issue $tlog "mce_cmd -q -x WB cc select_clk 1"
+    sleep $RESET_LENGTH
+    echo2 $tlog "Conducting a trial data run.."
+    echo2_and_issue $tlog "mce_run cc_hardware_$start_ctime $DATA_RUN_SIZE s"
+    
+# this needs to be reworked, because $status reflects the last bash operation: echo!
+#    if [ $? -eq 1 ]; then
+#    if [ $status ]; then
+#      # Run a script here that returns the size of the file collected.
+#      echo "Data acquisition failed."
+#      #echo $?
+#    else
+#      echo "Data acquisition succeeded."
+#    fi
+    
+    data_filename="$MAS_DATA"cc_hardware_"$start_ctime"
+    test_type_str="Collected Sync Box-triggered data in a file called: $data_filename"
+    autotest_type=3
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 14 ]; then
+    echo2 $tlog "Testing SRAM interfaces. Please wait.."  
+    hw_auto_cc_sram
+    
+    if [ $? -ne 0 ]; then
+      mce_ret=1
+    else
+      mce_ret=0
+    fi
+    
+    test_type_str="SRAM test returned: $mce_ret"
+    autotest_lb=0
+    autotest_ub=0
+  #---------------------------------------------------------------
+#  elif [ $test_num -eq 15 ]; then 
+#    echo2_and_issue $tlog "command_reply RB cc card_type"
+#    test_type_str="Card type reads: $mce_ret"
+#    autotest_lb=3
+#    autotest_ub=3
+  #---------------------------------------------------------------
+#  elif [ $test_num -eq ??? ]; then 
+#    mce_ret=`mce_cmd -q -x WB cc scratch 1 2 3 4 5 6 7 8`
+#    mce_ret=`command_reply RB cc scratch`
+#    test_type_str="Scratch pad reads: $mce_ret"
+#    autotest_type=2
+#    autotest_lb=1
+#    autotest_ub=8
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 15 ]; then
+    # 'No' is a key word
+    test_type_str="No EERPROM test yet."
+  #---------------------------------------------------------------
+  elif [ $test_num -eq 16 ]; then
+    # 'No' is a key word
+    test_type_str="No nPlus7OK test yet."
+  #---------------------------------------------------------------
+  else
+    echo2 $tlog "No more tests."
+    echo2 $tlog ""
+    break;
+  fi
+  
+  test_result_analysis $tlog "$test_type_str" $interactive_mode $autotest_type "$mce_ret" $autotest_lb $autotest_ub
+  
+  # Are we finished the subset of tests that we set out to do?
+  if [ $test_type -eq 0 ]; then
+    test_num=$(($test_num + 1))
+  else
+    break
+  fi
+done  
+
+# Print test statistics
+end_time=`date`
+delta_ctime=`print_elapsed $start_ctime`
+test_pass_ratio=$(($test_passes))/$(($test_passes+$test_failures))
+
+echo2 $tlog "----------------------------------------------------------------"
+echo2 $tlog "End of Clock Card Hardware Test"
+echo2 $tlog "  Test Passes: $test_passes"
+echo2 $tlog "  Test Failures: $test_failures"
+#echo2 $tlog "  Test Pass Ratio: $test_pass_ratio"
+echo2 $tlog "  Test End Time: $end_time"
+echo2 $tlog "  Test Length: $delta_ctime [s]"
+echo2 $tlog "----------------------------------------------------------------"
+
+if [ $test_failures -eq 0 ]; then
+  exit 0
+else
+  exit 1
+fi
