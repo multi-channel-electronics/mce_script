@@ -37,17 +37,16 @@
 #---------------------------------------------------------------
 RESET_LENGTH=2
 DATA_RUN_SIZE=200
-source $MAS_ROOT/mas_env.bash
+
 source $MAS_SCRIPT/mas_library.bash
 source $MAS_TEST_SUITE/test_suite_library.bash
 
-file_name="hw_auto_cc"
+file_name=$0
 
 #---------------------------------------------------------------
 # Functions
 #---------------------------------------------------------------
 function usage {
-  echo ""
   echo "Usage:"
   echo "----------------------------------------------------------------"
   echo "$file_name <path/filename> <tester_initials> <test_type> <mode> "
@@ -86,53 +85,51 @@ function usage {
 #---------------------------------------------------------------
 # Main Program
 #---------------------------------------------------------------
-if [ "$#" -lt 1 ]; then
-  usage
-  exit 1
-elif [ "$#" -lt 2 ]; then
+if [ "$#" -lt 2 ]; then
   usage
   exit 1
 elif [ "$#" -lt 3 ]; then
-  tlog=$1
-  tester_id=$2
   test_type=0
   interactive_mode=0
 elif [ "$#" -lt 4 ]; then
-  tlog=$1
-  tester_id=$2
   test_type=$3
   interactive_mode=0
 elif [ "$#" -lt 5 ]; then
-  tlog=$1
-  tester_id=$2
   test_type=$3
   interactive_mode=$4
 else
+  echo "$0 too many arguments!"
   exit 1
 fi
 
+tlog="${MAS_DATA}/$1"
+tester_id=$2
+
+LOGGER="tee -a $tlog"
+
 start_time=`date`
 start_ctime=`print_ctime`
-echo2 $tlog "----------------------------------------------------------------"
-echo2 $tlog "Start of Clock Card hardware test"
-echo2 $tlog "  Rev. ????"
-echo2 $tlog "  Test start time: $start_time"
+echo "----------------------------------------------------------------"|$LOGGER
+echo "Start of Clock Card hardware test"|$LOGGER
+echo "  Rev. ????"|$LOGGER
+echo "  Test start time: $start_time"|$LOGGER
 if [ $interactive_mode -eq 0 ]; then
-  echo2 $tlog "  Interactive mode"
+  echo "  Interactive mode"|$LOGGER
 else
-  echo2 $tlog "  Non-interactive mode"
+  echo "  Non-interactive mode"|$LOGGER
 fi
 if [ -e $tlog ]; then
-  echo2 $tlog "  Appending to file: $tlog"
+  echo "  Appending to file: $tlog"|$LOGGER
 else
-  echo2 $tlog "  Creating file: $tlog"
+  echo "  Creating file: $tlog"|$LOGGER
 fi
-  echo2 $tlog "  Tester's initials:  $tester_id"
-echo2 $tlog "----------------------------------------------------------------"
 
-echo2 $tlog ""
+echo "  Tester's initials:  $tester_id"|$LOGGER
+echo "----------------------------------------------------------------"|$LOGGER
 
-echo2 $tlog "Please ensure that:"
+echo ""|$LOGGER
+
+echo "Please ensure that:"|$LOGGER
 echo2 $tlog "-- cc_vX.pof is loaded in the application configuration device"
 echo2 $tlog "-- cc_vY.pof is loaded in the factory configuration device"
 echo2 $tlog "-- the Sync Box fibre is connected to the front panel of the Clock Card"
@@ -188,7 +185,7 @@ while [ 1 ]; do
     # source: http://www.altera.com.cn/literature/wp/wp_ext_temp_devices.pdf
     #autotest_lb=1
     autotest_lb=65
-    autotest_ub=85
+    autotest_ub=95
   #---------------------------------------------------------------
   elif [ $test_num -eq 2 ]; then
     echo2_and_issue $tlog "command_reply RB cc card_id"

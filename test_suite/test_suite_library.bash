@@ -6,15 +6,13 @@ function echo2_and_issue {
   test_log=$1
   cmd_str=$2
   
-  echo "  > $cmd_str">>$test_log
-  echo "  > $cmd_str"  
+  echo "  > $cmd_str"|tee -a $test_log
   mce_ret=`$cmd_str`
 }
 
 function echo2 {
   test_log=$1
   str=$2
-  
   echo "$str">>$test_log
   echo "$str"  
 }
