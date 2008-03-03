@@ -1,0 +1,39 @@
+# MA: no error checking here as this is temporary subrack check
+source $MAS_SCRIPT/mas_library.bash
+TMP="$MAS_TEMP/$0.tmp"
+
+today=`date`
+echo "$0 run under MAS on $today"
+
+# LED Flashing Test or in fact wb test
+echo "watch the LEDs flash"
+for j in `seq 1 10`; do
+  for i in ac bc1 bc2 bc3 rc1 rc2 cc ; do 
+    mce_cmd -q -x wb $i led 7
+  done
+done
+
+# report subrack info
+for cmd in fw_rev fpga_temp card_temp card_id slot_id card_type; do
+  for i in ac bc1 bc2 bc3 rc1 rc2 cc ; do 
+    a=`command_reply rb $i $cmd`
+    echo "$i $cmd $a"
+  done
+  echo "**************************"
+done
+# report power status
+psc_status
+
+# take data and compare results
+/bin/rm $MAS_DATA/.tmp.data
+echo "wb rca sample_num 1">$TMP
+echo "wb rca data_mode 1">>$TMP
+echo "wb rc1 fb_const 1 2 3 4 5 6 7 8">>$TMP
+echo "wb rc2 fb_const 9 10 11 12 13 14 15 16">>$TMP
+echo "acq_config $MAS_DATA/.tmp.data rcs">>$TMP
+echo "acq_go 1">>$TMP
+mce_cmd -q -f $TMP
+for i in `seq 1 1`; do 
+  a=`~/ascii_frame 41 16 $MAS_DATA/.tmp.data 0 "%8i"|awk 'NF==16 {print $\$i}'`
+  #echo $a
+done
