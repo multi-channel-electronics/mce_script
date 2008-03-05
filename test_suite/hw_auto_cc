@@ -41,7 +41,10 @@ DATA_RUN_SIZE=200
 source $MAS_SCRIPT/mas_library.bash
 source $MAS_TEST_SUITE/test_suite_library.bash
 
-file_name=$0
+path_name=${0%/*}
+file_name=${0##*/}
+base_name=${file_name%%.*}
+extn_name=${file_name#*.}
 
 #---------------------------------------------------------------
 # Functions
@@ -102,8 +105,11 @@ else
   exit 1
 fi
 
-tlog="${MAS_DATA}/$1"
-tester_id=$2
+# The user has ultimate control over where to put the test logs.
+# i.e they are not routed automatically to $MAS_DATA
+#tlog="${MAS_DATA}/$1"
+tlog="$1"
+tester_id="$2"
 
 LOGGER="tee -a $tlog"
 
@@ -111,6 +117,7 @@ start_time=`date`
 start_ctime=`print_ctime`
 echo "----------------------------------------------------------------"|$LOGGER
 echo "Start of Clock Card hardware test"|$LOGGER
+echo "  $path_name/$base_name"|$LOGGER
 echo "  Rev. ????"|$LOGGER
 echo "  Test start time: $start_time"|$LOGGER
 if [ $interactive_mode -eq 0 ]; then
@@ -126,10 +133,9 @@ fi
 
 echo "  Tester's initials:  $tester_id"|$LOGGER
 echo "----------------------------------------------------------------"|$LOGGER
-
 echo ""|$LOGGER
 
-echo "Please ensure that:"|$LOGGER
+echo2 $tlog "Please ensure that:"
 echo2 $tlog "-- cc_vX.pof is loaded in the application configuration device"
 echo2 $tlog "-- cc_vY.pof is loaded in the factory configuration device"
 echo2 $tlog "-- the Sync Box fibre is connected to the front panel of the Clock Card"
@@ -162,6 +168,8 @@ test_passes=0
 test_failures=0
 
 autotest_lb=0
+autotest_lub=0
+autotest_ulb=0
 autotest_ub=0
 autotest_text="none"
 autotest_type=0
@@ -183,7 +191,6 @@ while [ 1 ]; do
     echo2_and_issue $tlog "command_reply RB cc fpga_temp"
     test_type_str="FPGA Temperature reads: $mce_ret [Deg. C.]"
     # source: http://www.altera.com.cn/literature/wp/wp_ext_temp_devices.pdf
-    #autotest_lb=1
     autotest_lb=65
     autotest_ub=95
   #---------------------------------------------------------------
@@ -197,7 +204,6 @@ while [ 1 ]; do
     echo2_and_issue $tlog "command_reply RB cc card_temp"
     test_type_str="Card Temperature reads: $mce_ret [Deg. C.]"
     autotest_lb=1
-    #autotest_ub=85 
     autotest_ub=50 
   #---------------------------------------------------------------
   elif [ $test_num -eq 4 ]; then
@@ -221,8 +227,11 @@ while [ 1 ]; do
   elif [ $test_num -eq 7 ]; then
     echo2_and_issue $tlog "command_reply RB cc box_temp"
     test_type_str="Box Temp reads: $mce_ret [Deg. C.]"
-    autotest_lb=1
-    #autotest_ub=85 
+    # The two-slot backplane returns a constant value of -2, regardless of the actual T.
+    autotest_type=4
+    autotest_lb=-2
+    autotest_lub=-1
+    autotest_ulb=1
     autotest_ub=50 
   #---------------------------------------------------------------
   elif [ $test_num -eq 8 ]; then
@@ -279,7 +288,7 @@ while [ 1 ]; do
 #      echo "Data acquisition succeeded."
 #    fi
     
-    data_filename="$MAS_DATA"cc_hardware_"$start_ctime"
+    data_filename="$MAS_DATA""file_name"_"$start_ctime"
     test_type_str="Collected Sync Box-triggered data in a file called: $data_filename"
     autotest_type=3
   #---------------------------------------------------------------
@@ -325,7 +334,7 @@ while [ 1 ]; do
     break;
   fi
   
-  test_result_analysis $tlog "$test_type_str" $interactive_mode $autotest_type "$mce_ret" $autotest_lb $autotest_ub
+  test_result_analysis "$file_name" $tlog "$test_num" "$test_type_str" $interactive_mode $autotest_type "$mce_ret" $autotest_lb $autotest_ub $autotest_lub $autotest_ulb
   
   # Are we finished the subset of tests that we set out to do?
   if [ $test_type -eq 0 ]; then
@@ -344,7 +353,7 @@ echo2 $tlog "----------------------------------------------------------------"
 echo2 $tlog "End of Clock Card Hardware Test"
 echo2 $tlog "  Test Passes: $test_passes"
 echo2 $tlog "  Test Failures: $test_failures"
-#echo2 $tlog "  Test Pass Ratio: $test_pass_ratio"
+echo2 $tlog "  Test Pass Ratio: $test_pass_ratio"
 echo2 $tlog "  Test End Time: $end_time"
 echo2 $tlog "  Test Length: $delta_ctime [s]"
 echo2 $tlog "----------------------------------------------------------------"

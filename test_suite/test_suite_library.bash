@@ -4,8 +4,7 @@ file_name="test_suite_library.bash"
 
 function echo2_and_issue {
   test_log=$1
-  cmd_str=$2
-  
+  cmd_str=$2  
   echo "  > $cmd_str"|tee -a $test_log
   mce_ret=`$cmd_str`
 }
@@ -13,18 +12,23 @@ function echo2_and_issue {
 function echo2 {
   test_log=$1
   str=$2
-  echo "$str">>$test_log
-  echo "$str"  
+  echo "$str"|tee -a $test_log
+#  echo "$str">>$test_log
+#  echo "$str"  
 }
 
 function test_result_analysis {
-  tlog2=$1
-  test_type_str2=$2
-  interactive_mode2=$3
-  autotest_type2=$4
-  mce_ret2=$5
-  autotest_lb2=$6
-  autotest_ub2=$7
+  file_name2=$1
+  tlog2=$2
+  test_num2=$3
+  test_type_str2=$4
+  interactive_mode2=$5
+  autotest_type2=$6
+  mce_ret2=$7
+  autotest_lb2=$8
+  autotest_ub2=$9
+  autotest_lub2=$10
+  autotest_ulb2=$11
   tester_notes="fail"
 
   # Append/ output test information
@@ -50,6 +54,9 @@ function test_result_analysis {
         elif [ $autotest_type2 -eq 3 ]; then
           # Does file exist
           echo2 $tlog2 "Pass criterion: does file exist"          
+        elif [ $autotest_type2 -eq 4 ]; then
+          # Does a single value occur between two distinct ranges?
+          echo2 $tlog "Pass criterion: is the value between $autotest_lb2  $autotest_lub2 or $autotest_ulb2 - $autotest_ub2"
         else
           # skip check here
           :
@@ -90,6 +97,14 @@ function test_result_analysis {
           else
             tester_notes="fail"
           fi
+	elif [ $autotest_type2 -eq 4 ]; then
+          if [ $mce_ret -ge $autotest_lb2 -a $mce_ret -le $autotest_lub2 ]; then
+            tester_notes="pass"
+          elif [ $mce_ret -ge $autotest_ulb2 -a $mce_ret -le $autotest_ub2 ]; then
+            tester_notes="pass"
+          else
+            tester_notes="fail"
+          fi
         else
           # skip check here
           tester_notes="fail"
@@ -101,9 +116,9 @@ function test_result_analysis {
         # Append the tester's ID and notes to the test log
 
         if [ $interactive_mode2 -eq 0 ]; then
-          echo "$test_name : test $test_num : $tester_id : $tester_notes">>$tlog2
+          echo "$file_name2 : test $test_num2 : $tester_id : $tester_notes">>$tlog2
         else
-          echo2 $tlog2 "$test_name : test $test_num : $tester_id : $tester_notes"
+          echo2 $tlog2 "$file_name2 : test $test_num2 : auto : $tester_notes"
         fi        
         echo2 $tlog2 ""
         break
@@ -111,9 +126,9 @@ function test_result_analysis {
         test_failures=$(($test_failures + 1)) 
         # Append the tester's ID and notes to the test log
         if [ $interactive_mode2 -eq 0 ]; then
-          echo "$test_name : test $test_num : $tester_id : $tester_notes">>$tlog2
+          echo "$file_name2 : test $test_num2 : $tester_id : $tester_notes">>$tlog2
         else
-          echo2 $tlog2 "$test_name : test $test_num : $tester_id : $tester_notes"
+          echo2 $tlog2 "$file_name2 : test $test_num2 : auto : $tester_notes"
         fi
         echo2 $tlog2 ""
         break
