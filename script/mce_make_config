@@ -31,6 +31,9 @@ if [ -e $outfile ]; then
     rm $outfile
 fi
 
+# Create the config file
+touch $outfile
+
 # Do the shell define line explicitly
 echo "#!/bin/bash" >> $outfile
 
