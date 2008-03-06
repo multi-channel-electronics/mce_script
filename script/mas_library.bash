@@ -56,6 +56,7 @@ function print_dsp_diagnostic {
 
 function command_reply {
     mce_cmd -qpx $@ | cut -d ':' -f 2
+    return ${PIPESTATUS[0]}
 }
 
 

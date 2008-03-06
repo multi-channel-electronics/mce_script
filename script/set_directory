@@ -39,13 +39,21 @@ if [ ! -e analysis ]; then
     chmod g+s analysis
 fi
 
-files_to_copy="experiment.cfg sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
+files_to_copy="sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
 
 for f in $files_to_copy; do
     if [ ! -e $f ]; then
 	cp $MAS_TEMPLATE/$f .
     fi
 done
+
+# Create experiment_template.cfg (not edited by auto-tuning)
+if [ ! -e experiment_template.cfg ]; then
+    cp $MAS_TEMPLATE/experiment.cfg experiment_template.cfg
+fi
+
+# In any case, overwrite experiment.cfg with the MAS_DATA template
+cp experiment_template.cfg experiment.cfg
 
 # Create an mce config script
 
