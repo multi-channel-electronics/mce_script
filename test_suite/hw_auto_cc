@@ -173,7 +173,7 @@ autotest_ulb=0
 autotest_ub=0
 autotest_text="none"
 autotest_type=0
-data_filename=""
+data_file_name=""
 
 while [ 1 ]; do
   
@@ -198,7 +198,7 @@ while [ 1 ]; do
     echo2_and_issue $tlog "command_reply RB cc card_id"
     test_type_str="Card ID reads: $mce_ret"
     autotest_lb=1
-    autotest_ub=4294967295 # (2^32)-1
+    autotest_ub=4294967295 #(2^32)-1
   #---------------------------------------------------------------
   elif [ $test_num -eq 3 ]; then
     echo2_and_issue $tlog "command_reply RB cc card_temp"
@@ -228,10 +228,10 @@ while [ 1 ]; do
     echo2_and_issue $tlog "command_reply RB cc box_temp"
     test_type_str="Box Temp reads: $mce_ret [Deg. C.]"
     # The two-slot backplane returns a constant value of -2, regardless of the actual T.
-    autotest_type=4
+#    autotest_type=4
     autotest_lb=-2
-    autotest_lub=-1
-    autotest_ulb=1
+#    autotest_lub=-1
+#    autotest_ulb=1
     autotest_ub=50 
   #---------------------------------------------------------------
   elif [ $test_num -eq 8 ]; then
@@ -276,20 +276,18 @@ while [ 1 ]; do
     echo2_and_issue $tlog "mce_cmd -q -x WB cc select_clk 1"
     sleep $RESET_LENGTH
     echo2 $tlog "Conducting a trial data run.."
-    echo2_and_issue $tlog "mce_run cc_hardware_$start_ctime $DATA_RUN_SIZE s"
+    data_file_name="$file_name"_"$start_ctime"
+    data_path_file_name="$MAS_DATA""$data_file_name"
+    echo2_and_issue $tlog "mce_run "$data_file_name" $DATA_RUN_SIZE s"
     
-# this needs to be reworked, because $status reflects the last bash operation: echo!
-#    if [ $? -eq 1 ]; then
-#    if [ $status ]; then
+    if [ $? -eq 1 ]; then
 #      # Run a script here that returns the size of the file collected.
-#      echo "Data acquisition failed."
-#      #echo $?
-#    else
-#      echo "Data acquisition succeeded."
-#    fi
+      echo2 $tlog "Data acquisition failed."
+    else
+      echo2 $tlog "Data acquisition succeeded."
+    fi
     
-    data_filename="$MAS_DATA""file_name"_"$start_ctime"
-    test_type_str="Collected Sync Box-triggered data in a file called: $data_filename"
+    test_type_str="Collected data in a file called: $data_path_file_name"
     autotest_type=3
   #---------------------------------------------------------------
   elif [ $test_num -eq 14 ]; then
@@ -334,7 +332,19 @@ while [ 1 ]; do
     break;
   fi
   
-  test_result_analysis "$file_name" $tlog "$test_num" "$test_type_str" $interactive_mode $autotest_type "$mce_ret" $autotest_lb $autotest_ub $autotest_lub $autotest_ulb
+# The following variables must be defined for before the function call to test_result_analysis
+#  $file_name 
+#  $tlog 
+#  $test_num 
+#  $test_type_str 
+#  $interactive_mode 
+#  $autotest_type 
+#  $mce_ret 
+#  $autotest_lb  
+#  $autotest_ub 
+#  $autotest_lub 
+#  $autotest_ulb
+  test_result_analysis 
   
   # Are we finished the subset of tests that we set out to do?
   if [ $test_type -eq 0 ]; then

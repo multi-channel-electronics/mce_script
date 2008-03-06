@@ -18,45 +18,34 @@ function echo2 {
 }
 
 function test_result_analysis {
-  file_name2=$1
-  tlog2=$2
-  test_num2=$3
-  test_type_str2=$4
-  interactive_mode2=$5
-  autotest_type2=$6
-  mce_ret2=$7
-  autotest_lb2=$8
-  autotest_ub2=$9
-  autotest_lub2=$10
-  autotest_ulb2=$11
   tester_notes="fail"
 
   # Append/ output test information
-  echo2 $tlog2 "$test_type_str2"  
+  echo2 $tlog "$test_type_str"  
   
-  if [[ $test_type_str2 == No* ]]; then
+  if [[ $test_type_str == No* ]]; then
     # The test does not exist, therefore results are not checked
-    echo2 $tlog2 ""  
+    echo2 $tlog ""  
   else
     # Parse the tester's input.  Input must begin with "pass" or "fail".
     while [ 1 ]; do
       
 # embed the interactive mode check after each test type      
       # If we are not in deaf mode, then wait for the reponse
-      if [ $interactive_mode2 -eq 0 ]; then
+      if [ $interactive_mode -eq 0 ]; then
 
-        if [ $autotest_type2 -eq 0 -o $autotest_type2 -eq 2 ]; then
+        if [ $autotest_type -eq 0 -o $autotest_type -eq 2 ]; then
           # One value within a certain range
-          echo2 $tlog2 "Pass criterion: between $autotest_lb2 and $autotest_ub2"          
-        elif [ $autotest_type2 -eq 1 ]; then
+          echo2 $tlog "Pass criterion: between $autotest_lb and $autotest_ub"          
+        elif [ $autotest_type -eq 1 ]; then
           # Text
-          echo2 $tlog2 "Pass criterion: contains $autotest_text"          
-        elif [ $autotest_type2 -eq 3 ]; then
+          echo2 $tlog "Pass criterion: contains $autotest_text"          
+        elif [ $autotest_type -eq 3 ]; then
           # Does file exist
-          echo2 $tlog2 "Pass criterion: does file exist"          
-        elif [ $autotest_type2 -eq 4 ]; then
+          echo2 $tlog "Pass criterion: does file exist"          
+        elif [ $autotest_type -eq 4 ]; then
           # Does a single value occur between two distinct ranges?
-          echo2 $tlog "Pass criterion: is the value between $autotest_lb2  $autotest_lub2 or $autotest_ulb2 - $autotest_ub2"
+          echo2 $tlog "Pass criterion: is the value between $autotest_lb - $autotest_lub or $autotest_ulb - $autotest_ub"
         else
           # skip check here
           :
@@ -67,14 +56,14 @@ function test_result_analysis {
 
       else
       
-        if [ $autotest_type2 -eq 0 ]; then
+        if [ $autotest_type -eq 0 ]; then
           # One value within a certain range
-          if [ $mce_ret -ge $autotest_lb2 -a $mce_ret -le $autotest_ub2 ]; then
+          if [ $mce_ret -ge $autotest_lb -a $mce_ret -le $autotest_ub ]; then
             tester_notes="pass"
           else
             tester_notes="fail"
           fi
-        elif [ $autotest_type2 -eq 1 ]; then
+        elif [ $autotest_type -eq 1 ]; then
           # Text
           substring=${mce_ret:1:2}
           if [ $substring = $autotest_text ]; then
@@ -82,25 +71,25 @@ function test_result_analysis {
           else
             tester_notes="fail"
           fi
-        elif [ $autotest_type2 -eq 2 ]; then
+        elif [ $autotest_type -eq 2 ]; then
           # do multiple value checking here
 #          substring=${mce_ret:0:1}
-#          if [ mce_ret[0] -ge $autotest_lb2 ]; then
+#          if [ mce_ret[0] -ge $autotest_lb ]; then
 #            tester_notes="pass"
 #          else
             tester_notes="fail"
 #          fi
-        elif [ $autotest_type2 -eq 3 ]; then
-          if [ -s $data_filename ]; then
+        elif [ $autotest_type -eq 3 ]; then
+          if [ -s $data_path_file_name ]; then
             # does file exist?
             tester_notes="pass"
           else
             tester_notes="fail"
           fi
-	elif [ $autotest_type2 -eq 4 ]; then
-          if [ $mce_ret -ge $autotest_lb2 -a $mce_ret -le $autotest_lub2 ]; then
+	elif [ $autotest_type -eq 4 ]; then
+          if [ $mce_ret -ge $autotest_lb -a $mce_ret -le $autotest_lub ]; then
             tester_notes="pass"
-          elif [ $mce_ret -ge $autotest_ulb2 -a $mce_ret -le $autotest_ub2 ]; then
+          elif [ $mce_ret -ge $autotest_ulb -a $mce_ret -le $autotest_ub ]; then
             tester_notes="pass"
           else
             tester_notes="fail"
@@ -115,22 +104,22 @@ function test_result_analysis {
         test_passes=$(($test_passes + 1))
         # Append the tester's ID and notes to the test log
 
-        if [ $interactive_mode2 -eq 0 ]; then
-          echo "$file_name2 : test $test_num2 : $tester_id : $tester_notes">>$tlog2
+        if [ $interactive_mode -eq 0 ]; then
+          echo "$file_name : test $test_num : $tester_id : $tester_notes">>$tlog
         else
-          echo2 $tlog2 "$file_name2 : test $test_num2 : auto : $tester_notes"
+          echo2 $tlog "$file_name : test $test_num : auto : $tester_notes"
         fi        
-        echo2 $tlog2 ""
+        echo2 $tlog ""
         break
       elif [[ $tester_notes == fail* ]]; then
         test_failures=$(($test_failures + 1)) 
         # Append the tester's ID and notes to the test log
-        if [ $interactive_mode2 -eq 0 ]; then
-          echo "$file_name2 : test $test_num2 : $tester_id : $tester_notes">>$tlog2
+        if [ $interactive_mode -eq 0 ]; then
+          echo "$file_name : test $test_num : $tester_id : $tester_notes">>$tlog
         else
-          echo2 $tlog2 "$file_name2 : test $test_num2 : auto : $tester_notes"
+          echo2 $tlog "$file_name : test $test_num : auto : $tester_notes"
         fi
-        echo2 $tlog2 ""
+        echo2 $tlog ""
         break
       elif [[ $tester_notes == none* ]]; then
         break
