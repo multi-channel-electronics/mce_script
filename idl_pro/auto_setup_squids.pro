@@ -66,41 +66,21 @@ spawn,'check_zero bc3 flux_fb >> '+todays_folder+c_filename+'.log',exit_status=o
 on_sq2bias=abs(on_sq2bias-1)
 on_bias=on_bias+on_sq2bias
 
-;SET DATA FORMAT, CLEAR COMUNICATIONS AND RESET THE MCE
+;RESET THE MCE
 print, 'mce_reset_clean suppressed!'
 ;spawn,'mce_reset_clean >> '+todays_folder+c_filename+'.log'
 
-;ENTER HERE THE VALUES RELATED TO YOUR CAMERA
-samp_num=10							;number of data coadded
-if not keyword_set(numrows) then numrows=33			;number of rows
-good_squid_amplitude = 5000					;the program recommends turning a SQUID off if its V-phi is smaller than this
+;LOAD CAMERA DEFAULTS FROM EXPERIMENT CONFIG FILE
+samp_num=exp_config.default_sample_num[0]	;number of data coadded
+if not keyword_set(numrows) then $
+  numrows=exp_config.default_num_rows[0]        ;number of detectors rows to servo
 
-; tbias1=0	;3000						;end detectors bias
-; tbias2=0	;3000	
-; tbias3=0	;3000	
+sq2slope = exp_config.sq2servo_slope[0]
+sq1slope = exp_config.sq1servo_slope[0]
 
+ramp_sq1_bias_run=0				;Set this to 1 to sweep the tes bias and look at squid v-phi response.
 
-
-tbias1     = exp_config.tes_bias_bc1
-tbias2     = exp_config.tes_bias_bc2
-tbias3     = exp_config.tes_bias_bc3
-normtbias1 = exp_config.tes_bias_bc1_normal
-normtbias2 = exp_config.tes_bias_bc2_normal
-normtbias3 = exp_config.tes_bias_bc3_normal
-normbias_time = exp_config.tes_bias_normal_time
-
-;pidp=0								;pid parameters
-;pidi=-40		
-
-pidp = exp_config.servo_p
-pidi = exp_config.servo_i
-;!
-
-final_data_mode=2						;Mode to set in the config file after all data is acquired.
-ramp_sq1_bias_run=0						;Set this to 1 to sweep the tes bias and look at squid v-phi response.
-
-sq2slope=-1							;it changes the sq1 and sq2 servos imposing them to lock on positive or negative slopes
-sq1slope=-1
+;;TODO - *bias.init inputs should come from experiment.cfg
 
 SA_feedback_file=lon64arr(32)
 SA_feedback_file(*)=32000
@@ -108,28 +88,25 @@ SA_feedback_file(*)=32000
 SQ2_feedback_file=lon64arr(32)
 SQ2_feedback_file(*)=8200
 
-if n_elements(ROW) eq 0 then begin				;row used in the last frametest plot
-	print,'Row = 0 is used for frametest_plot by default!'
-	ROW=2
-endif
+column_adc_offset=lon64arr(32)
 
 
 ;DETECTOR BIAS
 ;Setting detectors bias by first driving them normal and then to the transition.
-;Here we specify three different detector bias corresponding to 3
-;different groups of detectors
+;The values in tes_bias_idle and tes_bias_normal are written to "tes
+;bias" virtual address.
 for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
   auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_normal(i))
 
-wait,exp_config.tes_bias_normal
+wait,exp_config.tes_bias_normal_time[0]
 
 for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
   auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
 
 exp_config.config_rc = rc_enable
-exp_config.sample_num = samp_num
 
 
+;;TODO - these should come from experiment.cfg, or something.
 ;THE SQUIDS BIAS CAN BE SPECIFIED APRIORI AND READ FROM A FILE
 def_sa_bias = lon64arr(32)
 sq2_bias = lon64arr(32)
@@ -156,11 +133,10 @@ for rows=0,40 do begin
 endfor
 close,17
 
+; For SA defaults, use our tried and tested defaults.
+
 exp_config.sa_bias = def_sa_bias
 exp_config.sq2_bias = sq2_bias
-
-;INITIALIZE THE adc_offset CONFIG FILE
-column_adc_offset=lon64arr(32)
 
 ; Save experiment params, make config script, run it.
 save_exp_params,exp_config,exp_config_file
@@ -251,16 +227,16 @@ for jj=0,n_elements(RCs)-1 do begin
 	endif else begin
 		i1='Yes'
 	endelse
-	
-        exp_config.data_mode = 0
-        exp_config.servo_mode = 1
-        exp_config.config_adc_offset_all = 0      ; configure one adc_offset for the whole column
-        exp_config.adc_offset_c(RC_indices) = 0
-        exp_config.sq2_bias(RC_indices) = 0
+
+        exp_config.data_mode[0] = 0
+        exp_config.servo_mode[0] = 1
+        exp_config.config_adc_offset_all[0] = 0      ; configure one adc_offset for the whole column
+        exp_config.adc_offset_c[RC_indices] = 0
+        exp_config.sq2_bias[RC_indices] = 0
 	
 	common ramp_sa_var,plot_file,final_sa_bias_ch_by_ch,SA_target,SA_fb_init,peak_to_peak
 
-	if keyword_set(ramp_sa_bias) then begin				;if we want to fine the SSA bias again
+        if keyword_set(ramp_sa_bias) then begin         ; if we want to fine the SSA bias again
 
                 save_exp_params,exp_config,exp_config_file
                 mce_make_config, params_file=exp_config_file, $
@@ -277,7 +253,7 @@ for jj=0,n_elements(RCs)-1 do begin
         		exit,status=2
 		endif
 		
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive 
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows
 
 		if keyword_set(interactive) then begin
 			i2=dialog_message(['The auto_setup has found the bias and the offsets',$
@@ -296,10 +272,12 @@ for jj=0,n_elements(RCs)-1 do begin
 		endif
 
                 exp_config.sa_bias(RC_indices) = final_sa_bias_ch_by_ch
-                sa_offset_MCE2=floor(final_sa_bias_ch_by_ch * exp_config.sa_offset_bias_ratio)
+                sa_offset_MCE2=floor(final_sa_bias_ch_by_ch * exp_config.sa_offset_bias_ratio[0])
+
                 exp_config.sa_offset(RC_indices) = sa_offset_MCE2
-                exp_config.config_adc_offset_all = 0
+                exp_config.config_adc_offset_all[0] = 0
                 exp_config.adc_offset_c(RC_indices) = SA_target
+
                 column_adc_offset(RC_indices) = SA_target
 
 	endif else begin
@@ -307,7 +285,8 @@ for jj=0,n_elements(RCs)-1 do begin
 		;Instead of ramping the SA bias, just use the default values, and ramp the SA fb to confirm that the v-phi's look good.
 
                 exp_config.sa_bias(RC_indices) = def_sa_bias(RC_indices)
-                sa_offset_MCE2=floor(def_sa_bias * exp_config.sa_offset_bias_ratio)
+                sa_offset_MCE2=floor(def_sa_bias * exp_config.sa_offset_bias_ratio[0])
+
                 exp_config.sa_offset(RC_indices) = sa_offset_MCE2(RC_indices)
                 
                 save_exp_params,exp_config,exp_config_file
@@ -325,9 +304,9 @@ for jj=0,n_elements(RCs)-1 do begin
                         exit,status=3
                 endif
 
-		auto_setup_ramp_sa_fb_plot_const_bias,ssa_file_name,RC=rc,interactive=interactive 
+		auto_setup_ramp_sa_fb_plot_const_bias,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows
 
-                exp_config.config_adc_offset_all = 0
+                exp_config.config_adc_offset_all[0] = 0
                 exp_config.adc_offset_c(RC_indices) = SA_target
 
                 column_adc_offset(RC_indices) = SA_target
@@ -404,10 +383,9 @@ for jj=0,n_elements(RCs)-1 do begin
 	common sq2_servo_var,SQ2_target,SQ2_feedback,file_out
 	
 	;BEFORE STARTING THE SQ2 SETUP WE HAVE TO RESET TO THE INITIAL VALUES ALL THE SETTINGS
-	;sq2_bias_vec=replicate(sq2_bias,8)
 
-        exp_config.data_mode = 0
-        exp_config.servo_mode = 1
+        exp_config.data_mode[0] = 0
+        exp_config.servo_mode[0] = 1
         exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
         exp_config.sq1_bias = sq1_bias
 
@@ -446,7 +424,7 @@ for jj=0,n_elements(RCs)-1 do begin
         strtimesq2=string(timesq2,format='(i10)')
         sq2_file_name=strcompress(file_folder+'/'+strtimesq2+'_RC'+string(RC),/remove_all)
 
-	auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain ;,/lockamp
+	auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[0] ;,/lockamp
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -546,13 +524,13 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 	common sq1_servo_var,SQ1_target,SQ1_feedback,file_out2
 
-        exp_config.data_mode = 0
-        exp_config.num_rows = numrows
-        exp_config.num_rows_reported = numrows
-        exp_config.servo_mode = 1
-        exp_config.servo_p = 0
-        exp_config.servo_i = 0
-        exp_config.servo_d = 0
+        exp_config.data_mode[0] = 0
+        exp_config.num_rows[0] = numrows
+        exp_config.num_rows_reported[0] = numrows
+        exp_config.servo_mode[0] = 1
+        exp_config.servo_p[0] = 0
+        exp_config.servo_i[0] = 0
+        exp_config.servo_d[0] = 0
 	
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -611,7 +589,7 @@ for jj=0,n_elements(RCs)-1 do begin
   	
 		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-                  gain=exp_config.sq1servo_gain,LOCK_ROWS=(lonarr(32) + sq1servorow)
+                  gain=exp_config.sq1servo_gain[0],LOCK_ROWS=(lonarr(32) + sq1servorow)
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
 
@@ -654,7 +632,7 @@ for jj=0,n_elements(RCs)-1 do begin
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
               RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-              gain=exp_config.sq1servo_gain,lock_rows=exp_config.sq2_rows
+              gain=exp_config.sq1servo_gain[0],lock_rows=exp_config.sq2_rows
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -710,14 +688,6 @@ endfor
 ;SQ1 ramp check:
 ;----------------------------------------------------------------------------------------------------------
 
-;!MFH - replaced with adc_offset_cr
-; ;Generate adc_offset files which will contain the adc offset values for each individual detector.
-; ;The adc_off_run_file is called and run by the config file
-; openw,20,adc_off_run_file
-; printf,20,'#!/bin/csh'
-; close,20
-; spawn,'echo -e "\n">>'+adc_off_run_file
-
 new_adc_arr = strarr(32)
 squid_p2p_arr = strarr(32)
 squid_lockrange_arr = strarr(32)
@@ -739,11 +709,11 @@ for jj=0,n_elements(RCs)-1 do begin
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
-        exp_config.data_mode = 0
-        exp_config.servo_mode = 1
-        exp_config.servo_p = 0
-        exp_config.servo_i = 0
-        exp_config.servo_d = 0
+        exp_config.data_mode[0] = 0
+        exp_config.servo_mode[0] = 1
+        exp_config.servo_p[0] = 0
+        exp_config.servo_i[0] = 0
+        exp_config.servo_d[0] = 0
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -765,7 +735,8 @@ for jj=0,n_elements(RCs)-1 do begin
         rsq1_file_name=strcompress(file_folder+'/'+strtimersq1+'_RC'+string(RC),/remove_all)
 	rsq1_file_name=string(rsq1_file_name)+'_sq1ramp'
 
-	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows
+	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
+          rows=exp_config.sq1ramp_plot_rows
 	i10='Yes'
         if keyword_set(interactive) then begin
                 i10=dialog_message(['The auto_setup has found the the new',$
@@ -805,13 +776,13 @@ for jj=0,n_elements(RCs)-1 do begin
 	endfor
 
         if i10 eq 'Yes' then begin
-        	for j=0,7 do begin
+            for j=0,7 do begin
                 	setting_new_adc='echo "wb rc'+strcompress(string(RC),/REMOVE_ALL)+' adc_offset'+strcompress(string(j),/REMOVE_ALL)
                 	for i=0,numrows-1 do begin
 
 ;!MFH
 ;                         	setting_new_adc=setting_new_adc+' '+string(all_adc_offsets((rc-1)*8+j,i), format='(i11)')
-                            exp_config.adc_offset_cr( ((rc-1)*8 + j)*exp_config.array_width + i ) = $
+                            exp_config.adc_offset_cr( ((rc-1)*8 + j)*exp_config.array_width[0] + i ) = $
                               all_adc_offsets((rc-1)*8+j,i)
 
                         	new_adc_arr((rc-1)*8+j)=new_adc_arr((rc-1)*8+j)+' '+string(all_adc_offsets((rc-1)*8+j,i), format='(i6)')
@@ -820,7 +791,8 @@ for jj=0,n_elements(RCs)-1 do begin
                                 squid_lockslopedn_arr((rc-1)*8+j)=squid_lockslopedn_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,0)),/REMOVE_ALL)
                                 squid_lockslopeup_arr((rc-1)*8+j)=squid_lockslopeup_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,1)),/REMOVE_ALL)
                                 squid_multilock_arr((rc-1)*8+j)=squid_multilock_arr((rc-1)*8+j)+' '+string(all_squid_multilock((rc-1)*8+j,i), format='(i2)')
-                                if all_squid_lockrange((rc-1)*8+j,i) lt good_squid_amplitude then turn_sq_off = 1 else turn_sq_off = 0
+                                if all_squid_lockrange((rc-1)*8+j,i) lt exp_config.locktest_pass_amplitude[0] then $
+                                  turn_sq_off = 1 else turn_sq_off = 0
                                 squid_off_rec_arr((rc-1)*8+j)=squid_off_rec_arr((rc-1)*8+j)+' '+strtrim(turn_sq_off,1)
                             endfor
 ;!MFH
@@ -830,7 +802,7 @@ for jj=0,n_elements(RCs)-1 do begin
 
 ;!MFH
         ; Turn on adc_offset config for all columns.
-        exp_config.config_adc_offset_all = 1
+        exp_config.config_adc_offset_all[0] = 1
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -854,7 +826,7 @@ for jj=0,n_elements(RCs)-1 do begin
         strtimersq1c=string(timersq1c,format='(i10)')
         rsq1c_file_name=strcompress(file_folder+'/'+strtimersq1c+'_RC'+string(RC),/remove_all)
         rsq1c_file_name=string(rsq1c_file_name)+'_sq1rampc'
-	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows
+	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows,rows=exp_config.sq1ramp_plot_rows
 
 	if ramp_sq1_bias_run eq 1 then begin
 		spawn,config_mce_file + ' >> '+todays_folder+c_filename+'.log',exit_status=status16
@@ -882,11 +854,11 @@ endfor
 ;Frametest check: 
 ;----------------------------------------------------------------------------------------------------------
 
-exp_config.data_mode = final_data_mode
-exp_config.servo_mode = 3
-exp_config.servo_p = pidp
-exp_config.servo_i = pidi
-exp_config.servo_d = 0
+exp_config.data_mode[0] = exp_config.default_data_mode[0]
+exp_config.servo_mode[0] = 3
+exp_config.servo_p[0] = exp_config.default_servo_p
+exp_config.servo_i[0] = exp_config.default_servo_i
+exp_config.servo_d[0] = exp_config.default_servo_d
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $
@@ -901,6 +873,12 @@ if status17 ne 0 then begin
         print,'##############################################################'
         print,''
         exit,status=17
+endif
+
+; Permit row override, or else take it from config
+if n_elements(ROW) eq 0 then begin				;row used in the last frametest plot
+	ROW=exp_config.locktest_plot_row[0]
+	print,'Row = '+string(ROW)+' is used for frametest_plot by default!'
 endif
 
 if n_elements(RCs) lt 4 then begin
@@ -931,8 +909,6 @@ endif else begin
 	step11:
 endelse
 
-;file_chmod, adc_off_run_file,/a_execute
-;spawn,'cp -p '+adc_off_run_file+' '+todays_folder+c_filename+'_adc_offset_conf'
 spawn,'cp -p '+config_mce_file+' '+todays_folder+c_filename+'_config_mce_auto_setup_'+current_data
 
 header_file=todays_folder+c_filename+'.sqtune'

@@ -1,6 +1,6 @@
-function auto_setup_read_2d_ramp_s1, file_name
+function auto_setup_read_2d_ramp_s1, file_name, numrows=numrows
 
-numrows=33
+if not keyword_set(numrows) then numrows=33
 
 line=''
 block=lonarr(8,numrows)

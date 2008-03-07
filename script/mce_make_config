@@ -27,7 +27,7 @@ fi
 
 # Remove existing file
 if [ -e $outfile ]; then
-    echo "Removing existing '$outfile'"
+#    echo "Removing existing '$outfile'"
     rm $outfile
 fi
 

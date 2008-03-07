@@ -58,7 +58,7 @@ for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
     
     ch_ofs=$(( ($rc-1)*8 ))
-    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
+#    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
     echo "wb rc$rc en_fb_jump   0" >> $mce_script
     echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
@@ -95,7 +95,7 @@ done
 #fi
 
 
-echo "Other cards: time=" `print_elapsed $create_start` >&2
+# echo "Other cards: time=" `print_elapsed $create_start` >&2
 
 #----------------------------------------------
 # Address Card
@@ -106,23 +106,8 @@ echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
 
 
-#----------------------------------------------
-# Bias Card 1 (flux_fb on BC1 sets sa_fb)
-#----------------------------------------------
-echo "wb bc1 bias $tes_bias_bc1" >> $mce_script
-                                                                                                                             
-#----------------------------------------------
-# Bias Card 2 (flux_fb on BC2 sets sq2_fb)
-#----------------------------------------------
-if [ "$hardware_bac" == "0" ]; then
-    echo "wb bc2 bias $tes_bias_bc2" >> $mce_script
-fi
-                                                                                                                             
-#----------------------------------------------
-# Bias Card 3 (flux_fb on BC3 sets sq2_bias)
-#----------------------------------------------
-echo "wb bc3 bias $tes_bias_bc3" >> $mce_script
-
+# Set the TES biases via the "tes bias" virtual address
+echo "wb tes bias ${tes_bias_idle[@]}" >> $mce_script
 
 #----------------------------------------------
 # Bias Cards - use functional mappings!
