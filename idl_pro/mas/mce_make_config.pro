@@ -16,7 +16,7 @@ if keyword_set(logfile) then begin
 endif
 
 ; Create the config
-print,'Make command: '+make_command
+;print,'Make command: '+make_command
 spawn,make_command,exit_status=exit_status
 if exit_status ne 0 then begin
     print,'Config creation failed: ' + make_command
@@ -24,7 +24,7 @@ if exit_status ne 0 then begin
 endif
 
 if keyword_set(run_now) then begin
-    print,'Running config: ' + config_command
+;    print,'Running config: ' + config_command
     spawn,config_command,exit_status=exit_status
     if exit_status ne 0 then begin
         print,'Config run failed: ' + config_command

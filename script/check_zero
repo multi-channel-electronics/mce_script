@@ -26,7 +26,7 @@ set card=$cmd[1]
 set param=$cmd[2]
 
 @ cmdstatus =0
-set val=`mce_cmd -x rb $card $param |awk '{for (i=6; i<= NF; i=i+1) if ($i != 0) sum +=1} END {print sum}'`
+set val=`mce_cmd -qpx rb $card $param|awk '{for (i=3; i<= NF; i=i+1) if ($i != 0) sum +=1} END {print sum}'`
 if ($val) then
   echo "Number of non-zero items: $val"
   exit 1

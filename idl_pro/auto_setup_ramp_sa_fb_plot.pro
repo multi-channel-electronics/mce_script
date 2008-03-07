@@ -1,4 +1,4 @@
-pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive
+pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive,numrows=numrows
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from ramp_sa_fb_plot.pro 
@@ -8,6 +8,8 @@ common ramp_sa_var
 
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
+
+if not keyword_set(numrows) then numrows = 33
 
 ;Comunication:
 print,''
@@ -23,6 +25,9 @@ file_name_ramp_sa=file_name+'_ssa'
 ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
+
+;print,'Pausing before ramp_sa_fb'
+;wait,1
 
 ;Run the shell script:
 spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 1'+ ' >> /data/cryo/current_data/'+logfile,exit_status=status4
@@ -76,7 +81,7 @@ sa_bias = 0 * vmax * ma2uA  / ( RL* full_scale)
 !p.region=[0,0,0,0]         ;Plot region.
  
 ;Reading the 2-dim data array from the file:
-readin=auto_setup_read_2d_ramp(full_name)  ;Read in file.
+readin=auto_setup_read_2d_ramp(full_name,numrows=numrows)  ;Read in file.
 
 ;Read labels, loop sizes, etc.
 horiz_label=readin.labels[2]
@@ -194,11 +199,11 @@ print,''
 print,'###########################################################################'
 print,'SA bias and target (adc_offset) channel by channel:'
 print,'###########################################################################'
+print,' Channel Bias@step (index) Target@half  sa_fb@half '
+print,'---------------------------------------------------'
 for chan=0,7 do begin
-	print,'Channel:',chan
 	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
 	final_sa_bias_ch_by_ch(chan)=round(bias_start + ind(chan)* bias_step)
-	print,'sa_bias @ step',ind(chan),', ie sa_bias=',final_sa_bias_ch_by_ch(chan)
 ;	min_point=min(av_vol(ind(chan),150:380,chan),ind_min)	;in case we want to lock on the negative slope
 ;	ind_min=150+ind_min
 
@@ -225,12 +230,17 @@ for chan=0,7 do begin
 	;min_slope=min(deriv_av_vol(ind(chan),100:300,chan),indd)	
 	;ind_min_slope=indd+100						
 	;target_min_slope_ch_by_ch(chan)=round(1000.*av_vol(ind(chan),ind_min_slope,chan))
-	print,'target  @ half point=',target_half_point_ch_by_ch(chan)
 	;fb_min_slope_ch_by_ch(chan)=round(1000.*i_fb(ind_min_slope))
-	print,'sa_fb   @ half point=',fb_half_point_ch_by_ch(chan)
 	;print,' '
 
-	print,'###########################################################################'
+        print,format='(i4, i11, i8, i12, i12)',chan, final_sa_bias_ch_by_ch(chan), ind(chan), $
+          target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+
+;;!	print,'Channel:',chan
+;;!	print,'sa_bias @ step',ind(chan),', ie sa_bias=',final_sa_bias_ch_by_ch(chan)
+;;!	print,'target  @ half point=',target_half_point_ch_by_ch(chan)
+;;!	print,'sa_fb   @ half point=',fb_half_point_ch_by_ch(chan)
+;;!	print,'###########################################################################'
 	;print,' '
 ;stop
 endfor

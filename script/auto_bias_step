@@ -26,8 +26,8 @@ fi
 n_frames=$1
 note="$2"
 
-# args are file_prefix, frame count, note, card (1,2,3,4,s), data mode
-ACQ="mce_bias_step_acq $n_frames '$note'"
+# args are broken.  filename is auto-generated.  fix this, please.
+ACQ="bias_step_acq s $n_frames " # '$note'
 ACQ_TARGET=0
 
 # Try to start in good health
