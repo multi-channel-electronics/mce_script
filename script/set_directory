@@ -14,7 +14,30 @@ if [ ! -e $today ]; then
     mkdir $today
     chmod g+s $today
 fi
+
+# Create current_data link and put today's date into current_data_name
+
+link_name=/data/cryo/current_data
+date_file=/data/cryo/current_data_name
+if [ -e $link_name ]; then
+    /bin/rm $link_name
+fi
+ln -s /data/cryo/$today  $link_name
+
+if [ -e $date_file ]; then
+    /bin/rm $date_file
+fi
+echo $today > $date_file
+
+
+# Populate the new data folder.
+
 cd $today
+
+if [ ! -e analysis ]; then
+    mkdir analysis
+    chmod g+s analysis
+fi
 
 files_to_copy="sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
 
@@ -24,12 +47,15 @@ for f in $files_to_copy; do
     fi
 done
 
+# Create experiment_template.cfg (not edited by auto-tuning)
 if [ ! -e experiment_template.cfg ]; then
     cp $MAS_TEMPLATE/experiment.cfg experiment_template.cfg
 fi
 
 # In any case, overwrite experiment.cfg with the MAS_DATA template
 cp experiment_template.cfg experiment.cfg
+
+# Create an mce config script
 
 new_config="config_mce_auto_setup_$today"
 if [ -e $new_config ]; then
@@ -40,15 +66,6 @@ else
     chmod g+rws $new_config
 fi
 
-if [ ! -e analysis ]; then
-    mkdir analysis
-    chmod g+s analysis
-fi
+# Reopen the log file, or launch the server
 
-/bin/rm /data/cryo/current_data
-ln -s /data/cryo/$today  /data/cryo/current_data  
-
-/bin/rm /data/cryo/current_data_name
-echo $today > /data/cryo/current_data_name
-
-maslog reopen
+maslog reopen 2> /dev/null || maslog_server
