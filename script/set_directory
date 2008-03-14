@@ -39,7 +39,7 @@ if [ ! -e analysis ]; then
     chmod g+s analysis
 fi
 
-files_to_copy="experiment.cfg sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
+files_to_copy="experiment.cfg sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init"
 
 for f in $files_to_copy; do
     if [ ! -e $f ]; then
