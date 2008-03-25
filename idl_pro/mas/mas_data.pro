@@ -107,6 +107,7 @@ for i=0,frame_info.n_frames-1 do begin
     data(*,*,i) = sample
 endfor
 
+free_lun,data_lun
 
 ;
 ; Attempt to load the runfile
