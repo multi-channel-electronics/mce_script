@@ -45,7 +45,7 @@ c_filename=file_folder+'/'+file_folder
 ;DEFAULT read-out CARD
 if not keyword_set(RCs) then begin
         print,'WARNING: you have not specified the read-out card number so I will set all RCs!'
-        RCs=[1,2,3,4]
+        RCs=where(exp_config.hardware_rc eq 1) + 1
 endif
 rc_enable=intarr(4)
 rc_enable(rcs(*)-1)=1
@@ -212,9 +212,11 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 	step2:
 	
-        timessa=systime(1,/utc)
-        strtimessa=string(timessa,format='(i10)')
-        ssa_file_name=strcompress(file_folder+'/'+strtimessa+'_RC'+string(RC),/remove_all)
+        ;MFH
+;         timessa=systime(1,/utc)
+;         strtimessa=string(timessa,format='(i10)')
+;         x_ssa_file_name=strcompress(file_folder+'/'+strtimessa+'_RC'+string(RC),/remove_all)
+        ssa_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
 	if keyword_set(interactive) then begin
 		i1=dialog_message(['After some preliminary procedures (step 1), the auto_setup',$ 
@@ -420,9 +422,10 @@ for jj=0,n_elements(RCs)-1 do begin
 	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
 	spawn,SA_feedback_string
 	
-	timesq2=systime(1,/utc)
-        strtimesq2=string(timesq2,format='(i10)')
-        sq2_file_name=strcompress(file_folder+'/'+strtimesq2+'_RC'+string(RC),/remove_all)
+; 	timesq2=systime(1,/utc)
+;         strtimesq2=string(timesq2,format='(i10)')
+;         sq2_file_name=strcompress(file_folder+'/'+strtimesq2+'_RC'+string(RC),/remove_all)
+        sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
 	auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[0] ;,/lockamp
 
@@ -562,8 +565,9 @@ for jj=0,n_elements(RCs)-1 do begin
 	SQ2_feedback_string='echo -e "'+SQ2_feedback_string+'" > '+todays_folder+'sq2fb.init'
 	spawn,SQ2_feedback_string
        
-	timesq1=systime(1,/utc)
-        strtimesq1=string(timesq1,format='(i10)')
+; 	timesq1=systime(1,/utc)
+;         strtimesq1=string(timesq1,format='(i10)')
+        sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
 
 
         if exp_config.config_fast_sq2 then begin
@@ -575,11 +579,10 @@ for jj=0,n_elements(RCs)-1 do begin
             SQ2_feedback_full_array=lon64arr(numrows,8)
 
             for sq1servorow=0,numrows-1 do begin
-                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
-		;row=0
+;                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
+                sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
 
-                ; Rewrite the row.init file, forcing all columns
-                ; to this row.
+                ; Rewrite the row.init file, forcing all columns to this row.
                 row_init_string=''
                 for j=0,31 do begin
                         row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
@@ -628,7 +631,8 @@ for jj=0,n_elements(RCs)-1 do begin
             ; This block uses original sq1servo to
             ; lock on a specific row for each column
 
-            sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
+;            sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
+            sq1_file_name=sq1_base_name
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
               RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
@@ -730,10 +734,11 @@ for jj=0,n_elements(RCs)-1 do begin
                 exit,status=12
         endif
 
-	timersq1=systime(1,/utc)
-        strtimersq1=string(timersq1,format='(i10)')
-        rsq1_file_name=strcompress(file_folder+'/'+strtimersq1+'_RC'+string(RC),/remove_all)
-	rsq1_file_name=string(rsq1_file_name)+'_sq1ramp'
+; 	timersq1=systime(1,/utc)
+;         strtimersq1=string(timersq1,format='(i10)')
+;         rsq1_file_name=strcompress(file_folder+'/'+strtimersq1+'_RC'+string(RC),/remove_all)
+; 	rsq1_file_name=string(rsq1_file_name)+'_sq1ramp'
+        rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp')
 
 	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
           rows=exp_config.sq1ramp_plot_rows
@@ -822,10 +827,12 @@ for jj=0,n_elements(RCs)-1 do begin
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
-	timersq1c=systime(1,/utc)
-        strtimersq1c=string(timersq1c,format='(i10)')
-        rsq1c_file_name=strcompress(file_folder+'/'+strtimersq1c+'_RC'+string(RC),/remove_all)
-        rsq1c_file_name=string(rsq1c_file_name)+'_sq1rampc'
+; 	timersq1c=systime(1,/utc)
+;         strtimersq1c=string(timersq1c,format='(i10)')
+;         rsq1c_file_name=strcompress(file_folder+'/'+strtimersq1c+'_RC'+string(RC),/remove_all)
+;         rsq1c_file_name=string(rsq1c_file_name)+'_sq1rampc'
+        rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc')
+
 	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows,rows=exp_config.sq1ramp_plot_rows
 
 	if ramp_sq1_bias_run eq 1 then begin
@@ -839,10 +846,12 @@ for jj=0,n_elements(RCs)-1 do begin
                 	exit,status=16
 		endif
 
-		timertb=systime(1,/utc)
-		strtimertb=string(timertb,format='(i10)')        
-		rtb_file_name=strcompress(file_folder+'/'+strtimertb+'_RC'+string(RC),/remove_all)
-        	rtb_file_name=string(rtb_file_name)+'_sq1rampb'
+; 		timertb=systime(1,/utc)
+; 		strtimertb=string(timertb,format='(i10)')        
+; 		rtb_file_name=strcompress(file_folder+'/'+strtimertb+'_RC'+string(RC),/remove_all)
+;         	rtb_file_name=string(rtb_file_name)+'_sq1rampb'
+                rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb')
+
 		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows
 	endif
 
@@ -884,10 +893,12 @@ endif
 if n_elements(RCs) lt 4 then begin
 	for jj=0,n_elements(RCs)-1 do begin
         	RC=RCs(jj)
-                timelock=systime(1,/utc)
-                strtimelock=string(timelock,format='(i10)')
-                lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RC'+string(RC),/remove_all)
-                lock_file_name=string(lock_file_name)+'_lock'
+;                 timelock=systime(1,/utc)
+;                 strtimelock=string(timelock,format='(i10)')
+;                 lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RC'+string(RC),/remove_all)
+;                 lock_file_name=string(lock_file_name)+'_lock'
+                lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock')
+
 		if keyword_set(text) then begin
 			auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,interactive=interactive
 		endif else begin
@@ -896,16 +907,13 @@ if n_elements(RCs) lt 4 then begin
 		step10:
 	endfor
 endif else begin
-        timelock=systime(1,/utc)
-        strtimelock=string(timelock,format='(i10)')
-        lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RCs',/remove_all)
-        lock_file_name=string(lock_file_name)+'_lock'
+;         timelock=systime(1,/utc)
+;         strtimelock=string(timelock,format='(i10)')
+;         lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RCs',/remove_all)
+;         lock_file_name=string(lock_file_name)+'_lock'
+        lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock')
         RC=5
-        if keyword_set(text) then begin
-                auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,interactive=interactive
-        endif else begin
-                auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
-        endelse
+        auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
 	step11:
 endelse
 
