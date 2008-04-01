@@ -1,0 +1,22 @@
+#!/bin/bash 
+
+#
+# Sets SA bias to full current (65535) on all channels.
+#
+
+source $MAS_SCRIPT/mas_library.bash
+
+echo "Current SA bias values:"
+command_reply rb sa bias
+if [ "$?" != "0" ]; then
+    echo Aborting!
+    exit 1
+fi
+
+n_columns=`command_reply rb sa bias | wc -w`
+repeat_string "65535" $n_columns "wb sa bias" | mce_cmd -q
+
+if [ "${PIPESTATUS[1]}" != "0" ]; then
+    echo "Could not set SA biases to on."
+    exit 1
+fi

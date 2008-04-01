@@ -1,4 +1,5 @@
-pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope,gain=gain,lock_rows=lock_rows
+pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope,gain=gain,lock_rows=lock_rows, $
+                             ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq1servo_plot.pro 
@@ -26,6 +27,13 @@ ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
 
+; ramp_count is the parameter that will override the defaults.
+if not keyword_set(ramp_count) then begin
+    ramp_start=-8000
+    ramp_step=40
+    ramp_count=400
+endif
+
 
 ; Use gain = 1./25 for shallow S2 SQUID slope or gain = -1./100. for steep S2 SQUID slope
 ;if sq2slope lt 0 then gain=1./25.  $ ;The sq2_slope parameter in auto_setup_squids.pro should have the opposite sign from this.
@@ -36,7 +44,9 @@ if not keyword_set(gain) then gain = 1./100
 
 ;Run the shell script:
 ;spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 -8000 40 400 '+string(rc)+' '+string(target)+' '+string(numrows)
-spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 -8000 40 400 '+string(rc)+' '+string(target)+' '+string(numrows)+' '+string(gain)+' 1 '+' >> /data/cryo/current_data/'+logfile,exit_status=status10
+
+spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 '+ $
+  string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' '+string(rc)+' '+string(target)+' '+string(numrows)+' '+string(gain)+' 1 '+' >> /data/cryo/current_data/'+logfile,exit_status=status10
 if status10 ne 0 then begin
         print,''
         print,'################################################################'

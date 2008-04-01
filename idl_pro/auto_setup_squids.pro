@@ -427,7 +427,8 @@ for jj=0,n_elements(RCs)-1 do begin
 ;         sq2_file_name=strcompress(file_folder+'/'+strtimesq2+'_RC'+string(RC),/remove_all)
         sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
-	auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[0] ;,/lockamp
+        auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
+          ramp_start=exp_config.sq2_ramp_flux_start[0], ramp_count=exp_config.sq2_ramp_flux_count[0], ramp_step=exp_config.sq2_ramp_flux_step[0] ;,/lockamp
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -592,7 +593,9 @@ for jj=0,n_elements(RCs)-1 do begin
   	
 		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-                  gain=exp_config.sq1servo_gain[0],LOCK_ROWS=(lonarr(32) + sq1servorow)
+                  gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                  ramp_start=exp_config.sq1_ramp_flux_start[0], ramp_count=exp_config.sq1_ramp_flux_count[0], ramp_step=exp_config.sq1_ramp_flux_step[0]
+
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
 
@@ -631,12 +634,21 @@ for jj=0,n_elements(RCs)-1 do begin
             ; This block uses original sq1servo to
             ; lock on a specific row for each column
 
+            ; Rewrite the rows.init file (FIXME)
+            row_init_string=''
+            for j=0,31 do begin
+                row_init_string=row_init_string+strcompress(string(exp_config.sq2_rows[j])+'\n',/remove_all)
+            endfor
+            row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
+            spawn,row_init_string
+
 ;            sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
             sq1_file_name=sq1_base_name
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
               RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-              gain=exp_config.sq1servo_gain[0],lock_rows=exp_config.sq2_rows
+              gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
+              ramp_start=exp_config.sq1_ramp_flux_start[0], ramp_count=exp_config.sq1_ramp_flux_count[0], ramp_step=exp_config.sq1_ramp_flux_step[0]
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -718,6 +730,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.servo_p[0] = 0
         exp_config.servo_i[0] = 0
         exp_config.servo_d[0] = 0
+        exp_config.config_adc_offset_all[0] = 0
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -779,6 +792,8 @@ for jj=0,n_elements(RCs)-1 do begin
 		all_squid_lockslope((rc-1)*8+j,*,1) = squid_lockslope(j,*,1)
 		all_squid_multilock((rc-1)*8+j,*) = squid_multilock(j,*)	
 	endfor
+
+;	stop
 
         if i10 eq 'Yes' then begin
             for j=0,7 do begin

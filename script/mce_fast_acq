@@ -11,7 +11,8 @@ fi
 nf=$1
 rc=$2
 
-new_data_rate=4
+# Acquisition should not exceed 20kHz
+new_data_rate=1
 new_rows_rep=1
 if [ "$#" -gt "2" ]; then
     new_data_rate=$3

@@ -1,4 +1,5 @@
-pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain
+pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain, $
+                             ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq2servo_plot.pro 
@@ -36,12 +37,17 @@ if not keyword_set(gain) then gain=1./50.
 
 print,'Hardcoding for sq2 fb DAC range!!'
 dac_range=65536
-ramp_step=160
-ramp_count=400
+
+; ramp_count is the parameter that will override the defaults.
+if not keyword_set(ramp_count) then begin
+    ramp_start=0
+    ramp_step=160
+    ramp_count=400
+endif
 
 ;Run the shell script:
 spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
-  '0 '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+  string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
   string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
   ' >> /data/cryo/current_data/'+logfile,exit_status=status7
 
