@@ -43,7 +43,8 @@ Rfb = 7006.             ; S1FB resistances measured in MBAC using MCE continuity
 M_ratio = 8.5		; For Mux06a chips
 filtergain = 1216./2	; Data mode 8 drops the bottom filtered bit so the gain is the normal filtergain / 2 = 1216./2 = 606.
 n_columns = 32		; Number of columns being analyzed
-fb_normalize = -1       ; This depends on whether you have a nyquist inductor as well as the polarity of the detector bias.
+fb_normalize = replicate(1,32)       ; This depends on whether you have a nyquist inductor as well as the polarity of the detector bias.
+fb_normalize(24:31) = -1
 ;per_Rn_bias = 0.4	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
 ;  Changed to 0.3 11-6-2007
 per_Rn_bias = 0.3	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
@@ -62,8 +63,8 @@ Rbias_cable = [211.,210.,153.]
 
 Rbias_arr = Rbias_arr + Rbias_cable
 
-bias1_cols = indgen(8)+16	; List of columns connected to the original bias line from bias card 1
-bias2_cols = indgen(17)	; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
+bias1_cols = indgen(8)	; List of columns connected to the original bias line from bias card 1
+bias2_cols = indgen(17)+8	; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
 bias2_cols(16) = 31
 bias3_cols = indgen(7)+24	; List of columns connected to the new detector bias line from bias card 3 (set to -1 if nothing is connected)
 bias_step = 50	;100		; This is the allowed step size that the applied biases will be rounded to, changed to 50 11-11-2007 MDN
@@ -148,6 +149,9 @@ good_sh_rows = where(Rshunt_arr gt 0.0002 and Rshunt_arr lt 0.0015)
 no_srdp_shunt=where(Rshunt_arr eq 0)
 Rshunt_arr(no_srdp_shunt) = 0.0007
 
+;Until AR2 shunt resistances are installed, just use 0.7 mOhm
+Rshunt_arr(*) = 0.0007
+
 if keyword_set(R_oper) then R_oper = R_oper $
 		else R_oper = 0.5
 
@@ -173,7 +177,7 @@ for j=0,32 do begin
 
 	raw_array(1,*) = data.fb(MuxColumn,Row)
 	raw_array_sh = shift(raw_array,0,-1)
-	raw_array_der = (raw_array_sh - raw_array)*fb_normalize
+	raw_array_der = (raw_array_sh - raw_array)*fb_normalize(muxcolumn)
 
 ;	stop
 	; Look for giant bit jumps in the data of 2^bitmax then 2^(bitmax-1) bits and remove them
@@ -200,7 +204,7 @@ for j=0,32 do begin
 	;Normalize Vbias, 16-bit DAC, +/-2.5V with 1276 Ohm on board (LB#5 p.67 & LB#6 p.5)
 	raw_array(0,*) = raw_bias/2.^16*5.	; data.time/2.^16*5.
 	;Normalize Vfb, 14-bit DAC with possible offsets, 1V range, 50 Ohms on board (LB#6 p.5)
-	raw_array(1,*) = raw_array(1,*)/2.^FBbits/filtgain*fb_normalize
+	raw_array(1,*) = raw_array(1,*)/2.^FBbits/filtgain*fb_normalize(muxcolumn)
 
 	;Find the superconducting transitions by looking for the derivative to change sign
 	i=0
@@ -408,7 +412,7 @@ device, FILENAME = outdir+dirsl+plotfile
 device, YOFFSET = 2, YSIZE = 24
 !p.multi=[0,1,3]
 ymins=[.015,0,0]
-ymaxs=[.045,15,8000]
+ymaxs=[.045,30,10000]
 print, 'Generating summary plot: '+outdir+dirsl+plotfile
 
 syms = [1,2,4,7]
