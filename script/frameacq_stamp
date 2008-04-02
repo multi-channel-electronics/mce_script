@@ -27,11 +27,7 @@ endif
 set data_filename="$argv[2]"
 set data_framecount="$argv[3]"
 
-# This doesn't work in d1!
-#set das_version=`dasversion | head -3 | tail -1 | awk '{print $3}' |sed 's/version=//' `
-
-# This does...
-set data_format=BIN 
+set array_id=`cat /data/cryo/array_id`
 
 set fileseq_on=0
 set fileseq_format=0
@@ -41,10 +37,10 @@ echo "<FRAMEACQ>"
 
 echo "  <RUNFILE_VERSION> $runfile_version"
 echo "  <MAS_VERSION> n"
+echo "  <ARRAY_ID> $array_id"
 echo "  <RC> $rc"
 echo "  <DATA_FILENAME> $data_filename"
 echo "  <DATA_FRAMECOUNT> $data_framecount"
-echo "  <DATA_FORMAT> $data_format"
 
 if ($fileseq_on) then
   echo "  <FILESEQ_FORMAT> $fileseq_format"

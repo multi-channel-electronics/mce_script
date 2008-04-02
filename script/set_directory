@@ -30,6 +30,22 @@ fi
 echo $today > $date_file
 
 
+# Determine array name and names of config files
+array_id=`cat /data/cryo/array_id`
+if [ "$array_id" == "" ]; then
+    echo "No array ID found in /data/cryo/array_id!"
+    array_id="default"
+fi
+case "$array_id" in
+    default)
+        exp_cfg=experiment.cfg
+	arr_cfg=array.cfg
+	;;
+    *)
+        exp_cfg=experiment_${array_id}.cfg
+	arr_cfg=array_${array_id}.cfg
+esac
+
 # Populate the new data folder.
 
 cd $today
@@ -39,8 +55,9 @@ if [ ! -e analysis ]; then
     chmod g+s analysis
 fi
 
-files_to_copy="experiment.cfg sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
+[ -e experiment.cfg ] || cp $exp_cfg experiment.cfg
 
+files_to_copy="sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
 for f in $files_to_copy; do
     if [ ! -e $f ]; then
 	cp $MAS_TEMPLATE/$f .

@@ -1,4 +1,4 @@
 #!/bin/bash
 
 mas_param -s $MAS_TEMPLATE/experiment.cfg  idl_template exp_params > $MAS_IDL/load_exp_params.pro
-# mas_param -s $MAS_TEMPLATE/auto-tune.cfg idl_template autotune_params  > $MAS_IDL/load_autotune_params.pro
+mas_param -s $MAS_TEMPLATE/array.cfg idl_template array_params  > $MAS_IDL/load_array_params.pro

@@ -124,18 +124,18 @@ for rc in 1 2 3 4; do
     if [ "$hardware_bac" == "0" ]; then
 	echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
     else
-#	for a in `seq 0 7`; do
-#	    echo -n "wb sq2 fb_col$(( $a + $ch_ofs)) " >> $mce_script
-#	    mas_param -s $MAS_DATA/sq2_RC${rc}.cfg get fb_chan$a >> $mce_script
-#       done
 	for a in `seq 0 7`; do
 	    row_ofs=$(( ($ch_ofs+$a) * 41 ))
 	    echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:41}" >> $mce_script
 	done
     fi
-
 done
 
+# For biasing address card, set the correct mux_mode and row_order
+if [ "$hardware_bac" != "0" ]; then
+    echo "wb bac row_order ${row_order[@]}" >> $mce_script
+    echo "wb bac enbl_mux 2" >> $mce_script
+fi
 
 #---------------------------------------------------------------
 # Flux Jumping
