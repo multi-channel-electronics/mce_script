@@ -38,15 +38,15 @@ if [ "x" == "x" ]; then
     echo "wb rca flx_lp_init 1"
 fi | mce_cmd -q
 
+if [ "${PIPESTATUS[1]}" != "0" ]; then
+    echo "FAILURE: mce_zero_bias failed!"
+    echo $ERRPREF "mce_zero_bias batch file failed!" |$LOGGER
+    exit 1
+fi
+
 echo -n "SA biases:  "
 command_reply rb sa bias
 echo -n "SQ2 biases: "
 command_reply rb sq2 bias
 echo -n "TES biases: "
 command_reply rb tes bias
-
-if [ "${PIPESTATUS[1]}" != "0" ]; then
-    echo "FAILURE: mce_zero_bias failed!"
-    echo $ERRPREF "mce_zero_bias batch file failed!" |$LOGGER
-    exit 1
-fi

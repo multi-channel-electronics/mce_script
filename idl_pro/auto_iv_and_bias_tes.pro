@@ -22,8 +22,8 @@ spawn,'/data/cryo/current_data/'+config_file
 for i=0,3 do begin
     if exp_config.config_rc(i) then begin
         rc = string(strcompress(i+1,/REMOVE_ALL))
-;        auto_setup_command,'wb rc'+rc+' en_fb_jump 1'
-        auto_setup_command,'wb rc'+rc+' en_fb_jump 0'
+        auto_setup_command,'wb rc'+rc+' en_fb_jump 1'
+;        auto_setup_command,'wb rc'+rc+' en_fb_jump 0'
         auto_setup_command,'wb rc'+rc+' data_mode 4'
     endif
 endfor
