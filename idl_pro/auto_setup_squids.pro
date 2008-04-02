@@ -428,7 +428,7 @@ for jj=0,n_elements(RCs)-1 do begin
         sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
         auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
-          ramp_start=exp_config.sq2_ramp_flux_start[0], ramp_count=exp_config.sq2_ramp_flux_count[0], ramp_step=exp_config.sq2_ramp_flux_step[0] ;,/lockamp
+          ramp_start=exp_config.sq2_ramp_flux_start[0], ramp_count=exp_config.sq2_ramp_flux_count[0], ramp_step=exp_config.sq2_ramp_flux_step[0],/lockamp
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
