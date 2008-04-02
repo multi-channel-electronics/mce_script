@@ -180,7 +180,9 @@ deriv_fb1=fb1
 sq2_v_phi=fb1
 				
 for chan=0,7 do begin	;calculate the derivatives of the V-phi plots
-	deriv_fb1(*,chan)=smooth(deriv(sq2_sweep(*),fb1(*,chan)),10)
+;	deriv_fb1(*,chan)=smooth(deriv(sq2_sweep(*),fb1(*,chan)),10)
+; Changed to smooth before derivative. MDN 4-2-2008
+	deriv_fb1(*,chan)=deriv(sq2_sweep(*),smooth(fb1(*,chan),10))
 	sq2_v_phi(*,chan)=smooth(fb1(*,chan),10)
 endfor
 
@@ -195,16 +197,18 @@ lo_index = ramp_count / 4.
 hi_index = ramp_count * 7. / 8.
 for chan=0,7 do begin
 	print,'Channel:',chan
+		; Added fbmn (mean value) check for finding period (includes 3 lines below) 4-2-2008 MDN & JA
+		fbmn = (max(sq2_v_phi(lo_index:hi_index,chan)) - min(sq2_v_phi(lo_index:hi_index,chan)))/2.+min(sq2_v_phi(lo_index:hi_index,chan))
 		if slope lt 0 then begin
 			min_point=min(sq2_v_phi(lo_index:hi_index,chan),ind_min)
 			ind_min=lo_index+ind_min
-			ind_pos_der=where(deriv_fb1(0:ind_min-5,chan) gt 0)
+			ind_pos_der=where(deriv_fb1(0:ind_min-5,chan) gt 0 and sq2_v_phi(0:ind_min-5,chan) gt fbmn)
 			if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
 			ind_max=max(ind_pos_der)
 		endif else begin
 			max_point=max(sq2_v_phi(lo_index:hi_index,chan),ind_max)
                         ind_max=lo_index+ind_max
-                        ind_neg_der=where(deriv_fb1(0:ind_max-5,chan) lt 0)
+                        ind_neg_der=where(deriv_fb1(0:ind_max-5,chan) lt 0  and sq2_v_phi(0:ind_max-5,chan) lt fbmn)
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
 		endelse
