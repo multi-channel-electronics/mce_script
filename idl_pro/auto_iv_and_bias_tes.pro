@@ -34,8 +34,8 @@ if total(exp_config.config_rc) eq 4 then begin
         iv_filename = auto_setup_filename(rc=rc,action='iv') 
         spawn, 'ramp_tes_bias '+iv_filename+' '+rc 
         if change_bias eq 1 then $ 
-          iv_anal_mce_ar1_bias, /biasfile, /plotgen $   ;, /filtered $ 
-        else iv_anal_mce_ar1_bias, /plotgen 
+          iv_analysis, /biasfile, /plotgen $   ;, /filtered $ 
+        else iv_analysis, /plotgen 
         spawn, '/data/cryo/tes_bias_recommended' 
 endif else begin
    for i=0,3 do begin
@@ -44,8 +44,8 @@ endif else begin
         iv_filename = auto_setup_filename(rc=rc,action='iv')
         spawn, 'ramp_tes_bias '+iv_filename+' '+rc
         if change_bias eq 1 then $
-          iv_anal_mce_ar1_bias, /biasfile, /plotgen $	;, /filtered $
-        else iv_anal_mce_ar1_bias, /plotgen
+          iv_analysis, /biasfile, /plotgen $	;, /filtered $
+        else iv_analysis, /plotgen
         spawn, '/data/cryo/tes_bias_recommended'
      endif
    endfor
