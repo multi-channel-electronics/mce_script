@@ -1,6 +1,4 @@
-#made on 10/11/2007 using SRDP method on SRDP2 for AR2-5 using new fit function
-#rs.04 data a bit bad
-#rs.19 used rs.18 value
+#made on 10/11/2007 using SRDP method on SRDP2 for AR2-5 using new fit function, rs.04 data a bit bad ,rs.19 used rs.18 value
 #rs   R_sh (Ohm)        L_sh (Henry)      A_sh (pA/root(Hz))
 00    0.000806849010    0.000000764501    8.293752910967
 01    0.000799074481    0.000000741875    8.194091022495

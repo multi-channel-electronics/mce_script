@@ -1,9 +1,7 @@
-#made on 10/29/2007 using SRDP method on SRDP2 for AR2-21 using new fit function
-#rs.01 has no detb vphi
-#using data in johnson
+#made on 10/29/2007 using SRDP method on SRDP2 for AR2-21 using new fit function, rs.01 has no detb vphi
 #rs   R_sh (Ohm)        L_sh (Henry)      A_sh (pA/root(Hz))
 00    0.000855628100    0.000000652293    5.667689383312
-01    -1                -1                -1
+01    0                 0                 0
 02    0.000812364773    0.000000790884    4.631891856489
 03    0.000797924542    0.000000778227    4.398771943158
 04    0.000819089340    0.000000590120    5.001340730026

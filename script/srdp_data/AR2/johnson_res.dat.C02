@@ -1,5 +1,4 @@
-#made on 11/22/2007 using SRDP method on SRDP2 for AR2-20 using new fit function
-#rs.16 discards the 100Hz data for large 1/f
+#made on 11/22/2007 using SRDP method on SRDP2 for AR2-20 using new fit function, rs.16 discards the 100Hz data for large 1/f
 #rs   R_sh (Ohm)        L_sh (Henry)      A_sh (pA/root(Hz))
 00    0.000877967497    0.000000742469    2.239719648271
 01    0.000851940142    0.000000779128    2.492502987129

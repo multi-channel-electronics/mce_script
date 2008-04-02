@@ -1,6 +1,4 @@
 #made on 11/09/2007 using SRDP method on SRDP2 for AR2-26 using new fit function
-#using data in johnson (data in johnson.old were taken earlier, and probably suffered from
-#fluctuations or heating up due to the end of cycle)
 #rs   R_sh (Ohm)        L_sh (Henry)      A_sh (pA/root(Hz))
 00    0.000851425174    0.000000811681    2.584605928126
 01    0.000852531021    0.000000799598    2.589915452717

@@ -1,5 +1,4 @@
 #made on 02/12/2008 using SRDP method on SRDP2 for AR2-33 using new fit function
-#using data in johnson
 #rs   R_sh (Ohm)        L_sh (Henry)      A_sh (pA/root(Hz))   T_sh (K)
 00    0.000771155930    0.000000569880    3.635144606103       0.3950
 01    0.000776362866    0.000000783352    3.751627677827       0.3950
