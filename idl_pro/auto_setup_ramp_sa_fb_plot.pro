@@ -202,7 +202,8 @@ print,'#########################################################################
 print,' Channel Bias@step (index) Target@half  sa_fb@half '
 print,'---------------------------------------------------'
 for chan=0,7 do begin
-	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
+;	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
+	deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),5))
 	final_sa_bias_ch_by_ch(chan)=round(bias_start + ind(chan)* bias_step)
 ;	min_point=min(av_vol(ind(chan),150:380,chan),ind_min)	;in case we want to lock on the negative slope
 ;	ind_min=150+ind_min
