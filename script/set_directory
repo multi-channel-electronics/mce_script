@@ -55,7 +55,7 @@ if [ ! -e analysis ]; then
     chmod g+s analysis
 fi
 
-[ -e experiment.cfg ] || cp $exp_cfg experiment.cfg
+[ -e experiment.cfg ] || cp $MAS_TEMPLATE/$exp_cfg experiment.cfg
 
 files_to_copy="sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
 for f in $files_to_copy; do
