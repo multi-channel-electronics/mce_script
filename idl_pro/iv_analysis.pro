@@ -169,9 +169,11 @@ raw_bias = read_ascii(filename+'.bias',data_start=1)
 raw_bias = raw_bias.field1
 numpts = n_elements(raw_bias)
 
-;Load Sweeper data from mce file. Removed IVfile keyword now that bias data is read in separately
-if keyword_set(filtered) then data = load_mce_stream_funct(filename, binary=binary, npts=numpts, bitpart=8) $ 
-	else data = load_mce_stream_funct(filename, bitpart=14,binary=binary, npts=numpts);,/no_status_header)
+;;Load Sweeper data from mce file. Removed IVfile keyword now that bias data is read in separately
+;if keyword_set(filtered) then data = load_mce_stream_funct(filename, binary=binary, npts=numpts, bitpart=8) $ 
+;else data = load_mce_stream_funct(filename, bitpart=14,binary=binary, npts=numpts) ;,/no_status_header)
+data = mas_data(filename,frame_info=frame_info)
+numpts = frame_info.n_frames
 
 good_ivs=lonarr(n_columns)
 
@@ -201,7 +203,9 @@ if use_jshuntfile then begin
     jshuntfile = jshuntfile_prefix+Mcol
     j_res = read_ascii(jshuntfile, data_start=2)
     Rshunt_arr(j_res.field1(0,*)) = j_res.field1(1,*)
-endif
+endif else begin
+    jshuntfile = 'Using default of ' + string(default_Rshunt)
+endelse
 
 ;print, 'Shunt Path: '+jshuntfile
 good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_shunt_range[1])
@@ -233,7 +237,8 @@ for j=0,32 do begin
 	iv_array = replicate(0.,3,numpts)
 	iv_array(2,*) = raw_bias 	;data.time
 
-	raw_array(1,*) = data.fb(MuxColumn,Row)
+;;	raw_array(1,*) = data.fb(MuxColumn,Row)
+	raw_array(1,*) = data[MuxColumn,Row,*]
 	raw_array_sh = shift(raw_array,0,-1)
 	raw_array_der = (raw_array_sh - raw_array)*fb_normalize[MuxColumn]
 

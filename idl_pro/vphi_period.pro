@@ -25,9 +25,6 @@ for a=0,margin-1 do begin
     c(a) = total( (y( start_point-a + indgen(width) ) - right_half)^2 )
 endfor
 
-;plot,c
-;return,0
-
 ; Normalize so that segment cannot match a flat segment at the same level
 c = c / total((right_half - mean(right_half))^2)
 
@@ -60,8 +57,8 @@ while not done do begin
     
     gap = float(ups(0)-dns(0))
     wid = float(dns(1)-ups(0))
-    print, 'thresh=',thresh, '  Gap=',gap, '   Width=',wid
-    plot, comb
+;    print, 'thresh=',thresh, '  Gap=',gap, '   Width=',wid
+;    plot, comb
     if wid/gap lt 0.1 then done = 1
     thresh = thresh * 0.7
     done = 1
