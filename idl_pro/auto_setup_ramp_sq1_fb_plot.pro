@@ -119,7 +119,7 @@ squid_multilock=intarr(sizdat(3),sizdat(4))
 ;stop
 
 for j=0,n_bias-1 do begin
-	s1b='the 1 set in the config file'
+;	s1b='the 1 set in the config file'
         for kr=0,n_elements(rows)-1 do begin
             k = rows(kr)
 	    for i=0, 7 do begin
@@ -134,10 +134,10 @@ for j=0,n_bias-1 do begin
 		zero_slope = intarr(b+1)
 		zerocross = intarr(b+1)
 		for l=a+smnum,b-1-smnum do begin
-			if smdat_der(l) le 0 and smdat_der(l+1) ge 0 then zero_slope(l)=1
-			if smdat_der(l) ge 0 and smdat_der(l+1) le 0 then zero_slope(l)=1
-			if smdat(l) ge 0 and smdat(l+1) le 0 then zerocross(l) = -1
-			if smdat(l) le 0 and smdat(l+1) ge 0 then zerocross(l) = 1
+			if smdat_der(l) le 0 and smdat_der(l+1) gt 0 then zero_slope(l)=1
+			if smdat_der(l) ge 0 and smdat_der(l+1) lt 0 then zero_slope(l)=1
+			if smdat(l) ge 0 and smdat(l+1) lt 0 then zerocross(l) = -1
+			if smdat(l) le 0 and smdat(l+1) gt 0 then zerocross(l) = 1
 		endfor
 		low_sl = where(zero_slope eq 1)
 		if low_sl(0) ne -1 then begin
@@ -149,7 +149,9 @@ for j=0,n_bias-1 do begin
 				low_sl_order = sort(smdat(low_sl))
 				low_sl_diff = abs(smdat(low_sl(low_sl_order(0:nls-2)))-smdat(low_sl(low_sl_order(1:nls-1))))
 				select = where(low_sl_diff eq max(low_sl_diff))
-				if select(0) eq -1 or n_elements(select) gt 1 then begin
+;				if i eq 1 then stop
+;				if select(0) eq -1 or n_elements(select) gt 1 then begin
+				if select(0) eq -1 then begin
 ;					print, 'You have adc_offset selection problems on Column '$
 ;						+strtrim(i,1)+' Row '+strtrim(k)+'.  Take a deep breath.'
                 	                new_adc_offset(i,k)=0.
@@ -158,9 +160,12 @@ for j=0,n_bias-1 do begin
 					squid_multilock(i,k)=0.
 				endif else begin
 					new_adc_offset(i,k)=(smdat(low_sl(low_sl_order(select(0))))+smdat(low_sl(low_sl_order(select(0)+1))))/2
-					new_adc_offset(i,k)=(max(smdat)+min(smdat))/2.
+
+		; Simplified version of adc_offset selection just picks the middle of the total amplitude
+;					new_adc_offset(i,k)=(max(smdat)+min(smdat))/2.
 					squid_lockrange(i,k)=abs(smdat(low_sl(low_sl_order(select(0))))-smdat(low_sl(low_sl_order(select(0)+1))))
 					; Fit a line to the slope near the lockpoint to store an estimate of the slope data.
+;					if i eq 1 then stop
 					dnsl = where(zerocross eq -1)
 					upsl = where(zerocross eq 1)
 					if dnsl(0) ne -1 then begin
@@ -188,13 +193,13 @@ for j=0,n_bias-1 do begin
                         squid_multilock(i,k)=0.
 		endelse
 		squid_p2p(i,k)=abs(max(smdat)-min(smdat))
-		new_adc_offset(i,k)=(max(smdat)+min(smdat))/2  ; Note: Old method of selection used smnum=5
+	; Simplified version of adc_offset selection just picks the middle of the total amplitude
+;		new_adc_offset(i,k)=(max(smdat)+min(smdat))/2  ; Note: Old method of selection used smnum=5
 	    endfor  ; end of plotting loop in 8 columns.
-	    label_bias = 'sq1 bias = ' + s1b
 	    label_row='row #'+string(k) 
-	    xyouts, .1, 1.0, name_label , charsize=1.2, /normal
-	    xyouts, 0.7, 1.0, label_bias , charsize=1.2, /normal
-	    xyouts, 0.4, 1.0, label_row , charsize=1.2, /normal
+	    xyouts, .1, 1.0, name_label + ' , '+ label_row , charsize=1.2, /normal
+;	    xyouts, 0.7, 1.0, 'sq1 bias = ' + s1b , charsize=1.2, /normal
+;	    xyouts, 0.4, 1.1, label_row , charsize=1.2, /normal
 	endfor  ; End of loop in 33 rows.
 endfor
 
