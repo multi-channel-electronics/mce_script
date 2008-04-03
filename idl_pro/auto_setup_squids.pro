@@ -786,11 +786,12 @@ for jj=0,n_elements(RCs)-1 do begin
 	for j=0,7 do begin
 		new_off(j,*)=(new_adc_offset(j,*)+column_adc_offset(j+8*(RC-1)))/samp_num
 		all_adc_offsets((rc-1)*8+j,*) = new_off(j,*)
-		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
-		all_squid_lockrange((rc-1)*8+j,*) = squid_lockrange(j,*)
-		all_squid_lockslope((rc-1)*8+j,*,0) = squid_lockslope(j,*,0)
-		all_squid_lockslope((rc-1)*8+j,*,1) = squid_lockslope(j,*,1)
-		all_squid_multilock((rc-1)*8+j,*) = squid_multilock(j,*)	
+; Moved to after final S1 V-phi acquisition MDN
+;		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
+;		all_squid_lockrange((rc-1)*8+j,*) = squid_lockrange(j,*)
+;		all_squid_lockslope((rc-1)*8+j,*,0) = squid_lockslope(j,*,0)
+;		all_squid_lockslope((rc-1)*8+j,*,1) = squid_lockslope(j,*,1)
+;		all_squid_multilock((rc-1)*8+j,*) = squid_multilock(j,*)	
 	endfor
 
 ;	stop
@@ -806,14 +807,15 @@ for jj=0,n_elements(RCs)-1 do begin
                               all_adc_offsets((rc-1)*8+j,i)
 
                         	new_adc_arr((rc-1)*8+j)=new_adc_arr((rc-1)*8+j)+' '+string(all_adc_offsets((rc-1)*8+j,i), format='(i6)')
-                        	squid_p2p_arr((rc-1)*8+j)=squid_p2p_arr((rc-1)*8+j)+' '+string(all_squid_p2p((rc-1)*8+j,i), format='(i6)')
-                                squid_lockrange_arr((rc-1)*8+j)=squid_lockrange_arr((rc-1)*8+j)+' '+string(all_squid_lockrange((rc-1)*8+j,i), format='(i6)')
-                                squid_lockslopedn_arr((rc-1)*8+j)=squid_lockslopedn_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,0)),/REMOVE_ALL)
-                                squid_lockslopeup_arr((rc-1)*8+j)=squid_lockslopeup_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,1)),/REMOVE_ALL)
-                                squid_multilock_arr((rc-1)*8+j)=squid_multilock_arr((rc-1)*8+j)+' '+string(all_squid_multilock((rc-1)*8+j,i), format='(i2)')
-                                if all_squid_lockrange((rc-1)*8+j,i) lt exp_config.locktest_pass_amplitude[0] then $
-                                  turn_sq_off = 1 else turn_sq_off = 0
-                                squid_off_rec_arr((rc-1)*8+j)=squid_off_rec_arr((rc-1)*8+j)+' '+strtrim(turn_sq_off,1)
+; Moved to after final S1 V-phi acquisition MDN
+;                        	squid_p2p_arr((rc-1)*8+j)=squid_p2p_arr((rc-1)*8+j)+' '+string(all_squid_p2p((rc-1)*8+j,i), format='(i6)')
+;                                squid_lockrange_arr((rc-1)*8+j)=squid_lockrange_arr((rc-1)*8+j)+' '+string(all_squid_lockrange((rc-1)*8+j,i), format='(i6)')
+;                                squid_lockslopedn_arr((rc-1)*8+j)=squid_lockslopedn_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,0)),/REMOVE_ALL)
+;                                squid_lockslopeup_arr((rc-1)*8+j)=squid_lockslopeup_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,1)),/REMOVE_ALL)
+;                                squid_multilock_arr((rc-1)*8+j)=squid_multilock_arr((rc-1)*8+j)+' '+string(all_squid_multilock((rc-1)*8+j,i), format='(i2)')
+;                                if all_squid_lockrange((rc-1)*8+j,i) lt exp_config.locktest_pass_amplitude[0] then $
+;                                  turn_sq_off = 1 else turn_sq_off = 0
+;                                squid_off_rec_arr((rc-1)*8+j)=squid_off_rec_arr((rc-1)*8+j)+' '+strtrim(turn_sq_off,1)
                             endfor
 ;!MFH
 ;                        spawn,'echo -e "'+setting_new_adc+'" '+'\n">>'+adc_off_run_file
@@ -849,6 +851,29 @@ for jj=0,n_elements(RCs)-1 do begin
         rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc')
 
 	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows,rows=exp_config.sq1ramp_plot_rows
+
+
+	for j=0,7 do begin
+		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
+		all_squid_lockrange((rc-1)*8+j,*) = squid_lockrange(j,*)
+		all_squid_lockslope((rc-1)*8+j,*,0) = squid_lockslope(j,*,0)
+		all_squid_lockslope((rc-1)*8+j,*,1) = squid_lockslope(j,*,1)
+		all_squid_multilock((rc-1)*8+j,*) = squid_multilock(j,*)	
+	endfor
+
+
+        for j=0,7 do begin
+              	for i=0,numrows-1 do begin
+                        squid_p2p_arr((rc-1)*8+j)=squid_p2p_arr((rc-1)*8+j)+' '+string(all_squid_p2p((rc-1)*8+j,i), format='(i6)')
+                        squid_lockrange_arr((rc-1)*8+j)=squid_lockrange_arr((rc-1)*8+j)+' '+string(all_squid_lockrange((rc-1)*8+j,i), format='(i6)')
+                        squid_lockslopedn_arr((rc-1)*8+j)=squid_lockslopedn_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,0)),/REMOVE_ALL)
+                        squid_lockslopeup_arr((rc-1)*8+j)=squid_lockslopeup_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,1)),/REMOVE_ALL)
+                        squid_multilock_arr((rc-1)*8+j)=squid_multilock_arr((rc-1)*8+j)+' '+string(all_squid_multilock((rc-1)*8+j,i), format='(i2)')
+                        if all_squid_lockrange((rc-1)*8+j,i) lt exp_config.locktest_pass_amplitude[0] then $
+                               turn_sq_off = 1 else turn_sq_off = 0
+                        squid_off_rec_arr((rc-1)*8+j)=squid_off_rec_arr((rc-1)*8+j)+' '+strtrim(turn_sq_off,1)
+                endfor
+      	endfor
 
 	if ramp_sq1_bias_run eq 1 then begin
 		spawn,config_mce_file + ' >> '+todays_folder+c_filename+'.log',exit_status=status16
