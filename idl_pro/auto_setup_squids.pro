@@ -106,34 +106,13 @@ for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
 exp_config.config_rc = rc_enable
 
 
-;;TODO - these should come from experiment.cfg, or something.
-;THE SQUIDS BIAS CAN BE SPECIFIED APRIORI AND READ FROM A FILE
-def_sa_bias = lon64arr(32)
-sq2_bias = lon64arr(32)
-sq1_bias = lon64arr(41)
+; Load squid biases from config file default parameters.
 
-openu,10,todays_folder+'/sabias.init'				;SSA bias
-for cols=0,31 do begin
-	readf,10,line
-	def_sa_bias(cols)=float(line)
-endfor
-close,10
+def_sa_bias = exp_config.default_sa_bias
+sq2_bias = exp_config.default_sq2_bias
+sq1_bias = exp_config.default_sq2_bias
 
-openu,15,todays_folder+'/sq2bias.init'				;SQ2 bias
-for cols=0,31 do begin
-        readf,15,line
-        sq2_bias(cols)=float(line)
-endfor
-close,15
-
-openu,17,todays_folder+'/sq1bias.init'				;SQ1 bias
-for rows=0,40 do begin
-        readf,17,line
-        sq1_bias(rows)=float(line)
-endfor
-close,17
-
-; For SA defaults, use our tried and tested defaults.
+; Load default values into biases
 
 exp_config.sa_bias = def_sa_bias
 exp_config.sq2_bias = sq2_bias
@@ -212,10 +191,6 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 	step2:
 	
-        ;MFH
-;         timessa=systime(1,/utc)
-;         strtimessa=string(timessa,format='(i10)')
-;         x_ssa_file_name=strcompress(file_folder+'/'+strtimessa+'_RC'+string(RC),/remove_all)
         ssa_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
 	if keyword_set(interactive) then begin
@@ -422,9 +397,6 @@ for jj=0,n_elements(RCs)-1 do begin
 	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
 	spawn,SA_feedback_string
 	
-; 	timesq2=systime(1,/utc)
-;         strtimesq2=string(timesq2,format='(i10)')
-;         sq2_file_name=strcompress(file_folder+'/'+strtimesq2+'_RC'+string(RC),/remove_all)
         sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
         auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
@@ -566,8 +538,6 @@ for jj=0,n_elements(RCs)-1 do begin
 	SQ2_feedback_string='echo -e "'+SQ2_feedback_string+'" > '+todays_folder+'sq2fb.init'
 	spawn,SQ2_feedback_string
        
-; 	timesq1=systime(1,/utc)
-;         strtimesq1=string(timesq1,format='(i10)')
         sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
 
 
@@ -747,10 +717,6 @@ for jj=0,n_elements(RCs)-1 do begin
                 exit,status=12
         endif
 
-; 	timersq1=systime(1,/utc)
-;         strtimersq1=string(timersq1,format='(i10)')
-;         rsq1_file_name=strcompress(file_folder+'/'+strtimersq1+'_RC'+string(RC),/remove_all)
-; 	rsq1_file_name=string(rsq1_file_name)+'_sq1ramp'
         rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp')
 
 	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
@@ -844,10 +810,6 @@ for jj=0,n_elements(RCs)-1 do begin
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
-; 	timersq1c=systime(1,/utc)
-;         strtimersq1c=string(timersq1c,format='(i10)')
-;         rsq1c_file_name=strcompress(file_folder+'/'+strtimersq1c+'_RC'+string(RC),/remove_all)
-;         rsq1c_file_name=string(rsq1c_file_name)+'_sq1rampc'
         rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc')
 
 	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows,rows=exp_config.sq1ramp_plot_rows
@@ -886,10 +848,6 @@ for jj=0,n_elements(RCs)-1 do begin
                 	exit,status=16
 		endif
 
-; 		timertb=systime(1,/utc)
-; 		strtimertb=string(timertb,format='(i10)')        
-; 		rtb_file_name=strcompress(file_folder+'/'+strtimertb+'_RC'+string(RC),/remove_all)
-;         	rtb_file_name=string(rtb_file_name)+'_sq1rampb'
                 rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb')
 
 		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows
@@ -933,10 +891,6 @@ endif
 if n_elements(RCs) lt 4 then begin
 	for jj=0,n_elements(RCs)-1 do begin
         	RC=RCs(jj)
-;                 timelock=systime(1,/utc)
-;                 strtimelock=string(timelock,format='(i10)')
-;                 lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RC'+string(RC),/remove_all)
-;                 lock_file_name=string(lock_file_name)+'_lock'
                 lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock')
 
 		if keyword_set(text) then begin
@@ -947,10 +901,6 @@ if n_elements(RCs) lt 4 then begin
 		step10:
 	endfor
 endif else begin
-;         timelock=systime(1,/utc)
-;         strtimelock=string(timelock,format='(i10)')
-;         lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RCs',/remove_all)
-;         lock_file_name=string(lock_file_name)+'_lock'
         lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock')
         RC=5
         auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive

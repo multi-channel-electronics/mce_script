@@ -57,13 +57,6 @@ fi
 
 [ -e experiment.cfg ] || cp $MAS_TEMPLATE/$exp_cfg experiment.cfg
 
-files_to_copy="sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
-for f in $files_to_copy; do
-    if [ ! -e $f ]; then
-	cp $MAS_TEMPLATE/$f .
-    fi
-done
-
 # Create an mce config script
 
 new_config="config_mce_auto_setup_$today"
