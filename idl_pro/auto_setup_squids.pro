@@ -110,7 +110,7 @@ exp_config.config_rc = rc_enable
 
 def_sa_bias = exp_config.default_sa_bias
 sq2_bias = exp_config.default_sq2_bias
-sq1_bias = exp_config.default_sq2_bias
+sq1_bias = exp_config.default_sq1_bias
 
 ; Load default values into biases
 
