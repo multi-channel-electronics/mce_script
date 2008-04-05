@@ -90,7 +90,7 @@ for rc in 1 2 3 4; do
 	i_terms=( `repeat_string $servo_i $array_width` )
 	d_terms=( `repeat_string $servo_d $array_width` )
 
-	if [ "$config_dead_tes" != "0" ]; then
+	if [ "$config_dead_tes" == "0" ]; then
 	    for r in `seq 0 $(( $array_width - 1 ))`; do
 		if [ "${dead_detectors[$(( $dead_ofs + $r ))]}" != "0" ]; then
 		    p_terms[$r]=0
