@@ -82,8 +82,29 @@ for rc in 1 2 3 4; do
 	fi
     done
 
-    pidz_dead_off $servo_p $servo_i $servo_d $rc >> $mce_script
+    #
+    for c in `seq 0 7`; do
+	dead_ofs=$(( ($c + $ch_ofs)*$array_width ))
+	
+	p_terms=( `repeat_string $servo_p $array_width` )
+	i_terms=( `repeat_string $servo_i $array_width` )
+	d_terms=( `repeat_string $servo_d $array_width` )
 
+	if [ "$config_dead_tes" != "0" ]; then
+	    for r in `seq 0 $(( $array_width - 1 ))`; do
+		if [ "${dead_detectors[$(( $dead_ofs + $r ))]}" != "0" ]; then
+		    p_terms[$r]=0
+		    i_terms[$r]=0
+		    d_terms[$r]=0
+		fi
+	    done
+	fi
+
+	echo "wb rc$rc gainp$c ${p_terms[@]}" >> $mce_script
+	echo "wb rc$rc gaini$c ${i_terms[@]}" >> $mce_script
+	echo "wb rc$rc gaind$c ${d_terms[@]}" >> $mce_script
+    done
+	
 done
 
 # Run the adc_offset config file.
