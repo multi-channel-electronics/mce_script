@@ -25,27 +25,15 @@ if [ "$#" != "2" ]; then
     exit 1
 fi
 
-acq_name=$1
+acq_name=${start_ctime}_$1
 n_frames=$2
+
+# Register acquisition
+acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames ""
 
 # args are file_prefix, frame count, card (1,2,3,4,s)
 ACQ="mce_run $acq_name $n_frames s"
 ACQ_TARGET=0
-
-# Try to start in good health
-#health_clear
-#if [ "$?" != "0" ]; then
-#    echo $ERRPREF "health_clear failed!  Check MCE/DAS." | $LOGGER
-#    exit 1
-#fi
-
-# Do a check to be sure
-#check_one_behind && check_reset && check_extra_words
-#if [ "$?" != "0" ]; then
-#    echo $ERRPREF "health check failed!  Check MCE/DAS." | $LOGGER
-#    exit 1
-#fi
-
 
 # Start acquisition
 $ACQ
@@ -53,20 +41,6 @@ if [ "$?" != "$ACQ_TARGET" ]; then
     echo $ERRPREF "'$ACQ' returned error!" | $LOGGER
     exit 1
 fi
-
-# Check health, for the record
-#check_extra_words
-#if [ "$?" != "0" ]; then
-#   echo $ERRPREF "check_extra_words returned positive" | $LOGGER
-#fi
-#check_one_behind
-#if [ "$?" != "0" ]; then
-#   echo $ERRPREF "check_one_behind returned positive" | $LOGGER
-#fi
-#check_reset
-#if [ "$?" != "0" ]; then
-#   echo $ERRPREF "check_reset returned positive" | $LOGGER
-#fi
 
 # Check for CC losing lock with sync box
 #clk=`command_reply rb cc select_clk`
@@ -76,8 +50,8 @@ fi
 
 # Record keeping: PCI diagnostic and time elapsed
 
-diag=`print_dsp_diagnostic`
-echo "INFO  : $SCRNAME : $diag" | $LOGGER
+# diag=`print_dsp_diagnostic`
+# echo "INFO  : $SCRNAME : $diag" | $LOGGER
 delta_ctime=`print_elapsed $start_ctime`
 echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
 echo
