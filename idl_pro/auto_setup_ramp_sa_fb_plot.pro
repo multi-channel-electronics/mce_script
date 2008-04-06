@@ -51,10 +51,12 @@ folder=default_folder
 full_name=folder+file_name_ramp_sa
 plot_file = folder + 'analysis/' + file_name_ramp_sa + '.ps'
 
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name_ramp_sa,11)
-;spawn,'ln fill_name+'.run /data/mce_ctimes/'+strmid(file_name_ramp_sa,11)+'.run'
+rf = mas_runfile(full_name+'.run')
+loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
+reg_status = auto_setup_register(ctime, 'tune_ramp', full_name, loop_params_b[2]*loop_params_f[2])
 
-;Let's drow
+;Let's draw
 
 set_plot, 'ps'
 device, filename= plot_file, /landscape

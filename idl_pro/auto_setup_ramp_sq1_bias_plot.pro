@@ -49,6 +49,11 @@ readf, 3,  cd
 close, 3
 name_label = '/data/cryo' + '/' + cd + '/' + file_name 
 
+;ctime=string(file_name,format='(i10)')
+;rf = mas_runfile(full_name+'.run')
+;reg_status = auto_setup_register(ctime,'tune_servo',full_name,
+print,' NO DB REGISTRATION / MCE_CTIMES LINKING IN SQ1_BIAS_PLOT!'
+
 ;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)
 ;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name,11)+'.run'
                                                                                                                                                              

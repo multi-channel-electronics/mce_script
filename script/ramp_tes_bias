@@ -77,8 +77,6 @@ echo "Setting first bias and waiting $first_pause s; time between other points w
 bias_tess $start_bias
 sleep $first_pause
 
-cat /data/cryo/last_squid_tune >> $runfile
-
 #Generate .run file
 mce_status >> $runfile
 
@@ -95,10 +93,7 @@ fi
 echo "<tes_bias>" >> $biasfile
 echo "Acquiring I-V curve into data file $datafile"
 
-#touch /data/cryo/${dt}/$datafile
-#ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
-#ln /data/cryo/${dt}/$runfile /data/mce_ctimes/$runfile
-#ln /data/cryo/${dt}/$biasfile /data/mce_ctimes/$biasfile
+acq_register $ct iv $datafile $total_bias ""
 
 script=$MAS_TEMP/ramp_tes_bias.scr
 [ -e $script ] && rm $script

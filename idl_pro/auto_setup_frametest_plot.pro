@@ -23,6 +23,8 @@ if not keyword_set(nodasscript) then begin
 	auto_setup_command,'wb rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
 	;spawn,'mce_cmd -q -x wb rc'+strcompress(string(RC),/REMOVE_ALL)+' data_mode '+data_mode
 	spawn,'mce_run '+file_name+string(npts)+' '+string(rc),exit_status=status18
+        reg_status = auto_setup_register(ctime, 'data', getenv('MAS_DATA')+file_name, npts)
+
 	if status18 ne 0 then begin
         	print,''
         	print,'###################################################################'
@@ -40,9 +42,6 @@ current_data='/data/cryo/' + date + '/'
 
 full_name = current_data + file_name
 plot_name = current_data+ 'analysis/' + file_name 
-
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name,11)+'.run'
 
 ;new_file_name=file_name
 ;openr, 1, full_name+'.name'

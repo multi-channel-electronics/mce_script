@@ -61,8 +61,11 @@ set_plot, 'ps'
 ;Let's define filenames and folders
 full_name = '/data/cryo/current_data/' + file_name_sq1_servo
 
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name_sq1_servo,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name_sq1_servo,11)+'.run'
+; Link and register
+rf = mas_runfile(full_name+'.run')
+loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
+reg_status = auto_setup_register(ctime, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
 
 file_out2 = '/data/cryo/current_data/analysis/' + file_name_sq1_servo + '.ps'
 

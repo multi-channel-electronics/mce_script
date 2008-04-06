@@ -26,8 +26,6 @@ ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
 
-;Run the shell script:
-spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 0'+ ' >> /data/cryo/current_data/'+logfile
 
 ;Let's define filenames and folders
 current_data = ''
@@ -40,10 +38,13 @@ folder=default_folder
 full_name=folder+file_name_ramp_sa
 plot_file = folder + 'analysis/' + file_name_ramp_sa + '.ps'
 
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name_ramp_sa,11)
-;spawn,'ln fill_name+'.run /data/mce_ctimes/'+strmid(file_name_ramp_sa,11)+'.run'
+; Run ramp and register acq
+spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 0'+ ' >> /data/cryo/current_data/'+logfile
+rf = mas_runfile(full_name+'.run')
+loop_params = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+reg_status = auto_setup_register(ctime, 'tune_ramp', full_name, loop_params[2])
 
-;Let's drow
+;Let's draw
 
 set_plot, 'ps'
 ;device, filename= plot_file, /landscape

@@ -10,14 +10,14 @@
 LAST_TUNE=/data/cryo/last_squid_tune
 LAST_IV=/data/cryo/last_iv_det_data
 CTIMES=/data/mce_ctimes
-RECORD=/usr/bin/act_record_mce_data_acq
+RECORD=/bin/echo # /usr/bin/act_record_mce_data_acq
 
 SCRIPT="acq_register"
 if [ $# -lt 5 ]; then
 	echo "Usage:"
 	echo "           $0 ctime type name numpts note"
 	echo
-	echo " type should be one of [ test, dat, iv, tune_ramp, tune_servo ]"
+	echo " type should be one of [ test, auto, iv, tune_ramp, tune_servo ]"
 	exit 1
 fi
 
@@ -27,6 +27,7 @@ name=$3
 numpts=$4
 note="$5"
 
+do_cur=1
 do_db=1
 do_iv=1
 do_tune=1
@@ -55,6 +56,7 @@ case $type in
     ;;
 esac
 
+[ "$do_cur" != "0" ] && echo $name | sed 's/.*\///g' > $CTIMES/mce.cur
 [ "$do_tune" != "0" ] && [ -e $LAST_TUNE ] && cat $LAST_TUNE >> ${name}.run
 [ "$do_iv" != "0" ] && [ -e $LAST_IV ] && cat $LAST_IV >> ${name}.run
 [ "$do_db" != "0" ] && [ -e "$RECORD" ] && $RECORD $ctime $numpts $name "$note"

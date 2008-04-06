@@ -49,8 +49,9 @@ readf, 3,  cd
 close, 3
 name_label = '/data/cryo' + '/' + cd + '/' + file_name 
 
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name,11)+'.run'
+rf = mas_runfile(full_name+'.run')
+loop_params = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+reg_status = auto_setup_register(ctime, 'tune_ramp', full_name, loop_params[2])
 
 plot_file = folder + date + 'analysis/' +file_name + '.ps'
     
