@@ -505,9 +505,9 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.num_rows[0] = numrows
         exp_config.num_rows_reported[0] = numrows
         exp_config.servo_mode[0] = 1
-        exp_config.servo_p[0] = 0
-        exp_config.servo_i[0] = 0
-        exp_config.servo_d[0] = 0
+        exp_config.servo_p = 0
+        exp_config.servo_i = 0
+        exp_config.servo_d = 0
 	
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -698,9 +698,9 @@ for jj=0,n_elements(RCs)-1 do begin
 
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
-        exp_config.servo_p[0] = 0
-        exp_config.servo_i[0] = 0
-        exp_config.servo_d[0] = 0
+        exp_config.servo_p = 0
+        exp_config.servo_i = 0
+        exp_config.servo_d = 0
         exp_config.config_adc_offset_all[0] = 0
         exp_config.sq1_bias = sq1_bias
 
@@ -865,9 +865,9 @@ endfor
 
 exp_config.data_mode[0] = exp_config.default_data_mode[0]
 exp_config.servo_mode[0] = 3
-exp_config.servo_p[0] = exp_config.default_servo_p
-exp_config.servo_i[0] = exp_config.default_servo_i
-exp_config.servo_d[0] = exp_config.default_servo_d
+exp_config.servo_p = exp_config.default_servo_p
+exp_config.servo_i = exp_config.default_servo_i
+exp_config.servo_d = exp_config.default_servo_d
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $

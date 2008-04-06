@@ -84,11 +84,12 @@ for rc in 1 2 3 4; do
 
     #
     for c in `seq 0 7`; do
+	chan=$(( $c + $ch_ofs ))
 	dead_ofs=$(( ($c + $ch_ofs)*$array_width ))
 	
-	p_terms=( `repeat_string $servo_p $array_width` )
-	i_terms=( `repeat_string $servo_i $array_width` )
-	d_terms=( `repeat_string $servo_d $array_width` )
+	p_terms=( `repeat_string ${servo_p[$chan]} $array_width` )
+	i_terms=( `repeat_string ${servo_i[$chan]} $array_width` )
+	d_terms=( `repeat_string ${servo_d[$chan]} $array_width` )
 
 	if [ "$config_dead_tes" == "0" ]; then
 	    for r in `seq 0 $(( $array_width - 1 ))`; do
