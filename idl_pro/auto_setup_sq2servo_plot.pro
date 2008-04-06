@@ -204,13 +204,15 @@ for chan=0,7 do begin
 		if slope lt 0 then begin
 			min_point=min(sq2_v_phi(lo_index:hi_index,chan),ind_min)
 			ind_min=lo_index+ind_min
-			ind_pos_der=where(deriv_fb1(0:ind_min-5,chan) gt 0 and sq2_v_phi(0:ind_min-5,chan) gt fbmn and sq2_v_phi(0:ind_min-5,chan) le fbmax)
+			ind_pos_der=where(deriv_fb1(10:ind_min-5,chan) gt 0 and sq2_v_phi(10:ind_min-5,chan) gt fbmn and sq2_v_phi(10:ind_min-5,chan) le fbmax)
+			ind_pos_der=ind_pos_der+10
 			if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
 			ind_max=max(ind_pos_der)
 		endif else begin
 			max_point=max(sq2_v_phi(lo_index:hi_index,chan),ind_max)
                         ind_max=lo_index+ind_max
-                        ind_neg_der=where(deriv_fb1(0:ind_max-5,chan) lt 0  and sq2_v_phi(0:ind_max-5,chan) lt fbmn and sq2_v_phi(0:ind_min-5,chan) ge fbmin)
+                        ind_neg_der=where(deriv_fb1(10:ind_max-5,chan) lt 0 and sq2_v_phi(10:ind_max-5,chan) lt fbmn and sq2_v_phi(10:ind_min-5,chan) ge fbmin)
+			ind_neg_der=ind_neg_der+10
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
 		endelse
