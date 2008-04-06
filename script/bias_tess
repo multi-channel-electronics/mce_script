@@ -10,20 +10,24 @@ bias=$1
 
 if [ $# -lt 1 ]; then
     echo "Usage: $script_name bias_val"
-    echo "The bias specified is applied to all tes bias lines."
+    echo "   or: $script_name bias1 bias2 bias3"
     exit 1
 fi
 
-bias_inv=`command_reply rb tes bias`
-if [ $? -ne 0 ]; then
-    echo "FAILURE : $script_name : could not read tes bias from MCE : '$bias_inv'"
-    exit 2
+# bias_inv=`command_reply rb tes bias`
+# if [ $? -ne 0 ]; then
+#     echo "FAILURE : $script_name : could not read tes bias from MCE : '$bias_inv'"
+#     exit 2
+# fi
+
+# bias_count=`echo $bias_inv | wc -w`
+# bias_vals=`repeat_string $1 $bias_count`
+
+if [ $# -lt 2 ]; then
+    bias_output=`command_reply wb tes bias $1 $1 $1`
+else
+    bias_output=`command_reply wb tes bias $1 $2 $3`
 fi
-
-bias_count=`echo $bias_inv | wc -w`
-bias_vals=`repeat_string $1 $bias_count`
-
-bias_output=`command_reply wb tes bias $bias_vals`
 
 if [ $? -ne 0 ]; then
     echo "FAILURE : $script_name : could not write tes bias to MCE : '$bias_output'"
