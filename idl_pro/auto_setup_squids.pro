@@ -364,8 +364,8 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
         exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
-; Changed for testing 2008/04/04 JWA MDN
-        exp_config.sq1_bias = 0 ;sq1_bias
+	; Turn off S1 SQUIDs to make SQ2 measurement less biased  2008/04/06 JWA MDN
+        exp_config.sq1_bias = 0	
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
