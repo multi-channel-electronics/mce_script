@@ -55,15 +55,13 @@ on_bias=0
 if keyword_set(check_bias) then begin
 	for jj=0,n_elements(RCs)-1 do begin
 	        RC=RCs(jj)
-	        on_sabias=1
-		spawn,'check_zero rc'+strcompress(string(RC),/remove_all)+' sa_bias >> '+todays_folder+c_filename+'.log',exit_status=on_sabias
-		on_sabias=abs(on_sabias-1)
-		on_bias=on_bias+on_sabias
+		spawn,'check_zero rc'+strcompress(string(RC),/remove_all)+' sa_bias >> '+todays_folder+c_filename+'.log',exit_status=exit_status
+                if exit_status gt 8 then $
+                  print,'check_zero script failed with code '+string(exit_status)
+		on_bias=on_bias+exit_status
 	endfor
 endif
-on_sq2bias=1
-spawn,'check_zero bc3 flux_fb >> '+todays_folder+c_filename+'.log',exit_status=on_sq2bias
-on_sq2bias=abs(on_sq2bias-1)
+spawn,'check_zero sq2 bias >> '+todays_folder+c_filename+'.log',exit_status=on_sq2bias
 on_bias=on_bias+on_sq2bias
 
 ;RESET THE MCE
@@ -116,6 +114,7 @@ sq1_bias = exp_config.default_sq1_bias
 
 exp_config.sa_bias = def_sa_bias
 exp_config.sq2_bias = sq2_bias
+exp_config.sq1_bias = 0
 
 ; Save experiment params, make config script, run it.
 save_exp_params,exp_config,exp_config_file
@@ -174,16 +173,16 @@ for jj=0,n_elements(RCs)-1 do begin
 	RC=RCs(jj)
         RC_indices = 8*(RC-1) + indgen(8)
 
+	if keyword_set(short) then begin			;if we don't find the column adc_offset we read them for the config file
+                column_adc_offset(RC_indices) = exp_config.adc_offset_c(RC_indices)
+		if short eq 1 then goto, step4 else goto, step5
+	endif
+
         print,''
         print,'#################################################################'
         print,'#            NOW SETTING COLUMNS OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
         print,'#################################################################'
         print,''
-
-	if keyword_set(short) then begin			;if we don't find the column adc_offset we read them for the config file
-                column_adc_offset(RC_indices) = exp_config.adc_offset_c(RC_indices)
-		if short eq 1 then goto, step4 else goto, step5
-	endif
 
 	;----------------------------------------------------------------------------------------------------------
 	;SA setup: ramps the SA bias together with the fb and finds the best SA bias' and offsets channel by channel
@@ -210,6 +209,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.config_adc_offset_all[0] = 0      ; configure one adc_offset for the whole column
         exp_config.adc_offset_c[RC_indices] = 0
         exp_config.sq2_bias[RC_indices] = 0
+        exp_config.sq1_bias = 0
 	
 	common ramp_sa_var,plot_file,final_sa_bias_ch_by_ch,SA_target,SA_fb_init,peak_to_peak
 
@@ -364,7 +364,8 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
         exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
-        exp_config.sq1_bias = sq1_bias
+; Changed for testing 2008/04/04 JWA MDN
+        exp_config.sq1_bias = 0 ;sq1_bias
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -701,6 +702,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.servo_i[0] = 0
         exp_config.servo_d[0] = 0
         exp_config.config_adc_offset_all[0] = 0
+        exp_config.sq1_bias = sq1_bias
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
