@@ -49,11 +49,11 @@ endif
 ; Load other header information
 header = prelim_data
 
-rc_bits = (header(0) / 2^10) AND 15
-rc_present = [(rc_bits    ) AND 1, $
-              (rc_bits / 2) AND 1, $
-              (rc_bits / 4) AND 1, $
-              (rc_bits / 8) AND 1 ]
+rc_bits = ishft(header(0),-10)
+rc_present = [     (rc_bits   ) AND 1, $
+              ishft(rc_bits,-1) AND 1, $
+              ishft(rc_bits,-2) AND 1, $
+              ishft(rc_bits,-3) AND 1 ]
 rc_count = total(rc_present)
 
 frame_info = create_struct( $
@@ -118,8 +118,10 @@ if not keyword_set(runfile_name) then $
 if not keyword_set(no_runfile) then begin
     rf = mas_runfile(runfile_name)
 
-    rf_RC = mas_runparam(rf,'FRAMEACQ','RC')
-    data_mode = fix(mas_runparam(rf,'HEADER','RB rc'+rf_RC+' data_mode',error=rf_error))
+    rf_RC_list = strsplit(mas_runparam(rf,'FRAMEACQ','RC'),/extract)
+    print,rf_RC_list
+    data_mode = fix(mas_runparam(rf,'HEADER','RB rc'+rf_RC_list[0]+' data_mode',error=rf_error))
+    print,data_mode
 
 endif
 
@@ -161,11 +163,21 @@ endif
 ; Split the upper bits into data2 if split_bits is defined and no_split has not been set
 if split_bits ne 0 and not keyword_set(no_split) then begin
     if keyword_set(no_split) then return,data
-    data2 = data AND (2^split_bits - 1)
-    data = ishft(data,-split_bits)
 
-    d_idx = where(data2 ge 2^(split_bits - 1))
-    data2(d_idx) = - (data2(d_idx) AND (2^(split_bits-1)-1))
+    data2_mask = ishft(1, split_bits) - 1
+    neg_idx = where(data AND data2_mask gt data2_mask/2)
+    data2 = data and data2_mask
+    if neg_idx[0] ne -1 then $
+      data2(neg_idx) = - ( ((data(neg_idx) AND data2_mask) XOR data2_mask) + 1 )
+
+    neg_idx = where(data AND ishft(1,31) ne 0)
+    pos_idx = where(data AND ishft(1,31) eq 0)
+    
+    if pos_idx[0] ne -1 then $
+      data(pos_idx) = ishft(data(pos_idx), -split_bits)
+    if neg_idx[0] ne -1 then $
+      data(neg_idx) = -(ishft(-data(neg_idx),-split_bits))
+    
 endif
 
 if not keyword_set(no_rescale) then $
