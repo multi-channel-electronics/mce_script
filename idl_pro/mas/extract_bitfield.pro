@@ -11,7 +11,7 @@ if not keyword_set(start) then start = 0
 if not keyword_set(count) then count = 32 - start
 
 ; Handle common trivial cases
-if count eq 32 then return,data
+if count eq 32 then return,long(data)
 if count+start gt 32 then begin
     print,'EXTRACT_BITFIELD: count + start > 32!  Adjusting count...'
     count = 32-start

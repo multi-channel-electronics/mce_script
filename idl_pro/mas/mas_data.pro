@@ -5,7 +5,7 @@
 
 function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range, $
                    structure_only=structure_only,data_mode=data_mode,frame_info=frame_info, $
-                   data2=data2,no_split=no_split,split_bits=split_bits,no_rescale=no_rescale, $
+                   data2=data2,no_split=no_split,no_rescale=no_rescale, $
                    no_runfile=no_runfile,runfile_name=runfile_name
 
 ; Usage:
@@ -115,44 +115,69 @@ free_lun,data_lun
 if not keyword_set(runfile_name) then $ 
   runfile_name = filename+'.run'
 
+if not keyword_set(data_mode) and keyword_set(no_runfile) then $
+  data_mode = 0
+
 if not keyword_set(no_runfile) then begin
     rf = mas_runfile(runfile_name)
-
     rf_RC_list = strsplit(mas_runparam(rf,'FRAMEACQ','RC'),/extract)
-    print,rf_RC_list
     data_mode = fix(mas_runparam(rf,'HEADER','RB rc'+rf_RC_list[0]+' data_mode',error=rf_error))
-    print,data_mode
-
 endif
 
-; Split bits are set from data_mode, unless overridden by argument.
+rescale  = 1.            ; Rescaling for each field
+rescale2 = 1.
 
-if not keyword_set(split_bits) then split_bits = 0
-rescale = 1.            ; This is a multiplier that is applied to fb data; it depends on data mode
+; We'll put feedback into data (start/count) whenever possible.
+start  = 0               ; Bit field positions and sizes
+count  = 32              
+start2 = 0
+count2 = 0
 
-if not keyword_set(split_bits) and data_mode ne 0 then begin
+if not keyword_set(no_split) then begin
+    
     case data_mode of
         1: rescale = 1./2d^12
-        4: split_bits = 14
+        4: begin
+            start  = 14
+            count  = 18
+            start2 =  0
+            count2 = 14
+        end
         5: begin
-            split_bits =  8
-            rescale = 1./2d^4
+            start  =  8
+            count  = 24
+            start2 =  0 ; flux jump counter
+            count2 =  8
+            rescale = 2d^8
         end
         6: begin
-            split_bits = 14
+            start  = 14
+            count  = 18
+            start2 =  0 ; error
+            count2 = 14
             rescale = 2d^10
         end
-        7: begin
-            split_bits = 10
-            rescale = 2d^10    ; note that error is also scaled
+        7: begin 
+            start  = 10
+            count  = 22
+            start2 =  0 ; error
+            count2 = 10
+            rescale = 2d^10
+            rescale2 = 1./2d^4
         end
         8: begin
-            split_bits = 8
-            rescale = 2d^8     ; note that lower bits are flux jump counter
+            start  =  8
+            count  = 24
+            start2 =  0 ; flux jump counter
+            count2 =  8
+            rescale = 2d^8
         end
         9: begin
-            split_bits = 8
-            rescale = 2d^1     ; note that lower bits are flux jump counter
+            start  =  8
+            count  = 24
+            start2 =  0 ; flux jump counter
+            count2 =  8
+            rescale = 2d^1
         end
         else:
     endcase
@@ -160,29 +185,17 @@ if not keyword_set(split_bits) and data_mode ne 0 then begin
 endif
 
 
-; Split the upper bits into data2 if split_bits is defined and no_split has not been set
-if split_bits ne 0 and not keyword_set(no_split) then begin
-    if keyword_set(no_split) then return,data
+if count2 ne 0 then $
+  data2 = extract_bitfield(data, count=count2, start=start2)
 
-    data2_mask = ishft(1, split_bits) - 1
-    neg_idx = where(data AND data2_mask gt data2_mask/2)
-    data2 = data and data2_mask
-    if neg_idx[0] ne -1 then $
-      data2(neg_idx) = - ( ((data(neg_idx) AND data2_mask) XOR data2_mask) + 1 )
+data1 = extract_bitfield(data, count=count, start=start)
 
-    neg_idx = where(data AND ishft(1,31) ne 0)
-    pos_idx = where(data AND ishft(1,31) eq 0)
-    
-    if pos_idx[0] ne -1 then $
-      data(pos_idx) = ishft(data(pos_idx), -split_bits)
-    if neg_idx[0] ne -1 then $
-      data(neg_idx) = -(ishft(-data(neg_idx),-split_bits))
-    
+if not keyword_set(no_rescale) then begin
+  data1 = data1 * rescale
+  if count2 ne 0 then $
+    data2 = data2 * rescale2
 endif
 
-if not keyword_set(no_rescale) then $
-  data = data * rescale
-
-return,data
+return,data1
 
 end
