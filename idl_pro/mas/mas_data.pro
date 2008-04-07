@@ -5,7 +5,7 @@
 
 function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range, $
                    structure_only=structure_only,data_mode=data_mode,frame_info=frame_info, $
-                   data2=data2,no_split=no_split,split_bits=split_bits,no_rescale=no_rescale, $
+                   data2=data2,no_split=no_split,no_rescale=no_rescale, $
                    no_runfile=no_runfile,runfile_name=runfile_name
 
 ; Usage:
@@ -49,11 +49,11 @@ endif
 ; Load other header information
 header = prelim_data
 
-rc_bits = (header(0) / 2^10) AND 15
-rc_present = [(rc_bits    ) AND 1, $
-              (rc_bits / 2) AND 1, $
-              (rc_bits / 4) AND 1, $
-              (rc_bits / 8) AND 1 ]
+rc_bits = ishft(header(0),-10)
+rc_present = [     (rc_bits   ) AND 1, $
+              ishft(rc_bits,-1) AND 1, $
+              ishft(rc_bits,-2) AND 1, $
+              ishft(rc_bits,-3) AND 1 ]
 rc_count = total(rc_present)
 
 frame_info = create_struct( $
@@ -115,42 +115,69 @@ free_lun,data_lun
 if not keyword_set(runfile_name) then $ 
   runfile_name = filename+'.run'
 
+if not keyword_set(data_mode) and keyword_set(no_runfile) then $
+  data_mode = 0
+
 if not keyword_set(no_runfile) then begin
     rf = mas_runfile(runfile_name)
-
-    rf_RC = mas_runparam(rf,'FRAMEACQ','RC')
-    data_mode = fix(mas_runparam(rf,'HEADER','RB rc'+rf_RC+' data_mode',error=rf_error))
-
+    rf_RC_list = strsplit(mas_runparam(rf,'FRAMEACQ','RC'),/extract)
+    data_mode = fix(mas_runparam(rf,'HEADER','RB rc'+rf_RC_list[0]+' data_mode',error=rf_error))
 endif
 
-; Split bits are set from data_mode, unless overridden by argument.
+rescale  = 1.            ; Rescaling for each field
+rescale2 = 1.
 
-if not keyword_set(split_bits) then split_bits = 0
-rescale = 1.            ; This is a multiplier that is applied to fb data; it depends on data mode
+; We'll put feedback into data (start/count) whenever possible.
+start  = 0               ; Bit field positions and sizes
+count  = 32              
+start2 = 0
+count2 = 0
 
-if not keyword_set(split_bits) and data_mode ne 0 then begin
+if not keyword_set(no_split) then begin
+    
     case data_mode of
         1: rescale = 1./2d^12
-        4: split_bits = 14
+        4: begin
+            start  = 14
+            count  = 18
+            start2 =  0
+            count2 = 14
+        end
         5: begin
-            split_bits =  8
-            rescale = 1./2d^4
+            start  =  8
+            count  = 24
+            start2 =  0 ; flux jump counter
+            count2 =  8
+            rescale = 2d^8
         end
         6: begin
-            split_bits = 14
+            start  = 14
+            count  = 18
+            start2 =  0 ; error
+            count2 = 14
             rescale = 2d^10
         end
-        7: begin
-            split_bits = 10
-            rescale = 2d^10    ; note that error is also scaled
+        7: begin 
+            start  = 10
+            count  = 22
+            start2 =  0 ; error
+            count2 = 10
+            rescale = 2d^10
+            rescale2 = 1./2d^4
         end
         8: begin
-            split_bits = 8
-            rescale = 2d^8     ; note that lower bits are flux jump counter
+            start  =  8
+            count  = 24
+            start2 =  0 ; flux jump counter
+            count2 =  8
+            rescale = 2d^8
         end
         9: begin
-            split_bits = 8
-            rescale = 2d^1     ; note that lower bits are flux jump counter
+            start  =  8
+            count  = 24
+            start2 =  0 ; flux jump counter
+            count2 =  8
+            rescale = 2d^1
         end
         else:
     endcase
@@ -158,19 +185,17 @@ if not keyword_set(split_bits) and data_mode ne 0 then begin
 endif
 
 
-; Split the upper bits into data2 if split_bits is defined and no_split has not been set
-if split_bits ne 0 and not keyword_set(no_split) then begin
-    if keyword_set(no_split) then return,data
-    data2 = data AND (2^split_bits - 1)
-    data = ishft(data,-split_bits)
+if count2 ne 0 then $
+  data2 = extract_bitfield(data, count=count2, start=start2)
 
-    d_idx = where(data2 ge 2^(split_bits - 1))
-    data2(d_idx) = - (data2(d_idx) AND (2^(split_bits-1)-1))
+data1 = extract_bitfield(data, count=count, start=start)
+
+if not keyword_set(no_rescale) then begin
+  data1 = data1 * rescale
+  if count2 ne 0 then $
+    data2 = data2 * rescale2
 endif
 
-if not keyword_set(no_rescale) then $
-  data = data * rescale
-
-return,data
+return,data1
 
 end
