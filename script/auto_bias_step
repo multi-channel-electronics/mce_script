@@ -26,31 +26,19 @@ fi
 n_frames=$1
 note="$2"
 
-# args are broken.  filename is auto-generated.  fix this, please.
-ACQ="bias_step_acq s $n_frames " # '$note'
-ACQ_TARGET=0
+# Loop over all bias lines in the system
+n_bias=`mas_param -s $MAS_DATA/experiment.cfg get bias_line_card | wc -w`
+for bias in `seq 1 $n_bias`; do
+    ACQ="bias_step_acq $bias s $n_frames"
+    ACQ_TARGET=0
 
-# Try to start in good health
-health_clear
-if [ "$?" != "0" ]; then
-    echo $ERRPREF "health_clear failed!  Check MCE/DAS." | $LOGGER
-    exit 1
-fi
-
-# Start acquisition
-$ACQ
-if [ "$?" != "$ACQ_TARGET" ]; then
-    echo $ERRPREF "'$ACQ' returned error!" | $LOGGER
-    exit 1
-fi
-
-# Check health, for the record
-#check_reset
-#if [ "$?" != "0" ]; then
-#   echo $ERRPREF "check_reset returned positive" | $LOGGER
-#fi
+    $ACQ
+    if [ "$?" != "$ACQ_TARGET" ]; then
+	echo $ERRPREF "'$ACQ' returned error!" | $LOGGER
+	exit 1
+    fi
+done
 
 # Record keeping: time elapsed
 delta_ctime=`print_elapsed $start_ctime`
 echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
-echo
