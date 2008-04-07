@@ -196,7 +196,7 @@ print,'#########################################################################
 
 ; Elia analyses only samples 100:350 of a 400 point curve.
 
-lo_index = ramp_count / 4.
+lo_index = ramp_count / 2.
 hi_index = ramp_count * 7. / 8.
 for chan=0,7 do begin
 	print,'Channel:',chan
