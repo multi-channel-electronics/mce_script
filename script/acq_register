@@ -37,18 +37,26 @@ case $type in
     "iv")
     files="$name $name.run $name.bias"
     do_iv=0
+    do_cur=0
     ;;
 
     "tune_servo")
     files="$name $name.run $name.bias"
     do_iv=0
     do_tune=0
+    do_cur=0
     ;;
 
     "tune_ramp")
     files="$name $name.run"
     do_iv=0
     do_tune=0
+    do_cur=0
+    ;;
+
+    "bias_step")
+    files="$name $name.run"
+    do_cur=0
     ;;
 
     *)

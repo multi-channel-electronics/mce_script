@@ -44,12 +44,12 @@ para_list=( `mas_param -s $MAS_DATA/experiment.cfg get bias_line_para` )
 bias_card=${card_list[$line]}
 bias_para=${para_list[$line]}
 
-echo Internal address $bias_card $bias_para
-
 ct=`print_ctime`
-filename="bias_step_$ct"
+filename="${ct}_bc$(( $line + 1 ))_step"
 echo "bias_step data will be saved in $MAS_DATA/$filename"
+acq_register $ct bias_step $MAS_DATA/$filename $n_points ""
 
+last_data_mode=( `command_reply rb rca data_mode` )
 data_rate=`command_reply rb cc data_rate`
 num_rows=`command_reply rb cc num_rows`
 row_len=`command_reply rb cc row_len`
@@ -93,13 +93,17 @@ mce_cmd -qx wb cc ramp_step_size   $step_depth
 # leave this set to 1, multi-ramp is untested
 mce_cmd -qx wb cc ramp_step_data_num 1
 
+# Use data mode 1, unfiltered 32-bit feedback
+mce_cmd -qx wb rca data_mode 1
+
 # Enable the ramp and acquire
 mce_cmd -qx wb cc internal_command_mode 2
 
 mce_run $filename $n_points $rc
 
-# Restore bias (in a cute way), disable ramp.
+# Restore bias (in a cute way), disable ramp., restore data_mode
 mce_cmd -qx wb cc ramp_min_val    $centre_bias
 mce_cmd -qx wb cc ramp_max_val    $centre_bias
 sleep $(( 1 + $step_period / 1000000 ))
 mce_cmd -qx wb cc internal_command_mode 0
+mce_cmd -qx wb rca data_mode ${last_data_mode[0]}
