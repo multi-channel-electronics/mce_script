@@ -62,7 +62,7 @@ step_period=$(( $frame_rate * $step_period / 1000000 ))
 # Round to multiple of data_rate
 step_period=$(( ($step_period + $data_rate/2) / $data_rate * $data_rate ))
 
-centre_bias=`command_reply rb bc2 bias`
+centre_bias=`command_reply rb bc$(( $line + 1)) bias`
 
 echo Current bias is $centre_bias
 
