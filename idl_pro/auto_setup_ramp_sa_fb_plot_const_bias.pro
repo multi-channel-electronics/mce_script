@@ -163,11 +163,11 @@ print,''
 print,'###########################################################################'
 print,'SA bias and target (adc_offset) channel by channel:'
 print,'###########################################################################'
+print,' Channel Bias@step (index) Target@half  sa_fb@half '
+print,'---------------------------------------------------'
 for chan=0,7 do begin
-	print,'Channel:',chan
 	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
 	final_sa_bias_ch_by_ch(chan)=round(bias_start + ind(chan)* bias_step)
-	print,'sa_bias @ step',ind(chan),', ie sa_bias=',final_sa_bias_ch_by_ch(chan)
 	min_point=min(av_vol(ind(chan),150:380,chan),ind_min)	;in case we want to lock on the negative slope
 	ind_min=150+ind_min
 
@@ -194,13 +194,17 @@ for chan=0,7 do begin
 	;min_slope=min(deriv_av_vol(ind(chan),100:300,chan),indd)	
 	;ind_min_slope=indd+100						
 	;target_min_slope_ch_by_ch(chan)=round(1000.*av_vol(ind(chan),ind_min_slope,chan))
-	print,'target  @ half point=',target_half_point_ch_by_ch(chan)
 	;fb_min_slope_ch_by_ch(chan)=round(1000.*i_fb(ind_min_slope))
-	print,'sa_fb   @ half point=',fb_half_point_ch_by_ch(chan)
-	;print,' '
 
-	print,'###########################################################################'
-	;print,' '
+        print,format='(i4, i11, i8, i12, i12)',chan, final_sa_bias_ch_by_ch(chan), ind(chan), $
+          target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+
+;;	print,'Channel:',chan
+;;	print,'sa_bias @ step',ind(chan),', ie sa_bias=',final_sa_bias_ch_by_ch(chan)
+;;	print,'target  @ half point=',target_half_point_ch_by_ch(chan)
+;;	print,'sa_fb   @ half point=',fb_half_point_ch_by_ch(chan)
+;;	print,'###########################################################################'
+;;	;print,' '
 ;stop
 endfor
 
