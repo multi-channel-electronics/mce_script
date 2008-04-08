@@ -1,7 +1,11 @@
 function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start, $
-                        plots_on=plots_on,expected=expected
+                        plots_on=plots_on,expected=expected,mean_by_column=mean_by_column
+;
+; Returns 8 x n_rows array of v-phi periods.  Means, column by column
+; after outlier removal (using 'expected') are preseent in
+; 'mean_by_column'.
+;
 
-filename = '/data/cryo/20080401/1207101655/1207101807_RC1_sq1rampc'
 
 if not keyword_set (bias_step) then begin
     rf = mas_runfile(filename+'.run')
@@ -41,6 +45,12 @@ for r=0,n_row-1 do begin
         endif
 
     endfor
+endfor
+
+mean_by_column = fltarr(n_col)
+for c=0,n_col-1 do begin
+    idx = where(abs(p_set[c,*]/expected -1) lt 0.1)
+    mean_by_column[c] = mean(p_set[c,idx])
 endfor
 
 return, p_set
