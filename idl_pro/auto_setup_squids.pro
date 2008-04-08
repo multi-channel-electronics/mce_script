@@ -98,6 +98,9 @@ for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
 
 wait,exp_config.tes_bias_normal_time[0]
 
+
+exp_config.tes_bias = exp_config.tes_bias_idle
+
 for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
   auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
 
@@ -550,6 +553,18 @@ for jj=0,n_elements(RCs)-1 do begin
 
             SQ2_feedback_full_array=lon64arr(numrows,8)
 
+            ;MFH - single servo!
+            auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+              numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+              gain=exp_config.sq1servo_gain[rc-1], $
+              ramp_start=exp_config.sq1_ramp_flux_start[0], $
+              ramp_count=exp_config.sq1_ramp_flux_count[0], $
+              ramp_step=exp_config.sq1_ramp_flux_step[0], $
+              /super_servo
+
+            runfile = sq1_base_name+'_sq1servo.run'
+            
+
             for sq1servorow=0,numrows-1 do begin
 ;                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
                 sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
@@ -561,11 +576,17 @@ for jj=0,n_elements(RCs)-1 do begin
                 endfor
                 row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
                 spawn,row_init_string
+
+                bias_file = strcompress(sq1_base_name+'_sq1servo.r'+ $
+                                        string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
   	
 		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
                   gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
-                  ramp_start=exp_config.sq1_ramp_flux_start[0], ramp_count=exp_config.sq1_ramp_flux_count[0], ramp_step=exp_config.sq1_ramp_flux_step[0]
+                  ramp_start=exp_config.sq1_ramp_flux_start[0], $
+                  ramp_count=exp_config.sq1_ramp_flux_count[0], $
+                  ramp_step=exp_config.sq1_ramp_flux_step[0], $
+                  use_bias_file=bias_file, use_run_file=runfile
 
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
@@ -644,7 +665,6 @@ for jj=0,n_elements(RCs)-1 do begin
 
 ; Single row approach -- these will be ignored in the multi-variable case!
 
-        print,'sq1_target = ',string(sq1_target)
         exp_config.sq2_fb(RC_indices) = sq1_target
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
