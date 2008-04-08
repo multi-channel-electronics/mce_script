@@ -27,7 +27,7 @@ else
 fi
 
 for a in `seq 1 $tries`; do
-    dsp_cmd -qx reset_mce
+    mce_cmd -qx mce_reset
 #    sleep 1
     check_card_life
     if [ "$?" == "1" ]; then

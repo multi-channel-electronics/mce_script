@@ -25,7 +25,8 @@ SCRIPTS=$MAS_SCRIPT
 IDL_PRO=$MAS_IDL
 
 SETUP_TARGET=99 #return value that indicates completion
-SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias $RC"
+#SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias,/check_bias $RC"
+SETUP_IDL="auto_setup_squids,short=$short,/check_bias $RC"
 #SETUP_IDL="auto_setup_squids,short=$short $RC"
 
 start_time=`date`
