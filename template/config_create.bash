@@ -51,6 +51,26 @@ echo "wb cc use_dv $use_dv" >> $mce_script
 echo "wb cc use_sync $use_sync" >> $mce_script
 echo "wb cc ret_dat_s 1 1" >> $mce_script
 
+# Write cc user_word based on array_id - this shows up in frame data
+if [ -e "/data/cryo/array_id" ]; then
+    array_id=`cat /data/cryo/array_id`
+    case "$array_id" in
+	"AR1")
+	echo "wb cc user_word 1" >> $mce_script
+	;;
+	"AR2")
+	echo "wb cc user_word 2" >> $mce_script
+	;;
+	"AR3")
+	echo "wb cc user_word 3" >> $mce_script
+	;;
+	*)
+	echo "wb cc user_word 0" >> $mce_script
+	;;
+    esac
+fi
+
+
 #----------------------------------------------
 # Readout Cards
 #----------------------------------------------
@@ -108,15 +128,6 @@ for rc in 1 2 3 4; do
 	
 done
 
-# Run the adc_offset config file.
-#today=`cat /data/cryo/current_data_name`
-#$MAS_DATA/config_mce_adc_offset_${today} >> $mce_script
-#if [ $? ]; then
-#  echo "$0 failed: config_mce_adc_offset_${today} failed with code $cmdstatus, config aborted..." >&2
-#  exit 2
-#fi
-
-
 # echo "Other cards: time=" `print_elapsed $create_start` >&2
 
 #----------------------------------------------
@@ -162,11 +173,11 @@ fi
 #---------------------------------------------------------------
 # Flux Jumping
 #---------------------------------------------------------------
-# Flux jumps occur when the 1st stage fb reaches 3/4 of the positive or negative range of the 14-bit ADC
-# The flux qanta can correct the 1st stage fb by up to 6/4 of the half-range before is tirggers corrective counter-jump.  
-# To see maximum variation in this test without allowing a flux-jump to get near to the point where it will cause a counter-jump, I will used a flux quanta of 5/4 the half-range of the ADC.
-# [(2^14)/2]*5/4=10240
-# Enable/disable flux-jumping
+
+# Flux jumps occur when the 1st stage fb reaches 3/4 of the positive
+# or negative range of the 14-bit ADC. The flux qanta can correct the
+# 1st stage fb by up to 6/4 of the half-range before is triggers
+# corrective counter-jump.
 
 for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
