@@ -1,4 +1,5 @@
-function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start
+function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start, $
+                        plots_on=plots_on,expected=expected
 
 filename = '/data/cryo/20080401/1207101655/1207101807_RC1_sq1rampc'
 
@@ -27,8 +28,18 @@ for r=0,n_row-1 do begin
         if p lt 0 then p = 0
         p_set[c, r] = p
 
-;        plot,x,y,xrange=[x[0], x[n-1] *2]
-;        oplot,x+p[0],y,color=255
+        if keyword_set(plots_on) then begin
+            plot,x,y,xrange=[x[0], x[n-1] *2]
+            oplot,x+p[0],y,color=255
+        endif
+
+        if keyword_set(expected) and abs(p - expected)/expected gt 0.1 then begin
+            print,'Surprise! ',string(r)+string(c)+' is bad-amped.'
+            plot,x,y,xrange=[x[0], x[n-1] *2]
+            oplot,x+p[0],y,color=255
+            wait,1
+        endif
+
     endfor
 endfor
 
