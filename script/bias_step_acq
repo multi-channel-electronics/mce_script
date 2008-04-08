@@ -107,3 +107,5 @@ mce_cmd -qx wb cc ramp_max_val    $centre_bias
 sleep $(( 1 + $step_period / 1000000 ))
 mce_cmd -qx wb cc internal_command_mode 0
 mce_cmd -qx wb rca data_mode ${last_data_mode[0]}
+
+mce_cmd -qx wb bc$(( $line + 1)) bias $centre_bias
