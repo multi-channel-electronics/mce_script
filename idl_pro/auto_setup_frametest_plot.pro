@@ -336,7 +336,8 @@ if keyword_set(interactive) then spawn,'ggv '+plot_name+' &'
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the the frame_test_plot curves check the file '+string(plot_name)
+print,'To view the the frame_test_plot curves check the file'
+print,string(plot_name)
 print,' '
 print,'###########################################################################'
 

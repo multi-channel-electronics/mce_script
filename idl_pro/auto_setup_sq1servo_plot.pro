@@ -77,11 +77,6 @@ if not keyword_set(use_bias_file) then begin
     
     ; Go go go
     spawn,servo_cmd+' '+servo_args+' >> /data/cryo/current_data/'+logfile,exit_status=status10
-    print,servo_cmd+' '+servo_args+' >> /data/cryo/current_data/'+logfile
-    print,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 '+ $
-      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' '+ $
-      string(rc)+' '+string(target)+' '+string(numrows)+' '+string(gain)+' 1 '+ $
-      ' >> /data/cryo/current_data/'+logfile
     if status10 ne 0 then begin
         print,''
         print,'################################################################'
@@ -313,7 +308,8 @@ plot_file = '/data/cryo/current_data/'+'analysis/' + file_name_sq1_points + '.ps
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SQ1 locking points check '+string(plot_file)
+print,'To view the SQ1 locking points check '
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 charsz=1

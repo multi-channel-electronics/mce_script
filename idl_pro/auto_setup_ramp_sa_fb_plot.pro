@@ -292,7 +292,8 @@ plot_file = folder + 'analysis/' + file_name_sa_points + '.ps'
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SA locking points check '+string(plot_file)
+print,'To view the SA locking points check',
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 charsz=1

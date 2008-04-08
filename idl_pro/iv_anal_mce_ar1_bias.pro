@@ -43,8 +43,8 @@ Rfb = 7006.             ; S1FB resistances measured in MBAC using MCE continuity
 M_ratio = 8.5		; For Mux06a chips
 filtergain = 1216./2	; Data mode 8 drops the bottom filtered bit so the gain is the normal filtergain / 2 = 1216./2 = 606.
 n_columns = 32		; Number of columns being analyzed
-fb_normalize = replicate(1,32)       ; This depends on whether you have a nyquist inductor as well as the polarity of the detector bias.
-fb_normalize(24:31) = -1
+fb_normalize = replicate(-1,32)       ; This depends on whether you have a nyquist inductor as well as the polarity of the detector bias.
+fb_normalize(31) = 1
 ;per_Rn_bias = 0.4	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
 ;  Changed to 0.3 11-6-2007
 per_Rn_bias = 0.3	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
@@ -63,10 +63,9 @@ Rbias_cable = [211.,210.,153.]
 
 Rbias_arr = Rbias_arr + Rbias_cable
 
-bias1_cols = indgen(8)	; List of columns connected to the original bias line from bias card 1
-bias2_cols = indgen(17)+8	; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
-bias2_cols(16) = 31
-bias3_cols = indgen(7)+24	; List of columns connected to the new detector bias line from bias card 3 (set to -1 if nothing is connected)
+bias1_cols = indgen(16)	; List of columns connected to the original bias line from bias card 1
+bias2_cols = indgen(15)+16	; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
+bias3_cols = 31	; List of columns connected to the new detector bias line from bias card 3 (set to -1 if nothing is connected)
 bias_step = 50	;100		; This is the allowed step size that the applied biases will be rounded to, changed to 50 11-11-2007 MDN
 biases = lonarr(3)	; These are the biases that will be applied to the 3 different bias lines
 

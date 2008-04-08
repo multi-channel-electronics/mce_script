@@ -194,12 +194,18 @@ print,'#########################################################################
 print,'SQ2 bias, and SA fb channel by channel:'
 print,'###########################################################################'
 
+if keyword_set(lockamp) then $
+  print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
+
+print,' Channel                   Target@half sq2_fb@half '
+print,'---------------------------------------------------'
+
+
 ; Elia analyses only samples 100:350 of a 400 point curve.
 
 lo_index = ramp_count / 2.
 hi_index = ramp_count * 7. / 8.
 for chan=0,7 do begin
-	print,'Channel:',chan
 		; Added fbmn (mean value) check for finding period (includes 3 lines below) 4-2-2008 MDN & JA
 		fbmn = (max(sq2_v_phi(lo_index:hi_index,chan)) - min(sq2_v_phi(lo_index:hi_index,chan)))/2.+min(sq2_v_phi(lo_index:hi_index,chan))
 		fbmax = (max(sq2_v_phi(lo_index:hi_index,chan)))
@@ -223,7 +229,7 @@ for chan=0,7 do begin
 		;where(abs(fb1(ind_max:ind_min,chan)-65535) eq min(abs(fb1(ind_max:ind_min,chan)-65535)))
 		if keyword_set(lockamp) then begin
 			fb_mean = (fb1(ind_min,chan)+fb1(ind_max,chan))/2.
-			print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
+; 			print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
 			if ind_min lt ind_max then begin
 				fb_close = min(abs(fb1(ind_min:ind_max,chan)-fb_mean),fb_pnt)
 				ind_half_point = fb_pnt + ind_min
@@ -237,12 +243,17 @@ for chan=0,7 do begin
 			ind_half_point=round((ind_min+ind_max)/2)
 			target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
 			fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
-		endelse
-		print,'target  @ half point=',target_half_point_ch_by_ch(chan)
-		print,'sq2_feedback   @ half point=',fb_half_point_ch_by_ch(chan)	
-	;print,' '
-	print,'###########################################################################'
-	;print,' '
+                endelse
+
+                print,format='(i4, i31, i12)',chan, $
+                  target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+
+;               print,'Channel:',chan
+; 		print,'target  @ half point=',target_half_point_ch_by_ch(chan)
+; 		print,'sq2_feedback   @ half point=',fb_half_point_ch_by_ch(chan)	
+; 	;print,' '
+; 	print,'###########################################################################'
+; 	;print,' '
 ;stop
 endfor
 
@@ -275,7 +286,8 @@ plot_file = '/data/cryo/current_data/'+'analysis/' + file_name_sq2_points + '.ps
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SQ2 locking points check '+string(plot_file)
+print,'To view the SQ2 locking points check'
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 charsz=1

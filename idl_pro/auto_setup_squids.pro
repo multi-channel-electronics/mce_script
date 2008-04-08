@@ -403,8 +403,11 @@ for jj=0,n_elements(RCs)-1 do begin
 	
         sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
-        auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
-          ramp_start=exp_config.sq2_ramp_flux_start[0], ramp_count=exp_config.sq2_ramp_flux_count[0], ramp_step=exp_config.sq2_ramp_flux_step[0],/lockamp
+        auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
+          interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
+          ramp_start=exp_config.sq2_servo_flux_start[0], $
+          ramp_count=exp_config.sq2_servo_flux_count[0], $
+          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -544,7 +547,6 @@ for jj=0,n_elements(RCs)-1 do begin
        
         sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
 
-
         if exp_config.config_fast_sq2 then begin
 
             print, 'Using biasing address card (bac) to sq1servo each row separately.'
@@ -557,9 +559,9 @@ for jj=0,n_elements(RCs)-1 do begin
             auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
               numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
               gain=exp_config.sq1servo_gain[rc-1], $
-              ramp_start=exp_config.sq1_ramp_flux_start[0], $
-              ramp_count=exp_config.sq1_ramp_flux_count[0], $
-              ramp_step=exp_config.sq1_ramp_flux_step[0], $
+              ramp_start=exp_config.sq1_servo_flux_start[0], $
+              ramp_count=exp_config.sq1_servo_flux_count[0], $
+              ramp_step=exp_config.sq1_servo_flux_step[0], $
               /super_servo
 
             runfile = sq1_base_name+'_sq1servo.run'
@@ -583,9 +585,9 @@ for jj=0,n_elements(RCs)-1 do begin
 		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
                   gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
-                  ramp_start=exp_config.sq1_ramp_flux_start[0], $
-                  ramp_count=exp_config.sq1_ramp_flux_count[0], $
-                  ramp_step=exp_config.sq1_ramp_flux_step[0], $
+                  ramp_start=exp_config.sq1_servo_flux_start[0], $
+                  ramp_count=exp_config.sq1_servo_flux_count[0], $
+                  ramp_step=exp_config.sq1_servo_flux_step[0], $
                   use_bias_file=bias_file, use_run_file=runfile
 
 
@@ -640,7 +642,9 @@ for jj=0,n_elements(RCs)-1 do begin
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
               RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
               gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
-              ramp_start=exp_config.sq1_ramp_flux_start[0], ramp_count=exp_config.sq1_ramp_flux_count[0], ramp_step=exp_config.sq1_ramp_flux_step[0]
+              ramp_start=exp_config.sq1_servo_flux_start[0], $
+              ramp_count=exp_config.sq1_servo_flux_count[0], $
+              ramp_step=exp_config.sq1_servo_flux_step[0]
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$

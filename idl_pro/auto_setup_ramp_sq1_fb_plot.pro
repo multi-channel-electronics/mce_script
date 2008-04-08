@@ -14,7 +14,7 @@ close,/all
 ;Comunication:
 print,''
 print,'###########################################################################'
-print,'#5) The fith step is to check whether the locking is succesfull. We then  #'
+print,'#5) The fifth step is to check whether the locking is succesfull. We then #'
 print,'#   run a ramp_SQ1_fb and we check the SQ1 V-phi curves.                  #'
 print,'###########################################################################'
 print,''
@@ -222,7 +222,8 @@ endif
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SQ1 V-phi curves check the file '+string(plot_file)
+print,'To view the SQ1 V-phi curves check the file'
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 
