@@ -1,3 +1,5 @@
+function mas_runparam,data,block,tag,error=error,long=long,float=float
+
 ; MAS_RUNPARAM
 ;
 ; Returns the data associated with a run file entry.
@@ -17,8 +19,6 @@
 ;
 
 
-function mas_runparam,data,block,tag,error=error
-
 error = -1
 
 b_idx = where(data.blocks eq block)
@@ -33,6 +33,10 @@ if t_idx eq -1 then return,-2
 t_idx = t_idx[0]
 
 error=0
+
+if keyword_set(long)  then return, long(strsplit(keys[t_idx],/extract))
+if keyword_set(float) then return, float(strsplit(keys[t_idx],/extract))
+
 return,keys[t_idx]
 
 end

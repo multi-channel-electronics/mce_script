@@ -3,7 +3,7 @@
 ; Matthew Hasselfield - adapted from auto_setup_frametest_plot
 ;
 
-function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range, $
+function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range_in, $
                    structure_only=structure_only,data_mode=data_mode,frame_info=frame_info, $
                    data2=data2,no_split=no_split,no_rescale=no_rescale, $
                    no_runfile=no_runfile,runfile_name=runfile_name
@@ -15,11 +15,12 @@ function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range,
 ;   col=col        unimplemented!
 ;   row=row        unimplemented!
 ;   rc=rc          unimplemented!
-;   frame_range    start and end indices of frames to load. Defaults to all data in file.
+;   frame_range    start and end indices of frames to load. Negative indices are   
+;                  relative to end of file (so -1 is last frame).  Defaults to [0, -1].
 ;   structure_only does not load data, but does fill frame_info frame the first frame header.
 ;   data_mode      if specified, can be used to force a default bit splitting
 ;   frame_info     destination structure for frame data file information
-;   data2          destination for upper bits of data in mixed data modes
+;   data2          destination for lower bits of data in mixed data modes
 ;   no_runfile     do not attempt to process the runfile
 ;   runfile_name   use this runfile name instead of filename.run
 
@@ -64,44 +65,60 @@ frame_info = create_struct( $
                             'num_rows',    header(9), $
                             'rc_present',  rc_present, $
                             'rc_count',    rc_count, $
-                            'n_frames',    0, $ ; place holder
-                            'n_columns',   8*rc_count, $
+                            'n_frames',    0L, $ ; place holder
+                            'n_columns',   8L*rc_count, $
                             'n_rows',      header(3), $
-                            'frame_size',  0, $ ; place holder
-                            'data_size',   0, $ ; place holder
-                            'footer_size', 1, $
-                            'data_offset', 43 $
+                            'data_mode',   0L, $
+                            'frame_size',  0L, $ ; place holder
+                            'data_size',   0L, $ ; place holder
+                            'footer_size', 1L, $
+                            'data_offset', 43L $
 )
 
 ;Calculate frame size and count, assuming 8 columns per card...
 frame_info.data_size = frame_info.n_columns*frame_info.n_rows
 frame_info.frame_size = frame_info.data_offset + frame_info.footer_size + frame_info.data_size
-frame_info.n_frames = fix(data_stat.size / 4L / frame_info.frame_size)
+frame_info.n_frames = long(data_stat.size / 4L / frame_info.frame_size)
 
 if keyword_set(structure_only) then return,0
 
-; Set or check frame range
-if not keyword_set(frame_range) then frame_range = [0, frame_info.n_frames-1]
+; Use our own frame_range variable so as not to change the passed value.
+if not keyword_set(frame_range_in) then $
+  frame_range = [0L, -1L] $
+else $
+  frame_range = long(frame_range_in)
+
+; Adjust negative values relative to eof
+neg_f = where(frame_range lt 0)
+if neg_f[0] ne -1 then $
+  frame_range[neg_f] = frame_range[neg_f] + frame_info.n_frames
+
+; Catch bad frame ranges
 if frame_range(0) lt 0 or frame_range(0) gt frame_info.n_frames-1 then begin
     print,fn_name+': bad frame range : ', string(frame_range)
     return,-1
 endif
+
+; Truncate extreme frame ranges
 if frame_range(1) gt frame_info.n_frames-1 then begin
     frame_range(1) = frame_info.n_frames-1
     print,fn_name+': frame range truncated to : ', string(frame_range)
 endif
 
+; Update n_frames to reflect number of frames queried
+frame_info.n_frames=frame_range(1)-frame_range(0)+1L
+
 ; Open file and calculate seek deltas
 openr,data_lun,filename,/get_lun
-seek_start = long(frame_info.frame_size*frame_range(0) + frame_info.data_offset) * 4
-seek_delta = long(frame_info.frame_size) * 4
+seek_start = long(frame_info.frame_size*frame_range(0) + frame_info.data_offset) * 4L
+seek_delta = long(frame_info.frame_size) * 4L
 
 ; Maybe we have enough ram
 data = lonarr(frame_info.n_columns, frame_info.n_rows, frame_info.n_frames, /nozero)
 sample = lonarr(frame_info.n_columns, frame_info.n_rows, /nozero)
 
 ; Read
-for i=0,frame_info.n_frames-1 do begin
+for i=0L,frame_range[1]-frame_range[0] do begin
     point_lun,data_lun, seek_start + i*seek_delta
     readu,data_lun,sample
     data(*,*,i) = sample
@@ -123,6 +140,8 @@ if not keyword_set(no_runfile) then begin
     rf_RC_list = strsplit(mas_runparam(rf,'FRAMEACQ','RC'),/extract)
     data_mode = fix(mas_runparam(rf,'HEADER','RB rc'+rf_RC_list[0]+' data_mode',error=rf_error))
 endif
+
+frame_info.data_mode = data_mode
 
 rescale  = 1.            ; Rescaling for each field
 rescale2 = 1.
