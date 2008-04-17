@@ -10,7 +10,7 @@
 LAST_TUNE=/data/cryo/last_squid_tune
 LAST_IV=/data/cryo/last_iv_det_data
 CTIMES=/data/mce_ctimes
-RECORD=/bin/echo # /usr/bin/act_record_mce_data_acq
+RECORD=/usr/bin/act_record_mce_data_acq
 
 SCRIPT="acq_register"
 if [ $# -lt 5 ]; then
@@ -26,6 +26,8 @@ type=$2
 name=$3
 numpts=$4
 note="$5"
+
+array_id=`cat /data/cryo/array_id`
 
 do_cur=1
 do_db=1
@@ -67,7 +69,7 @@ esac
 [ "$do_cur" != "0" ] && echo $name | sed 's/.*\///g' > $CTIMES/mce.cur
 [ "$do_tune" != "0" ] && [ -e $LAST_TUNE ] && cat $LAST_TUNE >> ${name}.run
 [ "$do_iv" != "0" ] && [ -e $LAST_IV ] && cat $LAST_IV >> ${name}.run
-[ "$do_db" != "0" ] && [ -e "$RECORD" ] && $RECORD $ctime $numpts $name "$note"
+[ "$do_db" != "0" ] && [ -e "$RECORD" ] && $RECORD $array_id $ctime $numpts $name "$note"
 
 if [ "$do_link" != "0" ]; then
     for a in $files; do
