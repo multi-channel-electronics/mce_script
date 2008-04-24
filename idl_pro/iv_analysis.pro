@@ -43,7 +43,7 @@ pro iv_analysis, filename=filename, DACbias=DACbias, plotgen=plotgen, filtered=f
 
 FBbits = 14 ; 26 for FB only data mode, currently 14 for fb + er mode and for filtered mode
 n_columns = 32                  ; Number of columns being analyzed
-filtergain = 1216./2;
+filtergain = 1216.;/2;
 
 ; if neither array_file nor array_name are defined, determine the
 ; array based on the contents of /data/cryo/array_id
@@ -240,10 +240,10 @@ for j=0,32 do begin
 	iv_array = replicate(0.,3,numpts)
 	iv_array(2,*) = raw_bias 	;data.time
 
-;	raw_array(1,*) = data.fb(MuxColumn,Row)
-	raw_array(1,*) = data[MuxColumn,Row,*]
+;	raw_array(1,*) = data.fb(MuxColumn,Row)*fb_normalize[MuxColumn]
+	raw_array(1,*) = data[MuxColumn,Row,*]*fb_normalize[MuxColumn]
 	raw_array_sh = shift(raw_array,0,-1)
-	raw_array_der = (raw_array_sh - raw_array)*fb_normalize[MuxColumn]
+	raw_array_der = (raw_array_sh - raw_array)	;*fb_normalize[MuxColumn]
 
 ;	stop
 	; Look for giant bit jumps in the data of 2^bitmax then 2^(bitmax-1) bits and remove them
@@ -270,7 +270,7 @@ for j=0,32 do begin
 	;Normalize Vbias, 16-bit DAC, +/-2.5V with 1276 Ohm on board (LB#5 p.67 & LB#6 p.5)
 	raw_array(0,*) = raw_bias/2.^16*5.	; data.time/2.^16*5.
 	;Normalize Vfb, 14-bit DAC with possible offsets, 1V range, 50 Ohms on board (LB#6 p.5)
-	raw_array(1,*) = raw_array(1,*)/2.^FBbits/filtgain*fb_normalize[MuxColumn]
+	raw_array(1,*) = raw_array(1,*)/2.^FBbits/filtgain	;*fb_normalize[MuxColumn]
 
 	;Find the superconducting transitions by looking for the derivative to change sign
 	i=0
@@ -279,7 +279,8 @@ for j=0,32 do begin
 	trans_end_index=0
 	while i le numpts-12 do begin
 		if postnorm eq 0 and raw_array_der(1,i) le 0. then begin
-			if mean(raw_array_der(1,i+1:i+11)) le 0. then begin
+;			if mean(raw_array_der(1,i+1:i+11)) le 0. then begin
+			if median(raw_array_der(1,i+1:i+11)) le 0. then begin
 				supercon_index = i
 ;				print, 'row ', row,'  transition start index ', supercon_index
 				postnorm=1
@@ -287,7 +288,8 @@ for j=0,32 do begin
 			endif
 		endif
 		if postnorm eq 1 and raw_array_der(1,i) gt 100. then begin
-			if mean(raw_array_der(1,i:i+11)) gt 100. then begin
+;			if mean(raw_array_der(1,i+1:i+11)) gt 100. then begin
+			if median(raw_array_der(1,i+1:i+11)) gt 100. then begin
 				trans_end_index = i
 ;				print, 'row ', row,'  transition end index ', trans_end_index
 				i=numpts
