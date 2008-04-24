@@ -68,6 +68,7 @@ if 1 then begin
     per_Rn_bias = array_params.per_Rn_bias
     per_Rn_cut = array_params.per_Rn_cut
     psat_cut = array_params.psat_cut
+    ncut_lim = array_params.ncut_lim
 
     good_shunt_range = array_params.good_shunt_range
     default_Rshunt = array_params.default_Rshunt[0]
@@ -99,6 +100,7 @@ endif else begin
     
     per_Rn_cut = [.1,.8] ; These are the max and min values used to make detector cut recommendations, which will be expressed as 
     psat_cut = [1.,20.] ;	0: in range = good detector 1: out of range = bad detector in the data .run files
+    ncut_lim = 500
 
     good_shunt_range = [ 0.0002, 0.0015 ]
     default_Rshunt = 0.0007
@@ -170,10 +172,11 @@ raw_bias = raw_bias.field1
 numpts = n_elements(raw_bias)
 
 ;;Load Sweeper data from mce file. Removed IVfile keyword now that bias data is read in separately
-if keyword_set(filtered) then data = load_mce_stream_funct(filename, binary=binary, npts=numpts, bitpart=8) $ 
-	else data = load_mce_stream_funct(filename, bitpart=14,binary=binary, npts=numpts) ;,/no_status_header)
-;data = mas_data(filename,frame_info=frame_info)
-;numpts = frame_info.n_frames
+;if keyword_set(filtered) then data = load_mce_stream_funct(filename, binary=binary, npts=numpts, bitpart=8) $ 
+;	else data = load_mce_stream_funct(filename, bitpart=14,binary=binary, npts=numpts) ;,/no_status_header)
+data = mas_data(filename,frame_info=frame_info)
+numpts = frame_info.n_frames
+n_columns = n_elements(data(*,0,0))
 
 good_ivs=lonarr(n_columns)
 
@@ -237,8 +240,8 @@ for j=0,32 do begin
 	iv_array = replicate(0.,3,numpts)
 	iv_array(2,*) = raw_bias 	;data.time
 
-	raw_array(1,*) = data.fb(MuxColumn,Row)
-;	raw_array(1,*) = data[MuxColumn,Row,*]
+;	raw_array(1,*) = data.fb(MuxColumn,Row)
+	raw_array(1,*) = data[MuxColumn,Row,*]
 	raw_array_sh = shift(raw_array,0,-1)
 	raw_array_der = (raw_array_sh - raw_array)*fb_normalize[MuxColumn]
 
@@ -763,7 +766,7 @@ file_chmod, outdir+'/last_iv_det_data',/a_read
 device,/close
 
 if keyword_set(biasfile) then begin
-	if not_cut gt 500 then begin
+	if not_cut gt ncut_lim then begin
 		spawn, 'cp -fp '+outdir+'/tes_bias_recommended /data/cryo/'
 		spawn, 'cp -fp '+outdir+'/last_iv_det_data /data/cryo/'
 	endif
