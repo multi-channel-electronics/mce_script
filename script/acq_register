@@ -1,0 +1,80 @@
+#!/bin/bash
+#
+# Performs actions required to register an acquisition with the
+# database.
+#
+# Arguments:    ctime type name numpts note
+#
+# 'type' should be one of dat, 
+
+LAST_TUNE=/data/cryo/last_squid_tune
+LAST_IV=/data/cryo/last_iv_det_data
+CTIMES=/data/mce_ctimes
+# RECORD=/usr/bin/act_record_mce_data_acq
+
+if [ $# -lt 5 ]; then
+	echo "Usage:"
+	echo "           $0 ctime type name numpts note"
+	echo
+	echo " type should be one of [ test, auto, iv, tune_ramp, tune_servo ]"
+	exit 1
+fi
+
+ctime=$1
+type=$2
+name=$3
+numpts=$4
+note="$5"
+
+array_id=`cat /data/cryo/array_id`
+
+do_cur=1
+do_db=1
+do_iv=1
+do_tune=1
+do_link=1
+
+case $type in
+    "iv")
+    files="$name $name.run $name.bias"
+    do_iv=0
+    do_cur=0
+    ;;
+
+    "tune_servo")
+    files="$name $name.run $name.bias"
+    do_iv=0
+    do_tune=0
+    do_cur=0
+    ;;
+
+    "tune_ramp")
+    files="$name $name.run"
+    do_iv=0
+    do_tune=0
+    do_cur=0
+    ;;
+
+    "bias_step")
+    files="$name $name.run"
+    do_cur=0
+    ;;
+
+    *)
+    files="$name $name.run"
+    ;;
+esac
+
+[ "$do_tune" != "0" ] && [ -e $LAST_TUNE ] && cat $LAST_TUNE >> ${name}.run
+[ "$do_iv" != "0" ] && [ -e $LAST_IV ] && cat $LAST_IV >> ${name}.run
+
+
+# Linking and database registration are based on ACT.
+# [ "$do_db" != "0" ] && [ -e "$RECORD" ] && $RECORD $array_id $ctime $numpts $name "$note"
+# if [ "$do_link" != "0" ]; then
+#     for a in $files; do
+# 	[ -e $a ] || touch $a
+# 	base=`echo $a | sed 's/.*\///g'`
+# 	ln $a $CTIMES/$base
+#     done
+# fi

@@ -45,7 +45,7 @@ c_filename=file_folder+'/'+file_folder
 ;DEFAULT read-out CARD
 if not keyword_set(RCs) then begin
         print,'WARNING: you have not specified the read-out card number so I will set all RCs!'
-        RCs=[1,2,3,4]
+        RCs=where(exp_config.hardware_rc eq 1) + 1
 endif
 rc_enable=intarr(4)
 rc_enable(rcs(*)-1)=1
@@ -55,15 +55,13 @@ on_bias=0
 if keyword_set(check_bias) then begin
 	for jj=0,n_elements(RCs)-1 do begin
 	        RC=RCs(jj)
-	        on_sabias=1
-		spawn,'check_zero rc'+strcompress(string(RC),/remove_all)+' sa_bias >> '+todays_folder+c_filename+'.log',exit_status=on_sabias
-		on_sabias=abs(on_sabias-1)
-		on_bias=on_bias+on_sabias
+		spawn,'check_zero rc'+strcompress(string(RC),/remove_all)+' sa_bias >> '+todays_folder+c_filename+'.log',exit_status=exit_status
+                if exit_status gt 8 then $
+                  print,'check_zero script failed with code '+string(exit_status)
+		on_bias=on_bias+exit_status
 	endfor
 endif
-on_sq2bias=1
-spawn,'check_zero bc3 flux_fb >> '+todays_folder+c_filename+'.log',exit_status=on_sq2bias
-on_sq2bias=abs(on_sq2bias-1)
+spawn,'check_zero sq2 bias >> '+todays_folder+c_filename+'.log',exit_status=on_sq2bias
 on_bias=on_bias+on_sq2bias
 
 ;RESET THE MCE
@@ -100,43 +98,26 @@ for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
 
 wait,exp_config.tes_bias_normal_time[0]
 
+
+exp_config.tes_bias = exp_config.tes_bias_idle
+
 for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
   auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
 
 exp_config.config_rc = rc_enable
 
 
-;;TODO - these should come from experiment.cfg, or something.
-;THE SQUIDS BIAS CAN BE SPECIFIED APRIORI AND READ FROM A FILE
-def_sa_bias = lon64arr(32)
-sq2_bias = lon64arr(32)
-sq1_bias = lon64arr(41)
+; Load squid biases from config file default parameters.
 
-openu,10,todays_folder+'/sabias.init'				;SSA bias
-for cols=0,31 do begin
-	readf,10,line
-	def_sa_bias(cols)=float(line)
-endfor
-close,10
+def_sa_bias = exp_config.default_sa_bias
+sq2_bias = exp_config.default_sq2_bias
+sq1_bias = exp_config.default_sq1_bias
 
-openu,15,todays_folder+'/sq2bias.init'				;SQ2 bias
-for cols=0,31 do begin
-        readf,15,line
-        sq2_bias(cols)=float(line)
-endfor
-close,15
-
-openu,17,todays_folder+'/sq1bias.init'				;SQ1 bias
-for rows=0,40 do begin
-        readf,17,line
-        sq1_bias(rows)=float(line)
-endfor
-close,17
-
-; For SA defaults, use our tried and tested defaults.
+; Load default values into biases
 
 exp_config.sa_bias = def_sa_bias
 exp_config.sq2_bias = sq2_bias
+exp_config.sq1_bias = 0
 
 ; Save experiment params, make config script, run it.
 save_exp_params,exp_config,exp_config_file
@@ -195,16 +176,16 @@ for jj=0,n_elements(RCs)-1 do begin
 	RC=RCs(jj)
         RC_indices = 8*(RC-1) + indgen(8)
 
+	if keyword_set(short) then begin			;if we don't find the column adc_offset we read them for the config file
+                column_adc_offset(RC_indices) = exp_config.adc_offset_c(RC_indices)
+		if short eq 1 then goto, step4 else goto, step5
+	endif
+
         print,''
         print,'#################################################################'
         print,'#            NOW SETTING COLUMNS OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
         print,'#################################################################'
         print,''
-
-	if keyword_set(short) then begin			;if we don't find the column adc_offset we read them for the config file
-                column_adc_offset(RC_indices) = exp_config.adc_offset_c(RC_indices)
-		if short eq 1 then goto, step4 else goto, step5
-	endif
 
 	;----------------------------------------------------------------------------------------------------------
 	;SA setup: ramps the SA bias together with the fb and finds the best SA bias' and offsets channel by channel
@@ -212,9 +193,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 	step2:
 	
-        timessa=systime(1,/utc)
-        strtimessa=string(timessa,format='(i10)')
-        ssa_file_name=strcompress(file_folder+'/'+strtimessa+'_RC'+string(RC),/remove_all)
+        ssa_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
 	if keyword_set(interactive) then begin
 		i1=dialog_message(['After some preliminary procedures (step 1), the auto_setup',$ 
@@ -233,6 +212,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.config_adc_offset_all[0] = 0      ; configure one adc_offset for the whole column
         exp_config.adc_offset_c[RC_indices] = 0
         exp_config.sq2_bias[RC_indices] = 0
+        exp_config.sq1_bias = 0
 	
 	common ramp_sa_var,plot_file,final_sa_bias_ch_by_ch,SA_target,SA_fb_init,peak_to_peak
 
@@ -387,7 +367,8 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
         exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
-        exp_config.sq1_bias = sq1_bias
+	; Turn off S1 SQUIDs to make SQ2 measurement less biased  2008/04/06 JWA MDN
+        exp_config.sq1_bias = 0	
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -420,11 +401,13 @@ for jj=0,n_elements(RCs)-1 do begin
 	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
 	spawn,SA_feedback_string
 	
-	timesq2=systime(1,/utc)
-        strtimesq2=string(timesq2,format='(i10)')
-        sq2_file_name=strcompress(file_folder+'/'+strtimesq2+'_RC'+string(RC),/remove_all)
+        sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
 
-	auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[0] ;,/lockamp
+        auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
+          interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
+          ramp_start=exp_config.sq2_servo_flux_start[0], $
+          ramp_count=exp_config.sq2_servo_flux_count[0], $
+          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -528,9 +511,9 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.num_rows[0] = numrows
         exp_config.num_rows_reported[0] = numrows
         exp_config.servo_mode[0] = 1
-        exp_config.servo_p[0] = 0
-        exp_config.servo_i[0] = 0
-        exp_config.servo_d[0] = 0
+        exp_config.servo_p = 0
+        exp_config.servo_i = 0
+        exp_config.servo_d = 0
 	
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -562,9 +545,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	SQ2_feedback_string='echo -e "'+SQ2_feedback_string+'" > '+todays_folder+'sq2fb.init'
 	spawn,SQ2_feedback_string
        
-	timesq1=systime(1,/utc)
-        strtimesq1=string(timesq1,format='(i10)')
-
+        sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
 
         if exp_config.config_fast_sq2 then begin
 
@@ -574,22 +555,41 @@ for jj=0,n_elements(RCs)-1 do begin
 
             SQ2_feedback_full_array=lon64arr(numrows,8)
 
-            for sq1servorow=0,numrows-1 do begin
-                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
-		;row=0
+            ;MFH - single servo!
+            auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+              numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+              gain=exp_config.sq1servo_gain[rc-1], $
+              ramp_start=exp_config.sq1_servo_flux_start[0], $
+              ramp_count=exp_config.sq1_servo_flux_count[0], $
+              ramp_step=exp_config.sq1_servo_flux_step[0], $
+              /super_servo
 
-                ; Rewrite the row.init file, forcing all columns
-                ; to this row.
+            runfile = sq1_base_name+'_sq1servo.run'
+            
+
+            for sq1servorow=0,numrows-1 do begin
+;                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
+                sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
+
+                ; Rewrite the row.init file, forcing all columns to this row.
                 row_init_string=''
                 for j=0,31 do begin
                         row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
                 endfor
                 row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
                 spawn,row_init_string
+
+                bias_file = strcompress(sq1_base_name+'_sq1servo.r'+ $
+                                        string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
   	
 		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-                  gain=exp_config.sq1servo_gain[0],LOCK_ROWS=(lonarr(32) + sq1servorow)
+                  gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                  ramp_start=exp_config.sq1_servo_flux_start[0], $
+                  ramp_count=exp_config.sq1_servo_flux_count[0], $
+                  ramp_step=exp_config.sq1_servo_flux_step[0], $
+                  use_bias_file=bias_file, use_run_file=runfile
+
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
 
@@ -628,11 +628,23 @@ for jj=0,n_elements(RCs)-1 do begin
             ; This block uses original sq1servo to
             ; lock on a specific row for each column
 
-            sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
+            ; Rewrite the rows.init file (FIXME)
+            row_init_string=''
+            for j=0,31 do begin
+                row_init_string=row_init_string+strcompress(string(exp_config.sq2_rows[j])+'\n',/remove_all)
+            endfor
+            row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
+            spawn,row_init_string
+
+;            sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
+            sq1_file_name=sq1_base_name
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
               RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-              gain=exp_config.sq1servo_gain[0],lock_rows=exp_config.sq2_rows
+              gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
+              ramp_start=exp_config.sq1_servo_flux_start[0], $
+              ramp_count=exp_config.sq1_servo_flux_count[0], $
+              ramp_step=exp_config.sq1_servo_flux_step[0]
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -657,7 +669,6 @@ for jj=0,n_elements(RCs)-1 do begin
 
 ; Single row approach -- these will be ignored in the multi-variable case!
 
-        print,'sq1_target = ',string(sq1_target)
         exp_config.sq2_fb(RC_indices) = sq1_target
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -711,9 +722,11 @@ for jj=0,n_elements(RCs)-1 do begin
 
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
-        exp_config.servo_p[0] = 0
-        exp_config.servo_i[0] = 0
-        exp_config.servo_d[0] = 0
+        exp_config.servo_p = 0
+        exp_config.servo_i = 0
+        exp_config.servo_d = 0
+        exp_config.config_adc_offset_all[0] = 0
+        exp_config.sq1_bias = sq1_bias
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -730,10 +743,7 @@ for jj=0,n_elements(RCs)-1 do begin
                 exit,status=12
         endif
 
-	timersq1=systime(1,/utc)
-        strtimersq1=string(timersq1,format='(i10)')
-        rsq1_file_name=strcompress(file_folder+'/'+strtimersq1+'_RC'+string(RC),/remove_all)
-	rsq1_file_name=string(rsq1_file_name)+'_sq1ramp'
+        rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp')
 
 	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
           rows=exp_config.sq1ramp_plot_rows
@@ -768,12 +778,15 @@ for jj=0,n_elements(RCs)-1 do begin
 	for j=0,7 do begin
 		new_off(j,*)=(new_adc_offset(j,*)+column_adc_offset(j+8*(RC-1)))/samp_num
 		all_adc_offsets((rc-1)*8+j,*) = new_off(j,*)
-		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
-		all_squid_lockrange((rc-1)*8+j,*) = squid_lockrange(j,*)
-		all_squid_lockslope((rc-1)*8+j,*,0) = squid_lockslope(j,*,0)
-		all_squid_lockslope((rc-1)*8+j,*,1) = squid_lockslope(j,*,1)
-		all_squid_multilock((rc-1)*8+j,*) = squid_multilock(j,*)	
+; Moved to after final S1 V-phi acquisition MDN
+;		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
+;		all_squid_lockrange((rc-1)*8+j,*) = squid_lockrange(j,*)
+;		all_squid_lockslope((rc-1)*8+j,*,0) = squid_lockslope(j,*,0)
+;		all_squid_lockslope((rc-1)*8+j,*,1) = squid_lockslope(j,*,1)
+;		all_squid_multilock((rc-1)*8+j,*) = squid_multilock(j,*)	
 	endfor
+
+;	stop
 
         if i10 eq 'Yes' then begin
             for j=0,7 do begin
@@ -786,14 +799,15 @@ for jj=0,n_elements(RCs)-1 do begin
                               all_adc_offsets((rc-1)*8+j,i)
 
                         	new_adc_arr((rc-1)*8+j)=new_adc_arr((rc-1)*8+j)+' '+string(all_adc_offsets((rc-1)*8+j,i), format='(i6)')
-                        	squid_p2p_arr((rc-1)*8+j)=squid_p2p_arr((rc-1)*8+j)+' '+string(all_squid_p2p((rc-1)*8+j,i), format='(i6)')
-                                squid_lockrange_arr((rc-1)*8+j)=squid_lockrange_arr((rc-1)*8+j)+' '+string(all_squid_lockrange((rc-1)*8+j,i), format='(i6)')
-                                squid_lockslopedn_arr((rc-1)*8+j)=squid_lockslopedn_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,0)),/REMOVE_ALL)
-                                squid_lockslopeup_arr((rc-1)*8+j)=squid_lockslopeup_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,1)),/REMOVE_ALL)
-                                squid_multilock_arr((rc-1)*8+j)=squid_multilock_arr((rc-1)*8+j)+' '+string(all_squid_multilock((rc-1)*8+j,i), format='(i2)')
-                                if all_squid_lockrange((rc-1)*8+j,i) lt exp_config.locktest_pass_amplitude[0] then $
-                                  turn_sq_off = 1 else turn_sq_off = 0
-                                squid_off_rec_arr((rc-1)*8+j)=squid_off_rec_arr((rc-1)*8+j)+' '+strtrim(turn_sq_off,1)
+; Moved to after final S1 V-phi acquisition MDN
+;                        	squid_p2p_arr((rc-1)*8+j)=squid_p2p_arr((rc-1)*8+j)+' '+string(all_squid_p2p((rc-1)*8+j,i), format='(i6)')
+;                                squid_lockrange_arr((rc-1)*8+j)=squid_lockrange_arr((rc-1)*8+j)+' '+string(all_squid_lockrange((rc-1)*8+j,i), format='(i6)')
+;                                squid_lockslopedn_arr((rc-1)*8+j)=squid_lockslopedn_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,0)),/REMOVE_ALL)
+;                                squid_lockslopeup_arr((rc-1)*8+j)=squid_lockslopeup_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,1)),/REMOVE_ALL)
+;                                squid_multilock_arr((rc-1)*8+j)=squid_multilock_arr((rc-1)*8+j)+' '+string(all_squid_multilock((rc-1)*8+j,i), format='(i2)')
+;                                if all_squid_lockrange((rc-1)*8+j,i) lt exp_config.locktest_pass_amplitude[0] then $
+;                                  turn_sq_off = 1 else turn_sq_off = 0
+;                                squid_off_rec_arr((rc-1)*8+j)=squid_off_rec_arr((rc-1)*8+j)+' '+strtrim(turn_sq_off,1)
                             endfor
 ;!MFH
 ;                        spawn,'echo -e "'+setting_new_adc+'" '+'\n">>'+adc_off_run_file
@@ -822,11 +836,32 @@ for jj=0,n_elements(RCs)-1 do begin
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
-	timersq1c=systime(1,/utc)
-        strtimersq1c=string(timersq1c,format='(i10)')
-        rsq1c_file_name=strcompress(file_folder+'/'+strtimersq1c+'_RC'+string(RC),/remove_all)
-        rsq1c_file_name=string(rsq1c_file_name)+'_sq1rampc'
+        rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc')
+
 	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows,rows=exp_config.sq1ramp_plot_rows
+
+
+	for j=0,7 do begin
+		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
+		all_squid_lockrange((rc-1)*8+j,*) = squid_lockrange(j,*)
+		all_squid_lockslope((rc-1)*8+j,*,0) = squid_lockslope(j,*,0)
+		all_squid_lockslope((rc-1)*8+j,*,1) = squid_lockslope(j,*,1)
+		all_squid_multilock((rc-1)*8+j,*) = squid_multilock(j,*)	
+	endfor
+
+
+        for j=0,7 do begin
+              	for i=0,numrows-1 do begin
+                        squid_p2p_arr((rc-1)*8+j)=squid_p2p_arr((rc-1)*8+j)+' '+string(all_squid_p2p((rc-1)*8+j,i), format='(i6)')
+                        squid_lockrange_arr((rc-1)*8+j)=squid_lockrange_arr((rc-1)*8+j)+' '+string(all_squid_lockrange((rc-1)*8+j,i), format='(i6)')
+                        squid_lockslopedn_arr((rc-1)*8+j)=squid_lockslopedn_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,0)),/REMOVE_ALL)
+                        squid_lockslopeup_arr((rc-1)*8+j)=squid_lockslopeup_arr((rc-1)*8+j)+' '+strcompress(string(all_squid_lockslope((rc-1)*8+j,i,1)),/REMOVE_ALL)
+                        squid_multilock_arr((rc-1)*8+j)=squid_multilock_arr((rc-1)*8+j)+' '+string(all_squid_multilock((rc-1)*8+j,i), format='(i2)')
+                        if all_squid_lockrange((rc-1)*8+j,i) lt exp_config.locktest_pass_amplitude[0] then $
+                               turn_sq_off = 1 else turn_sq_off = 0
+                        squid_off_rec_arr((rc-1)*8+j)=squid_off_rec_arr((rc-1)*8+j)+' '+strtrim(turn_sq_off,1)
+                endfor
+      	endfor
 
 	if ramp_sq1_bias_run eq 1 then begin
 		spawn,config_mce_file + ' >> '+todays_folder+c_filename+'.log',exit_status=status16
@@ -839,10 +874,8 @@ for jj=0,n_elements(RCs)-1 do begin
                 	exit,status=16
 		endif
 
-		timertb=systime(1,/utc)
-		strtimertb=string(timertb,format='(i10)')        
-		rtb_file_name=strcompress(file_folder+'/'+strtimertb+'_RC'+string(RC),/remove_all)
-        	rtb_file_name=string(rtb_file_name)+'_sq1rampb'
+                rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb')
+
 		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows
 	endif
 
@@ -856,9 +889,9 @@ endfor
 
 exp_config.data_mode[0] = exp_config.default_data_mode[0]
 exp_config.servo_mode[0] = 3
-exp_config.servo_p[0] = exp_config.default_servo_p
-exp_config.servo_i[0] = exp_config.default_servo_i
-exp_config.servo_d[0] = exp_config.default_servo_d
+exp_config.servo_p = exp_config.default_servo_p
+exp_config.servo_i = exp_config.default_servo_i
+exp_config.servo_d = exp_config.default_servo_d
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $
@@ -884,10 +917,8 @@ endif
 if n_elements(RCs) lt 4 then begin
 	for jj=0,n_elements(RCs)-1 do begin
         	RC=RCs(jj)
-                timelock=systime(1,/utc)
-                strtimelock=string(timelock,format='(i10)')
-                lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RC'+string(RC),/remove_all)
-                lock_file_name=string(lock_file_name)+'_lock'
+                lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock')
+
 		if keyword_set(text) then begin
 			auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,interactive=interactive
 		endif else begin
@@ -896,16 +927,9 @@ if n_elements(RCs) lt 4 then begin
 		step10:
 	endfor
 endif else begin
-        timelock=systime(1,/utc)
-        strtimelock=string(timelock,format='(i10)')
-        lock_file_name=strcompress(file_folder+'/'+strtimelock+'_RCs',/remove_all)
-        lock_file_name=string(lock_file_name)+'_lock'
+        lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock')
         RC=5
-        if keyword_set(text) then begin
-                auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,interactive=interactive
-        endif else begin
-                auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
-        endelse
+        auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
 	step11:
 endelse
 

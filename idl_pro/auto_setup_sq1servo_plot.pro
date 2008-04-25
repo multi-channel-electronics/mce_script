@@ -1,4 +1,9 @@
-pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows,interactive=interactive,slope=slope,sq2slope=sq2slope,gain=gain,lock_rows=lock_rows
+pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=numrows, $
+                             interactive=interactive,slope=slope,sq2slope=sq2slope, $
+                             gain=gain,lock_rows=lock_rows, $
+                             ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count, $
+                             use_bias_file=use_bias_file, use_run_file=use_run_file, $
+                             super_servo=super_servo
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq1servo_plot.pro 
@@ -8,23 +13,37 @@ common sq1_servo_var
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
 
+; For maximum meaningfullness, if a bias file is passed don't print
+; the banner and instead indicate the bias file
+
+if not keyword_set(use_bias_file) then begin
 ;Comunication:
-print,''
-print,'#############################################################################'
-print,'#4) The forth step is to run a closed loop on the SQ1 for RC'+strcompress(string(RC),/remove_all)+'.              #'
-print,'#   We ramp SQ1 fb and we adjust the SQ2 fb to keep the target to zero.     #'
-print,'#   This will allow us to set the final SQ2 fb and SQ1 bias.                #'
-print,'#############################################################################'
-print,''
+    print,''
+    print,'#############################################################################'
+    print,'#4) The fourth step is to run a closed loop on the SQ1 for RC'+strcompress(string(RC),/remove_all)+'.             #'
+    print,'#   We ramp SQ1 fb and we adjust the SQ2 fb to keep the target to zero.     #'
+    print,'#   This will allow us to set the final SQ2 fb and SQ1 bias.                #'
+    print,'#############################################################################'
+    print,''
+endif else begin
+    print,'Reading biases from file: ', use_bias_file
+endelse
 
 target=0
 
 ;Set file_name_sq1_servo
 file_name_sq1_servo=file_name+'_sq1servo'
-
 ctime=string(file_name,format='(i10)')
+full_name = '/data/cryo/current_data/' + file_name_sq1_servo
 
 logfile=ctime+'/'+ctime+'.log'
+
+; ramp_count is the parameter that will override the defaults.
+if not keyword_set(ramp_count) then begin
+    ramp_start=-8000
+    ramp_step=40
+    ramp_count=400
+endif
 
 
 ; Use gain = 1./25 for shallow S2 SQUID slope or gain = -1./100. for steep S2 SQUID slope
@@ -34,26 +53,55 @@ logfile=ctime+'/'+ctime+'.log'
 
 if not keyword_set(gain) then gain = 1./100
 
+; For fast sq2 switching, it is much more efficient to run a single
+; servo and analyse the results row by row.
+
+
 ;Run the shell script:
 ;spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 -8000 40 400 '+string(rc)+' '+string(target)+' '+string(numrows)
-spawn,'sq1servo '+file_name_sq1_servo+' '+string(sq1bias)+' 0 1 -8000 40 400 '+string(rc)+' '+string(target)+' '+string(numrows)+' '+string(gain)+' 1 '+' >> /data/cryo/current_data/'+logfile,exit_status=status10
-if status10 ne 0 then begin
+
+; Allow use_bias_file to force analysis without running the servo!
+if not keyword_set(use_bias_file) then begin
+
+    ; Servo arguments, sheesh
+    servo_args = file_name_sq1_servo + ' ' + $
+      string(sq1bias)+' 0 1 '+ $ ;
+      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' '+ $
+      string(rc)+' '+string(target)+' '+string(numrows)+' '+string(gain)+' 1 '
+    
+    ; Choose servo program based on super_servo switch
+    if keyword_set(super_servo) then $
+      servo_cmd = 'sq1servo_all' $
+    else $
+      servo_cmd = 'sq1servo'
+    
+    ; Go go go
+    spawn,servo_cmd+' '+servo_args+' >> /data/cryo/current_data/'+logfile,exit_status=status10
+    if status10 ne 0 then begin
         print,''
         print,'################################################################'
         print,'# ERROR! AN ERROR HAS OCCURED WHEN RUNNING THE SQ1SERVO SCRIPT #'
         print,'################################################################'
         print,''
         exit,status=10
-endif
+    endif
+
+    ; Link and register
+    rf = mas_runfile(full_name+'.run')
+    loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+    loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
+    reg_status = auto_setup_register(ctime, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
+    full_bias_filename = full_name+'.bias'
+endif else begin
+    full_bias_filename = '/data/cryo/current_data/' + use_bias_file
+endelse
+
+; Super servo exits now; we'll re-enter with each bias file (or whatever)
+if keyword_set(super_servo) then return
+
+; Plotting part
 
 set_plot, 'ps'
-
-;Let's define filenames and folders
-full_name = '/data/cryo/current_data/' + file_name_sq1_servo
-
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name_sq1_servo,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name_sq1_servo,11)+'.run'
-
 file_out2 = '/data/cryo/current_data/analysis/' + file_name_sq1_servo + '.ps'
 
 cn = ''
@@ -66,7 +114,11 @@ device, filename=file_out2, /landscape
 
 ; Read the loop parameters from the run file
 
-openr,1,full_name+'.run'
+if keyword_set(use_run_file) then $
+  runfile_name = '/data/cryo/current_data/' + use_run_file $
+else $
+  runfile_name = full_name+'.run'
+openr,1,runfile_name
 line=""
 
 repeat readf,1,line until strmid(line,0,10) eq "<par_ramp>"
@@ -117,7 +169,7 @@ values = fltarr(16)
 
 
 ; Process the sq1servo output file.  First line is header.
-openr,1,full_name+'.bias'
+openr,1,full_bias_filename
 readf, 1, line
 
 for n=0, npts-1 do begin
@@ -182,8 +234,9 @@ print,''
 print,'###########################################################################'
 print,'SQ1 bias, and SQ2 fb channel by channel:'
 print,'###########################################################################'
+print,' Channel Source_row       Target@half  sq1_fb@half '
+print,'---------------------------------------------------'
 for chan=0,7 do begin
-	print,'Channel:',chan
 	
 		if slope lt 0 then begin
                 	min_point=min(sq1_v_phi(100:350,chan),ind_min)
@@ -210,53 +263,18 @@ for chan=0,7 do begin
 		ind_half_point=ind_half_point(0)
 ;		;to here
 ;stop
-;                ;MFH version:
-;                start_idx = 100
-;                stop_idx = n_elements(sq1_v_phi(*,chan))-50
-;                print, n_elements(sq1_v_phi), start_idx, stop_idx                
-;                v = sq1_v_phi(start_idx:stop_idx,chan)    ; don't start too close to the left...
-;                v_max = max(v)
-;                v_min = min(v)
-;                radius = (v_max - v_min) / 10.   ; we'll find points within 10% of max and min
-;                ind_max = where( v_max - v lt radius)
-;                ind_min = where( v - v_min lt radius)
-
-;                i = 0
-;                j = 0
-;                ind_half_point = 0
-;                while ( (i lt n_elements(ind_min)) and (j lt n_elements(ind_max))) do begin
-;                    if ind_min(i) lt ind_max(j) then begin
-;                        i = i + 1
-;                        if i ge n_elements(ind_min) then break
-;                        if ind_min(i) gt ind_max(j) then begin
-;                            ind_half_point = (ind_max(j) + ind_min(i-1))/2
-;                            print,'rising!'+string(ind_half_point)
-;                            if slope gt 0 then break
-;                        endif
-;                        continue
-;                    endif
-;                    if ind_max(j) lt ind_min(i) then begin
-;                        j = j + 1
-;                        if j ge n_elements(ind_max) then break 
-;                        if ind_min(i) lt ind_max(j) then begin
-;                            ind_half_point = (ind_min(i) + ind_max(j-1))/2
-;                                ;print,'falling!'+string(ind_half_point)
-;                            if slope lt 0 then break
-;                        endif
-;                    endif
-;                endwhile
-
-;                ind_half_point = ind_half_point + start_idx
-;                ; end MFH
 
 		target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
 		fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
-		print, fb1(ind_half_point,chan)
-		print,'target  @ half point=',target_half_point_ch_by_ch(chan)
-		print,'sq1_feedback   @ half point=',fb_half_point_ch_by_ch(chan)	
-	;print,' '
-	print,'###########################################################################'
-	;print,' '
+
+                print,format='(i4, i10, i21, i12)',chan, lock_rows(chan+(rc-1)*8), $
+                  target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+
+;                 print,'Channel:',chan
+; 		print, fb1(ind_half_point,chan)
+; 		print,'target  @ half point=',target_half_point_ch_by_ch(chan)
+; 		print,'sq1_feedback   @ half point=',fb_half_point_ch_by_ch(chan)	
+; 	print,'###########################################################################'
 ;stop
 endfor
 
@@ -290,7 +308,8 @@ plot_file = '/data/cryo/current_data/'+'analysis/' + file_name_sq1_points + '.ps
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SQ1 locking points check '+string(plot_file)
+print,'To view the SQ1 locking points check '
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 charsz=1

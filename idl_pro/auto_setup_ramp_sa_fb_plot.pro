@@ -51,10 +51,12 @@ folder=default_folder
 full_name=folder+file_name_ramp_sa
 plot_file = folder + 'analysis/' + file_name_ramp_sa + '.ps'
 
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name_ramp_sa,11)
-;spawn,'ln fill_name+'.run /data/mce_ctimes/'+strmid(file_name_ramp_sa,11)+'.run'
+rf = mas_runfile(full_name+'.run')
+loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
+reg_status = auto_setup_register(ctime, 'tune_ramp', full_name, loop_params_b[2]*loop_params_f[2])
 
-;Let's drow
+;Let's draw
 
 set_plot, 'ps'
 device, filename= plot_file, /landscape
@@ -202,7 +204,8 @@ print,'#########################################################################
 print,' Channel Bias@step (index) Target@half  sa_fb@half '
 print,'---------------------------------------------------'
 for chan=0,7 do begin
-	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
+;	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
+	deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),5))
 	final_sa_bias_ch_by_ch(chan)=round(bias_start + ind(chan)* bias_step)
 ;	min_point=min(av_vol(ind(chan),150:380,chan),ind_min)	;in case we want to lock on the negative slope
 ;	ind_min=150+ind_min
@@ -289,7 +292,8 @@ plot_file = folder + 'analysis/' + file_name_sa_points + '.ps'
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SA locking points check '+string(plot_file)
+print,'To view the SA locking points check',
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 charsz=1
