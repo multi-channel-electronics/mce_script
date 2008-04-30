@@ -68,7 +68,7 @@ if 1 then begin
     per_Rn_bias = array_params.per_Rn_bias
     per_Rn_cut = array_params.per_Rn_cut
     psat_cut = array_params.psat_cut
-    ncut_lim = array_params.ncut_lim
+    ncut_lim = array_params.ncut_lim[0]
 
     good_shunt_range = array_params.good_shunt_range
     default_Rshunt = array_params.default_Rshunt[0]

@@ -43,6 +43,9 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set sq1_servo_flux_step '+str_flat(m.sq1_servo_flux_step)
     spawn,'mas_param -s '+filename+' set sq1ramp_plot_rows '+str_flat(m.sq1ramp_plot_rows)
     spawn,'mas_param -s '+filename+' set locktest_plot_row '+str_flat(m.locktest_plot_row)
+    spawn,'mas_param -s '+filename+' set sq1_ramp_flux_start '+str_flat(m.sq1_ramp_flux_start)
+    spawn,'mas_param -s '+filename+' set sq1_ramp_flux_step '+str_flat(m.sq1_ramp_flux_step)
+    spawn,'mas_param -s '+filename+' set sq1_ramp_flux_count '+str_flat(m.sq1_ramp_flux_count)
     spawn,'mas_param -s '+filename+' set locktest_pass_amplitude '+str_flat(m.locktest_pass_amplitude)
     spawn,'mas_param -s '+filename+' set sq1servo_slope '+str_flat(m.sq1servo_slope)
     spawn,'mas_param -s '+filename+' set sq2servo_slope '+str_flat(m.sq2servo_slope)
@@ -131,6 +134,9 @@ pro load_exp_params,filename,m
         'sq1_servo_flux_step',mas_param_int(filename,'sq1_servo_flux_step'),  $
         'sq1ramp_plot_rows',mas_param_int(filename,'sq1ramp_plot_rows'),  $
         'locktest_plot_row',mas_param_int(filename,'locktest_plot_row'),  $
+        'sq1_ramp_flux_start',mas_param_int(filename,'sq1_ramp_flux_start'),  $
+        'sq1_ramp_flux_step',mas_param_int(filename,'sq1_ramp_flux_step'),  $
+        'sq1_ramp_flux_count',mas_param_int(filename,'sq1_ramp_flux_count'),  $
         'locktest_pass_amplitude',mas_param_int(filename,'locktest_pass_amplitude'),  $
         'sq1servo_slope',mas_param_int(filename,'sq1servo_slope'),  $
         'sq2servo_slope',mas_param_int(filename,'sq2servo_slope'),  $
