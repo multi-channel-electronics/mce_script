@@ -31,6 +31,7 @@ ctime=string(file_name,format='(i10)')
 
 logfile=ctime+'/'+ctime+'.log'
 
+user_status = auto_setup_userword(rc)
 spawn,'ramp_sq1_fb '+file_name+' '+string(rc)+ ' >> /data/cryo/current_data/'+logfile,exit_status=status13
 if status13 ne 0 then begin
         print,''

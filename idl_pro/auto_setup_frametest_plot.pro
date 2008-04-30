@@ -21,6 +21,7 @@ ctime=string(file_name,format='(i10)')
 
 if not keyword_set(nodasscript) then begin
 	auto_setup_command,'wb rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
+        user_status = auto_setup_userword(rcdatamode)
 	;spawn,'mce_cmd -q -x wb rc'+strcompress(string(RC),/REMOVE_ALL)+' data_mode '+data_mode
 	spawn,'mce_run '+file_name+string(npts)+' '+string(rc),exit_status=status18
         reg_status = auto_setup_register(ctime, 'data', getenv('MAS_DATA')+file_name, npts)

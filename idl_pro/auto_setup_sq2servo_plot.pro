@@ -46,6 +46,7 @@ if not keyword_set(ramp_count) then begin
 endif
 
 ;Run the shell script:
+user_status = auto_setup_userword(rc)
 spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
   string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
   string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $

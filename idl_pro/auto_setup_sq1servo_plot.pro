@@ -76,6 +76,7 @@ if not keyword_set(use_bias_file) then begin
       servo_cmd = 'sq1servo'
     
     ; Go go go
+    user_status = auto_setup_userword(rc)
     spawn,servo_cmd+' '+servo_args+' >> /data/cryo/current_data/'+logfile,exit_status=status10
     if status10 ne 0 then begin
         print,''

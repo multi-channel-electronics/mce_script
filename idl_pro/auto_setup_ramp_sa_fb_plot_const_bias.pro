@@ -39,6 +39,7 @@ full_name=folder+file_name_ramp_sa
 plot_file = folder + 'analysis/' + file_name_ramp_sa + '.ps'
 
 ; Run ramp and register acq
+user_status = auto_setup_userword(rc)
 spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 0'+ ' >> /data/cryo/current_data/'+logfile
 rf = mas_runfile(full_name+'.run')
 loop_params = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))

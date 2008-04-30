@@ -24,7 +24,7 @@ set rc_num=$3
 # This ctime won't necessarily match the filename!  But it should be
 # close and it's better than nothing.
 set ctime=`date -u +%s`
-mce_cmd -x wb cc run_id $ctime
+mce_cmd -qx wb cc run_id $ctime
 
 #RUN FILE CREATION: NO MCE COMMANDS PAST THIS POINT
 

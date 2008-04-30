@@ -52,6 +52,7 @@ echo "wb cc use_sync $use_sync" >> $mce_script
 echo "wb cc ret_dat_s 1 1" >> $mce_script
 
 # Write cc user_word based on array_id - this shows up in frame data
+# We'll drop data mode into bits 15-8 of this same word.
 if [ -e "/data/cryo/array_id" ]; then
     array_id=`cat /data/cryo/array_id`
     case "$array_id" in

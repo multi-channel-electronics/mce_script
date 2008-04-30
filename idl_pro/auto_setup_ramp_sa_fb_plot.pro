@@ -30,6 +30,7 @@ logfile=ctime+'/'+ctime+'.log'
 ;wait,1
 
 ;Run the shell script:
+user_status = auto_setup_userword(rc)
 spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 1'+ ' >> /data/cryo/current_data/'+logfile,exit_status=status4
 if status4 ne 0 then begin
 	print,''

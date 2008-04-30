@@ -1,0 +1,34 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+# Copy data mode for card $1 (eg '1' or 's') into bits 15:8
+# and array_id into bits 7:0 of cc user_word
+
+case "$1" in
+    1 | 2 | 3 | 4)
+	rc=$1
+	;;
+    *)
+	rc=1
+esac
+
+data_mode=`command_reply rb rc$rc data_mode`
+array_id=`cat /data/cryo/array_id`
+
+case "$array_id" in
+    "AR1")
+	array_number=1
+	;;
+    "AR2")
+	array_number=2
+	;;
+    "AR3")
+	array_number=3
+	;;
+    *)
+	array_number=0
+	;;
+esac
+
+mce_cmd -qX "wb cc user_word $(( 256*$data_mode + $array_number ))"

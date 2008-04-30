@@ -29,6 +29,7 @@ acq_name=${start_ctime}_$1
 n_frames=$2
 
 # Register acquisition
+update_userword s
 acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames ""
 
 # args are file_prefix, frame count, card (1,2,3,4,s)

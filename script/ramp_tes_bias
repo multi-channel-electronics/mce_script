@@ -77,6 +77,10 @@ echo "Setting first bias and waiting $first_pause s; time between other points w
 bias_tess $start_bias
 sleep $first_pause
 
+#Register acq
+update_userword $n
+acq_register $ct iv $datafile $total_bias ""
+
 #Generate .run file
 mce_status >> $runfile
 
@@ -92,8 +96,6 @@ fi
 
 echo "<tes_bias>" >> $biasfile
 echo "Acquiring I-V curve into data file $datafile"
-
-acq_register $ct iv $datafile $total_bias ""
 
 script=$MAS_TEMP/ramp_tes_bias.scr
 [ -e $script ] && rm $script

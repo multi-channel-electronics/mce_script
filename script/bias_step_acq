@@ -99,6 +99,7 @@ mce_cmd -qx wb rca data_mode 1
 # Enable the ramp and acquire
 mce_cmd -qx wb cc internal_command_mode 2
 
+update_userword $rc
 mce_run $filename $n_points $rc
 
 # Restore bias (in a cute way), disable ramp., restore data_mode
