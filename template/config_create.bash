@@ -81,7 +81,6 @@ for rc in 1 2 3 4; do
     ch_ofs=$(( ($rc-1)*8 ))
 #    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
-    echo "wb rc$rc en_fb_jump   0" >> $mce_script
     echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
     echo "wb rc$rc sample_dly   $sample_dly" >> $mce_script
     echo "wb rc$rc sample_num   $sample_num" >> $mce_script
@@ -91,19 +90,8 @@ for rc in 1 2 3 4; do
     echo "wb rc$rc data_mode    $data_mode" >> $mce_script
     echo "wb rc$rc sa_bias      ${sa_bias[@]:$ch_ofs:8}" >> $mce_script
     echo "wb rc$rc offset       ${sa_offset[@]:$ch_ofs:8}" >> $mce_script
-    for c in `seq 0 7`; do 
-	chan=$(( $c +  $ch_ofs ))
-	repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
 
-	if [ "${config_adc_offset_all}" != "0" ]; then
-	    r_off=$(( $array_width * $chan ))
-	    echo "wb rc$rc adc_offset$c ${adc_offset_cr[@]:$r_off:$array_width}" >> $mce_script
-	else
-	    repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script
-	fi
-    done
-
-    #
+    # Servo parameters, including dead detector turn-offs
     for c in `seq 0 7`; do
 	chan=$(( $c + $ch_ofs ))
 	dead_ofs=$(( ($c + $ch_ofs)*$array_width ))
@@ -126,6 +114,23 @@ for rc in 1 2 3 4; do
 	echo "wb rc$rc gaini$c ${i_terms[@]}" >> $mce_script
 	echo "wb rc$rc gaind$c ${d_terms[@]}" >> $mce_script
     done
+
+    # Flux jump quanta, and enable/disable
+    for c in `seq 0 7`; do 
+	chan=$(( $c +  $ch_ofs ))
+	repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
+
+	if [ "${config_adc_offset_all}" != "0" ]; then
+	    r_off=$(( $array_width * $chan ))
+	    echo "wb rc$rc adc_offset$c ${adc_offset_cr[@]:$r_off:$array_width}" >> $mce_script
+	else
+	    repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script
+	fi
+    done
+
+    echo "wb rc$rc en_fb_jump $flux_jumping" >> $mce_script
+
+
 	
 done
 
@@ -171,19 +176,11 @@ if [ "$hardware_bac" != "0" ]; then
     echo "wb bac enbl_mux 2" >> $mce_script
 fi
 
-#---------------------------------------------------------------
-# Flux Jumping
-#---------------------------------------------------------------
 
-# Flux jumps occur when the 1st stage fb reaches 3/4 of the positive
-# or negative range of the 14-bit ADC. The flux qanta can correct the
-# 1st stage fb by up to 6/4 of the half-range before is triggers
-# corrective counter-jump.
+# Servo loop re-init
 
 for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
-
-    echo "wb rc$rc en_fb_jump 0" >> $mce_script
     echo "wb rc$rc flx_lp_init 1" >> $mce_script
 done
 

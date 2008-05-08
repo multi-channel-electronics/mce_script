@@ -106,12 +106,14 @@ for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
 
 exp_config.config_rc = rc_enable
 
-
 ; Load squid biases from config file default parameters.
 
 def_sa_bias = exp_config.default_sa_bias
 sq2_bias = exp_config.default_sq2_bias
 sq1_bias = exp_config.default_sq1_bias
+
+; Turn flux-jumping off for tuning, though it shouldn't matter.
+exp_config.flux_jumping = 0
 
 ; Load default values into biases
 
@@ -892,6 +894,7 @@ exp_config.servo_mode[0] = 3
 exp_config.servo_p = exp_config.default_servo_p
 exp_config.servo_i = exp_config.default_servo_i
 exp_config.servo_d = exp_config.default_servo_d
+exp_config.flux_jumping = exp_config.default_flux_jumping
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $

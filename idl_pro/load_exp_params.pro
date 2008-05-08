@@ -22,6 +22,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set default_num_rows '+str_flat(m.default_num_rows)
     spawn,'mas_param -s '+filename+' set default_sample_num '+str_flat(m.default_sample_num)
     spawn,'mas_param -s '+filename+' set default_data_mode '+str_flat(m.default_data_mode)
+    spawn,'mas_param -s '+filename+' set default_flux_jumping '+str_flat(m.default_flux_jumping)
     spawn,'mas_param -s '+filename+' set default_servo_p '+str_flat(m.default_servo_p)
     spawn,'mas_param -s '+filename+' set default_servo_i '+str_flat(m.default_servo_i)
     spawn,'mas_param -s '+filename+' set default_servo_d '+str_flat(m.default_servo_d)
@@ -80,6 +81,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set servo_p '+str_flat(m.servo_p)
     spawn,'mas_param -s '+filename+' set servo_i '+str_flat(m.servo_i)
     spawn,'mas_param -s '+filename+' set servo_d '+str_flat(m.servo_d)
+    spawn,'mas_param -s '+filename+' set flux_jumping '+str_flat(m.flux_jumping)
     spawn,'mas_param -s '+filename+' set dead_detectors '+str_flat(m.dead_detectors)
     spawn,'mas_param -s '+filename+' set tes_bias '+str_flat(m.tes_bias)
     spawn,'mas_param -s '+filename+' set row_order '+str_flat(m.row_order)
@@ -113,6 +115,7 @@ pro load_exp_params,filename,m
         'default_num_rows',mas_param_int(filename,'default_num_rows'),  $
         'default_sample_num',mas_param_int(filename,'default_sample_num'),  $
         'default_data_mode',mas_param_int(filename,'default_data_mode'),  $
+        'default_flux_jumping',mas_param_int(filename,'default_flux_jumping'),  $
         'default_servo_p',mas_param_int(filename,'default_servo_p'),  $
         'default_servo_i',mas_param_int(filename,'default_servo_i'),  $
         'default_servo_d',mas_param_int(filename,'default_servo_d'),  $
@@ -171,6 +174,7 @@ pro load_exp_params,filename,m
         'servo_p',mas_param_int(filename,'servo_p'),  $
         'servo_i',mas_param_int(filename,'servo_i'),  $
         'servo_d',mas_param_int(filename,'servo_d'),  $
+        'flux_jumping',mas_param_int(filename,'flux_jumping'),  $
         'dead_detectors',mas_param_int(filename,'dead_detectors'),  $
         'tes_bias',mas_param_int(filename,'tes_bias'),  $
         'row_order',mas_param_int(filename,'row_order'),  $
