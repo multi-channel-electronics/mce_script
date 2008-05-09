@@ -16,6 +16,7 @@ rc=$1
 
 # Read current settings
 row_len=`command_reply rb cc row_len`
+num_rows=`command_reply rb cc num_rows`
 ct=`print_ctime`
 
 # One sample per 50 MHz cycle for 2 complete internal MCE frames
@@ -26,7 +27,9 @@ runfilename=${filename}.run
 
 echo "Data will be in $filename"
 
-# Runfile!
+# Runfile should be compiled by raw_acq, otherwise we have to set these by hand:
+mce_cmd -q -X "wb rc$rc data_mode 3" -X "wb cc num_rows_reported $num_rows"
+
 ( mce_status && frameacq_stamp $rc $filename $nf ) > $runfilename
 if [ "$?" != "0" ]; then
     echo "Runfile creation failed!"
