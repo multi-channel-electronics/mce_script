@@ -1,0 +1,36 @@
+#!/bin/bash
+
+#
+#
+#
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   $0 <rc>"
+    echo "  where rc is 1,2,3, or 4."
+    exit 1
+fi
+
+rc=$1
+
+# Read current settings
+row_len=`command_reply rb cc row_len`
+ct=`print_ctime`
+
+# One sample per 50 MHz cycle for 2 complete internal MCE frames
+nf=$(( $row_len * 2 ))
+
+filename="$MAS_DATA/raw_$ct"
+runfilename=${filename}.run
+
+echo "Data will be in $filename"
+
+# Runfile!
+( mce_status && frameacq_stamp $rc $filename $nf ) > $runfilename
+if [ "$?" != "0" ]; then
+    echo "Runfile creation failed!"
+fi
+
+# File!
+raw_acq $filename $rc
