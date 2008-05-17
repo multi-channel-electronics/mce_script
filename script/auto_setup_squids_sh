@@ -4,6 +4,7 @@
 source $MAS_SCRIPT/mas_library.bash
 
 short="$1"
+note="$3"
 
 if [ "$1" = "" ]; then
     short="0"
@@ -25,9 +26,9 @@ SCRIPTS=$MAS_SCRIPT
 IDL_PRO=$MAS_IDL
 
 SETUP_TARGET=99 #return value that indicates completion
-#SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias,/check_bias $RC"
-SETUP_IDL="auto_setup_squids,short=$short,/check_bias $RC"
-#SETUP_IDL="auto_setup_squids,short=$short $RC"
+##SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias,/check_bias $RC"
+#SETUP_IDL="auto_setup_squids,short=$short,/check_bias $RC"
+SETUP_IDL="auto_setup_squids,short=$short $RC"
 
 start_time=`date`
 ctime=`print_ctime`
@@ -50,6 +51,9 @@ echo "ARGS  : $SCRNAME : $@" | $LOGGER
 #	exit 1
 #    fi
 #fi
+
+# Set observer log variable
+export MAS_LOGID="$note"
 
 # Start auto_setup
 

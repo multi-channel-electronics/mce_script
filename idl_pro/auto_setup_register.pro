@@ -1,6 +1,6 @@
 function auto_setup_register,ctime,type,filename,numpts,note=note
 
-if not keyword_set(note) then note='""' $
+if not keyword_set(note) then note='"' + getenv('MAS_LOGID') + '"' $
 else note='"'+note+'"'
 
 spawn,'acq_register ' + string(ctime) + ' ' + string(type) + ' ' + string(filename) + ' ' + $
