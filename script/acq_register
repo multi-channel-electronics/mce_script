@@ -35,6 +35,11 @@ do_iv=1
 do_tune=1
 do_link=1
 
+#Allow user to suppress db registration.
+if [ "$note" == "no_db" ]; then
+    do_db=0
+fi
+
 case $type in
     "iv")
     files="$name $name.run $name.bias"
