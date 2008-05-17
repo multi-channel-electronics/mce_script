@@ -2,6 +2,8 @@
 #
 # MFH - bias step script, adapted from MDN's mce_bias_step_acq - 2008/02/12
 #
+# When calling from auto_*, set the MAS_LOGID variable to pass a
+# message to the acq database.
 
 source $MAS_SCRIPT/mas_library.bash
 
@@ -24,6 +26,9 @@ if [ "$#" -lt 1 ]; then
     echo "This script uses internal MCE ramping to produce a square wave on the " \
 	"TES bias lines.  The maximum and minimum square wave values are calculated " \
 	"as [ current bias +/- (depth/2) ]."
+    echo ""
+    echo "To pass an observing log id to the registration program, set the variable "
+    echo "      export MAS_LOGID='observinglog.id=xxxx'"
     echo "----------------------------------------"
     exit 1
 fi
@@ -47,7 +52,7 @@ bias_para=${para_list[$line]}
 ct=`print_ctime`
 filename="${ct}_bc$(( $line + 1 ))_step"
 echo "bias_step data will be saved in $MAS_DATA/$filename"
-acq_register $ct bias_step $MAS_DATA/$filename $n_points ""
+acq_register $ct bias_step $MAS_DATA/$filename $n_points "$MAS_LOGID"
 
 last_data_mode=( `command_reply rb rca data_mode` )
 data_rate=`command_reply rb cc data_rate`

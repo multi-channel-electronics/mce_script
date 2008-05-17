@@ -22,6 +22,9 @@ if [ "$#" -lt "2" ]; then
   echo
   echo "At the end of the script, the biases are returned to the values they had when the script was called."
   echo "Note that the file will be saved under the data directory."
+  echo ""
+  echo "To pass an observing log id to the registration program, set the variable "
+  echo "      export MAS_LOGID='observinglog.id=xxxx'"
   echo "----------------"
   exit 1
 fi
@@ -79,7 +82,7 @@ sleep $first_pause
 
 #Register acq
 update_userword $n
-acq_register $ct iv $datafile $total_bias ""
+acq_register $ct iv $datafile $total_bias "$MAS_LOGID"
 
 #Generate .run file
 mce_status >> $runfile
