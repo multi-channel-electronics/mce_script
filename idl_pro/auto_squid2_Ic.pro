@@ -559,7 +559,7 @@ for jj=0,n_elements(RCs)-1 do begin
        
         sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
 
-        if exp_config.config_fast_sq2 then begin
+        if exp_config.config_fast_sq2[0] then begin
 
             print, 'Using biasing address card (bac) to sq1servo each row separately.'
             ; This block uses original sq1servo to get the full block of
