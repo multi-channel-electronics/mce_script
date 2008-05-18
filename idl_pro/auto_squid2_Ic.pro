@@ -55,15 +55,13 @@ on_bias=0
 if keyword_set(check_bias) then begin
 	for jj=0,n_elements(RCs)-1 do begin
 	        RC=RCs(jj)
-	        on_sabias=1
-		spawn,'check_zero rc'+strcompress(string(RC),/remove_all)+' sa_bias >> '+todays_folder+c_filename+'.log',exit_status=on_sabias
-		on_sabias=abs(on_sabias-1)
-		on_bias=on_bias+on_sabias
+		spawn,'check_zero rc'+strcompress(string(RC),/remove_all)+' sa_bias >> '+todays_folder+c_filename+'.log',exit_status=exit_status
+                if exit_status gt 8 then $
+                  print,'check_zero script failed with code '+string(exit_status)
+		on_bias=on_bias+exit_status
 	endfor
 endif
-on_sq2bias=1
-spawn,'check_zero bc3 flux_fb >> '+todays_folder+c_filename+'.log',exit_status=on_sq2bias
-on_sq2bias=abs(on_sq2bias-1)
+spawn,'check_zero sq2 bias >> '+todays_folder+c_filename+'.log',exit_status=on_sq2bias
 on_bias=on_bias+on_sq2bias
 
 ;RESET THE MCE
@@ -100,11 +98,13 @@ for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
 
 wait,exp_config.tes_bias_normal_time[0]
 
+
+exp_config.tes_bias = exp_config.tes_bias_idle
+
 for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
   auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
 
 exp_config.config_rc = rc_enable
-
 
 ; Load squid biases from config file default parameters.
 
@@ -112,10 +112,14 @@ def_sa_bias = exp_config.default_sa_bias
 sq2_bias = exp_config.default_sq2_bias
 sq1_bias = exp_config.default_sq1_bias
 
+; Turn flux-jumping off for tuning, though it shouldn't matter.
+exp_config.flux_jumping = 0
+
 ; Load default values into biases
 
 exp_config.sa_bias = def_sa_bias
 exp_config.sq2_bias = sq2_bias
+exp_config.sq1_bias = 0
 
 ; Save experiment params, make config script, run it.
 save_exp_params,exp_config,exp_config_file
@@ -174,16 +178,16 @@ for jj=0,n_elements(RCs)-1 do begin
 	RC=RCs(jj)
         RC_indices = 8*(RC-1) + indgen(8)
 
+	if keyword_set(short) then begin			;if we don't find the column adc_offset we read them for the config file
+                column_adc_offset(RC_indices) = exp_config.adc_offset_c(RC_indices)
+		if short eq 1 then goto, step4 else goto, step5
+	endif
+
         print,''
         print,'#################################################################'
         print,'#            NOW SETTING COLUMNS OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
         print,'#################################################################'
         print,''
-
-	if keyword_set(short) then begin			;if we don't find the column adc_offset we read them for the config file
-                column_adc_offset(RC_indices) = exp_config.adc_offset_c(RC_indices)
-		if short eq 1 then goto, step4 else goto, step5
-	endif
 
 	;----------------------------------------------------------------------------------------------------------
 	;SA setup: ramps the SA bias together with the fb and finds the best SA bias' and offsets channel by channel
@@ -210,6 +214,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.config_adc_offset_all[0] = 0      ; configure one adc_offset for the whole column
         exp_config.adc_offset_c[RC_indices] = 0
         exp_config.sq2_bias[RC_indices] = 0
+        exp_config.sq1_bias = 0
 	
 	common ramp_sa_var,plot_file,final_sa_bias_ch_by_ch,SA_target,SA_fb_init,peak_to_peak
 
@@ -356,21 +361,23 @@ for jj=0,n_elements(RCs)-1 do begin
 	endif else begin
 	        i4='Yes'
 	endelse
-
-	for s2bc = 1,24 do begin
+	
+; Lines to change S2 bias level for Ic measurement
+      for s2bc = 1,24 do begin
 	
 	s2bc_step = long(2500)
 	s2bc_cur = long(s2bc*s2bc_step)
-	
+
 	common sq2_servo_var,SQ2_target,SQ2_feedback,file_out
 	
 	;BEFORE STARTING THE SQ2 SETUP WE HAVE TO RESET TO THE INITIAL VALUES ALL THE SETTINGS
 
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
-        exp_config.sq2_bias(RC_indices) = replicate(s2bc_cur,8)	;sq2_bias(RC_indices)
-; Changed for testing 2008/04/04 JWA MDN
-        exp_config.sq1_bias = 0 ;sq1_bias
+        ; Changed for SQ2 Ic testing
+        exp_config.sq2_bias(RC_indices) = replicate(s2bc_cur,8)   ;sq2_bias(RC_indices)
+	; Turn off S1 SQUIDs to make SQ2 measurement less biased  2008/04/06 JWA MDN
+        exp_config.sq1_bias = 0	
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -402,11 +409,15 @@ for jj=0,n_elements(RCs)-1 do begin
 	endfor
 	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
 	spawn,SA_feedback_string
-	
+
+	; Added line containing biasing info
         sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)+'_bias'+strtrim(s2bc_cur,1)
 
-        auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc,interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
-          ramp_start=exp_config.sq2_ramp_flux_start[0], ramp_count=exp_config.sq2_ramp_flux_count[0], ramp_step=exp_config.sq2_ramp_flux_step[0],/lockamp
+        auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
+          interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
+          ramp_start=exp_config.sq2_servo_flux_start[0], $
+          ramp_count=exp_config.sq2_servo_flux_count[0], $
+          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -443,7 +454,7 @@ for jj=0,n_elements(RCs)-1 do begin
                 exit,status=8
         endif
 
-	endfor
+      endfor
 
 	;----------------------------------------------------------------------------------------------------------
 	;SQ1_servo: 
@@ -512,9 +523,9 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.num_rows[0] = numrows
         exp_config.num_rows_reported[0] = numrows
         exp_config.servo_mode[0] = 1
-        exp_config.servo_p[0] = 0
-        exp_config.servo_i[0] = 0
-        exp_config.servo_d[0] = 0
+        exp_config.servo_p = 0
+        exp_config.servo_i = 0
+        exp_config.servo_d = 0
 	
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -548,7 +559,6 @@ for jj=0,n_elements(RCs)-1 do begin
        
         sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
 
-
         if exp_config.config_fast_sq2 then begin
 
             print, 'Using biasing address card (bac) to sq1servo each row separately.'
@@ -556,6 +566,18 @@ for jj=0,n_elements(RCs)-1 do begin
             ; ramps for all rows.
 
             SQ2_feedback_full_array=lon64arr(numrows,8)
+
+            ;MFH - single servo!
+            auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+              numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+              gain=exp_config.sq1servo_gain[rc-1], $
+              ramp_start=exp_config.sq1_servo_flux_start[0], $
+              ramp_count=exp_config.sq1_servo_flux_count[0], $
+              ramp_step=exp_config.sq1_servo_flux_step[0], $
+              /super_servo
+
+            runfile = sq1_base_name+'_sq1servo.run'
+            
 
             for sq1servorow=0,numrows-1 do begin
 ;                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
@@ -568,11 +590,17 @@ for jj=0,n_elements(RCs)-1 do begin
                 endfor
                 row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
                 spawn,row_init_string
+
+                bias_file = strcompress(sq1_base_name+'_sq1servo.r'+ $
+                                        string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
   	
 		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
                   gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
-                  ramp_start=exp_config.sq1_ramp_flux_start[0], ramp_count=exp_config.sq1_ramp_flux_count[0], ramp_step=exp_config.sq1_ramp_flux_step[0]
+                  ramp_start=exp_config.sq1_servo_flux_start[0], $
+                  ramp_count=exp_config.sq1_servo_flux_count[0], $
+                  ramp_step=exp_config.sq1_servo_flux_step[0], $
+                  use_bias_file=bias_file, use_run_file=runfile
 
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
@@ -626,7 +654,9 @@ for jj=0,n_elements(RCs)-1 do begin
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
               RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
               gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
-              ramp_start=exp_config.sq1_ramp_flux_start[0], ramp_count=exp_config.sq1_ramp_flux_count[0], ramp_step=exp_config.sq1_ramp_flux_step[0]
+              ramp_start=exp_config.sq1_servo_flux_start[0], $
+              ramp_count=exp_config.sq1_servo_flux_count[0], $
+              ramp_step=exp_config.sq1_servo_flux_step[0]
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -651,7 +681,6 @@ for jj=0,n_elements(RCs)-1 do begin
 
 ; Single row approach -- these will be ignored in the multi-variable case!
 
-        print,'sq1_target = ',string(sq1_target)
         exp_config.sq2_fb(RC_indices) = sq1_target
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -705,10 +734,11 @@ for jj=0,n_elements(RCs)-1 do begin
 
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
-        exp_config.servo_p[0] = 0
-        exp_config.servo_i[0] = 0
-        exp_config.servo_d[0] = 0
+        exp_config.servo_p = 0
+        exp_config.servo_i = 0
+        exp_config.servo_d = 0
         exp_config.config_adc_offset_all[0] = 0
+        exp_config.sq1_bias = sq1_bias
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -871,9 +901,10 @@ endfor
 
 exp_config.data_mode[0] = exp_config.default_data_mode[0]
 exp_config.servo_mode[0] = 3
-exp_config.servo_p[0] = exp_config.default_servo_p
-exp_config.servo_i[0] = exp_config.default_servo_i
-exp_config.servo_d[0] = exp_config.default_servo_d
+exp_config.servo_p = exp_config.default_servo_p
+exp_config.servo_i = exp_config.default_servo_i
+exp_config.servo_d = exp_config.default_servo_d
+exp_config.flux_jumping = exp_config.default_flux_jumping
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $
