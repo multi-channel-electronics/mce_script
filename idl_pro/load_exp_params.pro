@@ -77,11 +77,11 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set fb_dly '+str_flat(m.fb_dly)
     spawn,'mas_param -s '+filename+' set row_dly '+str_flat(m.row_dly)
     spawn,'mas_param -s '+filename+' set data_mode '+str_flat(m.data_mode)
+    spawn,'mas_param -s '+filename+' set flux_jumping '+str_flat(m.flux_jumping)
     spawn,'mas_param -s '+filename+' set servo_mode '+str_flat(m.servo_mode)
     spawn,'mas_param -s '+filename+' set servo_p '+str_flat(m.servo_p)
     spawn,'mas_param -s '+filename+' set servo_i '+str_flat(m.servo_i)
     spawn,'mas_param -s '+filename+' set servo_d '+str_flat(m.servo_d)
-    spawn,'mas_param -s '+filename+' set flux_jumping '+str_flat(m.flux_jumping)
     spawn,'mas_param -s '+filename+' set dead_detectors '+str_flat(m.dead_detectors)
     spawn,'mas_param -s '+filename+' set tes_bias '+str_flat(m.tes_bias)
     spawn,'mas_param -s '+filename+' set row_order '+str_flat(m.row_order)
@@ -170,11 +170,11 @@ pro load_exp_params,filename,m
         'fb_dly',mas_param_int(filename,'fb_dly'),  $
         'row_dly',mas_param_int(filename,'row_dly'),  $
         'data_mode',mas_param_int(filename,'data_mode'),  $
+        'flux_jumping',mas_param_int(filename,'flux_jumping'),  $
         'servo_mode',mas_param_int(filename,'servo_mode'),  $
         'servo_p',mas_param_int(filename,'servo_p'),  $
         'servo_i',mas_param_int(filename,'servo_i'),  $
         'servo_d',mas_param_int(filename,'servo_d'),  $
-        'flux_jumping',mas_param_int(filename,'flux_jumping'),  $
         'dead_detectors',mas_param_int(filename,'dead_detectors'),  $
         'tes_bias',mas_param_int(filename,'tes_bias'),  $
         'row_order',mas_param_int(filename,'row_order'),  $
