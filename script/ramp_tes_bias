@@ -94,9 +94,6 @@ if [ "$?" != "0" ]; then
   exit 1
 fi
 
-# Remove existing biasfile
-[ -e $biasfile ] && rm $biasfile
-
 echo "<tes_bias>" >> $biasfile
 echo "Acquiring I-V curve into data file $datafile"
 
