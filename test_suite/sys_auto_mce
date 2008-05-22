@@ -5,6 +5,8 @@ TMP="$MAS_TEMP/mce_check.tmp"
 today=`date`
 echo "$0 run under MAS on $today"
 
+echo "*** Note: if you don't have 4 RC cards, then delete any instance of the non-existing RC in this script***"
+
 # LED Flashing Test or in fact wb test
 echo "watch the LEDs flash"
 for j in `seq 1 10`; do
