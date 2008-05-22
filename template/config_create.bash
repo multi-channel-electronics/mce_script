@@ -51,6 +51,23 @@ echo "wb cc use_dv $use_dv" >> $mce_script
 echo "wb cc use_sync $use_sync" >> $mce_script
 echo "wb cc ret_dat_s 1 1" >> $mce_script
 
+# Write cc user_word based on array_id - this shows up in frame data
+if [ -e "/data/cryo/array_id" ]; then
+    array_id=`cat /data/cryo/array_id`
+    case "$array_id" in
+	"test1")
+	echo "wb cc user_word 1" >> $mce_script
+	;;
+	"test2")
+	echo "wb cc user_word 2" >> $mce_script
+	;;
+	*)
+	echo "wb cc user_word 0" >> $mce_script
+	;;
+    esac
+fi
+
+
 #----------------------------------------------
 # Readout Cards
 #----------------------------------------------
@@ -58,7 +75,7 @@ for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
     
     ch_ofs=$(( ($rc-1)*8 ))
-    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
+#    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
     echo "wb rc$rc en_fb_jump   0" >> $mce_script
     echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
@@ -82,20 +99,33 @@ for rc in 1 2 3 4; do
 	fi
     done
 
-    pidz_dead_off $servo_p $servo_i $servo_d $rc >> $mce_script
+    #
+    for c in `seq 0 7`; do
+	chan=$(( $c + $ch_ofs ))
+	dead_ofs=$(( ($c + $ch_ofs)*$array_width ))
+	
+	p_terms=( `repeat_string ${servo_p[$chan]} $array_width` )
+	i_terms=( `repeat_string ${servo_i[$chan]} $array_width` )
+	d_terms=( `repeat_string ${servo_d[$chan]} $array_width` )
 
+	if [ "$config_dead_tes" == "0" ]; then
+	    for r in `seq 0 $(( $array_width - 1 ))`; do
+		if [ "${dead_detectors[$(( $dead_ofs + $r ))]}" != "0" ]; then
+		    p_terms[$r]=0
+		    i_terms[$r]=0
+		    d_terms[$r]=0
+		fi
+	    done
+	fi
+
+	echo "wb rc$rc gainp$c ${p_terms[@]}" >> $mce_script
+	echo "wb rc$rc gaini$c ${i_terms[@]}" >> $mce_script
+	echo "wb rc$rc gaind$c ${d_terms[@]}" >> $mce_script
+    done
+	
 done
 
-# Run the adc_offset config file.
-#today=`cat /data/cryo/current_data_name`
-#$MAS_DATA/config_mce_adc_offset_${today} >> $mce_script
-#if [ $? ]; then
-#  echo "$0 failed: config_mce_adc_offset_${today} failed with code $cmdstatus, config aborted..." >&2
-#  exit 2
-#fi
-
-
-echo "Other cards: time=" `print_elapsed $create_start` >&2
+# echo "Other cards: time=" `print_elapsed $create_start` >&2
 
 #----------------------------------------------
 # Address Card
@@ -106,23 +136,8 @@ echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
 
 
-#----------------------------------------------
-# Bias Card 1 (flux_fb on BC1 sets sa_fb)
-#----------------------------------------------
-echo "wb bc1 bias $tes_bias_bc1" >> $mce_script
-                                                                                                                             
-#----------------------------------------------
-# Bias Card 2 (flux_fb on BC2 sets sq2_fb)
-#----------------------------------------------
-if [ "$hardware_bac" == "0" ]; then
-    echo "wb bc2 bias $tes_bias_bc2" >> $mce_script
-fi
-                                                                                                                             
-#----------------------------------------------
-# Bias Card 3 (flux_fb on BC3 sets sq2_bias)
-#----------------------------------------------
-echo "wb bc3 bias $tes_bias_bc3" >> $mce_script
-
+# Set the TES biases via the "tes bias" virtual address
+echo "wb tes bias ${tes_bias[@]}" >> $mce_script
 
 #----------------------------------------------
 # Bias Cards - use functional mappings!
@@ -139,27 +154,27 @@ for rc in 1 2 3 4; do
     if [ "$hardware_bac" == "0" ]; then
 	echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
     else
-#	for a in `seq 0 7`; do
-#	    echo -n "wb sq2 fb_col$(( $a + $ch_ofs)) " >> $mce_script
-#	    mas_param -s $MAS_DATA/sq2_RC${rc}.cfg get fb_chan$a >> $mce_script
-#       done
 	for a in `seq 0 7`; do
 	    row_ofs=$(( ($ch_ofs+$a) * 41 ))
 	    echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:41}" >> $mce_script
 	done
     fi
-
 done
 
+# For biasing address card, set the correct mux_mode and row_order
+if [ "$hardware_bac" != "0" ]; then
+    echo "wb bac row_order ${row_order[@]}" >> $mce_script
+    echo "wb bac enbl_mux 2" >> $mce_script
+fi
 
 #---------------------------------------------------------------
 # Flux Jumping
 #---------------------------------------------------------------
-# Flux jumps occur when the 1st stage fb reaches 3/4 of the positive or negative range of the 14-bit ADC
-# The flux qanta can correct the 1st stage fb by up to 6/4 of the half-range before is tirggers corrective counter-jump.  
-# To see maximum variation in this test without allowing a flux-jump to get near to the point where it will cause a counter-jump, I will used a flux quanta of 5/4 the half-range of the ADC.
-# [(2^14)/2]*5/4=10240
-# Enable/disable flux-jumping
+
+# Flux jumps occur when the 1st stage fb reaches 3/4 of the positive
+# or negative range of the 14-bit ADC. The flux qanta can correct the
+# 1st stage fb by up to 6/4 of the half-range before is triggers
+# corrective counter-jump.
 
 for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue

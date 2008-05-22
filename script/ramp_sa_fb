@@ -38,8 +38,6 @@ function runfile_loop_structure {
 # START OF MAIN ROUTINE
 #
 
-# this should set $MAS_DATA and $MAS_TEMP
-## source ~mce/mas_env.bash
 source ${MAS_SCRIPT}mas_library.bash
 
 if [ $# -lt 3 ]; then 
@@ -62,7 +60,7 @@ cable_offset_sa_bias_ratio=`mas_param -s $expcfg get sa_offset_bias_ratio`
 ramp_count=`mas_param -s $expcfg get sa_ramp_flux_count`
 ramp_step=`mas_param -s $expcfg get sa_ramp_flux_step`
 
-start_ctime=`date -u +%s`
+start_ctime=`print_ctime`
 tempfile=$MAS_TEMP/ramp_sa_fb.temp
 script_name=$0
 
@@ -73,13 +71,12 @@ n=$2
 nested_loop=$3
 
 if [ $n == "s" ] ;then
-  num_cols=`mce_param FLUX_FB_COLUMNS`
+  col_count=32
   col_index=0
 else
-  num_cols=8
+  col_count=8
   col_index=$(( $(( $n - 1 )) * 8))
 fi
-lastcol_index=$(( $col_index + 7))
 
 if [ $nested_loop -eq 0 ] ; then
   total_bias=1 
@@ -117,12 +114,13 @@ if [ -e $tempfile ]; then
 fi
 
 if [ $nested_loop -eq 0 ]; then
+
     mce_ramp -M "acq_config $datafile rc$n" \
 	-L $ramp_count  -V 0 $ramp_step \
-	    -P "wb bc1 flux_fb" 16 \
+	    -P "wra sa fb $col_index" $col_count \
   	    -P "acq_go 1" 0  >> $tempfile
     
-    repeat_string "wb bc1 flux_fb" "0" 16 "" >> $tempfile
+    repeat_string "0" $col_count "wra sa fb $col_index" >> $tempfile
 
 else
     # Offset is a multiple of the bias
@@ -132,19 +130,17 @@ else
     mce_ramp \
 	-M "acq_config $datafile rc$n" \
 	-L $total_bias \
-	    -V $start_offset $offset_step  -P "wb rc$n offset " 8 \
-  	    -V $start_bias   $bias_step    -P "wb rc$n sa_bias " 8 \
+	    -V $start_offset $offset_step  -P "wra sa offset $col_index" $col_count \
+  	    -V $start_bias   $bias_step    -P "wra sa bias $col_index" $col_count \
 	        -L $ramp_count  -V 0 $ramp_step \
-             	    -P "wb bc1 flux_fb" 16 \
+             	    -P "wra sa fb $col_index" $col_count \
 	            -P "acq_go 1" 0  >> $tempfile
 
-   repeat_string "0" 8 "wb rc$n sa_bias" >> $tempfile
-   repeat_string "0" 8  "wb rc$n offset" >> $tempfile
-   repeat_string "0" 16 "wb bc1 flux_fb" >> $tempfile
+   repeat_string "0" $col_count "wra sa bias $col_index" >> $tempfile
+   repeat_string "0" $col_count "wra sa offset $col_index" >> $tempfile
+   repeat_string "0" $col_count "wra sa fb $col_index" >> $tempfile
 
 fi
-
-echo "$0 file-write time: " `print_elapsed $start_ctime` " s"
 
 mce_cmd -q -f $tempfile
 if [ $? -ne  0 ] ; then
@@ -152,4 +148,5 @@ if [ $? -ne  0 ] ; then
   exit 4
 fi
 
+# run-time is n_steps / 900 Hz.
 echo "$0 elapsed time: " `print_elapsed $start_ctime` " s"

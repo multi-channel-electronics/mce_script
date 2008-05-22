@@ -27,9 +27,12 @@ fi
 
 # Remove existing file
 if [ -e $outfile ]; then
-    echo "Removing existing '$outfile'"
+#    echo "Removing existing '$outfile'"
     rm $outfile
 fi
+
+# Create the config file
+touch $outfile
 
 # Do the shell define line explicitly
 echo "#!/bin/bash" >> $outfile

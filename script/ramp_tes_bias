@@ -1,177 +1,82 @@
 #!/bin/bash
 #
+# Adapted from ramp_tes_bias for DAS
+#
+
 source $MAS_SCRIPT/mas_library.bash
 
-# Revision History:
-# <date $Date: 2007/11/13 04:11:09 $> - <initials: $Author: preaction $>
-# $Log: ramp_tes_bias,v $
-# Revision 1.14  2007/11/13 04:11:09  preaction
-#
-#  Modified Files:
-#  	auto_configure auto_setup_squids_sh pidz_dead_off
-#  	ramp_tes_bias set_directory
-#
-# Committing all actmceidl_pro and actmcescripts files to CVS for MCE software freeze.
-# MDN
-#
-# Revision 1.13  2007/11/05 16:34:58  preaction
-#
-#  Modified Files:
-#  	ramp_tes_bias
-# Changed wait time after driving normal.  Also explored different normal bias times and different acquisition rates, and settled on the current values (which are the same as was used previously).
-# MDN
-#
-# Revision 1.12  2007/10/30 21:54:29  preaction
-# MFH - in prep for snapshot to put on Calamari.
-#
-# Revision 1.11  2007/10/22 16:26:59  preaction
-#
-#  Modified Files:
-#  	dredge_fifo ramp_tes_bias
-#
-# Bug was fixed in ramp_tes_bias, which was generating .run files in actmceidl_pro.
-# MDN
-#
-# Revision 1.10  2007/10/22 16:24:46  preaction
-#
-#  Modified Files:
-#  	auto_acquire config_mce_auto_setup_template dredge_fifo
-#  	pidz_dead_off ramp_sq1_bias ramp_sq1_fb ramp_tes_bias
-#  	set_directory
-#
-# Scripts modified prior to first light observations with MBAC on 10-22-07.
-# MN & EB
-#
-# Revision 1.9  2007/10/20 16:28:20  preaction
-# EB: added the call for the scheduler
-#
-# Revision 1.8  2007/10/17 02:22:52  preaction
-#
-#  Modified Files:
-#  	ramp_tes_bias
-#
-# Fixed bug that was introduced in last version, which only changed the file naming convention.  Oops.
-# MDN
-#
-# Revision 1.7  2007/10/17 01:24:48  preaction
-#
-#  Modified Files:
-#  	ramp_tes_bias
-#
-# Modified to conform to new file naming conventions (c-time_iv).
-# MDN
-#
-# Revision 1.6  2007/09/22 00:12:41  preaction
-# MA@ubc added error codes
-#
-# Revision 1.5  2007/09/18 01:27:12  preaction
-#
-#  Modified Files:
-#  	bias_tess ramp_tes_bias scripted_noise setdata
-#
-# Committing all files for script freeze prior to ending MBAC run.
-#
-# MDN
-#
-# Revision 1.4  2007/09/12 16:10:39  preaction
-#
-#  Modified Files:
-#  	ramp_tes_bias
-#
-# Modified to work with new bias cards and have possibility of setting different biases
-# to drive detectors normal on different cards.
-# MDN
-#
-# Revision 1.3  2007/09/12 02:25:43  preaction
-#
-#  Modified Files:
-#  	ramp_tes_bias
-#
-# Modified to account for changes in bias card resistors, which should allow
-# us to output high enough current to drive all detectors normal without
-# additional heating.
-# MDN
-#
-# Revision 1.2  2007/09/11 16:27:03  preaction
-#
-#  Modified Files:
-#  	adc_offset_auto bias_tess chopper_remote_control
-#  	config_mce_auto_setup_template mceframeacq pidz_dead_off
-#  	ramp_tes_bias scripted_noise set_directory setdata sq1servo
-#  	mux_lock/sq1servo mux_lock/sq1servo.c
-#  Added Files:
-#  	bias_step_run
-#
-# Committing all to CVS 9-11-2007 MDN
-#
-# S: ----------------------------------------------------------------------
-#
-# Revision 1.1.1.1  2007/09/02 19:50:14  preaction
-# first commit of MCE DAS scripts for MBAC
-#
-# Revision 1.2  2006/02/16 22:23:07  mce
-# Mandana: improved based on feedback from act
-# uses mcecmd instead of mcebatchgo to be able to handle sleep command
-# bias values are adjusted for act setting, we may have to adjust them later.
-#
-# Revision 1.1  2006/02/14 00:33:18  mce
-# Mandana: new script to ramp tes bias, edit the loop(ramp) parameters inside the script
-#
-#
-if [ $# != 2 ]; then
+if [ "$#" -lt "2" ]; then
   echo "----------------"
-  echo "Usage: ramp_tes_bias datafile n"
-  echo "   datafile is the name of the datafile"
-  echo "   n        is the rc card number (1 to 4)"
+  echo "Usage: ramp_tes_bias datafile n [ bias_start bias_step bias_count bias_pause first_pause [ normal_bias normal_time ] ] "
+  echo "   datafile      is the name of the datafile"
+  echo "   n             is the rc card number (1 to 4)"
+  echo
+  echo "   bias_start    is the first bias to apply"
+  echo "   bias_step     is the change in bias in each step (you probably want a *negative* value here)"
+  echo "   bias_count    is the total number of biases to apply"
+  echo "   bias_pause    is the delay time (in seconds) between biases"
+  echo "   first_pause   is the stabilization delay (in seconds) after applying the first bias"
+  echo
+  echo "   normal_bias   is the bias applied just prior to beginning the ramp"
+  echo "   normal_time   is the number of seconds to apply the normal bias (if 0, no normal bias is applied)"
+  echo
+  echo "At the end of the script, the biases are returned to the values they had when the script was called."
   echo "Note that the file will be saved under the data directory."
   echo "----------------"
   exit 1
 fi
 
-total_bias=1000 #60  	#480   #number of steps to decrement
-bias_step=6 #100	#25
-start_bias=6000	#12000 
-bias_normal1=6000	#Bias to drive detectors normal on each bias card
-bias_normal2=6000
-bias_normal3=6000
-normal_time=0.1
-initial_wait=1   #10 
-end_bias=0	#4000
+# Set default bias step and normalizing parameters
+expt_file=$MAS_DATA/experiment.cfg
+total_bias=`mas_param -s $expt_file get ramp_tes_count`
+bias_step=`mas_param -s $expt_file get ramp_tes_step`
+start_bias=`mas_param -s $expt_file get ramp_tes_start`
+bias_normal=`mas_param -s $expt_file get tes_bias_normal`
+normal_time=`mas_param -s $expt_file get tes_bias_normal_time`
+first_pause=`mas_param -s $expt_file get ramp_tes_initial_pause`
+end_bias=`mas_param -s $expt_file get ramp_tes_final_bias`
+data_pause_us=`mas_param -s $expt_file get ramp_tes_period_us`
 
-#@ total_bias = 200  	#number of steps to decrement
-#@ bias_step  = 150
-#@ start_bias = 30000
-#@ bias_normal = 45000
-#@ initial_wait = 120
-#@ end_bias = 9000
+# Command line overrides
+if [ "$#" -gt "2" ]; then
+    start_bias=$3
+    bias_step=$4
+    total_bias=$5
+    data_pause_us=`float_multiply 1000000.0 $6`
+    if [ "$data_pause_us" == "" ]; then data_pause_us="0"; fi
+    first_pause=$7
+fi
 
-data_pause_us=10    # 100000, normally, step period in microseconds 
+if [ "$#" -gt "7" ]; then
+    bias_normal=$8
+    normal_time=$9
+fi
+
 ct=`print_ctime`
 dt=`cat /data/cryo/current_data_name`
 
 data_root=$1
-datafile=$MAS_DATA/$data_root
 n=$2
+datafile=$MAS_DATA/$data_root
 
 runfile=$datafile.run
 biasfile=$datafile.bias
 logfile=$datafile.log
 
-echo "Driving detectors normal before I-V curve acquisition using ramp_tes_bias script." #>> /data/cryo/script_log.txt #
-bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> /data/cryo/script_log.txt #
-sleep $normal_time
+if [ "$normal_time" != "0" ]; then
+    echo "Driving detectors normal (bias = $bias_normal)"
+    bias_tess $bias_normal
+    sleep $normal_time
+    bias_tess 0
+    sleep $normal_time
+    bias_tess $bias_normal
+    sleep $normal_time
+fi
 
-bias_tess 0
-sleep $normal_time
-bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> /data/cryo/script_log.txt #
-sleep $normal_time
-
-echo "waiting $initial_wait sec for temperature to stabilize" #>> /data/cryo/script_log.txt #
+echo "Setting first bias and waiting $first_pause s; time between other points will be $data_pause_us us"
 bias_tess $start_bias
-echo "Will wait $data_pause_us usec between each data point." #>> /data/cryo/script_log.txt #
-sleep $initial_wait
+sleep $first_pause
 
-cat /data/cryo/last_squid_tune >> $runfile
 #Generate .run file
 mce_status >> $runfile
 
@@ -182,52 +87,74 @@ if [ "$?" != "0" ]; then
   exit 1
 fi
 
-#if ($n == s) then
-#  echo "<RC> 1 2 3 4" >> $MAS_DATA/$runfile
-#else      
-#  echo "<RC> $n" >> $MAS_DATA/$runfile
-#endif
-
+# Remove existing biasfile
 [ -e $biasfile ] && rm $biasfile
 
 echo "<tes_bias>" >> $biasfile
-echo "Acquiring I-V curve into data file $datafile" #>> /data/cryo/script_log.txt #
+echo "Acquiring I-V curve into data file $datafile"
 
-#touch /data/cryo/${dt}/$datafile
-#ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
-#ln /data/cryo/${dt}/$runfile /data/mce_ctimes/$runfile
-#ln /data/cryo/${dt}/$biasfile /data/mce_ctimes/$biasfile
+acq_register $ct iv $datafile $total_bias ""
 
-#echo "executing ramp"
+script=$MAS_TEMP/ramp_tes_bias.scr
+[ -e $script ] && rm $script
+
+# Get a count of the bias lines in the system
+bias_lines=`command_reply rb tes bias | wc -w`
+
+if [ "$data_pause_us" -gt "0" ]; then
+    sleep_arg="-P 'sleep $data_pause_us' 0"
+else
+    sleep_arg=""
+fi
+
+# echo mce_ramp -M "acq_config $datafile rc$n" \
+#     -L $total_bias \
+#     -V $start_bias $bias_step \
+#     -P "wb tes bias" $bias_lines \
+#     -P "acq_go 1" 0 \
+#     $sleep_arg
+# mce_ramp -M "acq_config $datafile rc$n" \
+#     -L $total_bias \
+#     -V $start_bias $bias_step \
+#     -P "wb tes bias" $bias_lines \
+#     -P "acq_go 1" 0 \
+#     $sleep_arg > $script
+# exit
+
+echo "acq_config $datafile rc$n" > $script
 for i in `seq 0 $(( $total_bias - 1 ))`; do
-   bias=$(( $start_bias - $i * $bias_step ))
-   bias_tess $bias >> $logfile
-   echo "$bias" >> $biasfile
+   bias=$(( $start_bias + $i * $bias_step ))
+   echo $bias >> $biasfile
+   echo "wb tes bias $bias $bias $bias"
+   if [ "$data_pause_us" -gt "0" ]; then
+       echo "sleep $data_pause_us"
+   fi
+   echo "acq_go 1"
+done >> $script
 
-   echo -e \
-       "acq_config $datafile rc$n\n" \
-       "acq_go 1\n" \
-       "sleep $data_pause_us" | \
-       mce_cmd -q
-    if [ "$?" != "0" ]; then
-	    exit 3
-    fi
-done
+mce_cmd -qf $script
 
 my_data=/data/cryo
 
 echo "Completed I-V acquisition!"
-echo "Driving detectors normal, then setting detector bias to $end_bias"
-bias_tess $bias_normal1 $bias_normal2 $bias_normal3  >> $my_data/script_log.txt #
-sleep $normal_time
-bias_tess $end_bias  >> $my_data/script_log.txt 
 
-set ctf=`print_ctime`
-echo "I-V start time: $ct" >> $my_data/script_log.txt 
-echo "I-V end time: $ctf" >> $my_data/script_log.txt 
+if [ "$normal_time" != "0" ]; then
+    echo "Driving detectors normal (bias=$normal_bias)"
+    bias_tess $bias_normal
+    sleep $normal_time
+    bias_tess 0
+    sleep $normal_time
+    bias_tess $bias_normal
+    sleep $normal_time
+fi
+
+echo "Setting biases to initial value of $end_bias"
+bias_tess $end_bias
+
+echo "IV run time: " `print_elapsed $ct` "s"
 
 last_iv=$my_data/last_iv_completed
-[ -e $last_iv ] && rm -f $last_iv
+[ -h $last_iv ] && rm -f $last_iv
 ln -s $datafile $last_iv
 
 echo "$datafile" > $my_data/last_iv_completed_name

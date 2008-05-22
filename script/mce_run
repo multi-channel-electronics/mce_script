@@ -21,12 +21,18 @@ set runfilename=${filename}.run
 set numpts=$2
 set rc_num=$3
 
+# This ctime won't necessarily match the filename!  But it should be
+# close and it's better than nothing.
+set ctime=`date -u +%s`
+mce_cmd -x wb cc run_id $ctime
 
 #RUN FILE CREATION: NO MCE COMMANDS PAST THIS POINT
 
 echo "RUNFILE_NAME=$runfilename"
 
-mce_status>$runfilename
+# Don't remove runfile, it may have been pre-initialized
+touch $runfilename
+mce_status >> $runfilename
 if ($status) then
   echo "mcerun: MCESTATUS action failed!"
   exit 1
@@ -43,11 +49,9 @@ endif
 
 echo "FRAME_BASENAME=$filename"
 
-mce_cmd -q <<EOF
-  acq_path /
-  acq_config $filename rc$rc_num
-  acq_go $numpts
-EOF
+echo "acq_path /\n" \
+    "acq_config $filename rc$rc_num\n" \
+    "acq_go $numpts" | mce_cmd -q
 
 if ($status) then
   echo "mce_cmd failed to start acquisition."

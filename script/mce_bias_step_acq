@@ -1,6 +1,0 @@
-# A script called mce_bias_step_acq is called by mce_bias_step but
-# does not appear to have been cvs'ed!  This is a place-holder until
-# it is recovered.
-
-echo "mce_bias_step_acq: this is a place-holder!"
-exit 1

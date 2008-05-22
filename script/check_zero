@@ -18,7 +18,7 @@ if ($#argv != 2) then
   echo "This script checks whether the parameter is set to 0 and returns 1, otherwise it returns 0"
   echo "Warning: This script has no error checking and if mcecmd fails, you will not know!"
   echo "----------------"
-  exit 2
+  exit 127
 endif  
 
 set cmd=($argv)
@@ -26,10 +26,10 @@ set card=$cmd[1]
 set param=$cmd[2]
 
 @ cmdstatus =0
-set val=`mce_cmd -x rb $card $param |awk '{for (i=6; i<= NF; i=i+1) if ($i != 0) sum +=1} END {print sum}'`
+set val=`mce_cmd -qpx rb $card $param|awk '{for (i=3; i<= NF; i=i+1) if ($i != 0) sum +=1} END {print sum}'`
 if ($val) then
   echo "Number of non-zero items: $val"
-  exit 1
+  exit $val
 else
   echo "All items are set to 0!"
   exit 0

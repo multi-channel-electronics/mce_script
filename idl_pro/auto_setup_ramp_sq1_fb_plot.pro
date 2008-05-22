@@ -1,4 +1,4 @@
-pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows=numrows
+pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows=numrows,rows=rows
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -14,7 +14,7 @@ close,/all
 ;Comunication:
 print,''
 print,'###########################################################################'
-print,'#5) The fith step is to check whether the locking is succesfull. We then  #'
+print,'#5) The fifth step is to check whether the locking is succesfull. We then #'
 print,'#   run a ramp_SQ1_fb and we check the SQ1 V-phi curves.                  #'
 print,'###########################################################################'
 print,''
@@ -49,8 +49,9 @@ readf, 3,  cd
 close, 3
 name_label = '/data/cryo' + '/' + cd + '/' + file_name 
 
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name,11)+'.run'
+rf = mas_runfile(full_name+'.run')
+loop_params = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+reg_status = auto_setup_register(ctime, 'tune_ramp', full_name, loop_params[2])
 
 plot_file = folder + date + 'analysis/' +file_name + '.ps'
     
@@ -73,7 +74,7 @@ sa_bias = 0 * vmax * ma2uA  / ( RL* full_scale)
 
 !p.region=[0,0,0,0]         ;Plot region.
 
-readin=auto_setup_read_2d_ramp_s1(full_name)  ;Read in file
+readin=auto_setup_read_2d_ramp_s1(full_name,numrows=numrows)  ;Read in file
 
 ; Read labels, loop sizes, etc.
 
@@ -119,8 +120,9 @@ squid_multilock=intarr(sizdat(3),sizdat(4))
 ;stop
 
 for j=0,n_bias-1 do begin
-	s1b='the 1 set in the config file'
-	for k=0,numrows-1 do begin  ;  A new loop to put one address value per page.
+;	s1b='the 1 set in the config file'
+        for kr=0,n_elements(rows)-1 do begin
+            k = rows(kr)
 	    for i=0, 7 do begin
 	        label = 'SA Channel ' + string(i, format='(f3.0)')	
 	        plot, s1_fb[a:b]/1000., readin.data[a:b,j,i,k]/1000., xtitle="SQ1_FB"+i_units, ytitle="Voltage"+v_units,$
@@ -133,10 +135,10 @@ for j=0,n_bias-1 do begin
 		zero_slope = intarr(b+1)
 		zerocross = intarr(b+1)
 		for l=a+smnum,b-1-smnum do begin
-			if smdat_der(l) le 0 and smdat_der(l+1) ge 0 then zero_slope(l)=1
-			if smdat_der(l) ge 0 and smdat_der(l+1) le 0 then zero_slope(l)=1
-			if smdat(l) ge 0 and smdat(l+1) le 0 then zerocross(l) = -1
-			if smdat(l) le 0 and smdat(l+1) ge 0 then zerocross(l) = 1
+			if smdat_der(l) le 0 and smdat_der(l+1) gt 0 then zero_slope(l)=1
+			if smdat_der(l) ge 0 and smdat_der(l+1) lt 0 then zero_slope(l)=1
+			if smdat(l) ge 0 and smdat(l+1) lt 0 then zerocross(l) = -1
+			if smdat(l) le 0 and smdat(l+1) gt 0 then zerocross(l) = 1
 		endfor
 		low_sl = where(zero_slope eq 1)
 		if low_sl(0) ne -1 then begin
@@ -148,7 +150,9 @@ for j=0,n_bias-1 do begin
 				low_sl_order = sort(smdat(low_sl))
 				low_sl_diff = abs(smdat(low_sl(low_sl_order(0:nls-2)))-smdat(low_sl(low_sl_order(1:nls-1))))
 				select = where(low_sl_diff eq max(low_sl_diff))
-				if select(0) eq -1 or n_elements(select) gt 1 then begin
+;				if i eq 1 then stop
+;				if select(0) eq -1 or n_elements(select) gt 1 then begin
+				if select(0) eq -1 then begin
 ;					print, 'You have adc_offset selection problems on Column '$
 ;						+strtrim(i,1)+' Row '+strtrim(k)+'.  Take a deep breath.'
                 	                new_adc_offset(i,k)=0.
@@ -157,9 +161,12 @@ for j=0,n_bias-1 do begin
 					squid_multilock(i,k)=0.
 				endif else begin
 					new_adc_offset(i,k)=(smdat(low_sl(low_sl_order(select(0))))+smdat(low_sl(low_sl_order(select(0)+1))))/2
-					new_adc_offset(i,k)=(max(smdat)+min(smdat))/2.
+
+		; Simplified version of adc_offset selection just picks the middle of the total amplitude
+;					new_adc_offset(i,k)=(max(smdat)+min(smdat))/2.
 					squid_lockrange(i,k)=abs(smdat(low_sl(low_sl_order(select(0))))-smdat(low_sl(low_sl_order(select(0)+1))))
 					; Fit a line to the slope near the lockpoint to store an estimate of the slope data.
+;					if i eq 1 then stop
 					dnsl = where(zerocross eq -1)
 					upsl = where(zerocross eq 1)
 					if dnsl(0) ne -1 then begin
@@ -187,13 +194,13 @@ for j=0,n_bias-1 do begin
                         squid_multilock(i,k)=0.
 		endelse
 		squid_p2p(i,k)=abs(max(smdat)-min(smdat))
-		new_adc_offset(i,k)=(max(smdat)+min(smdat))/2  ; Note: Old method of selection used smnum=5
+	; Simplified version of adc_offset selection just picks the middle of the total amplitude
+;		new_adc_offset(i,k)=(max(smdat)+min(smdat))/2  ; Note: Old method of selection used smnum=5
 	    endfor  ; end of plotting loop in 8 columns.
-	    label_bias = 'sq1 bias = ' + s1b
 	    label_row='row #'+string(k) 
-	    xyouts, .1, 1.0, name_label , charsize=1.2, /normal
-	    xyouts, 0.7, 1.0, label_bias , charsize=1.2, /normal
-	    xyouts, 0.4, 1.0, label_row , charsize=1.2, /normal
+	    xyouts, .1, 1.0, name_label + ' , '+ label_row , charsize=1.2, /normal
+;	    xyouts, 0.7, 1.0, 'sq1 bias = ' + s1b , charsize=1.2, /normal
+;	    xyouts, 0.4, 1.1, label_row , charsize=1.2, /normal
 	endfor  ; End of loop in 33 rows.
 endfor
 
@@ -215,7 +222,8 @@ endif
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SQ1 V-phi curves check the file '+string(plot_file)
+print,'To view the SQ1 V-phi curves check the file'
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 

@@ -1,6 +1,6 @@
-pro iv_anal_mce_ar1_bias, filename=filename, DACbias=DACbias, plotgen=plotgen, filtered=filtered, ascii=ascii, $
-		datagen=datagen, biasfile=biasfile, setpntgen=setpntgen,  $
-                          n_columns=n_columns
+pro iv_analysis, filename=filename, DACbias=DACbias, plotgen=plotgen, filtered=filtered, ascii=ascii, $
+                 datagen=datagen, biasfile=biasfile, setpntgen=setpntgen, $
+                 array_file=array_file, array_name=array_name
 
 ;	Analyzes I-V curve data and generates a summary plot, with the options of additional plots and data files.
 ;		Input files are an MCE ramp_tes_bias data file with 33 rows
@@ -37,44 +37,102 @@ pro iv_anal_mce_ar1_bias, filename=filename, DACbias=DACbias, plotgen=plotgen, f
 
 ;	MDN 8-28-2007
 ;
+;       array_name or array_file can be used to force loading of array
+;       parameters for a particular array, or using a particular array config file.
+;
 
+FBbits = 14 ; 26 for FB only data mode, currently 14 for fb + er mode and for filtered mode
+n_columns = 32                  ; Number of columns being analyzed
+filtergain = 1216.;/2;
 
-;n_columns = 32		; Number of columns being analyzed
-if not keyword_set(n_columns) then n_columns = 32
+; if neither array_file nor array_name are defined, determine the
+; array based on the contents of /data/cryo/array_id
 
-FBbits = 14			; 26 for FB only data mode, currently 14 for fb + er mode and for filtered mode
-Rfb = 7006.             ; S1FB resistances measured in MBAC using MCE continuity checker
-M_ratio = 8.5		; For Mux06a chips
-filtergain = 1216./2	; Data mode 8 drops the bottom filtered bit so the gain is the normal filtergain / 2 = 1216./2 = 606.
-fb_normalize = 1       ; This depends on whether you have a nyquist inductor as well as the polarity of the detector bias.
-;per_Rn_bias = 0.4	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
-;  Changed to 0.3 11-6-2007
-per_Rn_bias = 0.3	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
+if not keyword_set(array_file) then begin
+    if not keyword_set(array_name) then begin
+        openr, arf, /get_lun, '/data/cryo/array_id'
+        array_name = ''
+        readf, arf, array_name
+        free_lun,arf
+    endif
+    array_file=strcompress( getenv('MAS_TEMPLATE')+'/array_'+array_name+'.cfg', /remove_all)
+endif
 
-per_Rn_cut = [.1,.8]	; These are the max and min values used to make detector cut recommendations, which will be expressed as 
-psat_cut = [1.,20.]	;	0: in range = good detector 1: out of range = bad detector in the data .run files
+if 1 then begin
+    load_array_params,array_file, array_params
 
-; Different columns use different TES bias circuitry, and this resistance takes these differences into account.
-; The sum of the 2 resistance values below for each column is stored in the file 'last_iv_det_data',
-;	 which is appended to subsequent .run files.
-; The first is the sum of the 6 resistors on the bias card in the TES bias circuit
-; Rbias_arr(0) is the bias resistance for bias card 1 (bc1), Rbias_arr(1) for bc2, and Rbias_arr(2) for bc3
-Rbias_arr = [467.,467.,467.]
-; Since the wiring is different, we also take into account the measured cold resistances by the continuity checker.
-Rbias_cable = [211.,210.,153.]
+    array_name = array_params.array_name;
+    Rfb = array_params.Rfb[0]
+    M_ratio = array_params.M_ratio[0]
+    fb_normalize = array_params.fb_normalize
+    per_Rn_bias = array_params.per_Rn_bias
+    per_Rn_cut = array_params.per_Rn_cut
+    psat_cut = array_params.psat_cut
+    ncut_lim = array_params.ncut_lim
 
+    good_shunt_range = array_params.good_shunt_range
+    default_Rshunt = array_params.default_Rshunt[0]
+    use_jshuntfile = array_params.use_srdp_Rshunt[0]
+
+    Rbias_arr = array_params.Rbias_arr
+    Rbias_cable = array_params.Rbias_cable
+    bias1_cols = where(array_params.bias_lines eq 0)
+    bias2_cols = where(array_params.bias_lines eq 1)
+    bias3_cols = where(array_params.bias_lines eq 2)
+    bias_step = array_params.bias_step[0]
+
+    ymins = array_params.plot_ymin
+    ymaxs = array_params.plot_ymax
+
+    jshuntfile_prefix=getenv('MAS_SCRIPT')+'/srdp_data/'+array_name+'/johnson_res.dat.C'
+
+endif else begin
+                                ; Defaults here taken from AR1 values.
+
+    array_name = 'AR1'
+
+    Rfb = 7006. ; S1FB resistances measured in MBAC using MCE continuity checker
+    M_ratio = 8.5		; For Mux06a chips
+    fb_normalize = fltarr(32) - 1.0 ; This depends on whether you have a nyquist inductor as well as the polarity of the detector bias.
+                                ;per_Rn_bias = 0.4	; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
+                                ;  Changed to 0.3 11-6-2007
+    per_Rn_bias = 0.3 ; This is the percentage of Rnormal that the code will try to bias at; Must currently be rounded to nearest 0.1
+    
+    per_Rn_cut = [.1,.8] ; These are the max and min values used to make detector cut recommendations, which will be expressed as 
+    psat_cut = [1.,20.] ;	0: in range = good detector 1: out of range = bad detector in the data .run files
+    ncut_lim = 500
+
+    good_shunt_range = [ 0.0002, 0.0015 ]
+    default_Rshunt = 0.0007
+    use_jshuntfile = 1
+
+                                ; Different columns use different TES bias circuitry, and this resistance takes these differences into account.
+                                ; The sum of the 2 resistance values below for each column is stored in the file 'last_iv_det_data',
+                                ;	 which is appended to subsequent .run files.
+                                ; The first is the sum of the 6 resistors on the bias card in the TES bias circuit
+                                ; Rbias_arr(0) is the bias resistance for bias card 1 (bc1), Rbias_arr(1) for bc2, and Rbias_arr(2) for bc3
+    Rbias_arr = [467.,467.,467.]
+                                ; Since the wiring is different, we also take into account the measured cold resistances by the continuity checker.
+    Rbias_cable = [211.,210.,153.]
+    bias1_cols = indgen(8)+16 ; List of columns connected to the original bias line from bias card 1
+    bias2_cols = indgen(17) ; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
+    bias2_cols(16) = 31
+    bias3_cols = indgen(7)+24 ; List of columns connected to the new detector bias line from bias card 3 (set to -1 if nothing is connected)
+    bias_step = 50 ;100		; This is the allowed step size that the applied biases will be rounded to, changed to 50 11-11-2007 MDN
+
+    ymins=[.015,0,0]
+    ymaxs=[.045,15,8000]
+ 
+    ; Path on MCE_computer at Penn
+    ;jshuntfile_prefix='/home/mce/actmcescripts/srdp_data/AR1/johnson_res.dat.C'
+    jshuntfile_prefix='/usr/mce/mce_script/script/srdp_data/AR1/johnson_res.dat.C'
+    ; Path on Feynman
+    ;jshuntfile_prefix='/mnt/act2/srdp/AR1/johnson_res.dat.C'
+
+endelse
+
+  
 Rbias_arr = Rbias_arr + Rbias_cable
-
-;!MFH
-bias1_cols = indgen(n_columns)
-bias2_cols = bias1_cols
-bias3_cols = bias1_cols
-
-;bias1_cols = indgen(8)+16	; List of columns connected to the original bias line from bias card 1
-;bias2_cols = indgen(17)	; List of columns connected to the original detector heater line from bias card 2 (set to -1 if nothing is connected)
-;bias2_cols(16) = 31
-;bias3_cols = indgen(7)+24	; List of columns connected to the new detector bias line from bias card 3 (set to -1 if nothing is connected)
-bias_step = 50	;100		; This is the allowed step size that the applied biases will be rounded to, changed to 50 11-11-2007 MDN
 biases = lonarr(3)	; These are the biases that will be applied to the 3 different bias lines
 
 ;goodpath='/data/cryo/current_data/'
@@ -113,9 +171,12 @@ raw_bias = read_ascii(filename+'.bias',data_start=1)
 raw_bias = raw_bias.field1
 numpts = n_elements(raw_bias)
 
-;Load Sweeper data from mce file. Removed IVfile keyword now that bias data is read in separately
-if keyword_set(filtered) then data=load_mce_stream_funct(filename,binary=binary,npts=numpts,bitpart=8) else data=load_mce_stream_funct(filename,bitpart=14,binary=binary,npts=numpts,numcols=8)
-print,'MFH:  Column count hardwired to 8!!!!'
+;;Load Sweeper data from mce file. Removed IVfile keyword now that bias data is read in separately
+;if keyword_set(filtered) then data = load_mce_stream_funct(filename, binary=binary, npts=numpts, bitpart=8) $ 
+;	else data = load_mce_stream_funct(filename, bitpart=14,binary=binary, npts=numpts) ;,/no_status_header)
+data = mas_data(filename,frame_info=frame_info)
+numpts = frame_info.n_frames
+n_columns = n_elements(data(*,0,0))
 
 good_ivs=lonarr(n_columns)
 
@@ -129,7 +190,6 @@ iv_data_all=fltarr(n_columns,33,2,numpts)
 
 for MuxColumn=0,n_columns-1 do begin
 
-;!MFH
 b1c = where(bias1_cols eq muxcolumn)
 b2c = where(bias2_cols eq muxcolumn)
 b3c = where(bias3_cols eq muxcolumn)
@@ -141,24 +201,24 @@ if b1c(0) ne -1 then rbias = Rbias_arr(0) $
 if MuxColumn lt 10 then Mcol = '0'+string(MuxColumn, format='(i1)') $
 	else Mcol = string(MuxColumn, format='(i2)')
 
-; Path on MCE_computer at Penn
-jshuntfile='/home/mce/script/srdp_data/AR1/johnson_res.dat.C'+Mcol
-; Path on Feynman
-;jshuntfile='/mnt/act2/srdp/AR1/johnson_res.dat.C'+Mcol
-
-;!MFH - no srdp...
-;j_res = read_ascii(jshuntfile, data_start=2)
 Rshunt_arr=fltarr(33)
-Rshunt_arr(*) = 0.0034
-;Rshunt_arr(j_res.field1(0,*)) = j_res.field1(1,*)
+if use_jshuntfile then begin
+    jshuntfile = jshuntfile_prefix+Mcol
+    j_res = read_ascii(jshuntfile, comment_symbol='#')
+    Rshunt_arr(j_res.field1(0,*)) = j_res.field1(1,*)
+endif else begin
+    jshuntfile = 'Using default of ' + string(default_Rshunt)
+endelse
+
 ;print, 'Shunt Path: '+jshuntfile
-good_sh_rows = where(Rshunt_arr gt 0.0002 and Rshunt_arr lt 0.0015)
+good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_shunt_range[1])
 ;print, 'Rows with shunts between 0.2-1.0 mOhms from SRDP: ', good_sh_rows
 
 no_srdp_shunt=where(Rshunt_arr eq 0)
-if no_srdp_shunt ne -1 then Rshunt_arr(no_srdp_shunt) = 0.0007
+Rshunt_arr(no_srdp_shunt) = default_Rshunt
 
-if keyword_set(R_oper) then R_oper = R_oper else R_oper = 0.5
+if keyword_set(R_oper) then R_oper = R_oper $
+		else R_oper = 0.5
 
 Rpara_arr = fltarr(33)
 Rpara_arr(*) = 0.
@@ -179,9 +239,11 @@ for j=0,32 do begin
 	raw_array = replicate(0.,2, numpts)
 	iv_array = replicate(0.,3,numpts)
 	iv_array(2,*) = raw_bias 	;data.time
-	raw_array(1,*) = data.fb(MuxColumn,Row)
+
+;	raw_array(1,*) = data.fb(MuxColumn,Row)*fb_normalize[MuxColumn]
+	raw_array(1,*) = data[MuxColumn,Row,*]*fb_normalize[MuxColumn]
 	raw_array_sh = shift(raw_array,0,-1)
-	raw_array_der = (raw_array_sh - raw_array)*fb_normalize
+	raw_array_der = (raw_array_sh - raw_array)	;*fb_normalize[MuxColumn]
 
 ;	stop
 	; Look for giant bit jumps in the data of 2^bitmax then 2^(bitmax-1) bits and remove them
@@ -208,7 +270,7 @@ for j=0,32 do begin
 	;Normalize Vbias, 16-bit DAC, +/-2.5V with 1276 Ohm on board (LB#5 p.67 & LB#6 p.5)
 	raw_array(0,*) = raw_bias/2.^16*5.	; data.time/2.^16*5.
 	;Normalize Vfb, 14-bit DAC with possible offsets, 1V range, 50 Ohms on board (LB#6 p.5)
-	raw_array(1,*) = raw_array(1,*)/2.^FBbits/filtgain*fb_normalize
+	raw_array(1,*) = raw_array(1,*)/2.^FBbits/filtgain	;*fb_normalize[MuxColumn]
 
 	;Find the superconducting transitions by looking for the derivative to change sign
 	i=0
@@ -217,7 +279,8 @@ for j=0,32 do begin
 	trans_end_index=0
 	while i le numpts-12 do begin
 		if postnorm eq 0 and raw_array_der(1,i) le 0. then begin
-			if mean(raw_array_der(1,i+1:i+11)) le 0. then begin
+;			if mean(raw_array_der(1,i+1:i+11)) le 0. then begin
+			if median(raw_array_der(1,i+1:i+11)) le 0. then begin
 				supercon_index = i
 ;				print, 'row ', row,'  transition start index ', supercon_index
 				postnorm=1
@@ -225,7 +288,8 @@ for j=0,32 do begin
 			endif
 		endif
 		if postnorm eq 1 and raw_array_der(1,i) gt 100. then begin
-			if mean(raw_array_der(1,i:i+11)) gt 100. then begin
+;			if mean(raw_array_der(1,i+1:i+11)) gt 100. then begin
+			if median(raw_array_der(1,i+1:i+11)) gt 100. then begin
 				trans_end_index = i
 ;				print, 'row ', row,'  transition end index ', trans_end_index
 				i=numpts
@@ -415,8 +479,6 @@ plotfile='IV_summary.ps'
 device, FILENAME = outdir+dirsl+plotfile
 device, YOFFSET = 2, YSIZE = 24
 !p.multi=[0,1,3]
-ymins=[.015,0,0]
-ymaxs=[.045,15,8000]
 print, 'Generating summary plot: '+outdir+dirsl+plotfile
 
 syms = [1,2,4,7]
@@ -706,7 +768,7 @@ file_chmod, outdir+'/last_iv_det_data',/a_read
 device,/close
 
 if keyword_set(biasfile) then begin
-	if not_cut gt 500 then begin
+	if not_cut gt ncut_lim then begin
 		spawn, 'cp -fp '+outdir+'/tes_bias_recommended /data/cryo/'
 		spawn, 'cp -fp '+outdir+'/last_iv_det_data /data/cryo/'
 	endif
