@@ -52,6 +52,7 @@ case $type in
     do_iv=0
     do_tune=0
     do_cur=0
+    do_db=0  # suppressed!
     ;;
 
     "tune_ramp")
@@ -59,6 +60,7 @@ case $type in
     do_iv=0
     do_tune=0
     do_cur=0
+    do_db=0  # suppressed!
     ;;
 
     "bias_step")
