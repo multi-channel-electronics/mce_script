@@ -29,7 +29,7 @@ if [ "x" == "x" ]; then
     repeat_string "0" $n_tes_bias "wb tes bias"
     
     # Short wait and then turn off multi-plexing
-    sleep 0.2
+    echo "sleep 200000"
     echo "wb ac enbl_mux 0"
     
     # This sets sq1 feedback to constant; -8192 is 0 volts
