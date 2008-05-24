@@ -31,10 +31,21 @@ for a in `seq 1 $tries`; do
 #    sleep 1
     check_card_life
     if [ "$?" == "1" ]; then
-      echo "check_card_life failed $a"
+	echo "check_card_life failed $a"
+	ok=0
+    else
+	ok=1
     fi
     echo $a
 done
+
+# In any case, empty the driver buffer
+mce_cmd -qx empty
+
+if [ "$ok" != "1" ]; then
+    echo "MCE reset failed."
+    exit 1
+fi
 
 echo "MCE reset Successful."
 exit 0
