@@ -195,7 +195,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 	step2:
 	
-        ssa_file_name=auto_setup_filename(rc=rc,directory=file_folder)
+        ssa_file_name=auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
 	if keyword_set(interactive) then begin
 		i1=dialog_message(['After some preliminary procedures (step 1), the auto_setup',$ 
@@ -235,7 +235,7 @@ for jj=0,n_elements(RCs)-1 do begin
         		exit,status=2
 		endif
 		
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id
 
 		if keyword_set(interactive) then begin
 			i2=dialog_message(['The auto_setup has found the bias and the offsets',$
@@ -286,7 +286,7 @@ for jj=0,n_elements(RCs)-1 do begin
                         exit,status=3
                 endif
 
-		auto_setup_ramp_sa_fb_plot_const_bias,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows
+		auto_setup_ramp_sa_fb_plot_const_bias,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id
 
                 exp_config.config_adc_offset_all[0] = 0
                 exp_config.adc_offset_c(RC_indices) = SA_target
@@ -403,13 +403,13 @@ for jj=0,n_elements(RCs)-1 do begin
 	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
 	spawn,SA_feedback_string
 	
-        sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
+        sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
         auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
           interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
           ramp_start=exp_config.sq2_servo_flux_start[0], $
           ramp_count=exp_config.sq2_servo_flux_count[0], $
-          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp
+          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp,acq_id=acq_id
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -547,7 +547,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	SQ2_feedback_string='echo -e "'+SQ2_feedback_string+'" > '+todays_folder+'sq2fb.init'
 	spawn,SQ2_feedback_string
        
-        sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
+        sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
         if exp_config.config_fast_sq2[0] then begin
 
@@ -564,7 +564,7 @@ for jj=0,n_elements(RCs)-1 do begin
               ramp_start=exp_config.sq1_servo_flux_start[0], $
               ramp_count=exp_config.sq1_servo_flux_count[0], $
               ramp_step=exp_config.sq1_servo_flux_step[0], $
-              /super_servo
+              /super_servo, acq_id=acq_id
 
             runfile = sq1_base_name+'_sq1servo.run'
             
@@ -646,7 +646,7 @@ for jj=0,n_elements(RCs)-1 do begin
               gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
               ramp_start=exp_config.sq1_servo_flux_start[0], $
               ramp_count=exp_config.sq1_servo_flux_count[0], $
-              ramp_step=exp_config.sq1_servo_flux_step[0]
+              ramp_step=exp_config.sq1_servo_flux_step[0],acq_id=acq_id
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -745,10 +745,10 @@ for jj=0,n_elements(RCs)-1 do begin
                 exit,status=12
         endif
 
-        rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp')
+        rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp',acq_id=acq_id)
 
 	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
-          rows=exp_config.sq1ramp_plot_rows
+          rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
 	i10='Yes'
         if keyword_set(interactive) then begin
                 i10=dialog_message(['The auto_setup has found the the new',$
@@ -838,9 +838,10 @@ for jj=0,n_elements(RCs)-1 do begin
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
-        rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc')
+        rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc',acq_id=acq_id)
 
-	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows,rows=exp_config.sq1ramp_plot_rows
+	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive, $
+          numrows=numrows,rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
 
 
 	for j=0,7 do begin
@@ -876,9 +877,9 @@ for jj=0,n_elements(RCs)-1 do begin
                 	exit,status=16
 		endif
 
-                rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb')
+                rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb',acq_id=acq_id)
 
-		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows
+		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id
 	endif
 
 step6:
@@ -920,19 +921,18 @@ endif
 if n_elements(RCs) lt 4 then begin
 	for jj=0,n_elements(RCs)-1 do begin
         	RC=RCs(jj)
-                lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock')
+                lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock',acq_id=acq_id)
 
-		if keyword_set(text) then begin
-			auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,interactive=interactive
-		endif else begin
-			auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
-		endelse
+                auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
+                  interactive=interactive,acq_id=acq_id
+
 		step10:
 	endfor
 endif else begin
-        lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock')
+        lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock',acq_id=acq_id)
         RC=5
-        auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
+        auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
+          interactive=interactive,acq_id=acq_id
 	step11:
 endelse
 

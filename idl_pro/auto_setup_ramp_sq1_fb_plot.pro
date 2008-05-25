@@ -1,4 +1,5 @@
-pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows=numrows,rows=rows
+pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows=numrows,rows=rows, $
+                                 acq_id=acq_id
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -8,10 +9,13 @@ pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows
 
 common ramp_sq1_var
 
+;Init
+if not keyword_set(acq_id) then acq_id = 0
+
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
 
-;Comunication:
+;Communication:
 print,''
 print,'###########################################################################'
 print,'#5) The fifth step is to check whether the locking is succesfull. We then #'
@@ -52,7 +56,7 @@ name_label = '/data/cryo' + '/' + cd + '/' + file_name
 
 rf = mas_runfile(full_name+'.run')
 loop_params = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
-reg_status = auto_setup_register(ctime, 'tune_ramp', full_name, loop_params[2])
+reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, loop_params[2])
 
 plot_file = folder + date + 'analysis/' +file_name + '.ps'
     

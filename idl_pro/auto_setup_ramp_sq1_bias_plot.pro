@@ -1,4 +1,5 @@
-pro auto_setup_ramp_sq1_bias_plot, file_name,RC=rc,interactive=interactive,numrows=numrows
+pro auto_setup_ramp_sq1_bias_plot, file_name,RC=rc,interactive=interactive,numrows=numrows, $
+                                   acq_id=acq_id
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -8,10 +9,13 @@ pro auto_setup_ramp_sq1_bias_plot, file_name,RC=rc,interactive=interactive,numro
 
 common ramp_sq1_var
 
+;Init
+if not keyword_set(acq_id) then acq_id = 0
+
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
 
-;Comunication:
+;Communication:
 print,''
 print,'###########################################################################'
 print,'#5) The optional fifth step is to check the v-phi curves from sweeping    #'
@@ -51,7 +55,7 @@ name_label = '/data/cryo' + '/' + cd + '/' + file_name
 
 ;ctime=string(file_name,format='(i10)')
 ;rf = mas_runfile(full_name+'.run')
-;reg_status = auto_setup_register(ctime,'tune_servo',full_name,
+;reg_status = auto_setup_register(acq_id,'tune_servo',full_name,
 print,' NO DB REGISTRATION / MCE_CTIMES LINKING IN SQ1_BIAS_PLOT!'
 
 ;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)

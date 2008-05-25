@@ -1,4 +1,5 @@
-function auto_setup_filename,rc=rc,action=action,array_id=array_id,directory=directory,ctime=ctime
+function auto_setup_filename,rc=rc,action=action,array_id=array_id, $
+                             directory=directory,ctime=ctime,acq_id=acq_id
 ;
 ; Abstraction layer for providing auto_setup with a data filename.
 ;

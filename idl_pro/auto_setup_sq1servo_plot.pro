@@ -3,12 +3,15 @@ pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=num
                              gain=gain,lock_rows=lock_rows, $
                              ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count, $
                              use_bias_file=use_bias_file, use_run_file=use_run_file, $
-                             super_servo=super_servo
+                             super_servo=super_servo, acq_id=acq_id
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq1servo_plot.pro 
 
 common sq1_servo_var
+
+;Init
+if not keyword_set(acq_id) then acq_id = 0
 
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
@@ -17,7 +20,7 @@ close,/all
 ; the banner and instead indicate the bias file
 
 if not keyword_set(use_bias_file) then begin
-;Comunication:
+;Communication:
     print,''
     print,'#############################################################################'
     print,'#4) The fourth step is to run a closed loop on the SQ1 for RC'+strcompress(string(RC),/remove_all)+'.             #'
@@ -91,7 +94,7 @@ if not keyword_set(use_bias_file) then begin
     rf = mas_runfile(full_name+'.run')
     loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
     loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
-    reg_status = auto_setup_register(ctime, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
+    reg_status = auto_setup_register(acq_id, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
     full_bias_filename = full_name+'.bias'
 endif else begin
     full_bias_filename = '/data/cryo/current_data/' + use_bias_file
