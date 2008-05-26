@@ -34,7 +34,8 @@ update_userword s
 acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames "$note"
 
 # args are file_prefix, frame count, card (1,2,3,4,s)
-ACQ="mce_run $acq_name $n_frames s"
+NICECMD='nice -10'
+ACQ="$NICECMD mce_run $acq_name $n_frames s"
 ACQ_TARGET=0
 
 # Start acquisition
