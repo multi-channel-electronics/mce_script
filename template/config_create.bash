@@ -161,7 +161,14 @@ for rc in 1 2 3 4; do
     echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}" >> $mce_script
 
     if [ "$hardware_bac" == "0" ]; then
+	# People still use bias cards?
 	echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
+    elif [ "$config_fast_sq2" == "0" ]; then
+	# People still expect bias card behaviour?
+	for a in `seq 0 7`; do
+	    c=$(( $ch_ofs + $a ))
+	    repeat_string "${sq2_fb[$c]}" 41 "wb bac fb_col$c" >> $mce_script
+	done
     else
 	for a in `seq 0 7`; do
 	    row_ofs=$(( ($ch_ofs+$a) * 41 ))

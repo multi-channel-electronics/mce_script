@@ -15,6 +15,9 @@ fi
 
 n_columns=`command_reply rb sa bias | wc -w`
 repeat_string "65535" $n_columns "wb sa bias" | mce_cmd -q
+repeat_string "65535" $n_columns "wb sq2 bias" | mce_cmd -q
+repeat_string "65535" $n_columns "wb sq2 fb" | mce_cmd -q
+repeat_string "65535" $n_columns "wb sa fb" | mce_cmd -q
 
 if [ "${PIPESTATUS[1]}" != "0" ]; then
     echo "Could not set SA biases to on."
