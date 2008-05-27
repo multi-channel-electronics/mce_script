@@ -4,7 +4,7 @@ CFLAGS+=-Wall
 
 TARGETS= eat_packets runfile_scan extract_frames ascii_frame
 
-INSTALL_DIR=..
+INSTALL_DIR=/usr/mce/bin
 
 all: $(TARGETS)
 
