@@ -2,7 +2,7 @@ CC=gcc
 
 CFLAGS+=-Wall
 
-TARGETS= eat_packets runfile_scan extract_frames
+TARGETS= eat_packets runfile_scan extract_frames ascii_frame
 
 INSTALL_DIR=..
 
@@ -17,6 +17,8 @@ extract_frames: extract_frames.o
 
 runfile_scan: scan.c runfile.o runfile.h
 	$(CC) $(CFLAGS) scan.c runfile.o -o runfile_scan
+
+ascii_frame: ascii_frame.o
 
 runfile.o: runfile.c runfile.h
 
