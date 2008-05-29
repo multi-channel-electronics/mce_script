@@ -10,11 +10,11 @@ if [ "$#" != "3" ]; then
 fi
 
 if [ "$1" == "0" ]; then
-    mce_cmd -X "wb cc use_dv $3" -X "wb cc use_sync $2" || exit 1
-    mce_cmd -X "wb cc select_clk 0" || exit 1
+    mce_cmd -q -X "wb cc use_dv $3" -X "wb cc use_sync $2" || exit 1
+    mce_cmd -q -X "wb cc select_clk 0" || exit 1
     sleep 1
 else
-    mce_cmd -X "wb cc select_clk 1" || exit 1
+    mce_cmd -q -X "wb cc select_clk 1" || exit 1
     sleep 1
-    mce_cmd -X "wb cc use_dv $3" -X "wb cc use_sync $2" || exit 1
+    mce_cmd -q -X "wb cc use_dv $3" -X "wb cc use_sync $2" || exit 1
 fi
