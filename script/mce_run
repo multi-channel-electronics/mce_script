@@ -26,6 +26,14 @@ set rc_num=$3
 set ctime=`date -u +%s`
 mce_cmd -qx wb cc run_id $ctime
 
+# Re-lock
+if ("$rc_num" == "s") then
+    mce_cmd -qx wb rca flx_lp_init 1
+else
+    mce_cmd -qx wb rc$rc_num flx_lp_init 1
+endif
+
+
 #RUN FILE CREATION: NO MCE COMMANDS PAST THIS POINT
 
 echo "RUNFILE_NAME=$runfilename"
