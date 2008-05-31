@@ -16,6 +16,8 @@ openr, 3, '/data/cryo/current_data_name'
 readf, 3, current_data
 close, 3
 
+data_dir=getenv('MAS_DATA')
+
 config_file = 'config_mce_auto_setup_'+current_data
 spawn,'/data/cryo/current_data/'+config_file
 ;for i=0,n_elements(rc)-1 do begin
@@ -31,7 +33,10 @@ endfor
 ;!MFH
 if total(exp_config.config_rc) eq 4 then begin 
 	rc='s'
-        iv_filename = auto_setup_filename(rc=rc,action='iv') 
+        iv_filename = auto_setup_filename(rc=rc,action='iv',acq_id=acq_id)
+        ; Prepend the directory to iv_filename, since ramp_tes_bias does.
+        err = auto_setup_register(acq_id, 'iv', data_dir+iv_filename, $
+                                  exp_config.ramp_tes_count, note=getenv('MAS_LOGID'))
         spawn, 'ramp_tes_bias '+iv_filename+' '+rc 
         if change_bias eq 1 then $ 
           iv_analysis, /biasfile, /plotgen, /filtered $ 
@@ -41,7 +46,10 @@ endif else begin
    for i=0,3 do begin
      if exp_config.config_rc(i) then begin
         rc = string(strcompress(i+1,/REMOVE_ALL))
-        iv_filename = auto_setup_filename(rc=rc,action='iv')
+        iv_filename = auto_setup_filename(rc=rc,action='iv',acq_id=acq_id)
+        ; Prepend the directory to iv_filename, since ramp_tes_bias does.
+        err = auto_setup_register(acq_id, 'iv', data_dir+iv_filename, $
+                                  exp_config.ramp_tes_count, note=getenv('MAS_LOGID'))
         spawn, 'ramp_tes_bias '+iv_filename+' '+rc
         if change_bias eq 1 then $
           iv_analysis, /biasfile, /plotgen, /filtered $
