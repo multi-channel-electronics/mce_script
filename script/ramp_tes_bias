@@ -80,9 +80,11 @@ echo "Setting first bias and waiting $first_pause s; time between other points w
 bias_tess $start_bias
 sleep $first_pause
 
-#Register acq
+# Help data mode into frame header...
 update_userword $n
-acq_register $ct iv $datafile $total_bias "$MAS_LOGID"
+
+# Don't register the acq here, it's done in auto_iv or not at all.
+#acq_register $ct iv $datafile $total_bias "$MAS_LOGID"
 
 #Generate .run file
 mce_status >> $runfile
