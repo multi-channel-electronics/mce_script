@@ -10,6 +10,8 @@
 LAST_TUNE=/data/cryo/last_squid_tune
 LAST_IV=/data/cryo/last_iv_det_data
 CTIMES=/data/mce_ctimes
+
+# The record script must exist or it is not called...
 RECORD=/usr/bin/act_record_mce_data_acq
 
 SCRIPT="acq_register"
@@ -52,7 +54,7 @@ case $type in
     do_iv=0
     do_tune=0
     do_cur=0
-    do_db=0  # suppressed!
+    do_db=1
     ;;
 
     "tune_ramp")
@@ -60,7 +62,7 @@ case $type in
     do_iv=0
     do_tune=0
     do_cur=0
-    do_db=0  # suppressed!
+    do_db=1
     ;;
 
     "bias_step")
