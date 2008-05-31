@@ -35,6 +35,7 @@ logfile=string(file_name,format='(i10)')
 
 logfile=logfile+'/'+logfile+'.log'
 
+user_status = auto_setup_userword(rc)
 spawn,'ramp_sq1_bias '+file_name+' '+string(rc)+ ' >> /data/cryo/current_data/'+logfile,exit_status=status22
 if status22 ne 0 then begin
         print,''
@@ -53,13 +54,9 @@ readf, 3,  cd
 close, 3
 name_label = '/data/cryo' + '/' + cd + '/' + file_name 
 
-;ctime=string(file_name,format='(i10)')
-;rf = mas_runfile(full_name+'.run')
-;reg_status = auto_setup_register(acq_id,'tune_servo',full_name,
-print,' NO DB REGISTRATION / MCE_CTIMES LINKING IN SQ1_BIAS_PLOT!'
-
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name,11)+'.run'
+rf = mas_runfile(full_name+'.run')
+loop_params = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, loop_params[2])
                                                                                                                                                              
 plot_file = folder + date + 'analysis/' +file_name + '.ps'
     
