@@ -10,27 +10,33 @@ bias=$1
 
 if [ $# -lt 1 ]; then
     echo "Usage: $script_name bias_val"
-    echo "   or: $script_name bias1 bias2 bias3"
+    echo "   or: $script_name bias1 bias2 ..."
+    echo
+    echo "That's right, if you pass one value, it gets written to all of your tes bias "
+    echo "lines.  Otherwise, the number of parameters must be equal to you number of"
+    echo "bias lines, and those values are written to each bias line."
     exit 1
 fi
 
-# bias_inv=`command_reply rb tes bias`
-# if [ $? -ne 0 ]; then
-#     echo "FAILURE : $script_name : could not read tes bias from MCE : '$bias_inv'"
-#     exit 2
-# fi
+bias_inv=`command_reply rb tes bias`
+if [ $? -ne 0 ]; then
+    echo "FAILURE : $script_name : could not read tes bias from MCE : '$bias_inv'"
+    exit 2
+fi
 
-# bias_count=`echo $bias_inv | wc -w`
-# bias_vals=`repeat_string $1 $bias_count`
+bias_count=`echo $bias_inv | wc -w`
 
-if [ $# -lt 2 ]; then
-    bias_output=`command_reply wb tes bias $1 $1 $1`
+if [ $# -eq $bias_count ]; then
+    mce_cmd -qx "wb tes bias $@"
+elif [ $# -eq 1 ]; then
+    repeat_string $1 $bias_count "wb tes bias" | mce_cmd -q
 else
-    bias_output=`command_reply wb tes bias $1 $2 $3`
+    echo "Number of arguments is neither 1 nor the number of tes bias lines."
+    echo "Run $0 with no arguments to see usage."
+    exit 1
 fi
 
 if [ $? -ne 0 ]; then
     echo "FAILURE : $script_name : could not write tes bias to MCE : '$bias_output'"
     exit 3
 fi
-
