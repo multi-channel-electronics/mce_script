@@ -1,11 +1,13 @@
 pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive,numrows=numrows, $
-                               acq_id=acq_id
+                               acq_id=acq_id, quiet=quiet
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from ramp_sa_fb_plot.pro 
 
 
 common ramp_sa_var
+
+this_script = 'ramp_sa_fb_plot'
 
 ;Init
 if not keyword_set(acq_id) then acq_id = 0
@@ -16,33 +18,36 @@ close,/all
 if not keyword_set(numrows) then numrows = 33
 
 ;Communication:
-print,''
-print,'########################################################################################'
-print,'#2) The second step is to ramp the SSA bias (together with the SSA fb) for RC'+strcompress(string(RC),/remove_all)+'         #'
-print,'#   and choose the bias for which the peak-to-peak of the V-phi curve is maximum.      #'
-print,'########################################################################################'
-print,''
+if not keyword_set(quiet) then begin
+   print,''
+   print,'########################################################################################'
+   print,'#2) The second step is to ramp the SSA bias (together with the SSA fb) for RC'+strcompress(string(RC),/remove_all)+'         #'
+   print,'#   and choose the bias for which the peak-to-peak of the V-phi curve is maximum.      #'
+   print,'########################################################################################'
+   print,''
+endif else begin
+   if quiet le 1 then print,this_script + ' : starting for rc '+string(rc)
+endelse
 
 ;Set ramp_sa_file_name
 file_name_ramp_sa=file_name+'_ssa'
-
 ctime=string(file_name,format='(i10)')
-
 logfile=ctime+'/'+ctime+'.log'
-
-;print,'Pausing before ramp_sa_fb'
-;wait,1
 
 ;Run the shell script:
 user_status = auto_setup_userword(rc)
-spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 1'+ ' >> /data/cryo/current_data/'+logfile,exit_status=status4
-if status4 ne 0 then begin
-	print,''
-        print,'###############################################################'
-        print,'# ERROR! AN ERROR HAS OCCURED WHEN RUNNING THE RAMP_SA SCRIPT #'
-        print,'###############################################################'
-        print,''
-        exit,status=4
+spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 1'+ ' >> /data/cryo/current_data/'+logfile,exit_status=exit_status
+if exit_status ne 0 then begin
+   if keyword_set(quiet) then begin
+      print,this_script + 'error '+string(exit_status)+' from ramp_sa_fb'
+   endif else begin
+      print,''
+      print,'###############################################################'
+      print,'# ERROR! AN ERROR HAS OCCURED WHEN RUNNING THE RAMP_SA SCRIPT #'
+      print,'###############################################################'
+      print,''
+      exit,status=4
+   endelse
 endif
 
 ;Let's define filenames and folders
@@ -57,8 +62,8 @@ full_name=folder+file_name_ramp_sa
 plot_file = folder + 'analysis/' + file_name_ramp_sa + '.ps'
 
 rf = mas_runfile(full_name+'.run')
-loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
-loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
+loop_params_b = long(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+loop_params_f = long(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
 reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, loop_params_b[2]*loop_params_f[2])
 
 ;Let's draw
@@ -202,15 +207,28 @@ for chan=0,sav(3)-1 do begin
 	ind(chan)=i(0)
 endfor
 
-print,''
-print,'###########################################################################'
-print,'SA bias and target (adc_offset) channel by channel:'
-print,'###########################################################################'
-print,' Channel Bias@step (index) Target@half  sa_fb@half '
-print,'---------------------------------------------------'
+if not keyword_set(quiet) then begin
+   print,''
+   print,'###########################################################################'
+   print,'SA bias and target (adc_offset) channel by channel:'
+   print,'###########################################################################'
+   print,' Channel Bias@step (index) Target@half  sa_fb@half '
+   print,'---------------------------------------------------'
+endif
+
 for chan=0,7 do begin
+
+   ; MFH: modified the following to be independent of the number 400.
+   ;  I didn't mess with the commented stuff.  Compare to ACT:r240.
+   ; ;! marks the equivalent orginal code.
+   
+   ;MFH - This effective scale is inherited from the original 400 coode.
+   scale = 5 * n_fb / 400
+   if scale lt 1 then scale = 1
+
 ;	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
-	deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),5))
+;!	deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),5))
+	deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),scale))
 	final_sa_bias_ch_by_ch(chan)=round(bias_start + ind(chan)* bias_step)
 ;	min_point=min(av_vol(ind(chan),150:380,chan),ind_min)	;in case we want to lock on the negative slope
 ;	ind_min=150+ind_min
@@ -219,12 +237,22 @@ for chan=0,7 do begin
 ;	if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
 ;	ind_max=max(ind_pos_der)
 
-       min_point=min(av_vol(ind(chan),20:250,chan),ind_min)   ;in case we want to lock on the positive slope
-       ind_min=20+ind_min
+;!      min_point=min(av_vol(ind(chan),20:250,chan),ind_min) ;in case we want to lock on the positive slope
+;!      ind_min=20+ind_min
+        min_start = 4 * scale
+        min_search = min_start + indgen(n_fb*5/8 - min_start)
+        min_point=min(av_vol(ind(chan),min_search,chan),ind_min) ;in case we want to lock on the positive slope
+        ind_min = ind_min + min_start
+;!
        ;print,ind_min
-       ind_neg_der=where(deriv_av_vol(ind_min+10:399) lt 0)
-       if n_elements(ind_neg_der) eq 1 then ind_neg_der=399
-       ind_max=min(ind_neg_der)+ind_min+10
+;!        ind_neg_der=where(deriv_av_vol(ind_min+10:399) lt 0)
+        ind_neg_der=where(deriv_av_vol(ind_min+(2 * scale):n_fb-1) lt 0)
+
+;!       if n_elements(ind_neg_der) eq 1 then ind_neg_der=399
+;!       ind_max=min(ind_neg_der)+ind_min+10
+        if n_elements(ind_neg_der) eq 1 then ind_neg_der=n_fb-1
+        ind_max=min(ind_neg_der)+ind_min+(2*scale)
+;!
        ;print,ind_max
 	;max_point=max(av_vol(ind(chan),ind_min-149:ind_min,chan),ind_max)	
         ;ind_max=max(ind_pos_der)
@@ -241,8 +269,9 @@ for chan=0,7 do begin
 	;fb_min_slope_ch_by_ch(chan)=round(1000.*i_fb(ind_min_slope))
 	;print,' '
 
-        print,format='(i4, i11, i8, i12, i12)',chan, final_sa_bias_ch_by_ch(chan), ind(chan), $
-          target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+        if not keyword_set(quiet) then $
+           print,format='(i4, i11, i8, i12, i12)',chan, final_sa_bias_ch_by_ch(chan), ind(chan), $
+                 target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
 
 ;;!	print,'Channel:',chan
 ;;!	print,'sa_bias @ step',ind(chan),', ie sa_bias=',final_sa_bias_ch_by_ch(chan)
@@ -263,44 +292,58 @@ SA_fb_init=fb_half_point_ch_by_ch
 
 for chan=0,7 do begin
 	if (final_sa_bias_ch_by_ch(chan) gt 65535) or (final_sa_bias_ch_by_ch(chan) le 0) then begin
+                if not keyword_set(quiet) then begin
+                   print,' '
+                   print,'###########################################################################'
+                   print,' '
+                   print,'WARNING: SA bias of channel'+string(chan)+' has been set to zero bacause' 
+                   print,'         the program found a non valid value'
+                   print,' '
+                   print,'###########################################################################'
+                endif else begin 
+                   print,script_name + ' : SA bias of channel '+string(chan)+' is invalid (' + $
+                         string(final_sa_bias_ch_by_ch(chan)) + '), setting to 0.'
+                endelse
 		final_sa_bias_ch_by_ch(chan)=0
 		ind(chan)=0
-		print,' '
-		print,'###########################################################################'
-		print,' '
-		print,'WARNING: SA bias of channel'+string(chan)+' has been set to zero bacause' 
-		print,'         the program found a non valid value'
-		print,' '
-		print,'###########################################################################'
 	endif
 	if (SA_fb_init(chan) gt 65535) or (SA_fb_init(chan) le 0) then begin
+                if not keyword_set(quiet) then begin
+                   print,' '
+                   print,'###########################################################################'
+                   print,' '
+                   print,'WARNING: SA fb of channel'+string(chan)+' found on the SA V-phi curve has' 
+                   print,'         been set to 32000 bacause the program found a non valid value'
+                   print,' '
+                   print,'###########################################################################'		
+                endif else begin 
+                   print,script_name + ' : SA fb of channel '+string(chan)+' is invalid (' + $
+                         string(SA_fb_init(chan)) + '), setting to 0.'
+                endelse
 		SA_fb_init(chan)=32000
-		print,' '
-		print,'###########################################################################'
-		print,' '
-		print,'WARNING: SA fb of channel'+string(chan)+' found on the SA V-phi curve has' 
-		print,'         been set to 32000 bacause the program found a non valid value'
-		print,' '
-		print,'###########################################################################'		
 	endif
 endfor
 
-print,' '
-print,'###########################################################################'
-print,' '
-print,'For details check '+string(plot_file)
-print,' '
-print,'###########################################################################'
-
 file_name_sa_points=file_name+'_sa_points'
 plot_file = folder + 'analysis/' + file_name_sa_points + '.ps'
-print,' '
-print,'###########################################################################'
-print,' '
-print,'To view the SA locking points check'
-print,string(plot_file)
-print,' '
-print,'###########################################################################'
+
+if not keyword_set(quiet) then begin
+   print,' '
+   print,'###########################################################################'
+   print,' '
+   print,'For details check '+string(plot_file)
+   print,' '
+   print,'###########################################################################'
+
+   print,' '
+   print,'###########################################################################'
+   print,' '
+   print,'To view the SA locking points check'
+   print,string(plot_file)
+   print,' '
+   print,'###########################################################################'
+endif
+
 charsz=1
 set_plot, 'ps'
 device, filename= plot_file, /landscape
