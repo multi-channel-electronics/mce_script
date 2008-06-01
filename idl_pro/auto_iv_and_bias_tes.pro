@@ -68,6 +68,7 @@ for i=0,3 do begin
                            string(exp_config.flux_jumping)
         auto_setup_command,'wb rc'+rc+' data_mode ' + $
                            string(exp_config.data_mode)
+        auto_setup_command,'wb rc'+rc+' flx_lp_init 1'
     endif
 endfor
 
