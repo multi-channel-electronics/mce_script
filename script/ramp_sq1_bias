@@ -45,18 +45,18 @@ if [ $# -gt 2 ]; then
 	ramp_bias=1
 fi
 
-# SQ1 feedback ramp parameters
+# TES bias ramp parameters (misleading called 'feedback')
 expt=$MAS_DATA/experiment.cfg
-# feedback_start=`mas_param -s $expt get sq1_ramp_flux_start`
-# feedback_step=`mas_param -s $expt get sq1_ramp_flux_step`
-# feedback_count=`mas_param -s $expt get sq1_ramp_flux_count`
-feedback_start=0
-feedback_step=1
-feedback_count=500
+feedback_start=`mas_param -s $expt get sq1_ramp_tes_bias_start`
+feedback_step=`mas_param -s $expt get sq1_ramp_tes_bias_step`
+feedback_count=`mas_param -s $expt get sq1_ramp_tes_bias_count`
 
 n_frames=$feedback_count
 
 if [ $ramp_bias -ne 0 ]; then
+        echo "This mode not supported."
+        exit 1
+
 	echo "Sweeping both SQ1 feedback and SQ1 bias"
 
 	#SQ1 bias ramp parameters
@@ -103,9 +103,6 @@ fi
 ##########################
 
 if [ $ramp_bias -ne 0 ]; then
-
-    echo "This mode not supported."
-    exit 1
 
     mce_ramp \
 	-M "acq_config $datafile rc$rc" \
