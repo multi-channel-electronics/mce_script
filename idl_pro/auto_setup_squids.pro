@@ -1,4 +1,4 @@
-pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,text=text,numrows=numrows,note=note,ramp_sa_bias=ramp_sa_bias,check_bias=check_bias,short=short
+pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,text=text,numrows=numrows,note=note,ramp_sa_bias=ramp_sa_bias,check_bias=check_bias,short=short,quiet=quiet
 
 ; Aug. 21, 2006, created by Elia Battistelli (EB)
 ; Mar.  6, 2008, MAS-ed by Matthew Hasselfield (MFH)
@@ -7,15 +7,19 @@ pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,te
 ;PRELIMINARY PROCEDURES: set the RC if not set among the rest
 ;----------------------------------------------------------------------------------------------------------
 
+if not keyword_set(quiet) then quiet = 0 else quiet = 1
 
 step1:
 
 ;COMUNICATION:
-print,''
-print,'##########################################################################################'
-print,'#1) The first step is to set data acquisition variables and other preliminary procedures #'
-print,'##########################################################################################'
-print,''
+if quiet eq 0 then begin
+   print,''
+   print,'##########################################################################################'
+   print,'#1) The first step is to set data acquisition variables and other preliminary procedures #'
+   print,'##########################################################################################'
+   print,''
+endif else $
+   print,'AUTO_SETUP initializing'
 
 ;CLOSE ALL OPEN FILES. IT HELPS AVOID ERRORS 
 close,/all
@@ -76,7 +80,12 @@ if not keyword_set(numrows) then $
 sq2slope = exp_config.sq2servo_slope[0]
 sq1slope = exp_config.sq1servo_slope[0]
 
-ramp_sq1_bias_run=0				;Set this to 1 to sweep the tes bias and look at squid v-phi response.
+;Set this to 1 to sweep the tes bias and look at squid v-phi response.
+ramp_sq1_bias_run=exp_config.sq1_ramp_tes_bias[0]
+
+;experiment.cfg setting may force a ramp_sa_bias.
+if not keyword_set(ramp_sa_bias) then ramp_sa_bias = exp_config.sa_ramp_bias[0]
+
 
 ;;TODO - *bias.init inputs should come from experiment.cfg
 
@@ -183,11 +192,14 @@ for jj=0,n_elements(RCs)-1 do begin
 		if short eq 1 then goto, step4 else goto, step5
 	endif
 
-        print,''
-        print,'#################################################################'
-        print,'#            NOW SETTING COLUMNS OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
-        print,'#################################################################'
-        print,''
+        if quiet eq 0 then begin
+           print,''
+           print,'#################################################################'
+           print,'#            NOW SETTING COLUMNS OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
+           print,'#################################################################'
+           print,''
+        endif else $
+           print,'Processing rc'+strcompress(string(rc),/remove_all)
 
 	;----------------------------------------------------------------------------------------------------------
 	;SA setup: ramps the SA bias together with the fb and finds the best SA bias' and offsets channel by channel
@@ -235,7 +247,7 @@ for jj=0,n_elements(RCs)-1 do begin
         		exit,status=2
 		endif
 		
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id,quiet=quiet
 
 		if keyword_set(interactive) then begin
 			i2=dialog_message(['The auto_setup has found the bias and the offsets',$
@@ -551,7 +563,9 @@ for jj=0,n_elements(RCs)-1 do begin
 
         if exp_config.config_fast_sq2[0] then begin
 
-            print, 'Using biasing address card (bac) to sq1servo each row separately.'
+            if quiet eq 0 then $
+               print, 'Using biasing address card (bac) to sq1servo each row separately.'
+
             ; This block uses original sq1servo to get the full block of
             ; ramps for all rows.
 
@@ -714,11 +728,15 @@ for jj=0,n_elements(RCs)-1 do begin
         RC=RCs(jj)
         RC_indices = (RC-1)*8 + indgen(8)
 
-        print,''
-        print,'############################################################################'
-        print,'#            NOW SETTING SETTING ADC_OFFSET OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
-        print,'############################################################################'
-        print,''
+        if quiet eq 0 then begin
+           print,''
+           print,'############################################################################'
+           print,'#            NOW SETTING SETTING ADC_OFFSET OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
+           print,'############################################################################'
+           print,''
+        endif else $
+           print,'ADC offsets for rc'+strcompress(string(Rc),/remove_all)
+
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
@@ -958,15 +976,19 @@ spawn,'ln -s '+todays_folder+c_filename+'.sqtune /data/cryo/last_squid_tune'
 spawn,'echo "'+current_data+'" > /data/cryo/last_squid_tune_name'
 spawn,'echo "'+string(time,format='(i10)')+'" >> /data/cryo/last_squid_tune_name'
 
-print,''
-print,'##########################################################'
-print,'# Auto-tuning of SQUIDs completed in '+current_data+'/'+string(time,format='(i10)')+' #'
-print,'##########################################################'
-print,''
-print,'#####################################################################'
-print,'# Congratulations, you have tuned '+strcompress(string(n_elements(RCs)*(33*8+16)),/REMOVE_ALL)+' SQUIDs in '+strcompress(string((systime(1,/utc)-time)/60.),/remove_all)+' minutes! #'
-print,'#####################################################################'
-print,''
+t_elapsed = systime(1,/utc)-time
+if quiet eq 0 then begin
+   print,''
+   print,'##########################################################'
+   print,'# Auto-tuning of SQUIDs completed in '+current_data+'/'+string(time,format='(i10)')+' #'
+   print,'##########################################################'
+   print,''
+   print,'#####################################################################'
+   print,'# Congratulations, you have tuned '+strcompress(string(n_elements(RCs)*(33*8+16)),/REMOVE_ALL)+' SQUIDs in '+strcompress(string((t_elapsed)/60.),/remove_all)+' minutes! #'
+   print,'#####################################################################'
+   print,''
+endif else $
+   print,'Tuning complete.  Time elapsed: '+t_elapsed+' seconds'
 
 exit,status=99
 ;stop
