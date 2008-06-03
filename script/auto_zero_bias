@@ -17,7 +17,7 @@ echo "ARGS  : $SCRNAME : $@" | $LOGGER
 
 #Process arguments
 
-if [ "$#" != "2" ]; then
+if [ "$#" != "1" ]; then
     echo "Usage:     $SCRNAME <log_id>"
     echo $ERRPREF "wrong number of arguments" | $LOGGER
     exit 1
