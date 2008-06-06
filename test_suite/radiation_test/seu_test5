@@ -1,0 +1,29 @@
+source $MAS_SCRIPT/mas_library.bash
+TMP=$MAS_TEMP/seu_test5.tmp
+filename=$1
+
+for iter in `seq 0 64`; do
+  i=$(($iter * 1000))
+  j=$(($i / 4))
+ 
+  # note the following line recreates the temp file from scratch
+  repeat_string 32 $i "wb rca offset">$TMP
+  repeat_string 32 $i "wb rca sa_bias">>$TMP
+  repeat_string 32 $i "wb rca fb_const">>$TMP
+
+  repeat_string 32 $i "wb bc1 flux_fb">>$TMP
+  echo "wb bc1 bias $i">>$TMP
+
+  repeat_string 32 $i "wb bc2 flux_fb">>$TMP
+  echo "wb bc2 bias $i">>$TMP
+
+  repeat_string 32 $i "wb bc3 flux_fb">>$TMP
+  echo "wb bc3 bias $i">>$TMP
+
+  repeat_string 41 $j "wb ac on_bias">>$TMP
+  repeat_string 41 $j "wb ac off_bias">>$TMP
+  
+  mce_cmd -f $TMP
+  mce_run $filename.$iter 1 s
+done
+  

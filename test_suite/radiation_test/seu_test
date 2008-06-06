@@ -1,0 +1,36 @@
+#/bin/bash
+
+source ${MAS_SCRIPT}/mas_library.bash
+basename=$1
+timestamp=`print_ctime`
+
+#seu_test setup 
+mce_cmd -q -f seu_test_setup
+#test1: basically mce_check 
+echo "seu_test1"
+for i in `seq 1 10`;do 
+  ./seu_test1 $i >$MAS_DATA/seu_test1.$timestamp.$i
+done
+
+#test2: 40000 frames with varying fb_cosnt
+for i in `seq 1 10`; do
+  fb_const=$(($i * 10000))
+  ./seu_test2 seu_test2.$timestamp.$i $fb_const
+done
+
+#test3: pid loop mode 1 minute data
+for i in `seq 1 10`; do
+  ./seu_test3 seu_test3.$timestamp.$i 1
+done
+
+#test4: try 100 single-frame acquisition
+for i in `seq 1 100`; do
+  mce_run seu_test4.$timestamp.$i 1 s
+done
+#takes 30 minutes to run till here with sync box default settings
+#test5: ramp all biases and take 1 frame at a time
+./seu_test5 seu_test5.$timestamp 
+
+#test6: initiate internal ramp in rc and take 20 min data
+#seu_test6
+mce_run seu_test6.$timestamp 200000

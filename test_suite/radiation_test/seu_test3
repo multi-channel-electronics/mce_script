@@ -1,0 +1,31 @@
+# MA: no error checking here as this is temporary subrack check
+source $MAS_SCRIPT/mas_library.bash
+TMP="$MAS_TEMP/seu_test.tmp"
+
+if [ $# -lt 2 ]; then
+ echo "usage: seu_test3 filename gainp"
+ exit 2
+fi
+ 
+datafile=$1 
+gainp=$2
+
+today=`date`
+echo "$0 run under MAS on $today with parameters: $1 $2"
+
+# set column data to column number, read back the data and compare results
+repeat_string 3 32 "wb rca servo_mode" >$TMP
+for n in `seq 1 4` ; do
+ for col in `seq 0 7` ; do
+   repeat_string $gainp 41 "wb rc$n gainp$col ">>$TMP
+ done
+done 
+echo "wb rca sample_num 1">>$TMP
+echo "wb rca data_mode 0">>$TMP
+mce_cmd -q -f $TMP
+
+# take 1 frame of data
+mce_run $datafile 20000 s
+ 
+
+
