@@ -1,0 +1,10 @@
+2008-05-30 
+
+A radiation test of the MCE was conducted at Triumf on 2008-05-28.
+
+The suite of tests caleld seu_test was ran on a fully populated subrack, ssr-007, 
+and a sync box. To run the test, type:
+
+>mce_cmd -f seu_test_setup
+>seu_test
+
