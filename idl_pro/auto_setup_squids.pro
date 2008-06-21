@@ -561,51 +561,78 @@ for jj=0,n_elements(RCs)-1 do begin
        
         sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
-        if exp_config.config_fast_sq2[0] then begin
 
-            if quiet eq 0 then $
-               print, 'Using biasing address card (bac) to sq1servo each row separately.'
+        ; Here we either
+        ; a) servo each row of each column
+        ; b) servo a selected row from each column
+        ;
+        ; The first option is always used in fast_sq2 mode, but may
+        ; also be invoked with per-column sq2 during initial runs to
+        ; determine the representative row in each column.
 
-            ; This block uses original sq1servo to get the full block of
-            ; ramps for all rows.
+        if exp_config.config_fast_sq2[0] or exp_config.sq1_servo_all_rows then begin
+
+            ; This block uses either sq1servo or sq1servo_all to get
+            ; the full block of ramps for all rows.
 
             SQ2_feedback_full_array=lon64arr(numrows,8)
 
-            ;MFH - single servo!
-            auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
-              numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-              gain=exp_config.sq1servo_gain[rc-1], $
-              ramp_start=exp_config.sq1_servo_flux_start[0], $
-              ramp_count=exp_config.sq1_servo_flux_count[0], $
-              ramp_step=exp_config.sq1_servo_flux_step[0], $
-              /super_servo, acq_id=acq_id
+            if exp_config.config_fast_sq2[0] then begin
 
-            runfile = sq1_base_name+'_sq1servo.run'
-            
+                ; Super-servo, outputs a separate .bias file for each
+                ; row but produces only one data/.run file.
 
-            for sq1servorow=0,numrows-1 do begin
-;                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
-                sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
+                if quiet eq 0 then $
+                  print, 'Using biasing address card (bac) to sq1servo each row separately.'
 
-                ; Rewrite the row.init file, forcing all columns to this row.
-                row_init_string=''
-                for j=0,31 do begin
-                        row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
-                endfor
-                row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
-                spawn,row_init_string
-
-                bias_file = strcompress(sq1_base_name+'_sq1servo.r'+ $
-                                        string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
-  	
-		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+                auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-                  gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                  gain=exp_config.sq1servo_gain[rc-1], $
                   ramp_start=exp_config.sq1_servo_flux_start[0], $
                   ramp_count=exp_config.sq1_servo_flux_count[0], $
                   ramp_step=exp_config.sq1_servo_flux_step[0], $
-                  use_bias_file=bias_file, use_run_file=runfile
+                  /super_servo, acq_id=acq_id
 
+                runfile = sq1_base_name+'_sq1servo.run'
+
+            endif
+            
+
+            for sq1servorow=0,numrows-1 do begin
+
+                sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
+
+                if not exp_config.config_fast_sq2 then begin
+                    ; We have to call sq1servo with rows.init set
+
+                    row_init_string=''
+                    for j=0,31 do begin
+                        row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
+                    endfor
+                    row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
+                    spawn,row_init_string
+
+                    auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+                      numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                      gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                      ramp_start=exp_config.sq1_servo_flux_start[0], $
+                      ramp_count=exp_config.sq1_servo_flux_count[0], $
+                      ramp_step=exp_config.sq1_servo_flux_step[0]
+
+                endif else begin
+                    ; Fast sq2 equivalent: use data produced by the super_servo!
+                    bias_file = strcompress(sq1_base_name+'_sq1servo.r'+ $
+                                            string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
+                    
+                    auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+                      numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                      gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                      ramp_start=exp_config.sq1_servo_flux_start[0], $
+                      ramp_count=exp_config.sq1_servo_flux_count[0], $
+                      ramp_step=exp_config.sq1_servo_flux_step[0], $
+                      use_bias_file=bias_file, use_run_file=runfile
+
+                endelse
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
 
@@ -627,7 +654,7 @@ for jj=0,n_elements(RCs)-1 do begin
 		endif
             endfor	
 
-; MFH - save all sq2fb points
+            ; Save all sq2fb points
             for j=0,n_elements(RC_indices)-1 do begin
                 sq2_rows = 41
                 c_ofs = RC_indices(j)*sq2_rows
@@ -638,7 +665,6 @@ for jj=0,n_elements(RCs)-1 do begin
             for j=0,7 do begin
                 sq1_target(j) = SQ2_feedback_full_array(exp_config.sq2_rows(RC_indices(j)),j)
             endfor
-
 
         endif else begin
             ; This block uses original sq1servo to
@@ -652,7 +678,6 @@ for jj=0,n_elements(RCs)-1 do begin
             row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
             spawn,row_init_string
 
-;            sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
             sq1_file_name=sq1_base_name
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $

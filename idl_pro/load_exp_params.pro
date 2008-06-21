@@ -46,6 +46,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set sq1_servo_flux_start '+str_flat(m.sq1_servo_flux_start)
     spawn,'mas_param -s '+filename+' set sq1_servo_flux_count '+str_flat(m.sq1_servo_flux_count)
     spawn,'mas_param -s '+filename+' set sq1_servo_flux_step '+str_flat(m.sq1_servo_flux_step)
+    spawn,'mas_param -s '+filename+' set sq1_servo_all_rows '+str_flat(m.sq1_servo_all_rows)
     spawn,'mas_param -s '+filename+' set sq1ramp_plot_rows '+str_flat(m.sq1ramp_plot_rows)
     spawn,'mas_param -s '+filename+' set locktest_plot_row '+str_flat(m.locktest_plot_row)
     spawn,'mas_param -s '+filename+' set sq1_ramp_flux_start '+str_flat(m.sq1_ramp_flux_start)
@@ -147,6 +148,7 @@ pro load_exp_params,filename,m
         'sq1_servo_flux_start',mas_param_int(filename,'sq1_servo_flux_start'),  $
         'sq1_servo_flux_count',mas_param_int(filename,'sq1_servo_flux_count'),  $
         'sq1_servo_flux_step',mas_param_int(filename,'sq1_servo_flux_step'),  $
+        'sq1_servo_all_rows',mas_param_int(filename,'sq1_servo_all_rows'),  $
         'sq1ramp_plot_rows',mas_param_int(filename,'sq1ramp_plot_rows'),  $
         'locktest_plot_row',mas_param_int(filename,'locktest_plot_row'),  $
         'sq1_ramp_flux_start',mas_param_int(filename,'sq1_ramp_flux_start'),  $
