@@ -11,21 +11,23 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
-# Funny 'if' is so we can pipe output into mce_cmd.
+n_columns=`command_reply rb sq2 fb | wc -w`
+n_tes_bias=`command_reply rb tes bias | wc -w`
+
+# Funny 'if' is so we can pipe output into mce_cmd. Don't issue mce
+# commands inside this block!
 if [ "x" == "x" ]; then
 
     repeat_string "0" 41 "wb ac on_bias"
     repeat_string "0" 41 "wb ac off_bias"
     echo "wb ac enbl_mux 1"
     
-    n_columns=`command_reply rb sq2 fb | wc -w`
     repeat_string "0" $n_columns "wb sq2 fb"
     repeat_string "0" $n_columns "wb sq2 bias"
     repeat_string "0" $n_columns "wb sa fb"
     repeat_string "0" $n_columns "wb sa bias"
     repeat_string "0" $n_columns "wb sa offset"
     
-    n_tes_bias=`command_reply rb tes bias | wc -w`
     repeat_string "0" $n_tes_bias "wb tes bias"
     
     # Short wait and then turn off multi-plexing
