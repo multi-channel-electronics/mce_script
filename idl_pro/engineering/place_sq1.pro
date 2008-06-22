@@ -86,6 +86,7 @@ delta = headspace / n_rows
 
 plot,x,y, xr=[lo,hi], yr=[mm2.min[c]-range*0.1, mm2.max[c]+headspace]
 
+print,'     row       centre   pk-pk'
 for r = 0, n_rows-1 do begin
 
     sq1file = strcompress(sq1base+sq1superfix+string(r)+sq1suffix,/remove_all)
@@ -96,9 +97,9 @@ for r = 0, n_rows-1 do begin
     for x =-3,3 do begin
         color = 255*65536
         if x eq 0 then color=255
-        oplot,[mm1.min[c], mm1.max[c]]+mm2.per[c]*x,[y,y], $
+        oplot,[mm1.min, mm1.max]+mm2.per[c]*x,[y,y], $
           color=color
-        oplot,(mm1.min[c]+mm1.max[c])/2*[1,1]+mm2.per[c]*x,[y,y]
+        oplot,(mm1.min+mm1.max)/2*[1,1]+mm2.per[c]*x,[y,y]
     endfor
 
 ;    ;Overplot the sq1 vphi...
@@ -111,9 +112,11 @@ for r = 0, n_rows-1 do begin
     x = sq1.x
 ;    plot,x,smooth(sq1.y[c,*],1)
 
-    print,'Row'+string(r)+':  center ='+string((mm1.max[c]+mm1.min[c])/2)
+    print,r,(mm1.max+mm1.min)/2, mm1.max-mm1.min
+;    print,'Row'+string(r)+':  center ='+string((mm1.max+mm1.min)/2)+ $
+;      '  width = '+string((mm1.max-mm1.min))
     ;print,mm2.per[c]
-    ;print,mm1.max[c],mm1.min[c],mm1.per[c]
+    ;print,mm1.max,mm1.min,mm1.per[c]
     
     wait,1
 endfor
