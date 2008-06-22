@@ -55,7 +55,7 @@ close, 3
 name_label = '/data/cryo' + '/' + cd + '/' + file_name 
 
 rf = mas_runfile(full_name+'.run')
-loop_params = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
+loop_params = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
 reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, loop_params[2])
 
 plot_file = folder + date + 'analysis/' +file_name + '.ps'

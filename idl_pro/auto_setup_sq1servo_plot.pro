@@ -92,8 +92,8 @@ if not keyword_set(use_bias_file) then begin
 
     ; Link and register
     rf = mas_runfile(full_name+'.run')
-    loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
-    loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
+    loop_params_b = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
+    loop_params_f = mas_runparam(rf,'par_ramp','par_step loop2 par1',/long)
     reg_status = auto_setup_register(acq_id, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
     full_bias_filename = full_name+'.bias'
 endif else begin
