@@ -18,16 +18,22 @@ pro quantum_plot,quanta,expected=expected
      q = quanta[c,*] + c*0
      m = median(q)
      idx = where(abs((q-m)/m) lt 0.02)
-     oplot,idx, q[idx],color=255
-     print,mean(q[idx]),sqrt(mean(q[idx]^2)-(mean(q[idx]))^2)
+     if idx[0] ne -1 then begin
+         oplot,idx, q[idx],color=255
+         print,mean(q[idx]),sqrt(mean(q[idx]^2)-(mean(q[idx]))^2)
+     endif else $
+       print,'No solution'
   endfor
 
   plot,findgen(nc+1)-1, quanta[*,0],yr=yr,/nodata
   for c = 0,nc-1 do begin
      q = quanta[c,*] + c*0
      idx = where(q gt expected/2)
-     oplot,c + intarr(nr),q[idx],psym=2
-     xyouts,c,mean(q[idx]),strcompress(string(n_elements(idx)))
+     if idx[0] ne -1 then begin
+         oplot,c + intarr(nr),q[idx],psym=2
+         xyouts,c,mean(q[idx]),strcompress(string(n_elements(idx)))
+     endif else $
+       print,'No solution'
   endfor
   
 end
