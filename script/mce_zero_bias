@@ -33,6 +33,14 @@ if [ "x" == "x" ]; then
     # Short wait and then turn off multi-plexing
     echo "sleep 200000"
     echo "wb ac enbl_mux 0"
+
+    # Put ADC offset to zero or you can get MSB noise
+    rc_list="1 2 3 4"
+    for rc in 1 2 3 4; do
+	for c in `seq 0 7`; do
+	    repeat_string "0" 41 "wb rc$rc adc_offset$c"
+	done
+    done
     
     # This sets sq1 feedback to constant; -8192 is 0 volts
     echo "wb rca servo_mode 0 0 0 0 0 0 0 0"
