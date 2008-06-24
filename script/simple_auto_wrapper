@@ -31,7 +31,7 @@ for a in $@; do
     case "$a" in
 	"--tes_before")
 	    tes_biases=`command_reply rb tes bias`
-	    echo "INFO : $SCRNAME : tes bias before = '$tes_biases'" | $LOGGER
+	    echo "INFO  : $SCRNAME : tes bias before = '$tes_biases'" | $LOGGER
 	    ;;
 
 	*)
@@ -49,7 +49,7 @@ for a in $@; do
 
 	"--tes_after")
 	    tes_biases=`command_reply rb tes bias`
-	    echo "INFO : $SCRNAME : tes bias after = '$tes_biases'" | $LOGGER
+	    echo "INFO  : $SCRNAME : tes bias after = '$tes_biases'" | $LOGGER
 	    ;;
 
 	*)
