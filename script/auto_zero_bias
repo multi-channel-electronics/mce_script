@@ -1,25 +1,5 @@
 #!/bin/bash
 
-## source /home/mce/mas_env.bash
-source $MAS_SCRIPT/mas_library.bash
-
-AUTO_LOG=$MAS_DATA/auto_log.txt
-LOGGER="tee -a $AUTO_LOG"
-
-SCRNAME="auto_zero_bias"
-ERRPREF="ERROR : $SCRNAME :"
-
-start_time=`date`
-start_ctime=`print_ctime`
-
-echo "START : $SCRNAME : $start_time" | $LOGGER
-
-mce_zero_bias
-
-# Everyone wants to know the TES biases.
-tes_biases=`command_reply rb tes bias`
-echo "INFO : $SCRNAME : tes bias = '$tes_biases'"
-
-# Record keeping: time elapsed
-delta_ctime=`print_elapsed $start_ctime`
-echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
+FULLNAME=$0
+SHORTNAME=`echo $FULLNAME | sed 's/\/.*\///g'`
+simple_auto_wrapper $SHORTNAME mce_zero_bias --tes_after

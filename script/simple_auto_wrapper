@@ -7,7 +7,9 @@ source $MAS_SCRIPT/mas_library.bash
 
 if [ $# -lt 1 ]; then
     echo "Usage:   $0 <caller_name> <script> [args]"
-    echo " args let you log things, not pass arguments to the script.  Sorry."
+    echo " args let you log things, not pass arguments to the script. Supported:"
+    echo "  --tes-before    log the TES biases before running the script"
+    echo "  --tes-after     log the TES biases after running the script"
     exit 1
 fi
 
@@ -25,12 +27,11 @@ start_ctime=`print_ctime`
 echo "START : $SCRNAME : $start_time" | $LOGGER
 
 # Pre-logging
-for a in `seq 3 100`; do
+for a in $@; do
     case "$a" in
-
-	"tes_before")
+	"--tes_before")
 	    tes_biases=`command_reply rb tes bias`
-	    echo "INFO : $SCRNAME : tes bias = '$tes_biases'" | $LOGGER
+	    echo "INFO : $SCRNAME : tes bias before = '$tes_biases'" | $LOGGER
 	    ;;
 
 	*)
@@ -39,14 +40,16 @@ for a in `seq 3 100`; do
 done
 
 $COMMAND
+error=$?
 
 # Post-logging
-for a in `seq 3 100`; do
+
+for a in $@; do
     case "$a" in
 
-	"tes_after")
+	"--tes_after")
 	    tes_biases=`command_reply rb tes bias`
-	    echo "INFO : $SCRNAME : tes bias = '$tes_biases'" | $LOGGER
+	    echo "INFO : $SCRNAME : tes bias after = '$tes_biases'" | $LOGGER
 	    ;;
 
 	*)
@@ -56,4 +59,9 @@ done
 
 # Record keeping: time elapsed
 delta_ctime=`print_elapsed $start_ctime`
+
+if [ "$error" != "0" ]; then
+    echo "ERROR : $SCRNAME : time elapsed = $delta_ctime . '$COMMAND' returned code $error."
+    exit 1
+fi
 echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
