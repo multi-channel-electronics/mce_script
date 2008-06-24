@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Executes a script, without arguments, in an auto context.
+#
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ $# -lt 1 ]; then
+    echo "Usage:   $0 <caller_name> <script> [args]"
+    echo " args let you log things, not pass arguments to the script.  Sorry."
+    exit 1
+fi
+
+SCRNAME="$1"
+COMMAND="$2"
+
+AUTO_LOG=$MAS_DATA/auto_log.txt
+LOGGER="tee -a $AUTO_LOG"
+
+ERRPREF="ERROR : $SCRNAME :"
+
+start_time=`date`
+start_ctime=`print_ctime`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+
+# Pre-logging
+for a in `seq 3 100`; do
+    case "$a" in
+
+	"tes_before")
+	    tes_biases=`command_reply rb tes bias`
+	    echo "INFO : $SCRNAME : tes bias = '$tes_biases'" | $LOGGER
+	    ;;
+
+	*)
+	    ;;
+    esac
+done
+
+$COMMAND
+
+# Post-logging
+for a in `seq 3 100`; do
+    case "$a" in
+
+	"tes_after")
+	    tes_biases=`command_reply rb tes bias`
+	    echo "INFO : $SCRNAME : tes bias = '$tes_biases'" | $LOGGER
+	    ;;
+
+	*)
+	    ;;
+    esac
+done
+
+# Record keeping: time elapsed
+delta_ctime=`print_elapsed $start_ctime`
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER

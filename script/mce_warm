@@ -1,0 +1,21 @@
+#!/bin/bash 
+
+source $MAS_SCRIPT/mas_library.bash
+
+echo "Setting SA and SQ2 biases to default values to pre-warm the SA board."
+
+expt=$MAS_DATA/experiment.cfg
+sa_bias=`mas_param -s $expt get default_sa bias`
+s2_bias=`mas_param -s $expt get default_sq2 bias`
+
+sa_reply=`command_reply wb sa bias $sa_bias`
+s2_reply=`command_reply wb sq2 bias $s2_bias`
+
+echo "Replies:"
+echo $sa_reply
+echo $s2_reply
+
+echo -n "SA biases:  "
+command_reply rb sa bias
+echo -n "SQ2 biases: "
+command_reply rb sq2 bias
