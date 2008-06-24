@@ -15,13 +15,13 @@ step_period=1003200
 
 if [ "$#" -lt 1 ]; then
     echo "----------------------------------------"
-    echo "Usage: bias_step_acq line rc [ n_frames [ depth time ] ]"
+    echo "Usage: bias_step_acq line rc [ n_frames depth time ]"
     echo "where:        line           is the bias line to ramp (1,2, or 3)"
     echo "              rc             is the readout card to use (1,2,3 or 4)"
     echo "              n_frames       is the number of data points to acquire (default $n_points)"
     echo "              depth          is the amplitude of the bias stepping (default $step_depth)"
     echo "              time           is the dwell time (in us) on each bias value (default $step_period)"
-#   echo "              note           is a note attached to the acquisition"
+    echo " Last 3 arguments are optional, pass \"\" as a place-holder."
     echo
     echo "This script uses internal MCE ramping to produce a square wave on the " \
 	"TES bias lines.  The maximum and minimum square wave values are calculated " \
@@ -33,14 +33,10 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
-if [ "$#" -gt 3 ]; then
-    n_points=$3
-fi
-
-if [ "$#" -gt 4 ]; then
-    step_depth=$4
-    step_period=$5
-fi
+# Cheap argument processing...
+[ "$3" != "" ] && n_points=$3
+[ "$4" != "" ] && step_depth=$4
+[ "$5" != "" ] && step_period=$5
 
 # The card and parameter to step can, in principal be extracted from mce_status -g output.
 # For now, we get them from experiment.cfg.  Card id's will be 7,8,9 for bc1,2,3.  "bias" param is 33.
@@ -51,7 +47,7 @@ bias_para=${para_list[$line]}
 
 ct=`print_ctime`
 filename="${ct}_bc$(( $line + 1 ))_step"
-echo "bias_step data will be saved in $MAS_DATA/$filename"
+# echo "bias_step data will be saved in $MAS_DATA/$filename"
 acq_register $ct bias_step $MAS_DATA/$filename $n_points "$MAS_LOGID"
 
 last_data_mode=( `command_reply rb rca data_mode` )

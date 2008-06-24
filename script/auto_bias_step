@@ -32,6 +32,12 @@ for bias in `seq 1 $n_bias`; do
     ACQ="bias_step_acq $bias s $n_frames"
     ACQ_TARGET=0
 
+    this_bias=`command_reply rra tes bias $(( $bias - 1 )) 1 `
+    if [ "$this_bias" -le "0" ]; then
+	echo "INFO  : $SCRNAME : '$ACQ' suppressed because line $bias reads $this_bias."
+	continue
+    fi
+
     export MAS_LOGID="$note"
     $ACQ
     if [ "$?" != "$ACQ_TARGET" ]; then
