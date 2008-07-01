@@ -68,7 +68,7 @@ if 1 then begin
     per_Rn_bias = array_params.per_Rn_bias
     per_Rn_cut = array_params.per_Rn_cut
     psat_cut = array_params.psat_cut
-    ncut_lim = array_params.ncut_lim
+    ncut_lim = array_params.ncut_lim[0]
 
     good_shunt_range = array_params.good_shunt_range
     default_Rshunt = array_params.default_Rshunt[0]
@@ -76,9 +76,10 @@ if 1 then begin
 
     Rbias_arr = array_params.Rbias_arr
     Rbias_cable = array_params.Rbias_cable
-    bias1_cols = where(array_params.bias_lines eq 0)
-    bias2_cols = where(array_params.bias_lines eq 1)
-    bias3_cols = where(array_params.bias_lines eq 2)
+    bias1_cols = where(array_params.bias_lines mod 3 eq 0)
+    bias2_cols = where(array_params.bias_lines mod 3 eq 1)
+    bias3_cols = where(array_params.bias_lines mod 3 eq 2)
+    eff_bias_lines = array_params.bias_lines
     bias_step = array_params.bias_step[0]
 
     ymins = array_params.plot_ymin
@@ -190,13 +191,15 @@ iv_data_all=fltarr(n_columns,33,2,numpts)
 
 for MuxColumn=0,n_columns-1 do begin
 
-b1c = where(bias1_cols eq muxcolumn)
-b2c = where(bias2_cols eq muxcolumn)
-b3c = where(bias3_cols eq muxcolumn)
-if b1c(0) ne -1 then rbias = Rbias_arr(0) $
-       else if b2c(0) ne -1 then rbias = Rbias_arr(1) $
-       else if b3c(0) ne -1 then rbias = Rbias_arr(2) $
-       else print, 'Problem finding column',muxcolumn, ' in bias*_cols in IV analysis code.  Check definitions.'
+;b1c = where(bias1_cols eq muxcolumn)
+;b2c = where(bias2_cols eq muxcolumn)
+;b3c = where(bias3_cols eq muxcolumn)
+;if b1c(0) ne -1 then rbias = Rbias_arr(0) $
+;       else if b2c(0) ne -1 then rbias = Rbias_arr(1) $
+;       else if b3c(0) ne -1 then rbias = Rbias_arr(2) $
+;       else print, 'Problem finding column',muxcolumn, ' in bias*_cols in IV analysis code.  Check definitions.'
+
+rbias = Rbias_arr(eff_bias_lines(muxcolumn))
 
 if MuxColumn lt 10 then Mcol = '0'+string(MuxColumn, format='(i1)') $
 	else Mcol = string(MuxColumn, format='(i2)')

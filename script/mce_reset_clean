@@ -3,13 +3,11 @@
 source ${MAS_SCRIPT}mas_library.bash
 
 function check_card_life {
-    results=`mce_cmd -qpx rb sys num_rows`
+    results=`mce_cmd -qpx rb $1 num_rows`
     if [ "$?" != "0" ]; then
-        echo "life error: $results"
-	return 1
+        echo "mce_cmd failure: $results"
+	return 2
     fi
-#    results=`command_reply rb sys num_rows`
-    echo -n $results
     for r in $results; do
 	if [ "$r" == "0" ]; then
 	    return 1
@@ -18,23 +16,45 @@ function check_card_life {
     return 0
 }	
 
-#Reset!
-
-if [ "$1" == "" ]; then
-  tries=3
+expt=$MAS_DATA/experiment.cfg
+rc_flags=( `mas_param -s $expt get hardware_rc` )
+bac_flag=`mas_param -s $expt get hardware_bac`
+if [ "$?" != "0" ]; then
+    card_list="sys"
 else
-  tries=$1
+    card_list="cc ac bc1 bc3"
+    bc2="bc2"
+    [ $bac_flag != 0 ] && bc2="bac"
+    card_list="$card_list $bc2"
+    for i in `seq 0 3`; do
+	if [ "${rc_flags[$i]}" != "0" ]; then
+	    card_list="$card_list rc$(( $i + 1 ))"
+	fi
+    done
 fi
 
+#Reset!
+tries=3
+
 for a in `seq 1 $tries`; do
+    ok=1
     mce_cmd -qx mce_reset
-#    sleep 1
-    check_card_life
-    if [ "$?" == "1" ]; then
-      echo "check_card_life failed $a"
-    fi
-    echo $a
+    for c in $card_list; do
+	check_card_life $c
+	if [ "$?" != "0" ]; then
+	    echo "Round ${a}: check_card_life failed on $c"
+	    ok=0
+	fi
+    done
 done
+
+# In any case, empty the driver buffer
+mce_cmd -qx empty
+
+if [ "$ok" != "1" ]; then
+    echo "MCE reset failed."
+    exit 1
+fi
 
 echo "MCE reset Successful."
 exit 0

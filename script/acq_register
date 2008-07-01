@@ -1,16 +1,36 @@
 #!/bin/bash
 #
-# Performs actions required to register an acquisition with the
-# database.
+# Performs actions required to complete the runfile for an acquisition and,
+# if desired, to register the acquisition with an external database.
+#
+# All data acquisition scripts should call this script *before* acquisition.
+# The mce_status block contribution to the runfile may occur before or after
+# this script is called.
 #
 # Arguments:    ctime type name numpts note
 #
-# 'type' should be one of dat, 
+# ctime     the 10 digit unix time stamp of the acquisition
+# 
+# type      a string describing the acquisition type that is used to decide
+#           what actions are necessary for registering the data and
+#           completing the runfile.  Out of the box we support:
+#               tune_ramp tune_servo bias_step iv
+#           All others strings will be treated like ordinary data.
+#
+# name      the full base filename for the acquisition (including path, etc.)
+#
+# numpts    number of frames to expect in the acquisition (for the runfile)
+#
+# note      under-used.  Passing "no_db" here suppresses db registration...
+#
 
+ARRAY_ID=`cat /data/cryo/array_id`
 LAST_TUNE=/data/cryo/last_squid_tune
 LAST_IV=/data/cryo/last_iv_det_data
 CTIMES=/data/mce_ctimes
-# RECORD=/usr/bin/act_record_mce_data_acq
+
+# The record script must exist or it is not called...
+# RECORD=/usr/bin/my_db_registration_program
 
 if [ $# -lt 5 ]; then
 	echo "Usage:"
@@ -20,44 +40,47 @@ if [ $# -lt 5 ]; then
 	exit 1
 fi
 
-ctime=$1
-type=$2
-name=$3
-numpts=$4
+ctime="$1"
+type="$2"
+name="$3"
+numpts="$4"
 note="$5"
 
-array_id=`cat /data/cryo/array_id`
-
-do_cur=1
+# By default, do all actions
 do_db=1
 do_iv=1
 do_tune=1
 do_link=1
 
+#Allow user to suppress db registration.
+if [ "$note" == "no_db" ]; then
+    do_db=0
+fi
+
 case $type in
     "iv")
     files="$name $name.run $name.bias"
     do_iv=0
-    do_cur=0
     ;;
 
     "tune_servo")
     files="$name $name.run $name.bias"
     do_iv=0
     do_tune=0
-    do_cur=0
+    do_db=1
+    do_db=1
     ;;
 
     "tune_ramp")
     files="$name $name.run"
     do_iv=0
     do_tune=0
-    do_cur=0
+    do_db=1
+    do_db=1
     ;;
 
     "bias_step")
     files="$name $name.run"
-    do_cur=0
     ;;
 
     *)
@@ -70,7 +93,8 @@ esac
 
 
 # Linking and database registration are based on ACT.
-# [ "$do_db" != "0" ] && [ -e "$RECORD" ] && $RECORD $array_id $ctime $numpts $name "$note"
+# [ "$do_db" != "0" ] && [ -e "$RECORD" ] && \
+#   $RECORD $ARRAY_ID $ctime $numpts $name "$note"
 # if [ "$do_link" != "0" ]; then
 #     for a in $files; do
 # 	[ -e $a ] || touch $a

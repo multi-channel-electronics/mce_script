@@ -9,7 +9,7 @@ function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start, $
 
 if not keyword_set (bias_step) then begin
     rf = mas_runfile(filename+'.run')
-    bias_params = float(strsplit(mas_runparam(rf, 'par_ramp', 'par_step loop1 par1'),/extract))
+    bias_params = mas_runparam(rf, 'par_ramp', 'par_step loop1 par1',/float)
     print,bias_params
     bias_start = bias_params[0]
     bias_step = bias_params[1]
@@ -45,11 +45,12 @@ for r=0,n_row-1 do begin
         endif
 
         if keyword_set(expected) and abs(p - expected)/expected gt 0.1 then begin
-            print,'Surprise! ',string(r)+string(c)+' is bad-amped.'
+            print,'Surprise! ',string(r)+string(c)+' is bad-amped: '+string(p)
             plot,x,y,xrange=[x[0], x[n-1] *2]
             oplot,x+p[0],y,color=255
             wait,1
-        endif
+        endif else $
+            print,'Good:     ',string(r)+string(c)+' has period'+string(p)
 
     endfor
 endfor
@@ -57,7 +58,10 @@ endfor
 mean_by_column = fltarr(n_col)
 for c=0,n_col-1 do begin
     idx = where(abs(p_set[c,*]/expected -1) lt 0.1)
-    mean_by_column[c] = mean(p_set[c,idx])
+    if idx[0] ne -1 then $
+      mean_by_column[c] = mean(p_set[c,idx]) $
+    else $
+      mean_by_column[c] = -1
 endfor
 
 return, p_set

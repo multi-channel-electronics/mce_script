@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Acquires 50 MHz data for a readout card.  Note that this usually requires
+# special readout card firmware.
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   $0 <rc> [ <suffix> <prefix> <runfile_flag> ]"
+    echo "  rc             is 1,2,3, or 4."
+    echo "  prefix         is a folder in $$MAS_DATA that already exists"
+    echo "  suffix         will be appended to the filename"
+    echo "  runfile_flag   suppresses runfile creation when equal to \"no_runfile\""    
+    exit 1
+fi
+
+rc=$1
+
+if [ "$2" != "" ]; then
+    suffix="_$2"
+fi
+
+if [ "$3" != "" ]; then
+    prefix="$3"
+fi
+
+ct=`print_ctime`
+filename=$MAS_DATA/${prefix}/${ct}_raw${suffix}
+runfilename=${filename}.run
+
+if [ "$4" == "no_runfile" ]; then
+    do_runfile=0
+else
+    do_runfile=1
+fi
+
+# Disable sync box
+use_sync=`command_reply rb cc use_sync`
+use_dv=`command_reply rb cc use_dv`
+mce_cmd -qX "wb cc use_sync 0" -X "wb cc use_dv 0"
+
+# Get frame structure
+row_len=`command_reply rb cc row_len`
+num_rows=`command_reply rb cc num_rows`
+num_rows_rep=`command_reply rb cc num_rows_reported`
+
+n_frames=$(( $row_len * $num_rows * 2 / $num_rows_rep ))
+mce_cmd -q -X "wb cc ret_dat_s 1 1" -X "wb rc$rc data_mode 3"
+
+if [ "$do_runfile" == "1" ]; then
+    mce_status >> $runfilename
+    frameacq_stamp $rc $filename $n_frames >> $runfilename
+fi
+
+mce_cmd -q <<EOF
+ acq_config $filename rc$rc
+ wb rc$rc captr_raw 1
+ sleep 1000
+ acq_go $n_frames
+EOF
+
+# Restore sync box settings
+mce_cmd -q -X "wb cc use_sync $use_sync" -X "wb cc use_dv $use_dv"
