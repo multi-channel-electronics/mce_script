@@ -1,5 +1,5 @@
 pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive,numrows=numrows, $
-                               acq_id=acq_id, quiet=quiet
+                               acq_id=acq_id, quiet=quiet,ramp_bias=ramp_bias
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from ramp_sa_fb_plot.pro 
@@ -11,6 +11,7 @@ this_script = 'ramp_sa_fb_plot'
 
 ;Init
 if not keyword_set(acq_id) then acq_id = 0
+if not keyword_set(ramp_bias) then ramp_bias = 0
 
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
@@ -18,15 +19,20 @@ close,/all
 if not keyword_set(numrows) then numrows = 33
 
 ;Communication:
+RC_name = strcompress('RC'+string(RC),/remove_all)
 if not keyword_set(quiet) then begin
-   print,''
-   print,'########################################################################################'
-   print,'#2) The second step is to ramp the SSA bias (together with the SSA fb) for RC'+strcompress(string(RC),/remove_all)+'         #'
-   print,'#   and choose the bias for which the peak-to-peak of the V-phi curve is maximum.      #'
-   print,'########################################################################################'
-   print,''
+    print,''
+    print,'########################################################################################'
+    if ramp_bias then begin
+        print,'#2) The second step is to ramp the SSA bias (together with the SSA fb) for '+RC_name+'         #'
+        print,'#   and choose the bias for which the peak-to-peak of the V-phi curve is maximum.      #'
+    endif else begin
+        print,'#2) The second step is to ramp the SA fb to measure the SA V-phi curve for '+RC_name+'         #'
+    endelse
+    print,'########################################################################################'
+    print,''
 endif else begin
-   if quiet le 1 then print,this_script + ' : starting for rc '+string(rc)
+    if quiet le 1 then print,this_script + ' : starting for '+RC_name
 endelse
 
 ;Set ramp_sa_file_name
@@ -36,7 +42,9 @@ logfile=ctime+'/'+ctime+'.log'
 
 ;Run the shell script:
 user_status = auto_setup_userword(rc)
-spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' 1'+ ' >> /data/cryo/current_data/'+logfile,exit_status=exit_status
+
+spawn,'ramp_sa_fb '+file_name_ramp_sa+' '+string(rc)+' '+string(ramp_bias)+ $
+  ' >> /data/cryo/current_data/'+logfile,exit_status=exit_status
 if exit_status ne 0 then begin
    if keyword_set(quiet) then begin
       print,this_script + 'error '+string(exit_status)+' from ramp_sa_fb'
@@ -54,22 +62,23 @@ endif
 current_data = ''
 openr, 3, '/data/cryo/current_data_name'
 readf, 3, current_data
+close, 3
 
 default_folder = '/data/cryo/' + current_data + '/'
 folder=default_folder
 
 full_name=folder+file_name_ramp_sa
-plot_file = folder + 'analysis/' + file_name_ramp_sa + '.ps'
 
 rf = mas_runfile(full_name+'.run')
-loop_params_b = long(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
-loop_params_f = long(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
-reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, loop_params_b[2]*loop_params_f[2])
 
-;Let's draw
+n_frames = mas_runparam(rf,'FRAMEACQ','DATA_FRAMECOUNT',/long)
+;loop_params_b = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
+;loop_params_f = mas_runparam(rf,'par_ramp','par_step loop2 par1',/long)
+reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, n_frames)
 
-set_plot, 'ps'
-device, filename= plot_file, /landscape
+;If we're not ramping, we need the default sa bias:
+sa_bias_runfile = mas_runparam(rf,'HEADER','RB sa bias',/long)
+sa_bias_rc = sa_bias_runfile[(rc-1)*8:(rc*8)-1]
 
 nsum = 48
 
@@ -166,41 +175,44 @@ for chan=0,sav(3)-1 do begin
 	endfor
 endfor
 
-;  Make an n_bias+1 pages set of plots.
 
-for m=0, n_bias-1 do begin
-	sa_bias = bias_start + m* bias_step 
+if ramp_bias then begin
+
+    ; Make an n_bias+1 pages set of plots.
+    
+    plot_file = folder + 'analysis/' + file_name_ramp_sa + '.ps'
+    set_plot, 'ps'
+    device, filename= plot_file, /landscape
+
+    for m=0, n_bias-1 do begin
+        sa_bias = replicate(bias_start + m* bias_step,8)
 	page_label = vert_label + ' = ' + strtrim( string(sa_bias, format='(i)'), 2)
 	for j=0, 7 do begin
         	plot, i_fb, av_vol(m,*,j), xtitle=horiz_label+i_units,$
 		ytitle='Output Voltage' + v_units,$
 		charsize=1, xstyle=1, /ynozero,$
-		title=' Series Array Channel ' + strtrim( string( j, format='(I)'),2) $
-		+ '    Card ' + card + '   peak-to-peak=' + string(estim_range(m,j))
+		title='RC'+card+' SA Ch ' + strtrim( string( j, format='(I)'),2) $
+		+ '   peak-to-peak=' + string(estim_range(m,j))
 		;Plot error bars if keyword set. Error bars are value +- stdev.
 		if  keyword_set(errors) then errplot, ibias,$
 		av_vol(i,*)-dev_vol(i,*), av_vol(i,*)+dev_vol(i,*)
 	endfor
 	xyouts, 0.0*(!D.X_SIZE), 1.00*(!D.Y_SIZE), full_name, /device   ;Print filename as title
 	xyouts, 0.6*(!D.X_SIZE), 1.00*(!D.Y_SIZE), page_label, /device   ;Print SA_BIAS on title line
-endfor     
+    endfor     
 
-close,3
-
-
-;Merit function calculated from the peak-to-peak values
-for chan=0,sav(3)-1 do begin
+    ;Merit function calculated from the peak-to-peak values
+    for chan=0,sav(3)-1 do begin
 	plot,(bias_start+findgen(sav(1))*bias_step)/1000.,estim_range(*,chan),xtitle='sa_bias (/1000)',ytitle='peak-to-peak',charsize=1,$
 	xstyle=1, /ynozero,title=' Series Array Channel '+strtrim( string( chan, format='(I)'),2)+ '    Card '+card
-endfor
+    endfor
 
-page_label = 'Merit function: peak-to-peak'
-xyouts, 0.0*(!D.X_SIZE), 1.00*(!D.Y_SIZE), full_name, /device   ;Print filename as title
-xyouts, 0.6*(!D.X_SIZE), 1.00*(!D.Y_SIZE), page_label, /device   ;Print SA_BIAS on title
+    page_label = 'Merit function: peak-to-peak'
+    xyouts, 0.0*(!D.X_SIZE), 1.00*(!D.Y_SIZE), full_name, /device ;Print filename as title
+    xyouts, 0.6*(!D.X_SIZE), 1.00*(!D.Y_SIZE), page_label, /device ;Print SA_BIAS on title
 
-device, /close                  ;close ps
-
-;spawn,'ggv '+plot_file+' &'	;run the ggv to see the plot file (commented in the auto_setup version)
+    device, /close              ;close ps
+endif
 
 for chan=0,sav(3)-1 do begin		
 	a=max(estim_range(*,chan),i)		;method: peak-to-peak
@@ -350,11 +362,14 @@ device, filename= plot_file, /landscape
 peak_to_peak=lonarr(8)
 for j=0, 7 do begin
 	m=ind(j)
-	sa_bias = bias_start + m* bias_step 
+        if ramp_bias then $
+          sa_bias = bias_start + m* bias_step $
+        else $
+          sa_bias = sa_bias_rc[j]
        	plot, i_fb, av_vol(m,*,j), xtitle=horiz_label+i_units,$
 	ytitle='Output Voltage' + v_units,$
 	charsize=charsz, xstyle=1, /ynozero,$
-	title=' SA Ch ' + strtrim( string( j, format='(I)'),2) $
+	title='RC'+card+' SA Ch ' + strtrim( string( j, format='(I)'),2) $
 	+ '   peak-to-peak=' + strcompress(string(round(estim_range(m,j))),/remove_all)$
 	+ '   @ bias=' + strcompress(string(round(final_sa_bias_ch_by_ch(j))),/remove_all)
 	oplot, [i_fb(0),i_fb(n_elements(i_fb)-1)],[SA_target(j),SA_target(j)]/1000.
