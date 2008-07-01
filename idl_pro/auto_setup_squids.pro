@@ -979,6 +979,10 @@ endif else begin
 	step11:
 endelse
 
+; Run config one last time in *case* frametest plot changes to data
+; mode 4!!
+mce_make_config, params_file=exp_config_file, filename=config_mce_file, /run_now
+
 spawn,'cp -p '+config_mce_file+' '+todays_folder+c_filename+'_config_mce_auto_setup_'+current_data
 
 header_file=todays_folder+c_filename+'.sqtune'
