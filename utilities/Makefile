@@ -15,6 +15,8 @@ eat_packets: eat_packets.o sequence.o
 
 extract_frames: extract_frames.o
 
+catch_rampers: catch_rampers.o
+
 runfile_scan: scan.c runfile.o runfile.h
 	$(CC) $(CFLAGS) scan.c runfile.o -o runfile_scan
 
