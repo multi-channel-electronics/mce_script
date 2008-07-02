@@ -722,7 +722,7 @@ endif
 
 ; Generate a file that can be run to set the recommended TES bias values
 openw,1, outdir+'/tes_bias_recommended'
-printf,1,'#!/bin/csh'
+printf,1,'#!/bin/bash'
 printf,1, '# Recommended biases to reach '+string(per_Rn_bias*100,format='(i2)')+'% Rn'
 printf,1, '#   from IV file: '+filename
 printf,1,'bias_tess '+strtrim(biases(0),1)+' '+strtrim(biases(1),1)+' '+strtrim(biases(2),1)
