@@ -174,14 +174,14 @@ if not keyword_set(no_split) then begin
             count  = 18
             start2 =  0 ; error
             count2 = 14
-            rescale = 2d^10
+            rescale = 2d^11
         end
         7: begin 
             start  = 10
             count  = 22
             start2 =  0 ; error
             count2 = 10
-            rescale = 2d^10
+            rescale = 2d^7
             rescale2 = 1./2d^4
         end
         8: begin
