@@ -9,7 +9,7 @@ fi
 umask 002
 
 today=`date +%Y%m%d`
-cd $MAS_DATA/..
+cd /data/cryo # $MAS_DATA is broken.
 if [ ! -e $today ]; then
     mkdir $today
     chmod g+s $today
@@ -30,6 +30,22 @@ fi
 echo $today > $date_file
 
 
+# Determine array name and names of config files
+array_id=`cat /data/cryo/array_id`
+if [ "$array_id" == "" ]; then
+    echo "No array ID found in /data/cryo/array_id!"
+    array_id="default"
+fi
+case "$array_id" in
+    default)
+        exp_cfg=experiment.cfg
+	arr_cfg=array.cfg
+	;;
+    *)
+        exp_cfg=experiment_${array_id}.cfg
+	arr_cfg=array_${array_id}.cfg
+esac
+
 # Populate the new data folder.
 
 cd $today
@@ -39,21 +55,7 @@ if [ ! -e analysis ]; then
     chmod g+s analysis
 fi
 
-files_to_copy="sabias.init safb.init sq2bias.init sq2fb.init sq1bias.init row.init"
-
-for f in $files_to_copy; do
-    if [ ! -e $f ]; then
-	cp $MAS_TEMPLATE/$f .
-    fi
-done
-
-# Create experiment_template.cfg (not edited by auto-tuning)
-if [ ! -e experiment_template.cfg ]; then
-    cp $MAS_TEMPLATE/experiment.cfg experiment_template.cfg
-fi
-
-# In any case, overwrite experiment.cfg with the MAS_DATA template
-cp experiment_template.cfg experiment.cfg
+[ -e experiment.cfg ] || cp $MAS_TEMPLATE/$exp_cfg experiment.cfg
 
 # Create an mce config script
 

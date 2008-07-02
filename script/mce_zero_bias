@@ -1,104 +1,67 @@
-#!/bin/csh 
-#
-# Revision history:
-# <date $Date: 2007/11/27 21:09:51 $> 
-# $Log: mce_zero_bias,v $
-# Revision 1.2  2007/11/27 21:09:51  mce
-# MA logs to auto_log.txt
-#
-## source ~mce/mas_env.tcsh
-set LOGFILEDIR=$MAS_DATA
-set AUTO_LOG=$LOGFILEDIR/auto_log.txt
-set LOGGER="tee -a $AUTO_LOG"
+#!/bin/bash 
 
-set SCRNAME="mce_zero_bias"
-set ERRPREF="ERROR : $SCRNAME :"
+source $MAS_SCRIPT/mas_library.bash
 
-set start_time=`date`
-set start_ctime=`date -u +%s`
+expt=$MAS_DATA/experiment.cfg
 
-echo "START : $SCRNAME : $start_time" | $LOGGER
-echo "ARGS  : $SCRNAME : none" | $LOGGER
+# This first command prints the bias levels and also checks that MCE
+# is responding
+echo -n "Reading TES biases: "
+command_reply rb tes bias
+if [ "$?" != "0" ]; then
+    echo "Aborting!"
+    exit 1
+fi
 
-set tempfile=$MAS_TEMP/mce_zero_bias.temp
-/bin/rm $tempfile
-#does NOT issue a reset to mce, only zeros biases
+n_columns=`command_reply rb sq2 fb | wc -w`
+n_tes_bias=`command_reply rb tes bias | wc -w`
 
-# default Values:  row_len=100, num_rows=33
-#echo "wb sys row_len 100">>$tempfile
-#echo "wb sys num_rows 33">>$tempfile
+rc_flags=( `mas_param -s $expt get hardware_rc` )
 
-######################################################
-#address card setup
-#echo "wb ac row_order 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40">>$tempfile
+# Funny 'if' is so we can pipe output into mce_cmd. Don't issue mce
+# commands inside this block!
+if [ "x" == "x" ]; then
 
-# clear sq1_bias
-echo -n "wb ac on_bias">>$tempfile
-repeat 41 echo -n " 0">>$tempfile
-echo "">>$tempfile
+    repeat_string "0" 41 "wb ac on_bias"
+    repeat_string "0" 41 "wb ac off_bias"
+    echo "wb ac enbl_mux 1"
+    
+    repeat_string "0" $n_columns "wb sq2 fb"
+    repeat_string "0" $n_columns "wb sq2 bias"
+    repeat_string "0" $n_columns "wb sa fb"
+    repeat_string "0" $n_columns "wb sa bias"
+    repeat_string "0" $n_columns "wb sa offset"
+    
+    repeat_string "0" $n_tes_bias "wb tes bias"
+    
+    # Short wait and then turn off multi-plexing
+    echo "sleep 200000"
+    echo "wb ac enbl_mux 0"
 
-echo -n "wb ac off_bias">>$tempfile
-repeat 41 echo -n " 0">>$tempfile
-echo "">>$tempfile
+    # Put ADC offset to zero or you can get MSB noise
+    for rc in 1 2 3 4; do
+	if [ "${rc_flags[$(( $rc - 1 ))]}" != "0" ]; then
+	    for c in `seq 0 7`; do
+		repeat_string "0" 41 "wb rc$rc adc_offset$c"
+	    done
+	fi
+    done
+    
+    # This sets sq1 feedback to constant; -8192 is 0 volts
+    echo "wb rca servo_mode 0 0 0 0 0 0 0 0"
+    echo "wb rca fb_const -8192 -8192 -8192 -8192 -8192 -8192 -8192 -8192"
+    echo "wb rca flx_lp_init 1"
+fi | mce_cmd -q
 
-echo "wb ac enbl_mux 1">>$tempfile
+if [ "${PIPESTATUS[1]}" != "0" ]; then
+    echo "FAILURE: mce_zero_bias failed!"
+    echo $ERRPREF "mce_zero_bias batch file failed!" |$LOGGER
+    exit 1
+fi
 
-######################################################
-# clear sq2_fb
-echo -n "wb sq2 fb">>$tempfile
-repeat 32 echo -n " 0">>$tempfile
-echo "">>$tempfile
-
-# clear sq2_bias
-echo -n "wb sq2 bias">>$tempfile
-repeat 32 echo -n " 0">>$tempfile
-echo "">>$tempfile
-
-# clear sa_fb
-echo -n "wb sa fb">>$tempfile
-repeat 32 echo -n " 0">>$tempfile
-echo "">>$tempfile
-
-# clear det_bias
-echo "wb bc1 bias 0">>$tempfile
-# echo "wb bc2 bias 0">>$tempfile
-echo "wb bc3 bias 0">>$tempfile
-
-#####################################################
-# turn off row multiplexing, this has to be at the end
-# to ensure that 1 frame has passed for all sq1 biases
-# to be set to 0
-#
-echo "wb ac enbl_mux 0">>$tempfile
-
-#####################################################
-# rc/cc setup
-# set rc card to const servo mode
-echo "wb rca servo_mode 0 0 0 0 0 0 0 0">>$tempfile
-#echo "wb rca data_mode 0">>$tempfile
-echo "wb rca fb_const -8192 -8192 -8192 -8192 -8192 -8192 -8192 -8192">>$tempfile
-echo "wb rca sa_bias 0 0 0 0 0 0 0 0">>$tempfile
-echo "wb rca offset 0 0 0 0 0 0 0 0">>$tempfile
-echo "wb rca flx_lp_init 1">>$tempfile
-
-# TES bias
-
-echo "wb tes bias 0" >> $tempfile
-
-
-# execute the batch file
-mce_cmd -q -f  $MAS_TEMP/mce_zero_bias.temp 
-if ($status) then
-  echo "FAILURE: mce_zero_bias failed!"
-  echo $ERRPREF "mce_zero_bias batch file failed!" |$LOGGER
-  exit 1
-endif
-
-#######################################################
-# Logging 
-
-set end_ctime=`date -u +%s`
-@ delta_ctime=$end_ctime - $start_ctime
-echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
-echo
-
+echo -n "SA biases:  "
+command_reply rb sa bias
+echo -n "SQ2 biases: "
+command_reply rb sq2 bias
+echo -n "TES biases: "
+command_reply rb tes bias

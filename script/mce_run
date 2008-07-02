@@ -1,59 +1,110 @@
-#!/bin/tcsh
-
-# Acquire data from the MCE and create or append to a .run file
+#!/bin/bash
 #
-# Run file name is obtained with script mce_runfile_name
+# Acquires data from the MCE and create or append to a .run file.
+#
+# It also writes the current unix time into the run_id word of the
+# clock card so that it appears in the frame header.
+#
+# This script is intended to be fairly low-level, it shouldn't do
+# more than it needs to to collect a complete data file.
 
-## source $MAS_ROOT/mas_env.tcsh
+source $MAS_SCRIPT/mas_library.bash
+SCRNAME=mce_run
 
-if ($#argv != 3) then
-  echo "----------------"
-  echo "Usage:              mcerun <filename> <numpts> <RC>"
-  echo ""
-  echo "     numpts   is the number of frames e.g. 24000"
-  echo "     RC       is the card number e.g. ""3"", or ""s"" for all"
-  echo "----------------"
-  exit 1
-endif
+function usage {
+    echo "Usage:              $SCRNAME <filename> <numpts> <RC> [options]"
+    echo
+    echo "     filename   is the filename; \$MAS_DATA will be prepended."
+    echo "     numpts     is the number of frames e.g. 24000"
+    echo "     RC         is the card number e.g. \"3\", or \"s\" for all"
+    echo
+    echo "Recognized options (must follow the mandatory arguments):"
+    echo "     --dirfile  force dirfile data format"
+    echo "     --flatfile force flatfile data format"
+    [ "$1" == "" ] || exit $1
+    exit 1
+}
 
-set filename=$MAS_DATA/$1
-set runfilename=${filename}.run
-set numpts=$2
-set rc_num=$3
+# Defaults
+
+acq_config_suffix=""
+
+# Three mandatory arguments
+
+[ $# -lt 3 ] && usage
+
+filename=$MAS_DATA/$1
+runfilename=${filename}.run
+numpts=$2
+rc=$3
+shift 3
+
+# Options processing
+
+for a in $@; do
+    case "$a" in
+	"--flatfile")
+	    acq_config_suffix=""
+	    ;;
+	
+	"--dirfile")
+	    acq_config_suffix="_dirfile"
+	    ;;
+
+	*)
+	    echo "$SCRNAME : unknown option '$a'"
+	    usage
+	    ;;
+    esac
+done
+
+# Write current ctime into run_id location of frame header.  This
+# won't necessarily match the filename; but is better than nothing.
+
+ctime=`print_ctime`
+mce_cmd -qx wb cc run_id $ctime
+
+# Re-initialize the servo.  Can't hurt.
+if [ "$rc" == "s" ]; then
+    mce_cmd -qx wb rca flx_lp_init 1
+else
+    mce_cmd -qx wb rc$rc flx_lp_init 1
+fi
 
 
-#RUN FILE CREATION: NO MCE COMMANDS PAST THIS POINT
+#RUN FILE CREATION: NO MCE WRITES PAST THIS POINT
 
 echo "RUNFILE_NAME=$runfilename"
 
-mce_status>$runfilename
-if ($status) then
-  echo "mcerun: MCESTATUS action failed!"
-  exit 1
-endif
+# Don't remove runfile, it may have been pre-initialized
+[ -e "$runfilename" ] || touch $runfilename
+
+# This is my favourite part.
+mce_status >> $runfilename
+if [ "$?" != "0" ]; then
+    echo "$SCRNAME : MCESTATUS action failed!"
+    exit 1
+fi
 
 # Apply frameacq stamp
 
-echo "# frameacq_stamp output" >> $runfilename
-frameacq_stamp $rc_num ${filename} $numpts >> $runfilename
-if ($status) then
-  echo "frameacq_stamp failed!"
-  exit 1
-endif
+frameacq_stamp $rc ${filename} $numpts >> $runfilename
+if [ "$?" != "0" ]; then
+    echo "$SCRNAME : frameacq_stamp failed!"
+    exit 1
+fi
 
-# Put temp(erature) block in runfile
-temperature_block >> $runfilename
+# Acquisition
 
 echo "FRAME_BASENAME=$filename"
 
-echo "acq_path /\n" \
-    "acq_config $filename rc$rc_num\n" \
-    "acq_go $numpts" | mce_cmd -q
+echo -e \
+    "acq_config${acq_config_suffix} $filename rc$rc\n" \
+    "acq_go $numpts" | mce_cmd -q -o /
 
-if ($status) then
-  echo "mce_cmd failed to start acquisition."
-  exit 1
-endif
+if [ "${PIPESTATUS[1]}" != "0" ]; then
+    echo "$SCRNAME : mce_cmd returned error"
+    exit 1
+fi
 
 exit 0
-

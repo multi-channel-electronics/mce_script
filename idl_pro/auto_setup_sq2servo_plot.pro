@@ -1,4 +1,6 @@
-pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain
+pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain, $
+                             ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count, $
+                             acq_id=acq_id, quiet=quiet
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq2servo_plot.pro 
@@ -9,10 +11,13 @@ pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interac
 
 common sq2_servo_var
 
+;Init
+if not keyword_set(acq_id) then acq_id = 0
+
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
 
-;Comunication:
+;Communication:
 print,''
 print,'#############################################################################'
 print,'#3) The third step is to run a closed loop on the SQ2 for RC'+strcompress(string(RC),/remove_all)+'.              #'
@@ -36,12 +41,18 @@ if not keyword_set(gain) then gain=1./50.
 
 print,'Hardcoding for sq2 fb DAC range!!'
 dac_range=65536
-ramp_step=160
-ramp_count=400
+
+; ramp_count is the parameter that will override the defaults.
+if not keyword_set(ramp_count) then begin
+    ramp_start=0
+    ramp_step=160
+    ramp_count=400
+endif
 
 ;Run the shell script:
+user_status = auto_setup_userword(rc)
 spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
-  '0 '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+  string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
   string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
   ' >> /data/cryo/current_data/'+logfile,exit_status=status7
 
@@ -56,11 +67,14 @@ endif
 
 ;Let's define filenames and folders
 full_name = '/data/cryo/current_data/' + file_name_sq2_servo
-                                                                                                                                                             
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name_sq2_servo,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name_sq2_servo,11)+'.run'
-
-;Let's drow
+     
+; Link and register
+rf = mas_runfile(full_name+'.run')
+loop_params_b = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
+loop_params_f = mas_runparam(rf,'par_ramp','par_step loop2 par1',/long)
+reg_status = auto_setup_register(acq_id, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
+                                                                                                                                                        
+;Let's draw
 
 set_plot, 'ps'
 
@@ -174,7 +188,9 @@ deriv_fb1=fb1
 sq2_v_phi=fb1
 				
 for chan=0,7 do begin	;calculate the derivatives of the V-phi plots
-	deriv_fb1(*,chan)=smooth(deriv(sq2_sweep(*),fb1(*,chan)),10)
+;	deriv_fb1(*,chan)=smooth(deriv(sq2_sweep(*),fb1(*,chan)),10)
+; Changed to smooth before derivative. MDN 4-2-2008
+	deriv_fb1(*,chan)=deriv(sq2_sweep(*),smooth(fb1(*,chan),10))
 	sq2_v_phi(*,chan)=smooth(fb1(*,chan),10)
 endfor
 
@@ -183,22 +199,34 @@ print,'#########################################################################
 print,'SQ2 bias, and SA fb channel by channel:'
 print,'###########################################################################'
 
+if keyword_set(lockamp) then $
+  print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
+
+print,' Channel                   Target@half sq2_fb@half '
+print,'---------------------------------------------------'
+
+
 ; Elia analyses only samples 100:350 of a 400 point curve.
 
-lo_index = ramp_count / 4.
+lo_index = ramp_count / 2.
 hi_index = ramp_count * 7. / 8.
 for chan=0,7 do begin
-	print,'Channel:',chan
+		; Added fbmn (mean value) check for finding period (includes 3 lines below) 4-2-2008 MDN & JA
+		fbmn = (max(sq2_v_phi(lo_index:hi_index,chan)) - min(sq2_v_phi(lo_index:hi_index,chan)))/2.+min(sq2_v_phi(lo_index:hi_index,chan))
+		fbmax = (max(sq2_v_phi(lo_index:hi_index,chan)))
+		fbmin = (min(sq2_v_phi(lo_index:hi_index,chan)))
 		if slope lt 0 then begin
 			min_point=min(sq2_v_phi(lo_index:hi_index,chan),ind_min)
 			ind_min=lo_index+ind_min
-			ind_pos_der=where(deriv_fb1(0:ind_min-5,chan) gt 0)
+			ind_pos_der=where(deriv_fb1(10:ind_min-5,chan) gt 0 and sq2_v_phi(10:ind_min-5,chan) gt fbmn and sq2_v_phi(10:ind_min-5,chan) le fbmax)
+			ind_pos_der=ind_pos_der+10
 			if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
 			ind_max=max(ind_pos_der)
 		endif else begin
 			max_point=max(sq2_v_phi(lo_index:hi_index,chan),ind_max)
                         ind_max=lo_index+ind_max
-                        ind_neg_der=where(deriv_fb1(0:ind_max-5,chan) lt 0)
+                        ind_neg_der=where(deriv_fb1(10:ind_max-5,chan) lt 0 and sq2_v_phi(10:ind_max-5,chan) lt fbmn and sq2_v_phi(10:ind_min-5,chan) ge fbmin)
+			ind_neg_der=ind_neg_der+10
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
 		endelse
@@ -206,7 +234,7 @@ for chan=0,7 do begin
 		;where(abs(fb1(ind_max:ind_min,chan)-65535) eq min(abs(fb1(ind_max:ind_min,chan)-65535)))
 		if keyword_set(lockamp) then begin
 			fb_mean = (fb1(ind_min,chan)+fb1(ind_max,chan))/2.
-			print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
+; 			print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
 			if ind_min lt ind_max then begin
 				fb_close = min(abs(fb1(ind_min:ind_max,chan)-fb_mean),fb_pnt)
 				ind_half_point = fb_pnt + ind_min
@@ -220,12 +248,17 @@ for chan=0,7 do begin
 			ind_half_point=round((ind_min+ind_max)/2)
 			target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
 			fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
-		endelse
-		print,'target  @ half point=',target_half_point_ch_by_ch(chan)
-		print,'sq2_feedback   @ half point=',fb_half_point_ch_by_ch(chan)	
-	;print,' '
-	print,'###########################################################################'
-	;print,' '
+                endelse
+
+                print,format='(i4, i31, i12)',chan, $
+                  target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+
+;               print,'Channel:',chan
+; 		print,'target  @ half point=',target_half_point_ch_by_ch(chan)
+; 		print,'sq2_feedback   @ half point=',fb_half_point_ch_by_ch(chan)	
+; 	;print,' '
+; 	print,'###########################################################################'
+; 	;print,' '
 ;stop
 endfor
 
@@ -258,7 +291,8 @@ plot_file = '/data/cryo/current_data/'+'analysis/' + file_name_sq2_points + '.ps
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the SQ2 locking points check '+string(plot_file)
+print,'To view the SQ2 locking points check'
+print,string(plot_file)
 print,' '
 print,'###########################################################################'
 charsz=1

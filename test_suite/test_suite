@@ -1,0 +1,149 @@
+#!/bin/bash
+
+#---------------------------------------------------------------
+# This is the overall script for the test suite.
+#---------------------------------------------------------------
+
+#---------------------------------------------------------------
+# Constants
+#---------------------------------------------------------------
+source $MAS_ROOT/mas_env.bash
+source $MAS_SCRIPT/mas_library.bash
+source $MAS_TEST_SUITE/test_suite_library.bash
+#source $MAS_TEST_SUITE/hw_auto_cc
+
+RESET_LENGTH=2
+DATA_RUN_SIZE=200
+MAX_AUTO_TEST=100
+MAX_MAN_TEST=200
+file_name="test_suite"
+test1="hw_auto_cc"
+test2="hw_auto_cc_sram"
+test101="hw_man_cc_2slotbp"
+
+#---------------------------------------------------------------
+# Functions
+#---------------------------------------------------------------
+function usage {
+  echo ""
+  echo "Usage:"
+  echo "----------------------------------------------------------------"
+  echo "$file_name <path/filename> <tester_initials> <test_type> <mode> "
+  echo "----------------------------------------------------------------"
+  echo "  <path/filename>: required"
+  echo ""
+  echo "  <tester_id>: required"
+  echo ""
+  echo "  <test_type>: optional, default=0"
+  echo "      0  = ALL AUTOMATED TESTS"
+  echo "      1  = $test1"
+  echo "      2  = $test2"
+  echo "    $(($MAX_AUTO_TEST))  = ALL MANUAL TESTS"
+  echo "    $(($MAX_AUTO_TEST+1))  = $test101"
+  echo ""
+  echo "  <mode>: optional, default=0"
+  echo "      0  = interactive"
+  echo "      1  = non-interactive"
+  echo "----------------------------------------------------------------"
+  echo ""
+  exit 1
+}
+
+#---------------------------------------------------------------
+# Main Program
+#---------------------------------------------------------------
+if [ "$#" -lt 1 ]; then
+  usage
+elif [ "$#" -lt 2 ]; then
+  usage
+elif [ "$#" -lt 3 ]; then
+  tlog=$1
+  tester_id=$2
+  test_type=0
+  interactive_mode=0
+elif [ "$#" -lt 4 ]; then
+  tlog=$1
+  tester_id=$2
+  test_type=$3
+  interactive_mode=0
+elif [ "$#" -lt 5 ]; then
+  tlog=$1
+  tester_id=$2
+  test_type=$3
+  interactive_mode=$4
+else
+  exit 1
+fi
+
+start_time=`date`
+start_ctime=`print_ctime`
+echo2 $tlog "----------------------------------------------------------------"
+echo2 $tlog "Start of test suite"
+echo2 $tlog "  Rev. ????"
+echo2 $tlog "  Test start time: $start_time"
+if [ $interactive_mode -eq 0 ]; then
+  echo2 $tlog "  Interactive mode"
+else
+  echo2 $tlog "  Non-interactive mode"
+fi
+if [ -e $tlog ]; then
+  echo2 $tlog "  Appending to file: $tlog"
+else
+  echo2 $tlog "  Creating file: $tlog"
+fi
+  echo2 $tlog "  Tester's initials:  $tester_id"
+echo2 $tlog "----------------------------------------------------------------"
+echo2 $tlog ""
+
+# Determine if we are running all the auto tests, or all the man tests, or just one
+if [ $test_type -eq 0 ]; then
+  test_num=1
+elif [ $test_type -eq $MAX_AUTO_TEST ]; then
+  test_num=$(($MAX_AUTO_TEST+1))
+else
+  test_num=$test_type
+fi
+
+test_passes=0
+test_failures=0
+
+while [ 1 ]; do
+  
+  #---------------------------------------------------------------
+  # Tests:
+  #---------------------------------------------------------------
+  test_to_run=test$test_num
+  echo ${!test_to_run}
+  ${!test_to_run}
+  hw_auto_cc
+
+#  if [ $test_num -eq 1 ]; then `test$test_num`
+#  elif [ $test_num -eq 2 ]; then `test2`
+#  elif [ $test_num -eq $(($MAX_AUTO_TEST+1)) ]; then `test101`
+#  else
+#    break
+#  fi
+  
+  # Are we finished the subset of tests that we set out to do?
+  if [ $test_type -eq 0 -a $test_num -le $(($MAX_AUTO_TEST-1)) ]; then
+    test_num=$(($test_num + 1))
+  elif [ $test_type -eq $MAX_AUTO_TEST -a $test_num -le $(($MAX_MAN_TEST-1)) ]; then
+    test_num=$(($test_num + 1))
+  else
+    break
+  fi
+done  
+
+# Print test statistics
+end_time=`date`
+delta_ctime=`print_elapsed $start_ctime`
+test_pass_ratio=$(($test_passes))/$(($test_passes+$test_failures))
+
+echo2 $tlog "----------------------------------------------------------------"
+echo2 $tlog "End of Clock Card Hardware Test"
+#echo2 $tlog "  Test Passes: $test_passes"
+#echo2 $tlog "  Test Failures: $test_failures"
+echo2 $tlog "  Test Pass Ratio: $test_pass_ratio"
+echo2 $tlog "  Test End Time: $end_time"
+echo2 $tlog "  Test Length: $delta_ctime [s]"
+echo2 $tlog "----------------------------------------------------------------"

@@ -1,4 +1,4 @@
-pro auto_setup_ramp_tes_bias_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts, data_mode=data_mode
+pro auto_setup_ramp_tes_bias_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts
 
 ;if not keyword_set(numrows) then numrows=41
 
@@ -7,11 +7,7 @@ close,/all
 stpt=1000
 if keyword_set(npts) then npts=npts else npts=1000;1435406 ;npts=number of data points, 1 point = 0.0025s
 numcol=8
-
-if not keyword_set(data_mode) then $
-  data_mode = 1
-
-data_mode='1'	;'6'
+data_mode='4'	;'6'
 if data_mode eq '4' then bitpart=14 else bitpart=0
 
 rcdatamode=rc
@@ -205,17 +201,9 @@ data= data[0:m-1,*,*]
 npts = m   ; set npts to actual number of  frames read.
 
 error=data
-fb=float(floor(data/2.^bitpart))
+fb=data
+fb=floor(data/2.^bitpart)
 error=abs(floor(data-fb*2.^bitpart))
-
-; Unwrap the fb
-for n_row=0,numrows-1 do begin
-    for n_col=cmin,cmax do begin
-        f = fb(*,n_col, n_row)
-        remove_jumps,f,float(2)^32
-        fb(*, n_col, n_row) = f
-    endfor
-endfor
 
 ;error calculation for the whole array
 for n_row=0,numrows-1 do begin
@@ -306,13 +294,25 @@ endfor
 xyouts, 6, 16, 'Stars have non-zero error aka. unlocked'
 xyouts, 6, 13, 'Diamonds have fb=0 aka. turned off on purpose in pidz_dead_off.', color=1
 device,/close
-
-; MFH - the writing of this block into the runfile was previously done
-;       wrongly.  This block is compliant.
-openw, 1, dotrun, /append
-printf,1,'<PIXEL_FLAG>'
-printf,1,'<FLAGS> '+string(pixel_flag)
-printf,1,'</PIXEL_FLAG>'
+openu, 1, dotrun
+line=''
+repeat readf,1,line until strmid(line,0,11) eq "</FRAMEACQ>"
+readf,1,line
+writeu,1,' '
+;readf,1,line
+writeu,1,'<PIXEL_FLAG>'
+;readf,1,line
+writeu,1,' '
+;readf,1,line
+;for i=0,numrows-1 do begin
+writeu,1,string(pixel_flag)
+;	readf,1,line
+;endfor
+writeu,1,' '
+;readf,1,line
+writeu,1,'</PIXEL_FLAG>'
+;readf,1,line
+writeu,1,' '
 close,1
 
 if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin

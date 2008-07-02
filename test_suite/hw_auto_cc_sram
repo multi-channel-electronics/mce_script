@@ -1,0 +1,100 @@
+#!/bin/bash
+
+file_name="hw_auto_cc_sram"
+
+#---------------------------------------------------------------
+# This test has 2 sections: traditional walking 1 and walking 0 tests.
+# The target is only to catch manufacturing shorts and opens on data and address lines of SRAMS.
+# walking 1 test:  
+#   1. write 0 to addr 0 
+#   2. write x55 to walking 1 addr locations
+#   3. for each walking 1 addr location: 
+#     a) readback 0x55 and compare, 
+#     b) write x0F to detect shorts between address lines.
+#   4. read back from addr 0
+# walking 0 test:  
+#   1. write -1 to addr FFFFF 
+#   2. write xAA to walking 0 addr locations
+#   3. for each waslking-0 address location
+#     a) read back 0xAA and compare.
+#     b) write 0x0F to detect shorts between address lines
+#   4. read back -1 from addr FFFF
+#---------------------------------------------------------------
+
+let address_zero_data=0
+let "walking_one_data=0x55555555"
+
+let address_ones_data=-1
+let "walking_zero_data=0x2aaaaaaa"
+
+let "fake_data=0x0000FFFF"
+
+#### walking 1 test ####
+mce_cmd -qpx wb cc sram_addr 0
+mce_cmd -qpx wb cc sram_data $address_zero_data
+
+a=1
+for i in `seq 0 19`; do
+  mce_cmd -qpx wb cc sram_addr $a
+  mce_cmd -qpx wb cc sram_data $walking_one_data
+  let "a <<= 1" 
+done
+
+# now read back and compare
+a=1
+for i in `seq 0 19`; do
+  mce_cmd -qpx wb cc sram_addr $a
+  results=`mce_cmd -qpx rb cc sram_data|awk '{print $3}'`
+  if [ $results != $walking_one_data ]; then
+    echo "$0 walking 1 test failed on address line $i"
+    exit 1
+  fi
+  mce_cmd -qpx wb cc sram_data $fake_data
+  let "a <<= 1" 
+done
+mce_cmd -qpx wb cc sram_addr 0
+results=`mce_cmd -qpx rb cc sram_data|awk '{print $3}'`
+if [ $results != $address_zero_data ]; then
+  echo "$0 walking 1 test failed with address line short to 0"
+  exit 1
+fi
+
+##### walking 0 test ####
+let "addr=2#11111111111111111111"
+mce_cmd -qpx wb cc sram_addr $addr
+mce_cmd -qpx wb cc sram_data $address_ones_data
+
+#let "a=2#11111111111111111110"
+b=1
+for i in `seq 0 19`; do
+  let "a = $b ^ 0x000FFFFF"
+  mce_cmd -qpx wb cc sram_addr $a
+  mce_cmd -qpx wb cc sram_data $walking_zero_data
+  let "b <<= 1" 
+done
+
+# now read back and compare
+#let "a=2#11111111111111111110"
+b=1
+for i in `seq 0 19`; do
+  let "a = $b ^ 0x000FFFFF"
+  mce_cmd -qpx wb cc sram_addr $a
+  results=`mce_cmd -qpx rb cc sram_data|awk '{print $3}'`
+  if [ $results != $walking_zero_data ]; then
+    echo "$0 walking 0 test failed on address line $i"
+    exit 1
+  fi
+  mce_cmd -qpx wb cc sram_data $fake_data
+  let "b <<= 1" 
+done
+
+let "addr=2#11111111111111111111"
+mce_cmd -qpx wb cc sram_addr $addr 
+results=`mce_cmd -qpx rb cc sram_data|awk '{print $3}'`
+if [ $results != $address_ones_data ]; then
+  echo "$0 walking 0 test failed with address line short to 0"
+  exit 1
+fi
+#echo "SRAM Test Passed."
+exit 0
+

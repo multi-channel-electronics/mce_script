@@ -1,4 +1,5 @@
-pro auto_setup_ramp_sq1_bias_plot, file_name,RC=rc,interactive=interactive,numrows=numrows
+pro auto_setup_ramp_sq1_bias_plot, file_name,RC=rc,interactive=interactive,numrows=numrows, $
+                                   acq_id=acq_id
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -8,10 +9,13 @@ pro auto_setup_ramp_sq1_bias_plot, file_name,RC=rc,interactive=interactive,numro
 
 common ramp_sq1_var
 
+;Init
+if not keyword_set(acq_id) then acq_id = 0
+
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
 
-;Comunication:
+;Communication:
 print,''
 print,'###########################################################################'
 print,'#5) The optional fifth step is to check the v-phi curves from sweeping    #'
@@ -31,6 +35,7 @@ logfile=string(file_name,format='(i10)')
 
 logfile=logfile+'/'+logfile+'.log'
 
+user_status = auto_setup_userword(rc)
 spawn,'ramp_sq1_bias '+file_name+' '+string(rc)+ ' >> /data/cryo/current_data/'+logfile,exit_status=status22
 if status22 ne 0 then begin
         print,''
@@ -49,8 +54,9 @@ readf, 3,  cd
 close, 3
 name_label = '/data/cryo' + '/' + cd + '/' + file_name 
 
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name,11)+'.run'
+rf = mas_runfile(full_name+'.run')
+loop_params = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
+reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, loop_params[2])
                                                                                                                                                              
 plot_file = folder + date + 'analysis/' +file_name + '.ps'
     
@@ -73,7 +79,7 @@ sa_bias = 0 * vmax * ma2uA  / ( RL* full_scale)
 
 !p.region=[0,0,0,0]         ;Plot region.
 
-readin=auto_setup_read_2d_ramp_s1(full_name,numrows=numrows)  ;Read in file
+readin=auto_setup_read_2d_ramp_s1(full_name)  ;Read in file
 
 ; Read labels, loop sizes, etc.
 
