@@ -35,7 +35,7 @@
 #---------------------------------------------------------------
 # Constants
 #---------------------------------------------------------------
-RESET_LENGTH=2
+RESET_LENGTH=5
 DATA_RUN_SIZE=200
 
 source $MAS_SCRIPT/mas_library.bash
@@ -232,7 +232,7 @@ while [ 1 ]; do
     autotest_lb=-2
 #    autotest_lub=-1
 #    autotest_ulb=1
-    autotest_ub=50 
+    autotest_ub=55
   #---------------------------------------------------------------
   elif [ $test_num -eq 8 ]; then
     # 'No' is a key word
