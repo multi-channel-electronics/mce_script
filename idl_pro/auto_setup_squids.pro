@@ -1,4 +1,4 @@
-pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,text=text,numrows=numrows,note=note,ramp_sa_bias=ramp_sa_bias,check_bias=check_bias,short=short
+pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,text=text,numrows=numrows,note=note,ramp_sa_bias=ramp_sa_bias,check_bias=check_bias,short=short,quiet=quiet
 
 ; Aug. 21, 2006, created by Elia Battistelli (EB)
 ; Mar.  6, 2008, MAS-ed by Matthew Hasselfield (MFH)
@@ -7,15 +7,19 @@ pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,te
 ;PRELIMINARY PROCEDURES: set the RC if not set among the rest
 ;----------------------------------------------------------------------------------------------------------
 
+if not keyword_set(quiet) then quiet = 0 else quiet = 1
 
 step1:
 
 ;COMUNICATION:
-print,''
-print,'##########################################################################################'
-print,'#1) The first step is to set data acquisition variables and other preliminary procedures #'
-print,'##########################################################################################'
-print,''
+if quiet eq 0 then begin
+   print,''
+   print,'##########################################################################################'
+   print,'#1) The first step is to set data acquisition variables and other preliminary procedures #'
+   print,'##########################################################################################'
+   print,''
+endif else $
+   print,'AUTO_SETUP initializing'
 
 ;CLOSE ALL OPEN FILES. IT HELPS AVOID ERRORS 
 close,/all
@@ -76,7 +80,12 @@ if not keyword_set(numrows) then $
 sq2slope = exp_config.sq2servo_slope[0]
 sq1slope = exp_config.sq1servo_slope[0]
 
-ramp_sq1_bias_run=0				;Set this to 1 to sweep the tes bias and look at squid v-phi response.
+;Set this to 1 to sweep the tes bias and look at squid v-phi response.
+ramp_sq1_bias_run=exp_config.sq1_ramp_tes_bias[0]
+
+;experiment.cfg setting may force a ramp_sa_bias.
+if not keyword_set(ramp_sa_bias) then ramp_sa_bias = exp_config.sa_ramp_bias[0]
+
 
 ;;TODO - *bias.init inputs should come from experiment.cfg
 
@@ -106,12 +115,14 @@ for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
 
 exp_config.config_rc = rc_enable
 
-
 ; Load squid biases from config file default parameters.
 
 def_sa_bias = exp_config.default_sa_bias
 sq2_bias = exp_config.default_sq2_bias
 sq1_bias = exp_config.default_sq1_bias
+
+; Turn flux-jumping off for tuning, though it shouldn't matter.
+exp_config.flux_jumping = 0
 
 ; Load default values into biases
 
@@ -181,11 +192,14 @@ for jj=0,n_elements(RCs)-1 do begin
 		if short eq 1 then goto, step4 else goto, step5
 	endif
 
-        print,''
-        print,'#################################################################'
-        print,'#            NOW SETTING COLUMNS OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
-        print,'#################################################################'
-        print,''
+        if quiet eq 0 then begin
+           print,''
+           print,'#################################################################'
+           print,'#            NOW SETTING COLUMNS OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
+           print,'#################################################################'
+           print,''
+        endif else $
+           print,'Processing rc'+strcompress(string(rc),/remove_all)
 
 	;----------------------------------------------------------------------------------------------------------
 	;SA setup: ramps the SA bias together with the fb and finds the best SA bias' and offsets channel by channel
@@ -193,7 +207,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	
 	step2:
 	
-        ssa_file_name=auto_setup_filename(rc=rc,directory=file_folder)
+        ssa_file_name=auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
 	if keyword_set(interactive) then begin
 		i1=dialog_message(['After some preliminary procedures (step 1), the auto_setup',$ 
@@ -233,7 +247,7 @@ for jj=0,n_elements(RCs)-1 do begin
         		exit,status=2
 		endif
 		
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,/ramp_bias,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id,quiet=quiet
 
 		if keyword_set(interactive) then begin
 			i2=dialog_message(['The auto_setup has found the bias and the offsets',$
@@ -284,7 +298,7 @@ for jj=0,n_elements(RCs)-1 do begin
                         exit,status=3
                 endif
 
-		auto_setup_ramp_sa_fb_plot_const_bias,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id,quiet=quiet
 
                 exp_config.config_adc_offset_all[0] = 0
                 exp_config.adc_offset_c(RC_indices) = SA_target
@@ -401,13 +415,13 @@ for jj=0,n_elements(RCs)-1 do begin
 	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
 	spawn,SA_feedback_string
 	
-        sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder)
+        sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
         auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
           interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
           ramp_start=exp_config.sq2_servo_flux_start[0], $
           ramp_count=exp_config.sq2_servo_flux_count[0], $
-          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp
+          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp,acq_id=acq_id
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -545,51 +559,80 @@ for jj=0,n_elements(RCs)-1 do begin
 	SQ2_feedback_string='echo -e "'+SQ2_feedback_string+'" > '+todays_folder+'sq2fb.init'
 	spawn,SQ2_feedback_string
        
-        sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder)
+        sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
-        if exp_config.config_fast_sq2 then begin
 
-            print, 'Using biasing address card (bac) to sq1servo each row separately.'
-            ; This block uses original sq1servo to get the full block of
-            ; ramps for all rows.
+        ; Here we either
+        ; a) servo each row of each column
+        ; b) servo a selected row from each column
+        ;
+        ; The first option is always used in fast_sq2 mode, but may
+        ; also be invoked with per-column sq2 during initial runs to
+        ; determine the representative row in each column.
+
+        if exp_config.config_fast_sq2[0] or exp_config.sq1_servo_all_rows then begin
+
+            ; This block uses either sq1servo or sq1servo_all to get
+            ; the full block of ramps for all rows.
 
             SQ2_feedback_full_array=lon64arr(numrows,8)
 
-            ;MFH - single servo!
-            auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
-              numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-              gain=exp_config.sq1servo_gain[rc-1], $
-              ramp_start=exp_config.sq1_servo_flux_start[0], $
-              ramp_count=exp_config.sq1_servo_flux_count[0], $
-              ramp_step=exp_config.sq1_servo_flux_step[0], $
-              /super_servo
+            if exp_config.config_fast_sq2[0] then begin
 
-            runfile = sq1_base_name+'_sq1servo.run'
-            
+                ; Super-servo, outputs a separate .bias file for each
+                ; row but produces only one data/.run file.
 
-            for sq1servorow=0,numrows-1 do begin
-;                sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC)+'_row'+string(sq1servorow),/remove_all)
-                sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
+                if quiet eq 0 then $
+                  print, 'Using biasing address card (bac) to sq1servo each row separately.'
 
-                ; Rewrite the row.init file, forcing all columns to this row.
-                row_init_string=''
-                for j=0,31 do begin
-                        row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
-                endfor
-                row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
-                spawn,row_init_string
-
-                bias_file = strcompress(sq1_base_name+'_sq1servo.r'+ $
-                                        string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
-  	
-		auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+                auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                   numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
-                  gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                  gain=exp_config.sq1servo_gain[rc-1], $
                   ramp_start=exp_config.sq1_servo_flux_start[0], $
                   ramp_count=exp_config.sq1_servo_flux_count[0], $
                   ramp_step=exp_config.sq1_servo_flux_step[0], $
-                  use_bias_file=bias_file, use_run_file=runfile
+                  /super_servo, acq_id=acq_id
 
+                runfile = sq1_base_name+'_sq1servo.run'
+
+            endif
+            
+
+            for sq1servorow=0,numrows-1 do begin
+
+                sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
+
+                if not exp_config.config_fast_sq2 then begin
+                    ; We have to call sq1servo with rows.init set
+
+                    row_init_string=''
+                    for j=0,31 do begin
+                        row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
+                    endfor
+                    row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
+                    spawn,row_init_string
+
+                    auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+                      numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                      gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                      ramp_start=exp_config.sq1_servo_flux_start[0], $
+                      ramp_count=exp_config.sq1_servo_flux_count[0], $
+                      ramp_step=exp_config.sq1_servo_flux_step[0]
+
+                endif else begin
+                    ; Fast sq2 equivalent: use data produced by the super_servo!
+                    bias_file = strcompress(sq1_base_name+'_sq1servo.r'+ $
+                                            string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
+                    
+                    auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
+                      numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                      gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
+                      ramp_start=exp_config.sq1_servo_flux_start[0], $
+                      ramp_count=exp_config.sq1_servo_flux_count[0], $
+                      ramp_step=exp_config.sq1_servo_flux_step[0], $
+                      use_bias_file=bias_file, use_run_file=runfile
+
+                endelse
 
                 SQ2_feedback_full_array(sq1servorow,*)=sq1_target(*)
 
@@ -611,7 +654,7 @@ for jj=0,n_elements(RCs)-1 do begin
 		endif
             endfor	
 
-; MFH - save all sq2fb points
+            ; Save all sq2fb points
             for j=0,n_elements(RC_indices)-1 do begin
                 sq2_rows = 41
                 c_ofs = RC_indices(j)*sq2_rows
@@ -623,19 +666,10 @@ for jj=0,n_elements(RCs)-1 do begin
                 sq1_target(j) = SQ2_feedback_full_array(exp_config.sq2_rows(RC_indices(j)),j)
             endfor
 
-
         endif else begin
             ; This block uses original sq1servo to
             ; lock on a specific row for each column
             
-            ; Rewrite the row.init file using the exp_config information.
-            row_init_string=''
-            for j=0,31 do begin
-                row_init_string=row_init_string+strcompress(string(exp_config.sq2_rows(j))+'\n',/remove_all)
-            endfor
-            row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
-            spawn,row_init_string
-
             ; Rewrite the rows.init file (FIXME)
             row_init_string=''
             for j=0,31 do begin
@@ -644,7 +678,6 @@ for jj=0,n_elements(RCs)-1 do begin
             row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
             spawn,row_init_string
 
-;            sq1_file_name=strcompress(file_folder+'/'+strtimesq1+'_RC'+string(RC),/remove_all)
             sq1_file_name=sq1_base_name
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
@@ -652,7 +685,7 @@ for jj=0,n_elements(RCs)-1 do begin
               gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
               ramp_start=exp_config.sq1_servo_flux_start[0], $
               ramp_count=exp_config.sq1_servo_flux_count[0], $
-              ramp_step=exp_config.sq1_servo_flux_step[0]
+              ramp_step=exp_config.sq1_servo_flux_step[0],acq_id=acq_id
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -720,11 +753,15 @@ for jj=0,n_elements(RCs)-1 do begin
         RC=RCs(jj)
         RC_indices = (RC-1)*8 + indgen(8)
 
-        print,''
-        print,'############################################################################'
-        print,'#            NOW SETTING SETTING ADC_OFFSET OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
-        print,'############################################################################'
-        print,''
+        if quiet eq 0 then begin
+           print,''
+           print,'############################################################################'
+           print,'#            NOW SETTING SETTING ADC_OFFSET OF READ-OUT CARD '+strcompress(string(RC),/remove_all)+'             #'
+           print,'############################################################################'
+           print,''
+        endif else $
+           print,'ADC offsets for rc'+strcompress(string(Rc),/remove_all)
+
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
@@ -751,10 +788,10 @@ for jj=0,n_elements(RCs)-1 do begin
                 exit,status=12
         endif
 
-        rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp')
+        rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp',acq_id=acq_id)
 
 	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
-          rows=exp_config.sq1ramp_plot_rows
+          rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
 	i10='Yes'
         if keyword_set(interactive) then begin
                 i10=dialog_message(['The auto_setup has found the the new',$
@@ -844,9 +881,10 @@ for jj=0,n_elements(RCs)-1 do begin
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
-        rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc')
+        rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc',acq_id=acq_id)
 
-	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive,numrows=numrows,rows=exp_config.sq1ramp_plot_rows
+	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive, $
+          numrows=numrows,rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
 
 
 	for j=0,7 do begin
@@ -882,9 +920,9 @@ for jj=0,n_elements(RCs)-1 do begin
                 	exit,status=16
 		endif
 
-                rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb')
+                rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb',acq_id=acq_id)
 
-		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows
+		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id
 	endif
 
 step6:
@@ -900,6 +938,7 @@ exp_config.servo_mode[0] = 3
 exp_config.servo_p = exp_config.default_servo_p
 exp_config.servo_i = exp_config.default_servo_i
 exp_config.servo_d = exp_config.default_servo_d
+exp_config.flux_jumping = exp_config.default_flux_jumping
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $
@@ -925,21 +964,24 @@ endif
 if n_elements(RCs) lt 4 then begin
 	for jj=0,n_elements(RCs)-1 do begin
         	RC=RCs(jj)
-                lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock')
+                lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock',acq_id=acq_id)
 
-		if keyword_set(text) then begin
-			auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,interactive=interactive
-		endif else begin
-			auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
-		endelse
+                auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
+                  interactive=interactive,acq_id=acq_id
+
 		step10:
 	endfor
 endif else begin
-        lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock')
+        lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock',acq_id=acq_id)
         RC=5
-        auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY,interactive=interactive
+        auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
+          interactive=interactive,acq_id=acq_id
 	step11:
 endelse
+
+; Run config one last time in *case* frametest plot changes to data
+; mode 4!!
+mce_make_config, params_file=exp_config_file, filename=config_mce_file, /run_now
 
 spawn,'cp -p '+config_mce_file+' '+todays_folder+c_filename+'_config_mce_auto_setup_'+current_data
 
@@ -963,15 +1005,19 @@ spawn,'ln -s '+todays_folder+c_filename+'.sqtune /data/cryo/last_squid_tune'
 spawn,'echo "'+current_data+'" > /data/cryo/last_squid_tune_name'
 spawn,'echo "'+string(time,format='(i10)')+'" >> /data/cryo/last_squid_tune_name'
 
-print,''
-print,'##########################################################'
-print,'# Auto-tuning of SQUIDs completed in '+current_data+'/'+string(time,format='(i10)')+' #'
-print,'##########################################################'
-print,''
-print,'#####################################################################'
-print,'# Congratulations, you have tuned '+strcompress(string(n_elements(RCs)*(33*8+16)),/REMOVE_ALL)+' SQUIDs in '+strcompress(string((systime(1,/utc)-time)/60.),/remove_all)+' minutes! #'
-print,'#####################################################################'
-print,''
+t_elapsed = systime(1,/utc)-time
+if quiet eq 0 then begin
+   print,''
+   print,'##########################################################'
+   print,'# Auto-tuning of SQUIDs completed in '+current_data+'/'+string(time,format='(i10)')+' #'
+   print,'##########################################################'
+   print,''
+   print,'#####################################################################'
+   print,'# Congratulations, you have tuned '+strcompress(string(n_elements(RCs)*(33*8+16)),/REMOVE_ALL)+' SQUIDs in '+strcompress(string((t_elapsed)/60.),/remove_all)+' minutes! #'
+   print,'#####################################################################'
+   print,''
+endif else $
+   print,'Tuning complete.  Time elapsed: '+t_elapsed+' seconds'
 
 exit,status=99
 ;stop

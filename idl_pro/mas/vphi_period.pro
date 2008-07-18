@@ -34,8 +34,13 @@ c = c / total((right_half - mean(right_half))^2)
 thresh = 0.5
 done = 0
 while not done do begin
-    comb = intarr(margin)
-    comb(where(c lt thresh)) = 1
+    comb = lonarr(margin)
+    idx = where(c lt thresh)
+    if idx[0] eq -1 then  begin
+       print, 'Curve is not wavy enough'
+       return,-1
+    endif
+    comb(idx) = 1
     
 ; For this comb to work we need:
 ;     ^_^_ at least

@@ -2,6 +2,8 @@
 
 source $MAS_SCRIPT/mas_library.bash
 
+expt=$MAS_DATA/experiment.cfg
+
 # This first command prints the bias levels and also checks that MCE
 # is responding
 echo -n "Reading TES biases: "
@@ -11,26 +13,39 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
-# Funny 'if' is so we can pipe output into mce_cmd.
+n_columns=`command_reply rb sq2 fb | wc -w`
+n_tes_bias=`command_reply rb tes bias | wc -w`
+
+rc_flags=( `mas_param -s $expt get hardware_rc` )
+
+# Funny 'if' is so we can pipe output into mce_cmd. Don't issue mce
+# commands inside this block!
 if [ "x" == "x" ]; then
 
     repeat_string "0" 41 "wb ac on_bias"
     repeat_string "0" 41 "wb ac off_bias"
     echo "wb ac enbl_mux 1"
     
-    n_columns=`command_reply rb sq2 fb | wc -w`
     repeat_string "0" $n_columns "wb sq2 fb"
     repeat_string "0" $n_columns "wb sq2 bias"
     repeat_string "0" $n_columns "wb sa fb"
     repeat_string "0" $n_columns "wb sa bias"
     repeat_string "0" $n_columns "wb sa offset"
     
-    n_tes_bias=`command_reply rb tes bias | wc -w`
     repeat_string "0" $n_tes_bias "wb tes bias"
     
     # Short wait and then turn off multi-plexing
-    sleep 0.2
+    echo "sleep 200000"
     echo "wb ac enbl_mux 0"
+
+    # Put ADC offset to zero or you can get MSB noise
+    for rc in 1 2 3 4; do
+	if [ "${rc_flags[$(( $rc - 1 ))]}" != "0" ]; then
+	    for c in `seq 0 7`; do
+		repeat_string "0" 41 "wb rc$rc adc_offset$c"
+	    done
+	fi
+    done
     
     # This sets sq1 feedback to constant; -8192 is 0 volts
     echo "wb rca servo_mode 0 0 0 0 0 0 0 0"

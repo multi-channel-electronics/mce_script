@@ -22,6 +22,9 @@ if [ "$#" -lt "2" ]; then
   echo
   echo "At the end of the script, the biases are returned to the values they had when the script was called."
   echo "Note that the file will be saved under the data directory."
+  echo ""
+  echo "To pass an observing log id to the registration program, set the variable "
+  echo "      export MAS_LOGID='observinglog.id=xxxx'"
   echo "----------------"
   exit 1
 fi
@@ -77,6 +80,12 @@ echo "Setting first bias and waiting $first_pause s; time between other points w
 bias_tess $start_bias
 sleep $first_pause
 
+# Help data mode into frame header...
+update_userword $n
+
+# Don't register the acq here, it's done in auto_iv or not at all.
+#acq_register $ct iv $datafile $total_bias "$MAS_LOGID"
+
 #Generate .run file
 mce_status >> $runfile
 
@@ -87,13 +96,8 @@ if [ "$?" != "0" ]; then
   exit 1
 fi
 
-# Remove existing biasfile
-[ -e $biasfile ] && rm $biasfile
-
 echo "<tes_bias>" >> $biasfile
 echo "Acquiring I-V curve into data file $datafile"
-
-acq_register $ct iv $datafile $total_bias ""
 
 script=$MAS_TEMP/ramp_tes_bias.scr
 [ -e $script ] && rm $script
@@ -107,6 +111,7 @@ else
     sleep_arg=""
 fi
 
+# This doesn't work, probably because mce_ramp chokes on negative values.
 # echo mce_ramp -M "acq_config $datafile rc$n" \
 #     -L $total_bias \
 #     -V $start_bias $bias_step \
@@ -125,7 +130,7 @@ echo "acq_config $datafile rc$n" > $script
 for i in `seq 0 $(( $total_bias - 1 ))`; do
    bias=$(( $start_bias + $i * $bias_step ))
    echo $bias >> $biasfile
-   echo "wb tes bias $bias $bias $bias"
+   repeat_string $bias $bias_lines "wb tes bias"
    if [ "$data_pause_us" -gt "0" ]; then
        echo "sleep $data_pause_us"
    fi

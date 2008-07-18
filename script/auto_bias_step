@@ -1,6 +1,5 @@
 #!/bin/bash
 
-## source /home/mce/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 
 AUTO_LOG=$MAS_DATA/auto_log.txt
@@ -18,7 +17,7 @@ echo "ARGS  : $SCRNAME : $@" | $LOGGER
 #Process arguments
 
 if [ "$#" != "2" ]; then
-    echo "Usage:     $SCRNAME <n_points> <note>"
+    echo "Usage:     $SCRNAME <n_points> <log_id>"
     echo $ERRPREF "wrong number of arguments" | $LOGGER
     exit 1
 fi
@@ -32,6 +31,13 @@ for bias in `seq 1 $n_bias`; do
     ACQ="bias_step_acq $bias s $n_frames"
     ACQ_TARGET=0
 
+    this_bias=`command_reply rra tes bias $(( $bias - 1 )) 1 `
+    if [ "$this_bias" -le "0" ]; then
+	echo "INFO  : $SCRNAME : '$ACQ' suppressed because line $bias reads $this_bias."
+	continue
+    fi
+
+    export MAS_LOGID="$note"
     $ACQ
     if [ "$?" != "$ACQ_TARGET" ]; then
 	echo $ERRPREF "'$ACQ' returned error!" | $LOGGER

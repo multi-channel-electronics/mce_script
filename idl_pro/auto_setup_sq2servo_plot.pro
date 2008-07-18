@@ -1,5 +1,6 @@
 pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain, $
-                             ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count
+                             ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count, $
+                             acq_id=acq_id, quiet=quiet
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq2servo_plot.pro 
@@ -10,10 +11,13 @@ pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interac
 
 common sq2_servo_var
 
+;Init
+if not keyword_set(acq_id) then acq_id = 0
+
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
 
-;Comunication:
+;Communication:
 print,''
 print,'#############################################################################'
 print,'#3) The third step is to run a closed loop on the SQ2 for RC'+strcompress(string(RC),/remove_all)+'.              #'
@@ -46,6 +50,7 @@ if not keyword_set(ramp_count) then begin
 endif
 
 ;Run the shell script:
+user_status = auto_setup_userword(rc)
 spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
   string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
   string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
@@ -65,9 +70,9 @@ full_name = '/data/cryo/current_data/' + file_name_sq2_servo
      
 ; Link and register
 rf = mas_runfile(full_name+'.run')
-loop_params_b = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop1 par1'),/extract))
-loop_params_f = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
-reg_status = auto_setup_register(ctime, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
+loop_params_b = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
+loop_params_f = mas_runparam(rf,'par_ramp','par_step loop2 par1',/long)
+reg_status = auto_setup_register(acq_id, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
                                                                                                                                                         
 ;Let's draw
 
