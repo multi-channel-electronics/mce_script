@@ -4,7 +4,8 @@
 ;
 
 function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range_in, $
-                   structure_only=structure_only,data_mode=data_mode,frame_info=frame_info, $
+                   structure_only=structure_only,data_mode=data_mode, $
+                   frame_info=frame_info, header_data=header_data, $
                    data2=data2,no_split=no_split,no_rescale=no_rescale, $
                    no_runfile=no_runfile,runfile_name=runfile_name
 
@@ -20,6 +21,7 @@ function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range_
 ;   structure_only does not load data, but does fill frame_info frame the first frame header.
 ;   data_mode      if specified, can be used to force a default bit splitting
 ;   frame_info     destination structure for frame data file information
+;   header_data    destination structure for header time-streams
 ;   data2          destination for lower bits of data in mixed data modes
 ;   no_runfile     do not attempt to process the runfile
 ;   runfile_name   use this runfile name instead of filename.run
@@ -34,8 +36,8 @@ allowed_headers = [6]
 ; Determine the header version using initial words
 ;
 
-prelim_count = 44   ; Might as well read a complete header, for now.
-prelim_data = lonarr(prelim_count)
+header_size = 43L
+prelim_data = lonarr(header_size)
 openr,data_lun,filename,/get_lun
 data_stat = fstat(data_lun)
 readu,data_lun,prelim_data
@@ -63,6 +65,7 @@ frame_info = create_struct( $
                             'num_rows_rep',header(3), $
                             'data_rate',   header(4), $
                             'num_rows',    header(9), $
+                            'ramp_address',header(8), $
                             'rc_present',  rc_present, $
                             'rc_count',    rc_count, $
                             'n_frames',    0L, $ ; place holder
@@ -72,7 +75,7 @@ frame_info = create_struct( $
                             'frame_size',  0L, $ ; place holder
                             'data_size',   0L, $ ; place holder
                             'footer_size', 1L, $
-                            'data_offset', 43L $
+                            'data_offset', header_size $
 )
 
 ;Calculate frame size and count, assuming 8 columns per card...
@@ -81,6 +84,11 @@ frame_info.frame_size = frame_info.data_offset + frame_info.footer_size + frame_
 frame_info.n_frames = long(data_stat.size / 4L / frame_info.frame_size)
 
 if keyword_set(structure_only) then return,0
+
+;Identify time-varying header fields of interest
+header_fields = [ 'frame_ctr', 'address0_ctr', 'ramp_value', 'sync_box_num' ];
+header_indices = [ 1, 5, 7, 10 ];
+n_header_indices = n_elements(header_indices)
 
 ; Use our own frame_range variable so as not to change the passed value.
 if not keyword_set(frame_range_in) then $
@@ -110,21 +118,38 @@ frame_info.n_frames=frame_range(1)-frame_range(0)+1L
 
 ; Open file and calculate seek deltas
 openr,data_lun,filename,/get_lun
-seek_start = long(frame_info.frame_size*frame_range(0) + frame_info.data_offset) * 4L
+seek_start = long(frame_info.frame_size*frame_range(0)) * 4L
 seek_delta = long(frame_info.frame_size) * 4L
 
 ; Maybe we have enough ram
 data = lonarr(frame_info.n_columns, frame_info.n_rows, frame_info.n_frames, /nozero)
 sample = lonarr(frame_info.n_columns, frame_info.n_rows, /nozero)
+header_data_x = lonarr(n_elements(header_indices), frame_info.n_frames, /nozero)
+header_sample = lonarr(max(header_indices) + 1)
 
 ; Read
 for i=0L,frame_range[1]-frame_range[0] do begin
-    point_lun,data_lun, seek_start + i*seek_delta
+    if n_header_indices gt 0 then begin
+        ; Read header
+        point_lun,data_lun, seek_start + i*seek_delta
+        readu,data_lun,header_sample
+        header_data_x[*,i] = header_sample[header_indices]
+    endif
+
+    ; Read signals
+    point_lun,data_lun, seek_start + frame_info.data_offset*4L + i*seek_delta 
     readu,data_lun,sample
     data(*,*,i) = sample
 endfor
 
 free_lun,data_lun
+
+; Construct the data_header structure
+if n_header_indices gt 0 then begin
+    header_data = create_struct(header_fields[0], reform(header_data_x[0,*]))
+    for i=1,n_header_indices-1 do $
+      header_data = create_struct(header_data, header_fields[i], reform(header_data_x[i,*]))
+endif
 
 ;
 ; Attempt to load the runfile
