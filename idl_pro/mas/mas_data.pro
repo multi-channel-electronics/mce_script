@@ -38,7 +38,7 @@ allowed_headers = [6]
 
 header_size = 43L
 prelim_data = lonarr(header_size)
-openr,data_lun,filename,/get_lun
+openr,data_lun,filename,/get_lun,/swap_if_big_endian
 data_stat = fstat(data_lun)
 readu,data_lun,prelim_data
 free_lun,data_lun
@@ -117,7 +117,7 @@ endif
 frame_info.n_frames=frame_range(1)-frame_range(0)+1L
 
 ; Open file and calculate seek deltas
-openr,data_lun,filename,/get_lun
+openr,data_lun,filename,/get_lun,/swap_if_big_endian
 seek_start = long(frame_info.frame_size*frame_range(0)) * 4L
 seek_delta = long(frame_info.frame_size) * 4L
 
