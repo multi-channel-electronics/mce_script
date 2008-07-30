@@ -2,6 +2,13 @@
 
 source $MAS_SCRIPT/mas_library.bash
 
+if [ "$1" != "no_reset" ]; then
+    echo "Resetting MCE..."
+    mce_reset_clean
+    echo "Setting current_data directory..."
+    set_directory
+fi
+
 echo "Setting SA and SQ2 biases to default values to pre-warm the SA board."
 
 expt=$MAS_DATA/experiment.cfg
