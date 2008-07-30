@@ -86,9 +86,9 @@ nsum = 48
 
 ;Default is A/D units.
 v_factor = 1./1000.
-v_units = ' ( x 1000 AD Units)'
+v_units = ' (AD Units/1000)'
 i_factor = 1./1000.
-i_units = ' ( x 1000 AD Units)'
+i_units = ' (AD Units/1000)'
 
 ;Converting SA_bias to current.
 vmax = 2500.  ; mV
@@ -299,10 +299,11 @@ endfor
 SA_target=target_half_point_ch_by_ch
 SA_fb_init=fb_half_point_ch_by_ch
 
-;final_sa_bias_ch_by_ch(2)=66000		;for testing purposes
-;SA_fb_init(3)=-5
+if keyword_set(ramp_bias) then begin
+    ;final_sa_bias_ch_by_ch(2)=66000		;for testing purposes
+    ;SA_fb_init(3)=-5
 
-for chan=0,7 do begin
+   for chan=0,7 do begin
 	if (final_sa_bias_ch_by_ch(chan) gt 65535) or (final_sa_bias_ch_by_ch(chan) le 0) then begin
                 if not keyword_set(quiet) then begin
                    print,' '
@@ -334,7 +335,8 @@ for chan=0,7 do begin
                 endelse
 		SA_fb_init(chan)=32000
 	endif
-endfor
+     endfor
+end
 
 file_name_sa_points=file_name+'_sa_points'
 plot_file = folder + 'analysis/' + file_name_sa_points + '.ps'
