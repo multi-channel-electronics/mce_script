@@ -1019,6 +1019,12 @@ if quiet eq 0 then begin
 endif else $
    print,'Tuning complete.  Time elapsed: '+t_elapsed+' seconds'
 
+print,'Hack in place to reconfig after short tuning!'
+if keyword_set(short) then begin
+   spawn,getenv('MAS_SCRIPT')+'auto_reconfig'
+endif
+
+
 exit,status=99
 ;stop
 
