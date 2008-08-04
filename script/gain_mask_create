@@ -1,0 +1,24 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+ctime=`print_ctime`
+dest=$MAS_DATA/${ctime}_mask.cfg
+
+# Find the last locktest file.
+ltn=( `cat /data/cryo/last_squid_tune_name` )
+ltf=( /data/cryo/${ltn[0]}/${ltn[1]}/*_RCs_lock.run )
+
+# Create the mask file and stack 3 other masks.
+gain_mask_extract /data/cryo/last_squid_tune tune_multilock $dest 0
+gain_mask_extract /data/cryo/last_squid_tune tune_squidoff $dest 1
+gain_mask_extract $ltf locktest $dest 1
+gain_mask_extract /data/cryo/last_iv_det_data iv $dest 1
+
+echo "# multi-lock included" >> $dest
+echo "# squid-off included" >> $dest
+echo "# locktest included" >> $dest
+echo "# iv cut_rec included" >> $dest
+
+# Apply the mask
+# $MAS_SCRIPT/gain_mask $dest

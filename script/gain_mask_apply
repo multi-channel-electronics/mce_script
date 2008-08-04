@@ -1,0 +1,35 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" != "1" ]; then
+   echo "Usage:   $0 <dead-dets-file>"
+   echo ""
+   echo "The detectors set to '1' in the dead-dets-file will have their servo gaini parameter set to 0, immediately."
+   exit 1
+fi
+
+TARGET='mce_cmd -q -x'
+TARGET='cat'
+
+maskfile=$1
+
+expfile=$MAS_DATA/experiment.cfg
+
+mask=( `mas_param -s $maskfile get mask` )
+n_rows=`mas_param -s $maskfile get n_rows`
+n_cols=`mas_param -s $maskfile get n_cols`
+
+{ for c in `seq 0 $(( $n_cols - 1 )) `; do
+    col_ofs=$(( $c * $n_rows ))
+    rc=$(( $c / 8 + 1 ))
+    chan=$(( $c % 8 ))
+    
+    for r in `seq 0 $(( $n_rows - 1 ))`; do
+	if [ "${mask[ $(( $col_ofs + $r )) ]}" != "0" ]; then
+	    echo wra rc$rc gaini$chan $r 0
+	fi
+    done
+done && echo "wb rca flx_lp_init 1"; } \
+    | $TARGET
+

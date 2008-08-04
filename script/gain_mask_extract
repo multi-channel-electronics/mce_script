@@ -1,0 +1,68 @@
+#!/bin/bash
+
+src=$1
+type=$2
+dest=$3
+keep=$4
+
+# Most flag lists apply to all 33 rows, but IV should not.
+rows=`seq 0 32`
+
+#e.g.
+#src=/data/cryo/20080802/1217743255/1217743255.sqtune
+#src=/data/cryo/last_iv_det_data
+#dest=~/test_mask.cfg
+#type=tune_multilock
+#type=tune_squidoff
+
+case $type in
+    tune_multilock)
+	block='SQUID'
+	key_pattern='Col%i_squid_multilock'
+	off_on="non-zero"
+	;;
+    tune_squidoff)
+	block='SQUID'
+	key_pattern='Col%i_squid_off_recommendation'
+	off_on="non-zero"
+	;;
+    locktest)
+	block='LOCKTEST_FLAG'
+	key_pattern='FLAGS_C%i'
+	off_on="zero"
+	;;
+    iv)
+	block='IV'
+	key_pattern='cut_rec_C%i'
+	off_on="non-zero"
+	rows=`seq 0 31`
+	;;
+esac
+
+# Copy a new mask file and get the structural params
+[ "$keep" != "1" ] || ! [ -e "$dest" ] && \
+    cp $MAS_TEMPLATE/blank_mask.cfg $dest
+
+nr=`mas_param -s $dest get n_rows`
+nc=`mas_param -s $dest get n_cols`
+mask=( `mas_param -s $dest get mask` )
+
+for c in `seq 0 31`; do
+    key=`printf "$key_pattern" $c`
+    flags=( `runfile_scan -f $src -b "$block" -k "$key"` )
+#    echo $c $key is ${flags[@]}
+    for i in $rows; do
+#	echo $i ${flags[$i]} ${mask[$(( $c * $nr + $i ))]}
+	off=$(( $c * $nr + $i ))
+	case "$off_on" in
+	    non-zero)
+		[ "${flags[$i]}" != "0" ] && mask[$off]=$(( ${mask[$off]} + 1 ))
+		;;
+	    zero)
+		[ "${flags[$i]}" == "0" ] && mask[$off]=$(( ${mask[$off]} + 1 ))
+	esac
+#	echo $i ${flags[$i]} ${mask[$(( $c * $nr + $i ))]}
+    done
+done
+
+mas_param -s $dest set mask ${mask[@]}
