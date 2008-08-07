@@ -773,7 +773,9 @@ device,/close
 if keyword_set(biasfile) then begin
 	if not_cut gt ncut_lim then begin
 		spawn, 'cp -fp '+outdir+'/tes_bias_recommended /data/cryo/'
-		spawn, 'cp -fp '+outdir+'/last_iv_det_data /data/cryo/'
+                det_data_link = '/data/cryo/last_iv_det_data'
+                spawn, 'rm -f ' + det_data_link
+		spawn, 'ln -s '+outdir + '/last_iv_det_data ' + det_data_link
 	endif
 	if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
 		spawn, 'cp -rf '+outdir+' /misc/mce_plots/'
