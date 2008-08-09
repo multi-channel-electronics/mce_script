@@ -1,5 +1,6 @@
 pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive,numrows=numrows, $
-                               acq_id=acq_id, quiet=quiet,ramp_bias=ramp_bias
+                               acq_id=acq_id, quiet=quiet,ramp_bias=ramp_bias, $
+                               poster=poster
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from ramp_sa_fb_plot.pro 
@@ -380,14 +381,17 @@ for j=0, 7 do begin
 endfor
 device,/close
 
-;spawn,'scp '+plot_file+' act:act!now@lancelot:/home// '+plot_file+' 
-
-if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-        if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-                then spawn, 'mkdir /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+plot_file+' /misc/mce_plots/'+ctime
-        spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+if keyword_set(poster) then begin
+   f = strsplit(plot_file,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
+   
+;; if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
+;;         if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
+;;                 then spawn, 'mkdir /misc/mce_plots/'+ctime
+;;         spawn, 'cp -rf '+plot_file+' /misc/mce_plots/'+ctime
+;;         spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+;; endif
 
 if keyword_set(interactive) then spawn, 'ggv '+plot_file+' &'
 

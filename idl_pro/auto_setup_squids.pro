@@ -45,6 +45,7 @@ file_folder=string(time,format='(i10)')					;c time in a string
 spawn,'mkdir '+todays_folder+file_folder				;folder where to store all the data files
 spawn,'mkdir '+todays_folder+'analysis/'+file_folder			;folder where to store all the plots
 c_filename=file_folder+'/'+file_folder
+auto_post_plot,poster,/open,prefix=file_folder,dir=todays_folder+'analysis/'+file_folder
 
 ;DEFAULT read-out CARD
 if not keyword_set(RCs) then begin
@@ -247,7 +248,8 @@ for jj=0,n_elements(RCs)-1 do begin
         		exit,status=2
 		endif
 		
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,/ramp_bias,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id,quiet=quiet
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,/ramp_bias,RC=rc,interactive=interactive, $
+                  numrows=numrows,acq_id=acq_id,quiet=quiet,poster=poster
 
 		if keyword_set(interactive) then begin
 			i2=dialog_message(['The auto_setup has found the bias and the offsets',$
@@ -298,7 +300,8 @@ for jj=0,n_elements(RCs)-1 do begin
                         exit,status=3
                 endif
 
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id,quiet=quiet
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive, $
+                  numrows=numrows,acq_id=acq_id,quiet=quiet,poster=poster
 
                 exp_config.config_adc_offset_all[0] = 0
                 exp_config.adc_offset_c(RC_indices) = SA_target
@@ -421,7 +424,8 @@ for jj=0,n_elements(RCs)-1 do begin
           interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
           ramp_start=exp_config.sq2_servo_flux_start[0], $
           ramp_count=exp_config.sq2_servo_flux_count[0], $
-          ramp_step=exp_config.sq2_servo_flux_step[0],/lockamp,acq_id=acq_id
+          ramp_step=exp_config.sq2_servo_flux_step[0], $
+          /lockamp,acq_id=acq_id,poster=poster
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -591,7 +595,7 @@ for jj=0,n_elements(RCs)-1 do begin
                   ramp_start=exp_config.sq1_servo_flux_start[0], $
                   ramp_count=exp_config.sq1_servo_flux_count[0], $
                   ramp_step=exp_config.sq1_servo_flux_step[0], $
-                  /super_servo, acq_id=acq_id
+                  /super_servo, acq_id=acq_id, poster=poster
 
                 runfile = sq1_base_name+'_sq1servo.run'
 
@@ -617,7 +621,8 @@ for jj=0,n_elements(RCs)-1 do begin
                       gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
                       ramp_start=exp_config.sq1_servo_flux_start[0], $
                       ramp_count=exp_config.sq1_servo_flux_count[0], $
-                      ramp_step=exp_config.sq1_servo_flux_step[0]
+                      ramp_step=exp_config.sq1_servo_flux_step[0], $
+                      poster=poster
 
                 endif else begin
                     ; Fast sq2 equivalent: use data produced by the super_servo!
@@ -630,7 +635,8 @@ for jj=0,n_elements(RCs)-1 do begin
                       ramp_start=exp_config.sq1_servo_flux_start[0], $
                       ramp_count=exp_config.sq1_servo_flux_count[0], $
                       ramp_step=exp_config.sq1_servo_flux_step[0], $
-                      use_bias_file=bias_file, use_run_file=runfile
+                      use_bias_file=bias_file, use_run_file=runfile, $
+                      poster=poster
 
                 endelse
 
@@ -685,7 +691,8 @@ for jj=0,n_elements(RCs)-1 do begin
               gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
               ramp_start=exp_config.sq1_servo_flux_start[0], $
               ramp_count=exp_config.sq1_servo_flux_count[0], $
-              ramp_step=exp_config.sq1_servo_flux_step[0],acq_id=acq_id
+              ramp_step=exp_config.sq1_servo_flux_step[0],acq_id=acq_id, $
+              storage=storage
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -791,7 +798,7 @@ for jj=0,n_elements(RCs)-1 do begin
         rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp',acq_id=acq_id)
 
 	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
-          rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
+          rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id,poster=poster
 	i10='Yes'
         if keyword_set(interactive) then begin
                 i10=dialog_message(['The auto_setup has found the the new',$
@@ -967,7 +974,7 @@ if n_elements(RCs) lt 4 then begin
                 lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock',acq_id=acq_id)
 
                 auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
-                  interactive=interactive,acq_id=acq_id
+                  interactive=interactive,acq_id=acq_id,poster=poster
 
 		step10:
 	endfor
@@ -975,7 +982,7 @@ endif else begin
         lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock',acq_id=acq_id)
         RC=5
         auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
-          interactive=interactive,acq_id=acq_id
+          interactive=interactive,acq_id=acq_id,poster=poster
 	step11:
 endelse
 
@@ -1024,10 +1031,12 @@ if keyword_set(short) then begin
    spawn,getenv('MAS_SCRIPT')+'auto_reconfig'
 endif
 
+auto_post_plot,poster,/close
 
 exit,status=99
 ;stop
 
 theend:
+exit,status=1
 
 end

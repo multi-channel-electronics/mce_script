@@ -1,5 +1,5 @@
 pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts, $
-                               acq_id=acq_id
+                               acq_id=acq_id,poster=poster
 
 ;Init
 if not keyword_set(acq_id) then acq_id = 0
@@ -153,8 +153,6 @@ endelse
 
 pixel_flag_name=plot_name+'_pixel_flag.ps'
 plot_name = plot_name + '.ps'
-
-print, plot_name
 
 line=''
 ;repeat readf,1,line until strmid(line,4,9) eq "data_mode"
@@ -319,15 +317,20 @@ endfor
 printf,1,'</LOCKTEST_FLAG>'
 close,1
 
-if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-        if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-                then spawn, 'mkdir /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+plot_name+' /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+pixel_flag_name+' /misc/mce_plots/'+ctime
-        spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+if keyword_set(poster) then begin
+   f = strsplit(plot_name,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
+   f = strsplit(pixel_flag_name,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
 
-
+;; if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
+;;         if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
+;;                 then spawn, 'mkdir /misc/mce_plots/'+ctime
+;;         spawn, 'cp -rf '+plot_name+' /misc/mce_plots/'+ctime
+;;         spawn, 'cp -rf '+pixel_flag_name+' /misc/mce_plots/'+ctime
+;;         spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+;; endif
 
 if keyword_set(interactive) then spawn,'ggv '+plot_name+' &'
 
