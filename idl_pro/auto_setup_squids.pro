@@ -692,7 +692,7 @@ for jj=0,n_elements(RCs)-1 do begin
               ramp_start=exp_config.sq1_servo_flux_start[0], $
               ramp_count=exp_config.sq1_servo_flux_count[0], $
               ramp_step=exp_config.sq1_servo_flux_step[0],acq_id=acq_id, $
-              storage=storage
+              poster=poster
 
             if keyword_set(interactive) then begin
                 i7=dialog_message(['The auto_setup has found the SQ2 fb',$
@@ -1025,11 +1025,6 @@ if quiet eq 0 then begin
    print,''
 endif else $
    print,'Tuning complete.  Time elapsed: '+t_elapsed+' seconds'
-
-print,'Hack in place to reconfig after short tuning!'
-if keyword_set(short) then begin
-   spawn,getenv('MAS_SCRIPT')+'auto_reconfig'
-endif
 
 auto_post_plot,poster,/close
 
