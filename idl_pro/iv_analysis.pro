@@ -1,6 +1,6 @@
 pro iv_analysis, filename=filename, DACbias=DACbias, plotgen=plotgen, filtered=filtered, ascii=ascii, $
                  datagen=datagen, biasfile=biasfile, setpntgen=setpntgen, $
-                 array_file=array_file, array_name=array_name
+                 array_file=array_file, array_name=array_name,post_plot=post_plot
 
 ;	Analyzes I-V curve data and generates a summary plot, with the options of additional plots and data files.
 ;		Input files are an MCE ramp_tes_bias data file with 33 rows
@@ -150,6 +150,11 @@ endif
 print, 'Data file path: '+filename
 outdir = filename+'_data'
 file_mkdir, outdir
+
+if keyword_set(post_plot) then begin
+   f = strsplit(outdir,'/',/extract)
+   auto_post_plot,poster,/open,dir=outdir,prefix=f[n_elements(f)-1]
+endif
 
 !path = '/home/mce/idl_pro/histogauss:'+!path
 
@@ -314,6 +319,7 @@ for j=0,32 do begin
 				device, /color
 				TVLCT, [0,255,0,0,255,0,255,150], [0,0,255,0,0,255,255,0], [0,0,0,255,255,255,0,150]
 				plotfile='IV_plots_C'+mcol+'.ps'
+                                if keyword_set(post_plot) then auto_post_plot,poster,filename=plotfile
 				device, FILENAME = outdir+dirsl+plotfile
 				device, YOFFSET = 2, YSIZE = 24
 				plotstart=1
@@ -418,6 +424,7 @@ for j=0,32 do begin
 				device, /color
 				TVLCT, [0,255,0,0,255,0,255], [0,0,255,0,0,255,255], [0,0,0,255,255,255,0]
 				plotfile='IV_plots_C'+mcol+'.ps'
+                                if keyword_set(post_plot) then auto_post_plot,poster,filename=plotfile
 				device, FILENAME = outdir+dirsl+plotfile
 				device, YOFFSET = 2, YSIZE = 24
 				plotstart=1
@@ -479,6 +486,7 @@ set_plot, 'ps'
 device, /color
 TVLCT, [0,255,0,0,255,0,255,150], [0,0,255,0,0,255,150,100], [0,0,0,255,255,255,0,100]
 plotfile='IV_summary.ps'
+if keyword_set(post_plot) then auto_post_plot,poster,filename=plotfile
 device, FILENAME = outdir+dirsl+plotfile
 device, YOFFSET = 2, YSIZE = 24
 !p.multi=[0,1,3]
@@ -784,6 +792,7 @@ if keyword_set(biasfile) then begin
 	endif
 endif
 	
+auto_post_plot,poster,/close
 
 ;stop
 
