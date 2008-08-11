@@ -7,6 +7,8 @@ init_links=/etc/rc2.d/S90expresspost
 
 install:
 	install -m u+rwx,g+rwxs,o+rx --owner=mce --group=mce \
+		 -d $(source_dest)
+	install -m u+rwx,g+rwxs,o+rx --owner=mce --group=mce \
 		 $(source) $(source_dest)
 	install -m  u+rwx,g+rwxs,o+rx --owner=mce --group=mce \
 		 $(init) $(init_dest)
