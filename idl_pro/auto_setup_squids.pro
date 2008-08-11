@@ -798,7 +798,7 @@ for jj=0,n_elements(RCs)-1 do begin
         rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp',acq_id=acq_id)
 
 	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
-          rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id,poster=poster
+          rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
 	i10='Yes'
         if keyword_set(interactive) then begin
                 i10=dialog_message(['The auto_setup has found the the new',$
@@ -891,7 +891,7 @@ for jj=0,n_elements(RCs)-1 do begin
         rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc',acq_id=acq_id)
 
 	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive, $
-          numrows=numrows,rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
+          numrows=numrows,rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id,poster=poster
 
 
 	for j=0,7 do begin
