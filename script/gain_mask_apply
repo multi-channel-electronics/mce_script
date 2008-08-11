@@ -9,8 +9,8 @@ if [ "$#" != "1" ]; then
    exit 1
 fi
 
-TARGET='mce_cmd -q -x'
-TARGET='cat'
+TARGET='mce_cmd -q -r'
+# TARGET='cat'
 
 maskfile=$1
 
