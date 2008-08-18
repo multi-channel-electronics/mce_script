@@ -103,7 +103,7 @@ endif else begin
     psat_cut = [1.,20.] ;	0: in range = good detector 1: out of range = bad detector in the data .run files
     ncut_lim = 500
 
-    good_shunt_range = [ 0.0002, 0.0015 ]
+    good_shunt_range = [ 0.0002, 0.003 ]
     default_Rshunt = 0.0007
     use_jshuntfile = 1
 
@@ -221,11 +221,15 @@ endif else begin
 endelse
 
 ;print, 'Shunt Path: '+jshuntfile
-good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_shunt_range[1])
+good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_shunt_range[1], complement=bad_sh_rows)
 ;print, 'Rows with shunts between 0.2-1.0 mOhms from SRDP: ', good_sh_rows
 
-no_srdp_shunt=where(Rshunt_arr eq 0)
-Rshunt_arr(no_srdp_shunt) = default_Rshunt
+;no_srdp_shunt=where(Rshunt_arr eq 0)
+;Rshunt_arr(no_srdp_shunt) = default_Rshunt
+
+; Revised to work with AR3 bad SRDP shunt values set to -1 in johnson_res.dat files
+if array_name eq 'AR3' and MuxColumn lt 24 then Rshunt_arr(bad_sh_rows) = 0.002 else Rshunt_arr(bad_sh_rows) = default_Rshunt 
+no_srdp_shunt = bad_sh_rows
 
 if keyword_set(R_oper) then R_oper = R_oper $
 		else R_oper = 0.5
