@@ -183,6 +183,8 @@ numpts = n_elements(raw_bias)
 data = mas_data(filename,frame_info=frame_info)
 numpts = frame_info.n_frames
 n_columns = n_elements(data(*,0,0))
+rf = mas_runfile(filename+'.run')
+data_mode = mas_runparam(rf,'HEADER','RB rc1 data_mode',/long)
 
 good_ivs=lonarr(n_columns)
 
@@ -255,7 +257,21 @@ for j=0,32 do begin
 
 ;	stop
 	; Look for giant bit jumps in the data of 2^bitmax then 2^(bitmax-1) bits and remove them
-	if keyword_set(filtered) then bitmax = 24 else bitmax = 18
+        case data_mode[0] of
+           1: bitmax = 18
+           9: bitmax = 24
+           10: bitmax = 28
+           else: print,'Unrecognized data mode:',data_mode
+        endcase
+;; 	if keyword_set(filtered) then begin
+;;            if data_bitmax = 24 else bitmax = 18
+
+;!MFH
+        if 0 eq 1 then begin
+           bitmax = bitmax - 1
+           raw_array[1,*] = (raw_array[1,*] mod 2d^bitmax + 2d^bitmax) mod 2d^bitmax
+           raw_array[1,*] = remove_jumps(raw_array[1,*], 2d^bitmax)
+        endif else begin
 	for m=0,1 do begin
 		up = where(raw_array_der(1,0:numpts-2) gt 2.^(bitmax-1-m)*1.5 and raw_array_der(1,0:numpts-2) lt 2.^(bitmax-m)*1.5)
 		down = where(raw_array_der(1,0:numpts-2) lt 2.^(bitmax-1-m)*(-1.5) and raw_array_der(1,0:numpts-2) gt 2.^(bitmax-m)*(-1.5))
@@ -263,7 +279,9 @@ for j=0,32 do begin
 			for p=0,n_elements(up)-1 do raw_array(1,0:up(p))=raw_array(1,0:up(p))+2.^(bitmax-m)
 		if down(0) ne -1 then $
 			for p=0,n_elements(down)-1 do raw_array(1,0:down(p))=raw_array(1,0:down(p))-2.^(bitmax-m)
-	endfor
+        endfor
+        endelse
+;MFH!
 
 ;	bitmax = 18
 ;	for m=0,1 do begin
@@ -785,14 +803,14 @@ if keyword_set(biasfile) then begin
                 spawn, 'rm -f ' + det_data_link
 		spawn, 'ln -s '+outdir + '/last_iv_det_data ' + det_data_link
 	endif
-	if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-		spawn, 'cp -rf '+outdir+' /misc/mce_plots/'
-		dir_name = strsplit(outdir,'/',/extract)
-		spawn, 'chgrp -R mceplots /misc/mce_plots/'+dir_name(n_elements(dir_name)-1)
-	endif
+;; 	if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
+;; 		spawn, 'cp -rf '+outdir+' /misc/mce_plots/'
+;; 		dir_name = strsplit(outdir,'/',/extract)
+;; 		spawn, 'chgrp -R mceplots /misc/mce_plots/'+dir_name(n_elements(dir_name)-1)
+;; 	endif
 endif
 	
-auto_post_plot,poster,/close
+if keyword_set(post_plot) then auto_post_plot,poster,/close
 
 ;stop
 
