@@ -916,7 +916,8 @@ for jj=0,n_elements(RCs)-1 do begin
                 endfor
       	endfor
 
-	if ramp_sq1_bias_run eq 1 then begin
+        ; Only do rampc if it's a full tuning.
+	if ramp_sq1_bias_run eq 1 and not keyword_set(short) then begin
 		spawn,config_mce_file + ' >> '+todays_folder+c_filename+'.log',exit_status=status16
                 if status16 ne 0 then begin
                         print,''
