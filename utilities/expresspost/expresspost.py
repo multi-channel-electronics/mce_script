@@ -117,16 +117,25 @@ class Rsyncer:
     def __init__(self, dest):
         self.dest = dest
 
-    def Sync(self, sources, suffix):
+    def Sync(self, sources, suffix, extra_permissions=None):
         full_dest = self.dest + '/' + suffix
         args = ['rsync', '-e', 'ssh -i /home/mce/.ssh/id_rsa', '-uvzr']
         args.extend(sources)
         args.append(full_dest)
 
         err = os.spawnv(os.P_WAIT, '/usr/bin/rsync', args)
-        print 'spawn returned %i' % err
         if (err != 0):
             print 'rsync didn\'t like: ', args
+            return
+
+        # split dest into host and folder...
+        if extra_permissions != None:
+            host, folder = full_dest.split(':')
+            argstr = 'ssh -i /home/mce/.ssh/id_rsa %s chmod %s %s' % \
+                (host, extra_permissions, folder)
+            err = os.spawnv(os.P_WAIT, '/usr/bin/ssh', argstr.split())
+            if (err != 0):
+                print 'ssh didn\'t like: ', argstr
         
 
 def process_options():
@@ -135,7 +144,7 @@ def process_options():
     opts.add_option('--dest-location', '-d')
     opts.add_option('--daemon', default=1, type='int')
     opts.add_option('--file-spec', '-f', default="archive_req")
-    opts.add_option('--aggression', '-a', default=1)
+    opts.add_option('--aggression', '-a', type='int', default=1)
     opts.add_option('--compress', '-z', default=1)
 
     (op, ar) = opts.parse_args()
@@ -199,7 +208,7 @@ def main():
                     (op.aggression >=1 and a.state == ListState.open):
                 ready_set = a.GetReadyFiles()
                 if ready_set != set():
-                    r.Sync(a.FullPath(ready_set), a.prefix)
+                    r.Sync(a.FullPath(ready_set), a.prefix, extra_permissions='g+w')
                     a.MarkProcessed(ready_set)
 
         # Yawn.
