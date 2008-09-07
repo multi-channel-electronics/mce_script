@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <linux/types.h>
 
+#define RAMP_AMP 6000
+
 #define FILTER_GAIN 1218.
 int main(int argc, char **argv)
 {
@@ -38,9 +40,9 @@ int main(int argc, char **argv)
 	
 	__u32 data[4096];
 	
-	__u32 mode_mask = 0xffffff00;
+	__u32 mode_mask = 0xffffff80;
 	__u32 mode_sign = 0x80000000;
-	double rescale = 1./256.;
+	double rescale = 1./128. * 8;
 
 	int first = 1;
 	int offset = 43;
@@ -86,7 +88,7 @@ int main(int argc, char **argv)
 	}
 
 	for (i=0; i<count; i++) {
-		int x = (((data_max[i] - data_min[i])) > 8000.);
+		int x = (((data_max[i] - data_min[i])) > RAMP_AMP);
 		if (x) {
 			printf("Ramper? %i %i = r%02ic%02i   %lf to %lf\n",
 			       x,
