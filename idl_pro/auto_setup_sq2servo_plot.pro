@@ -1,6 +1,7 @@
 pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interactive,SLOPE=slope,lockamp=lockamp,gain=gain, $
                              ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count, $
-                             acq_id=acq_id, quiet=quiet, poster=poster
+                             bias_start=bias_start, bias_step=bias_step, bias_count=bias_count, $
+                             acq_id=acq_id, quiet=quiet, poster=poster, no_analysis=no_analysis
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq2servo_plot.pro 
@@ -39,7 +40,7 @@ logfile=ctime+'/'+ctime+'.log'
 if not keyword_set(gain) then gain=1./50.
 ;if RC eq 1 then gain=1./5.
 
-print,'Hardcoding for sq2 fb DAC range!!'
+;print,'Hardcoding for sq2 fb DAC range!!'
 dac_range=65536
 
 ; ramp_count is the parameter that will override the defaults.
@@ -49,12 +50,23 @@ if not keyword_set(ramp_count) then begin
     ramp_count=400
 endif
 
-;Run the shell script:
+;Run the servo program
 user_status = auto_setup_userword(rc)
-spawn,'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
-  string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
-  string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
-  ' >> /data/cryo/current_data/'+logfile,exit_status=status7
+if keyword_set(bias_count) then begin
+    ; Ramp the SQ2 bias as well as the SQ2 FB
+    spawn_str = 'sq2servo '+file_name_sq2_servo+' '+ $
+      string(bias_start)+' '+string(bias_step)+' '+string(bias_count)+' '+ $
+      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+      string(rc)+' '+string(target)+' '+string(gain)+' 0'+ $
+      ' >> /data/cryo/current_data/'+logfile
+endif else begin
+    ; Ramp the SQ2 FB without changing the SQ2 biases.
+    spawn_str = 'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
+      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+      string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
+      ' >> /data/cryo/current_data/'+logfile
+endelse
+spawn,spawn_str,exit_status=status7
 
 if status7 ne 0 then begin
         print,''
@@ -74,59 +86,19 @@ loop_params_b = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
 loop_params_f = mas_runparam(rf,'par_ramp','par_step loop2 par1',/long)
 reg_status = auto_setup_register(acq_id, 'tune_servo', full_name, loop_params_b[2]*loop_params_f[2]) 
                                                                                                                                                         
-;Let's draw
+; END ACQUISITION
 
-set_plot, 'ps'
+; BEGIN ANALYSIS AND PLOTTING
 
-file_out = '/data/cryo/current_data/analysis/' + file_name_sq2_servo + '.ps'
+; Rename the loop parameters.
 
-device, filename=file_out, /landscape
+sq2_bias = loop_params_b[0]
+sq2_bstep = loop_params_b[1]
+n_bias = loop_params_b[2]
 
-
-; Read ramp parameters from runfile
-
-openr,1,full_name+'.run'
-line=""
-
-repeat readf,1,line until strmid(line,0,10) eq "<par_ramp>"
-
-name=''
-par=''
-first=''
-second=''
-
-readf,1,par
-;print, par ;TEST
-readf,1,first
-readf,1,first
-firstarr=strsplit(first,/extract)
-first=(firstarr(3))
-;print, first ;TEST
-readf,1,name
-namearr=strsplit(name,/extract)
-start_1st=fix(namearr(3))
-step_1st=fix(namearr(4))
-n_1st=fix(namearr(5))
-readf,1,second
-readf,1,second
-secondarr=strsplit(second,/extract)
-second=(secondarr(3))
-;print, second ;TEST
-readf,1,name
-namearr=strsplit(name,/extract)
-start_2nd=fix(namearr(3))
-step_2nd=fix(namearr(4))
-n_2nd=fix(namearr(5))
-
-sq2_bias=start_1st
-sq2_bstep=step_1st
-n_bias=n_1st
-sq2_fb=start_2nd
-sq2_fb_s=step_2nd
-npts=n_2nd
-close,1
-
-; done reading loop parameters from runfile
+sq2_fb = loop_params_f[0]
+sq2_fb_s = loop_params_f[1]
+npts = loop_params_f[2]
 
 
 r0=fltarr(npts,8)
@@ -138,20 +110,24 @@ values = fltarr(16)
 
 ; Read sq2servo output from .bias file
 
-openr,1,full_name+'.bias'
-readf, 1, line
-
-for n=0, npts-1 do begin
-	readf, 1, line
+openr,lun,/get_lun,full_name+'.bias'
+line = ''
+readf,lun, line
+for i=0, npts-1 do begin
+	readf,lun, line
 	data=strmid(line, 0)
 	reads,data, values
-	r1[n,*]=values[0:7]
-	fb1[n,*]=values[8:15]
+	r1[i,*]=values[0:7]
+	fb1[i,*]=values[8:15]
 endfor
-
-close, 1
+free_lun,lun
 
 sq2_sweep = (sq2_fb + findgen(npts)*sq2_fb_s) /1000.
+;Let's draw
+
+set_plot, 'ps'
+file_out = '/data/cryo/current_data/analysis/' + file_name_sq2_servo + '.ps'
+device, filename=file_out, /landscape
 !p.multi=[0,2,4]
 
 for j=0,7 do begin
@@ -177,6 +153,10 @@ for j=0,7 do begin
 endfor  
 
 device, /close
+
+
+; ANALYSIS REALLY STARTS HERE...
+if keyword_set(no_analysis) then return
 
 ;spawn,'ggv '+file_out+' &';run the ggv to see the plot file (commented in the auto_setup version)
 
@@ -253,12 +233,6 @@ for chan=0,7 do begin
                 print,format='(i4, i31, i12)',chan, $
                   target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
 
-;               print,'Channel:',chan
-; 		print,'target  @ half point=',target_half_point_ch_by_ch(chan)
-; 		print,'sq2_feedback   @ half point=',fb_half_point_ch_by_ch(chan)	
-; 	;print,' '
-; 	print,'###########################################################################'
-; 	;print,' '
 ;stop
 endfor
 
@@ -284,7 +258,6 @@ for chan=0,7 do begin
 endfor
 
 !p.multi=[0,2,4]
-
 
 file_name_sq2_points=file_name+'_sq2_points'
 plot_file = '/data/cryo/current_data/'+'analysis/' + file_name_sq2_points + '.ps'
@@ -317,13 +290,6 @@ if keyword_set(poster) then begin
    f = strsplit(plot_file,'/',/extract)
    auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
-
-;; if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-;;         if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-;; 		then spawn, 'mkdir /misc/mce_plots/'+ctime
-;;         spawn, 'cp -rf '+plot_file+' /misc/mce_plots/'+ctime
-;;         spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
-;; endif
 
 if keyword_set(interactive) then spawn, 'ggv '+plot_file+' &'
 

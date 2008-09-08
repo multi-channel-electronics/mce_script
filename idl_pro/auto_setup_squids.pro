@@ -377,15 +377,29 @@ for jj=0,n_elements(RCs)-1 do begin
 	        i4='Yes'
 	endelse
 	
-	common sq2_servo_var,SQ2_target,SQ2_feedback,file_out
-	
-	;BEFORE STARTING THE SQ2 SETUP WE HAVE TO RESET TO THE INITIAL VALUES ALL THE SETTINGS
 
+;SQ2 servo block
+
+	common sq2_servo_var,SQ2_target,SQ2_feedback,file_out
+
+	;Sets the initial SA fb (found in the previous step or set to mid-range) for the SQ2 servo
+	;SA_feedback_file=lonarr(32)
+	SA_feedback_file(*)=32000
+        SA_feedback_file[RC_indices] = SA_fb_init
+
+        SA_feedback_string=''
+	for i=0,31 do begin
+		SA_feedback_string=SA_feedback_string+strcompress(string(SA_feedback_file(i))+'\n',/remove_all)
+	endfor
+	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
+	spawn,SA_feedback_string
+	
+        
+        ; Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
-        exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
-	; Turn off S1 SQUIDs to make SQ2 measurement less biased  2008/04/06 JWA MDN
         exp_config.sq1_bias = 0	
+        exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -401,31 +415,35 @@ for jj=0,n_elements(RCs)-1 do begin
                 print,''
                 exit,status=6
         endif
-
-	
-	;Sets the initial SA fb (found in the previous step or set to mid-range) for the SQ2 servo
-	zero=(rc-1)*8
-	;SA_feedback_file=lonarr(32)
-	SA_feedback_file(*)=32000
-	for i=zero,zero+7 do begin 
-		SA_feedback_file(i)=SA_fb_init(i-zero)	
-	endfor
-	
-	SA_feedback_string=''
-	for i=0,31 do begin
-		SA_feedback_string=SA_feedback_string+strcompress(string(SA_feedback_file(i))+'\n',/remove_all)
-	endfor
-	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
-	spawn,SA_feedback_string
 	
         sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
-        auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
-          interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
-          ramp_start=exp_config.sq2_servo_flux_start[0], $
-          ramp_count=exp_config.sq2_servo_flux_count[0], $
-          ramp_step=exp_config.sq2_servo_flux_step[0], $
-          /lockamp,acq_id=acq_id,poster=poster
+        ; We may want to do sq2 servos at a series of sq2 biases.  
+        if exp_config.sq2_servo_bias_ramp[0] ne 0 then begin
+
+            auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
+              interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
+              ramp_start=exp_config.sq2_servo_flux_start[0], $
+              ramp_count=exp_config.sq2_servo_flux_count[0], $
+              ramp_step=exp_config.sq2_servo_flux_step[0], $
+              bias_start=exp_config.sq2_servo_bias_start[0], $
+              bias_count=exp_config.sq2_servo_bias_count[0], $
+              bias_step=exp_config.sq2_servo_bias_step[0], $
+              /lockamp,acq_id=acq_id,poster=poster,/no_analysis
+
+            print,'Exiting after sq2servo with bias ramp!'
+            exit,status=98
+
+        endif else begin
+
+            auto_setup_sq2servo_plot,sq2_file_name,SQ2BIAS=SQ2_bias,RC=rc, $
+              interactive=interactive,slope=sq2slope,gain=exp_config.sq2servo_gain[rc-1], $
+              ramp_start=exp_config.sq2_servo_flux_start[0], $
+              ramp_count=exp_config.sq2_servo_flux_count[0], $
+              ramp_step=exp_config.sq2_servo_flux_step[0], $
+              /lockamp,acq_id=acq_id,poster=poster
+
+        endelse
 
 	if keyword_set(interactive) then begin
 		i5=dialog_message(['The auto_setup has found the RC'+strcompress(string(RC),/remove_all)+' SSA fb',$
@@ -549,12 +567,7 @@ for jj=0,n_elements(RCs)-1 do begin
 
 
 	 ;Sets the initial SQ2 fb (found in the previous step or set to mid-range) for the SQ1 servo
-	zero=(rc-1)*8
-	;SQ2_feedback_file=intarr(32)
-	;SQ2_feedback_file(*)=10000
-	for i=zero,zero+7 do begin 
-		SQ2_feedback_file(i)=SQ2_feedback(i-zero)	
-	endfor
+        SQ2_feedback_file(rc_indices) = sq2_feedback
 	
 	SQ2_feedback_string=''
 	for i=0,31 do begin
