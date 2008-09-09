@@ -1002,7 +1002,7 @@ endelse
 
 ; Compile dead detector mask.
 print,'Assembling dead detector mask.'
-auto_setup_mask_dead,mask,filespec = getenv('MAS_TEMPLATE')+'dead_lists/'+exp_config.array_id+'/dead_*.cfg'
+auto_setup_mask_dead,mask,filespec = getenv('MAS_TEMPLATE')+strcompress('dead_lists/'+exp_config.array_id+'/dead_*.cfg',/remove_all)
 exp_config.dead_detectors = reform(mask)
 save_exp_params,exp_config,exp_config_file
 
