@@ -1000,8 +1000,14 @@ endif else begin
 	step11:
 endelse
 
+; Compile dead detector mask.
+print,'Assembling dead detector mask.'
+auto_setup_mask_dead,mask,filespec = getenv('MAS_TEMPLATE')+'dead_lists/'+exp_config.array_id+'/dead_*.cfg'
+exp_config.dead_detectors = reform(mask)
+save_exp_params,exp_config,exp_config_file
+
 ; Run config one last time in *case* frametest plot changes to data
-; mode 4!!
+; mode 4, and to set dead detector mask
 mce_make_config, params_file=exp_config_file, filename=config_mce_file, /run_now
 
 spawn,'cp -p '+config_mce_file+' '+todays_folder+c_filename+'_config_mce_auto_setup_'+current_data
