@@ -756,6 +756,13 @@ for jj=0,n_elements(RCs)-1 do begin
 	step5:
 endfor
 
+if exp_config.stop_after_sq1servo[0] eq 1 then begin
+   print,'stop_after_sq1servo is set, stopping.'
+   auto_post_plot,poster,/close
+   exit,status=98
+endif
+
+
 ;----------------------------------------------------------------------------------------------------------
 ;SQ1 ramp check:
 ;----------------------------------------------------------------------------------------------------------
