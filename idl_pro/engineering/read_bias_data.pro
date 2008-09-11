@@ -16,13 +16,16 @@ if not keyword_set(runfile) then $
 if not keyword_set(rescale) then rescale = 1.
 
 rf = mas_runfile(runfile)
-lp = fix(strsplit(mas_runparam(rf,'par_ramp','par_step loop2 par1'),/extract))
+lp1 = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
+lp2 = mas_runparam(rf,'par_ramp','par_step loop2 par1',/long)
+n_bias = lp1[2]
+n_fb = lp2[2]
 
-x = (findgen(lp[2])*lp[1] + lp[0] ) * rescale
-npts = lp[2]
+fb = (findgen(lp2[2])*lp2[1] + lp2[0] ) * rescale
+biases = (findgen(lp1[2])*lp1[1] + lp1[0] ) * rescale
 
 n_col = 8
-r1 = fltarr([n_col, npts])
+r1 = fltarr([n_col, n_bias, n_fb])
 y = r1
 values = fltarr(16)
 line = ''
@@ -30,17 +33,20 @@ line = ''
 openr,lun,/get_lun,biasfile
 readf, lun, line
 
-for n=0, npts-1 do begin
-    readf, lun, line
-    data=strmid(line, 0)
-    reads,data, values
-    r1[*,n]=values[0:7] * rescale
-    y[*,n]=values[8:15] * rescale
+for b = 0,lp1[2]-1 do begin
+    for f = 0,lp2[2]-1 do begin
+        readf, lun, line
+        data=strmid(line, 0)
+        reads,data, values
+        r1[*,b,f]=values[0:7] * rescale
+        y[*,b,f]=values[8:15] * rescale
+    endfor
 endfor
 
 free_lun,lun
 
-sq2 = create_struct('x',x,'y',y, 'err',r1)
+sq2 = create_struct('fb',fb,'bias',biases,'y',y, 'err',r1, $
+                   'filename',filebase)
 return,sq2
 
 end
