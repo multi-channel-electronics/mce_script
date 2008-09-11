@@ -441,7 +441,7 @@ for jj=0,n_elements(RCs)-1 do begin
               ramp_start=exp_config.sq2_servo_flux_start[0], $
               ramp_count=exp_config.sq2_servo_flux_count[0], $
               ramp_step=exp_config.sq2_servo_flux_step[0], $
-              /lockamp,acq_id=acq_id,poster=poster
+              /lockamp,acq_id=acq_id,poster=poster,quiet=quiet
 
         endelse
 
@@ -756,7 +756,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	step5:
 endfor
 
-if exp_config.stop_after_sq1servo[0] eq 1 then begin
+if exp_config.stop_after_sq1_servo[0] eq 1 then begin
    print,'stop_after_sq1servo is set, stopping.'
    auto_post_plot,poster,/close
    exit,status=98

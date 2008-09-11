@@ -12,6 +12,8 @@ pro auto_setup_sq2servo_plot,file_name,SQ2BIAS=sq2bias,RC=rc,interactive=interac
 
 common sq2_servo_var
 
+this_script = 'sq2servo_plot'
+
 ;Init
 if not keyword_set(acq_id) then acq_id = 0
 
@@ -19,14 +21,18 @@ if not keyword_set(acq_id) then acq_id = 0
 close,/all
 
 ;Communication:
-print,''
-print,'#############################################################################'
-print,'#3) The third step is to run a closed loop on the SQ2 for RC'+strcompress(string(RC),/remove_all)+'.              #'
-print,'#   We ramp SQ2 fb and we adjust the SSA fb to keep the target to zero.     #'
-print,'#   This will allow us to set the final SSA fb and SQ2 bias.                #'
-print,'#############################################################################'
-print,''
-
+RC_name = strcompress('RC'+string(RC),/remove_all)
+if not keyword_set(quiet) then begin
+    print,''
+    print,'#############################################################################'
+    print,'#3) The third step is to run a closed loop on the SQ2 for RC'+strcompress(string(RC),/remove_all)+'.              #'
+    print,'#   We ramp SQ2 fb and we adjust the SSA fb to keep the target to zero.     #'
+    print,'#   This will allow us to set the final SSA fb and SQ2 bias.                #'
+    print,'#############################################################################'
+    print,''
+endif else begin
+    if quiet le 1 then print,this_script = ' : starting for '+RC_name
+endelse
 
 target=0
 
@@ -69,12 +75,16 @@ endelse
 spawn,spawn_str,exit_status=status7
 
 if status7 ne 0 then begin
+    if keyword_set(quiet) then begin
+        print,this_script + 'error '+string(status7)+' from spawn of ' +spawn_str
+    endif else begin
         print,''
         print,'################################################################'
         print,'# ERROR! AN ERROR HAS OCCURED WHEN RUNNING THE SQ"SERVO SCRIPT #
         print,'################################################################'
         print,''
         exit,status=7
+    endelse
 endif
 
 ;Let's define filenames and folders
@@ -172,18 +182,19 @@ for chan=0,7 do begin	;calculate the derivatives of the V-phi plots
 ; Changed to smooth before derivative. MDN 4-2-2008
 	deriv_fb1(*,chan)=deriv(sq2_sweep(*),smooth(fb1(*,chan),10))
 	sq2_v_phi(*,chan)=smooth(fb1(*,chan),10)
-endfor
+    endfor
 
-print,''
-print,'###########################################################################'
-print,'SQ2 bias, and SA fb channel by channel:'
-print,'###########################################################################'
+if not keyword_set(quiet) then begin
+    print,''
+    print,'###########################################################################'
+    print,'SQ2 bias, and SA fb channel by channel:'
+    print,'###########################################################################'
+    if keyword_set(lockamp) then $
+      print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
 
-if keyword_set(lockamp) then $
-  print, 'Locking at middle of amplitude range instead of middle of phi-0 range'
-
-print,' Channel                   Target@half sq2_fb@half '
-print,'---------------------------------------------------'
+    print,' Channel                   Target@half sq2_fb@half '
+    print,'---------------------------------------------------'
+endif
 
 
 ; Elia analyses only samples 100:350 of a 400 point curve.
@@ -230,8 +241,10 @@ for chan=0,7 do begin
 			fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
                 endelse
 
-                print,format='(i4, i31, i12)',chan, $
-                  target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+                if not keyword_set(quiet) then begin
+                    print,format='(i4, i31, i12)',chan, $
+                      target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+                endif
 
 ;stop
 endfor
@@ -261,13 +274,15 @@ endfor
 
 file_name_sq2_points=file_name+'_sq2_points'
 plot_file = '/data/cryo/current_data/'+'analysis/' + file_name_sq2_points + '.ps'
-print,' '
-print,'###########################################################################'
-print,' '
-print,'To view the SQ2 locking points check'
-print,string(plot_file)
-print,' '
-print,'###########################################################################'
+if not keyword_set(quiet) then begin
+    print,' '
+    print,'###########################################################################'
+    print,' '
+    print,'To view the SQ2 locking points check'
+    print,string(plot_file)
+    print,' '
+    print,'###########################################################################'
+endif
 charsz=1
 set_plot, 'ps'
 device, filename= plot_file, /landscape
