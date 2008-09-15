@@ -118,10 +118,15 @@ for rc in 1 2 3 4; do
     # Flux jump quanta, and enable/disable
     for c in `seq 0 7`; do 
 	chan=$(( $c +  $ch_ofs ))
-	repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
+	r_off=$(( $array_width * $chan ))
+
+	if [ "${config_flux_quanta_all}" != "0" ]; then
+	    echo "wb rc$rc flx_quanta$c ${flux_quanta_all[@]:$r_off:$array_width}" >> $mce_script
+	else
+	    repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
+	fi
 
 	if [ "${config_adc_offset_all}" != "0" ]; then
-	    r_off=$(( $array_width * $chan ))
 	    echo "wb rc$rc adc_offset$c ${adc_offset_cr[@]:$r_off:$array_width}" >> $mce_script
 	else
 	    repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script

@@ -102,6 +102,8 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set tes_bias '+str_flat(m.tes_bias)
     spawn,'mas_param -s '+filename+' set row_order '+str_flat(m.row_order)
     spawn,'mas_param -s '+filename+' set flux_quanta '+str_flat(m.flux_quanta)
+    spawn,'mas_param -s '+filename+' set config_flux_quanta_all '+str_flat(m.config_flux_quanta_all)
+    spawn,'mas_param -s '+filename+' set flux_quanta_all '+str_flat(m.flux_quanta_all)
     spawn,'mas_param -s '+filename+' set fb_const '+str_flat(m.fb_const)
     spawn,'mas_param -s '+filename+' set sq1_bias '+str_flat(m.sq1_bias)
     spawn,'mas_param -s '+filename+' set sq2_bias '+str_flat(m.sq2_bias)
@@ -211,6 +213,8 @@ pro load_exp_params,filename,m
         'tes_bias',mas_param_int(filename,'tes_bias'),  $
         'row_order',mas_param_int(filename,'row_order'),  $
         'flux_quanta',mas_param_int(filename,'flux_quanta'),  $
+        'config_flux_quanta_all',mas_param_int(filename,'config_flux_quanta_all'),  $
+        'flux_quanta_all',mas_param_int(filename,'flux_quanta_all'),  $
         'fb_const',mas_param_int(filename,'fb_const'),  $
         'sq1_bias',mas_param_int(filename,'sq1_bias'),  $
         'sq2_bias',mas_param_int(filename,'sq2_bias'),  $
