@@ -1,18 +1,15 @@
-pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts, $
-                               acq_id=acq_id,poster=poster
+pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary, $
+                               interactive=interactive,nodasscript=nodasscript,noheader=noheader, $
+                               npts=npts, acq_id=acq_id,poster=poster
 
 ;Init
 if not keyword_set(acq_id) then acq_id = 0
 
-;if not keyword_set(numrows) then numrows=41
-
-stpt=1000
-if keyword_set(npts) then npts=npts else npts=200;1435406 ;npts=number of data points, 1 point = 0.0025s
+if keyword_set(npts) then npts=npts else npts=200
 numcol=8
 coloffset=(rc-1)*8
 
-print,'DATA MODE IS HARD-CODED in FRAMETEST PLOT!!!!!'
-data_mode='4'	;'6'
+data_mode='4'
 if data_mode eq '4' then bitpart=14 else bitpart=0
 
 rcdatamode=rc
@@ -29,7 +26,6 @@ ctime=string(file_name,format='(i10)')
 if not keyword_set(nodasscript) then begin
 	auto_setup_command,'wb rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
         user_status = auto_setup_userword(rcdatamode)
-	;spawn,'mce_cmd -q -x wb rc'+strcompress(string(RC),/REMOVE_ALL)+' data_mode '+data_mode
 	spawn,'mce_run '+file_name+string(npts)+' '+string(rc),exit_status=status18
         reg_status = auto_setup_register(acq_id, 'data', getenv('MAS_DATA')+file_name, npts)
 

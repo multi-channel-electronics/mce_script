@@ -31,7 +31,7 @@ if not keyword_set(quiet) then begin
     print,'#############################################################################'
     print,''
 endif else begin
-    if quiet le 1 then print,this_script = ' : starting for '+RC_name
+    if quiet le 1 then print,this_script + ' : starting for '+RC_name
 endelse
 
 target=0

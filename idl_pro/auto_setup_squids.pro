@@ -908,11 +908,18 @@ for jj=0,n_elements(RCs)-1 do begin
 
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
+        ; Load masks for labeling the ramp plots
+        mask_list = ['connection', 'multilock', 'squid1', 'jumpers', 'other']
+        mask_files = strarr(n_elements(mask_list))
+        for j=0,n_elements(mask_list)-1 do $5C
+          mask_files[j] = getenv('MAS_TEMPLATE') + strcompress('dead_lists/'+exp_config.array_id+ $
+                                 '/dead_'+mask_list[j]+'.cfg', /remove_all)
+        extra_labels = auto_setup_mask_labels(mask_files, mask_list,rc_indices)
         rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc',acq_id=acq_id)
 
 	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive, $
-          numrows=numrows,rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id,poster=poster
-
+          numrows=numrows,rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id,poster=poster, $
+          extra_labels=extra_labels
 
 	for j=0,7 do begin
 		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
@@ -967,6 +974,7 @@ exp_config.servo_p = exp_config.default_servo_p
 exp_config.servo_i = exp_config.default_servo_i
 exp_config.servo_d = exp_config.default_servo_d
 exp_config.flux_jumping = exp_config.default_flux_jumping
+
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $
@@ -1051,7 +1059,7 @@ if quiet eq 0 then begin
    print,'#####################################################################'
    print,''
 endif else $
-   print,'Tuning complete.  Time elapsed: '+t_elapsed+' seconds'
+   print,'Tuning complete.  Time elapsed: '+string(t_elapsed)+' seconds'
 
 auto_post_plot,poster,/close
 

@@ -1,5 +1,5 @@
 pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows=numrows,rows=rows, $
-                                 acq_id=acq_id,quiet=quiet,poster=poster
+                                 acq_id=acq_id,quiet=quiet,poster=poster,extra_labels=extra_labels
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -59,7 +59,7 @@ name_label = '/data/cryo' + '/' + cd + '/' + file_name
 ; Call analysis / plotting routine
 plot_file = folder + date + 'analysis/' +file_name + '.ps'
 sq1ramp = auto_setup_analysis_ramp_sq1_fb(full_name, plot_file=plot_file, $
-                                          rows=rows)
+                                          rows=rows, extra_labels=extra_labels)
 
 ; Share results via the common block (boo)
 new_adc_offset = sq1ramp.adc_offset
