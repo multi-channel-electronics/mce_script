@@ -975,6 +975,12 @@ exp_config.servo_i = exp_config.default_servo_i
 exp_config.servo_d = exp_config.default_servo_d
 exp_config.flux_jumping = exp_config.default_flux_jumping
 
+; Turn off dog-housed column biases
+bad_columns = where(exp_config.columns_off ne 0)
+if bad_columns[0] ne -1 then begin
+    exp_config.sa_bias[bad_columns] = 0
+    exp_config.sq2_bias[bad_columns] = 0
+endif
 
 save_exp_params,exp_config,exp_config_file
 mce_make_config, params_file=exp_config_file, $
