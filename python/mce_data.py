@@ -174,7 +174,7 @@ class SmallMCEFile:
             (c,r) = (5, 37)
 #            print data[c,r], digits(data[c,r])
             # shift sign bit into MSB
-            left = 32 - data_counts[fidx] - data_start[fidx]
+            left = 32 - data_counts[fidx] - data_starts[fidx]
             right = 32 - data_counts[fidx]
             data_copy = data
             if left != 0:
