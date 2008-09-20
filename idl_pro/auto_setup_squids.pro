@@ -387,12 +387,9 @@ for jj=0,n_elements(RCs)-1 do begin
 	SA_feedback_file(*)=32000
         SA_feedback_file[RC_indices] = SA_fb_init
 
-        SA_feedback_string=''
-	for i=0,31 do begin
-		SA_feedback_string=SA_feedback_string+strcompress(string(SA_feedback_file(i))+'\n',/remove_all)
-	endfor
-	SA_feedback_string='echo -e "'+SA_feedback_string+'"> '+todays_folder+'safb.init'
-	spawn,SA_feedback_string
+        openw,/get_lun,lun,todays_folder+'safb.init'
+        for i=0,31 do printf,lun,string(format='(I0)',SA_feedback_file[i])
+        free_lun,lun
 	
         
         ; Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
@@ -569,12 +566,9 @@ for jj=0,n_elements(RCs)-1 do begin
 	 ;Sets the initial SQ2 fb (found in the previous step or set to mid-range) for the SQ1 servo
         SQ2_feedback_file(rc_indices) = sq2_feedback
 	
-	SQ2_feedback_string=''
-	for i=0,31 do begin
-		SQ2_feedback_string=SQ2_feedback_string+strcompress(string(SQ2_feedback_file(i))+'\n',/remove_all)
-	endfor
-	SQ2_feedback_string='echo -e "'+SQ2_feedback_string+'" > '+todays_folder+'sq2fb.init'
-	spawn,SQ2_feedback_string
+        openw,/get_lun,lun,todays_folder+'sq2fb.init'
+        for i =0,31 do printf,lun,string(format='(I0)',SQ2_feedback_file[i])
+        free_lun,lun
        
         sq1_base_name = auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
 
@@ -620,14 +614,11 @@ for jj=0,n_elements(RCs)-1 do begin
                 sq1_file_name=strcompress(sq1_base_name+'_row'+string(sq1servorow),/remove_all)
 
                 if not exp_config.config_fast_sq2 then begin
-                    ; We have to call sq1servo with rows.init set
 
-                    row_init_string=''
-                    for j=0,31 do begin
-                        row_init_string=row_init_string+strcompress(string(sq1servorow)+'\n',/remove_all)
-                    endfor
-                    row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
-                    spawn,row_init_string
+                    ; We have to call sq1servo with row.init set
+                    openw,/get_lun,lun,todays_folder+'row.init'
+                    for j=0,31 do printf,lun,string(format='(I0)',sq1servorow)
+                    free_lun,lun
 
                     auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
                       numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
@@ -689,13 +680,11 @@ for jj=0,n_elements(RCs)-1 do begin
             ; This block uses original sq1servo to
             ; lock on a specific row for each column
 
-            ; Rewrite the rows.init file (FIXME)
-            row_init_string=''
-            for j=0,31 do begin
-                row_init_string=row_init_string+strcompress(string(exp_config.sq2_rows[j])+'\n',/remove_all)
-            endfor
-            row_init_string='echo -e "'+row_init_string+'" > '+todays_folder+'row.init'
-            spawn,row_init_string
+            ; Rewrite the row.init file
+            openw,/get_lun,lun,todays_folder+'row.init'
+            for j=0,31 do $
+              printf,lun,string(format='(I0)',exp_config.sq2_rows[j])
+            free_lun,lun
 
             sq1_file_name=sq1_base_name
             
