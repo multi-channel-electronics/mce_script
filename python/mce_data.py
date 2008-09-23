@@ -49,6 +49,8 @@ class MCEData:
         self.header = None
         self.data_is_dictionary = False
         self.data = []
+        self.row_list = []
+        self.col_list = []
     
 class SmallMCEFile:
     """
@@ -61,27 +63,37 @@ class SmallMCEFile:
         self.n_frames = 0
         self.n_rows = 0
         self.n_cols = 0
+        self.row_list = []
+        self.col_list = []
         self.header = None
         self.f = None
+        self.runfile = None
 
     def ReadHeader(self):
         if (self.f == None):
             self.f = open(filename)
-        head_binary = numpy.fromfile(file=self.f, dtype=numpy.uint32, count=43)
-
+            
         # It's a V6.
         format = HeaderFormat()
-        self.header = {}
+        head_binary = numpy.fromfile(file=self.f, dtype=numpy.uint32, \
+                                         count=format.header_size)
+
         # Lookup each offset and store
+        self.header = {}
         for k in format.offsets:
             self.header[k] = head_binary[format.offsets[k]]
-
         self.header['rc_present'] = [(self.header['status'] & (1 << 10+i))!=0 \
                                          for i in range(4)]
         self.n_rows = self.header['num_rows_reported']
         self.n_cols = 8*self.header['rc_present'].count(True)
         self.header_size = format.header_size
         self.footer_size = format.footer_size
+
+    def ReadRunfile(self, filename=None):
+        if filename == None:
+            filename = self.filename + '.run'
+        self.runfile = MCERunfile(filename)
+        return self.runfile        
 
     def ReadRaw(self, dets=None, n_frames = MAX_FRAMES, start = 0):
         self.f = open(self.filename)
@@ -103,18 +115,44 @@ class SmallMCEFile:
 
         return numpy.cast['int32'](a[:,self.header_size:self.header_size+self.n_rows*self.n_cols].transpose())
 
+    def NameChannels(self):
+        if self.header == None:
+            self.ReadHeader()
+
+        rc_p = self.header['rc_present']
+        # Columns are entirely determined by what readout cards are present
+        rc_cols = [ i for i in range(32) if rc_p[i/8] ]
+        self.col_list = rc_cols * self.n_rows
+
+        # We need the runfile to properly designate the readout rows
+        if self.runfile == None:
+            if self.ReadRunfile() == None:
+                print 'Runfile could not be read; using basic channel naming.'
+                self.row_list = [ i/self.n_cols for i in range(self.n_cols * self.n_rows)]
+                return
+
+        row_index = [ self.runfile.Item('HEADER', 'RB rc%i readout_row_index' %(i+1), type='int', array = False) \
+                                       for i in range(4) if rc_p[i] ]
+        self.row_list = []
+        for r in range(self.n_rows):
+            for ri in row_index:
+                self.row_list.extend([r + ri] * 8)
+
     def Read(self, dets = None, n_frames = MAX_FRAMES, start = 0,
              use_runfile = True, do_rescale = True, force_data_mode = None,
              field_list = ['default'], force_dictionary = False):
+
+        self.ReadRunfile()
         data = self.ReadRaw(dets = dets, n_frames = n_frames, start = start)
+        self.NameChannels()
         
         data_out = MCEData()
         data_out.source = self.filename
         data_out.n_frames = n_frames
-#        data_out.col = col
-#        data_out.row = row
         data_out.header = self.header
         data_out.data_is_dictionary = (len(field_list) > 1 or force_dictionary)
+        data_out.row_list = self.row_list
+        data_out.col_list = self.col_list
 
         data_mode = 0
         if force_data_mode != None:
@@ -147,12 +185,12 @@ class SmallMCEFile:
             data_scales = [1., 1.]
         elif data_mode == 9:
             data_fields = ['fb_filt', 'fj']
-            data_start = [8, 0]
+            data_starts = [8, 0]
             data_counts = [24, 8]
             data_scales = [2**1, 1.]
         elif data_mode == 10:
             data_fields = ['fb_filt', 'fj']
-            data_start = [7, 0]
+            data_starts = [7, 0]
             data_counts = [25, 7]
             data_scales = [2**3, 1.]
         else:
