@@ -1,4 +1,4 @@
-function extract_bitfield_mod,data,start=start,count=count,unsigned=unsigned
+function extract_bitfield,data,start=start,count=count,unsigned=unsigned
 
 ; MFH - 2008/04/07
 ; From each long int in array 'data', extract a long int based on the
