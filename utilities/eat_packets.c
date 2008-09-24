@@ -39,12 +39,13 @@ int main(int argc, char **argv) {
 
   long offset=0;
   int frame_size=FRAME_SIZE;
+  int max_frames = -1;
   FILE *src = stdin;
   char filename[1024];
   int check_dv = 1;
 
   int option;
-  while ( -1 != (option = getopt(argc, argv, "s:f:n:N:d:"))) {
+  while ( -1 != (option = getopt(argc, argv, "s:f:n:N:a:d:"))) {
     switch(option) {
 
     case 'd':
@@ -63,6 +64,10 @@ int main(int argc, char **argv) {
       frame_size = strtol(optarg, NULL, 0);
       break;
 
+    case 'a':
+      max_frames = strtol(optarg, NULL, 0);
+      break;
+
     case 'f':
       strcpy(filename, optarg);
       src = fopen(filename, "r");
@@ -76,6 +81,7 @@ int main(int argc, char **argv) {
 	     "     -s offset       in bytes\n"
              "     -n frame_size   in bytes\n"
              "     -N frame_size   in dwords\n"
+	     "     -a max_frames   in frames\n"
 	     "     -d [1|0]        to check the sync dv number, or not\n"
              "     -f filename     otherwise data is read from stdin\n"
 	     );
@@ -112,7 +118,7 @@ int main(int argc, char **argv) {
 
   printf("offset     frm_idx   frame#\n");
   
-  while (!feof(src)) {
+  while (!feof(src) && ((max_frames < 0) || count < max_frames)) {
 
     index = 0;
     target = frame_size*sizeof(u32);
