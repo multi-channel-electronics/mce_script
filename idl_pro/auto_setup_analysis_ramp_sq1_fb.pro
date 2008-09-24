@@ -53,20 +53,14 @@ fb_start = fb_params[0]
 fb_step = fb_params[1]
 n_fb = fb_params[2]
 
-;reform(fltarr(n_bias))
-;for m=0, n_bias-1 do begin
-;	s1_bias(m) = bias_start + m* bias_step 
-;endfor
 s1_bias=float(bias_start) + findgen(n_bias)*bias_step
-
-;s1_fb=reform(fltarr(n_fb))
-;for m=0, n_fb-1 do begin
-;	s1_fb(m) = fb_start + m* fb_step 
-;endfor
 s1_fb = float(fb_start) + findgen(n_fb)*fb_step
 
-a=0
-b=399
+; scale inherited from original code based on 400 point ramp
+scale = float(n_fb) / 400.
+
+a = 0
+b = n_fb - 1
 
 s1b=''
 
@@ -79,7 +73,7 @@ new_adc_offset=lonarr(n_cols, n_rows)
 squid_p2p=lonarr(n_cols,n_rows)
 squid_lockrange=lonarr(n_cols,n_rows)
 squid_lockslope=fltarr(n_cols,n_rows,2)
-slope_pnts = 10		;Number of points to fit to find the slope at zero crossing points.
+slope_pnts = 10*scale		;Number of points to fit to find the slope at zero crossing points.
 squid_multilock=intarr(n_cols,n_rows)
 
 
@@ -101,7 +95,7 @@ for j=0,n_bias-1 do begin
                 ; Work with data from this bias / row / column
                 this_data = reform(data[i,k,j*n_fb:(j+1)*n_fb-1])
 
-	        label = 'SA Channel ' + string(i, format='(f3.0)')	
+	        label = 'SA Channel ' + string(i, format='(f3.0)')
 	        plot, s1_fb[a:b]/1000., this_data[a:b]/1000., xtitle="SQ1_FB"+i_units, ytitle="Voltage"+v_units,$
 	        charsize=1.2, xstyle=1, /ynozero,$
 	        xrange=[min(s1_fb)/1000., max(s1_fb)/1000.], title= label
@@ -120,7 +114,7 @@ for j=0,n_bias-1 do begin
                 endif
 
 		;Select adc offsets to be in the largest gap between all slope=0 regions in the v-phi curve
-		smnum = 10
+		smnum = 10*scale
 		smdat = smooth(this_data[*],smnum)
 
 		smdat_der = smdat - shift(smdat,-1);(smdat,0,-1)
