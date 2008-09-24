@@ -33,7 +33,7 @@ case "$rc" in
 	exit 1
 esac
     
-tempfile=$MAS_TEMP/ramp_sq1_fb.temp
+tempfile=$MAS_TEMP/`whoami`_ramp_sq1_fb.temp
 runfile=$datafile.run
 
 # Default sq1 bias

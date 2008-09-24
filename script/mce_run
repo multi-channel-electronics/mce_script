@@ -60,9 +60,9 @@ done
 
 # Write current ctime into run_id location of frame header.  This
 # won't necessarily match the filename; but is better than nothing.
+# Also, put array ID code and data mode in 'user_word' field.
 
-ctime=`print_ctime`
-mce_cmd -qx wb cc run_id $ctime
+mce_update_userword $rc
 
 # Re-initialize the servo.  Can't hurt.
 if [ "$rc" == "s" ]; then
@@ -98,11 +98,11 @@ fi
 
 echo "FRAME_BASENAME=$filename"
 
-echo -e \
-    "acq_config${acq_config_suffix} $filename rc$rc\n" \
-    "acq_go $numpts" | mce_cmd -q -o /
+mce_cmd -q -o / \
+    -X "acq_config${acq_config_suffix} $filename rc$rc" \
+    -X "acq_go $numpts"
 
-if [ "${PIPESTATUS[1]}" != "0" ]; then
+if [ "$?" != "0" ]; then
     echo "$SCRNAME : mce_cmd returned error"
     exit 1
 fi

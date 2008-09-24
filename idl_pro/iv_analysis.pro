@@ -1,6 +1,6 @@
 pro iv_analysis, filename=filename, DACbias=DACbias, plotgen=plotgen, filtered=filtered, ascii=ascii, $
                  datagen=datagen, biasfile=biasfile, setpntgen=setpntgen, $
-                 array_file=array_file, array_name=array_name
+                 array_file=array_file, array_name=array_name,post_plot=post_plot
 
 ;	Analyzes I-V curve data and generates a summary plot, with the options of additional plots and data files.
 ;		Input files are an MCE ramp_tes_bias data file with 33 rows
@@ -77,6 +77,9 @@ if 1 then begin
     Rbias_arr = array_params.Rbias_arr
     Rbias_cable = array_params.Rbias_cable
     bias1_cols = where(array_params.bias_lines mod 3 eq 0)
+    ; Put this line in to make it so that AR3 only uses columns 16-19 to select bias value
+    ;	because of problems with parallel biasing of columns 20-23
+    if array_name eq 'AR3' then bias1_cols = where(array_params.bias_lines eq 0)
     bias2_cols = where(array_params.bias_lines mod 3 eq 1)
     bias3_cols = where(array_params.bias_lines mod 3 eq 2)
     eff_bias_lines = array_params.bias_lines
@@ -103,7 +106,7 @@ endif else begin
     psat_cut = [1.,20.] ;	0: in range = good detector 1: out of range = bad detector in the data .run files
     ncut_lim = 500
 
-    good_shunt_range = [ 0.0002, 0.0015 ]
+    good_shunt_range = [ 0.0002, 0.003 ]
     default_Rshunt = 0.0007
     use_jshuntfile = 1
 
@@ -151,6 +154,11 @@ print, 'Data file path: '+filename
 outdir = filename+'_data'
 file_mkdir, outdir
 
+if keyword_set(post_plot) then begin
+   f = strsplit(outdir,'/',/extract)
+   auto_post_plot,poster,/open,dir=outdir,prefix=f[n_elements(f)-1]
+endif
+
 !path = '/home/mce/idl_pro/histogauss:'+!path
 
 if keyword_set(filtered) then filtgain = filtergain else filtgain = 1.
@@ -178,6 +186,8 @@ numpts = n_elements(raw_bias)
 data = mas_data(filename,frame_info=frame_info)
 numpts = frame_info.n_frames
 n_columns = n_elements(data(*,0,0))
+rf = mas_runfile(filename+'.run')
+data_mode = mas_runparam(rf,'HEADER','RB rc1 data_mode',/long)
 
 good_ivs=lonarr(n_columns)
 
@@ -214,11 +224,15 @@ endif else begin
 endelse
 
 ;print, 'Shunt Path: '+jshuntfile
-good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_shunt_range[1])
+good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_shunt_range[1], complement=bad_sh_rows)
 ;print, 'Rows with shunts between 0.2-1.0 mOhms from SRDP: ', good_sh_rows
 
-no_srdp_shunt=where(Rshunt_arr eq 0)
-Rshunt_arr(no_srdp_shunt) = default_Rshunt
+;no_srdp_shunt=where(Rshunt_arr eq 0)
+;Rshunt_arr(no_srdp_shunt) = default_Rshunt
+
+; Revised to work with AR3 bad SRDP shunt values set to -1 in johnson_res.dat files
+if array_name eq 'AR3' and MuxColumn gt 23 then Rshunt_arr(bad_sh_rows) = 0.0007 else Rshunt_arr(bad_sh_rows) = default_Rshunt 
+no_srdp_shunt = bad_sh_rows
 
 if keyword_set(R_oper) then R_oper = R_oper $
 		else R_oper = 0.5
@@ -250,7 +264,21 @@ for j=0,32 do begin
 
 ;	stop
 	; Look for giant bit jumps in the data of 2^bitmax then 2^(bitmax-1) bits and remove them
-	if keyword_set(filtered) then bitmax = 24 else bitmax = 18
+        case data_mode[0] of
+           1: bitmax = 18
+           9: bitmax = 24
+           10: bitmax = 28
+           else: print,'Unrecognized data mode:',data_mode
+        endcase
+;; 	if keyword_set(filtered) then begin
+;;            if data_bitmax = 24 else bitmax = 18
+
+;!MFH
+        if 0 eq 1 then begin
+           bitmax = bitmax - 1
+           raw_array[1,*] = (raw_array[1,*] mod 2d^bitmax + 2d^bitmax) mod 2d^bitmax
+           raw_array[1,*] = remove_jumps(raw_array[1,*], 2d^bitmax)
+        endif else begin
 	for m=0,1 do begin
 		up = where(raw_array_der(1,0:numpts-2) gt 2.^(bitmax-1-m)*1.5 and raw_array_der(1,0:numpts-2) lt 2.^(bitmax-m)*1.5)
 		down = where(raw_array_der(1,0:numpts-2) lt 2.^(bitmax-1-m)*(-1.5) and raw_array_der(1,0:numpts-2) gt 2.^(bitmax-m)*(-1.5))
@@ -258,7 +286,9 @@ for j=0,32 do begin
 			for p=0,n_elements(up)-1 do raw_array(1,0:up(p))=raw_array(1,0:up(p))+2.^(bitmax-m)
 		if down(0) ne -1 then $
 			for p=0,n_elements(down)-1 do raw_array(1,0:down(p))=raw_array(1,0:down(p))-2.^(bitmax-m)
-	endfor
+        endfor
+        endelse
+;MFH!
 
 ;	bitmax = 18
 ;	for m=0,1 do begin
@@ -314,6 +344,7 @@ for j=0,32 do begin
 				device, /color
 				TVLCT, [0,255,0,0,255,0,255,150], [0,0,255,0,0,255,255,0], [0,0,0,255,255,255,0,150]
 				plotfile='IV_plots_C'+mcol+'.ps'
+                                if keyword_set(post_plot) then auto_post_plot,poster,filename=plotfile
 				device, FILENAME = outdir+dirsl+plotfile
 				device, YOFFSET = 2, YSIZE = 24
 				plotstart=1
@@ -418,6 +449,7 @@ for j=0,32 do begin
 				device, /color
 				TVLCT, [0,255,0,0,255,0,255], [0,0,255,0,0,255,255], [0,0,0,255,255,255,0]
 				plotfile='IV_plots_C'+mcol+'.ps'
+                                if keyword_set(post_plot) then auto_post_plot,poster,filename=plotfile
 				device, FILENAME = outdir+dirsl+plotfile
 				device, YOFFSET = 2, YSIZE = 24
 				plotstart=1
@@ -479,6 +511,7 @@ set_plot, 'ps'
 device, /color
 TVLCT, [0,255,0,0,255,0,255,150], [0,0,255,0,0,255,150,100], [0,0,0,255,255,255,0,100]
 plotfile='IV_summary.ps'
+if keyword_set(post_plot) then auto_post_plot,poster,filename=plotfile
 device, FILENAME = outdir+dirsl+plotfile
 device, YOFFSET = 2, YSIZE = 24
 !p.multi=[0,1,3]
@@ -722,7 +755,7 @@ endif
 
 ; Generate a file that can be run to set the recommended TES bias values
 openw,1, outdir+'/tes_bias_recommended'
-printf,1,'#!/bin/bash'
+printf,1,'#!/bin/csh'
 printf,1, '# Recommended biases to reach '+string(per_Rn_bias*100,format='(i2)')+'% Rn'
 printf,1, '#   from IV file: '+filename
 printf,1,'bias_tess '+strtrim(biases(0),1)+' '+strtrim(biases(1),1)+' '+strtrim(biases(2),1)
@@ -773,15 +806,18 @@ device,/close
 if keyword_set(biasfile) then begin
 	if not_cut gt ncut_lim then begin
 		spawn, 'cp -fp '+outdir+'/tes_bias_recommended /data/cryo/'
-		spawn, 'cp -fp '+outdir+'/last_iv_det_data /data/cryo/'
+                det_data_link = '/data/cryo/last_iv_det_data'
+                spawn, 'rm -f ' + det_data_link
+		spawn, 'ln -s '+outdir + '/last_iv_det_data ' + det_data_link
 	endif
-	if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-		spawn, 'cp -rf '+outdir+' /misc/mce_plots/'
-		dir_name = strsplit(outdir,'/',/extract)
-		spawn, 'chgrp -R mceplots /misc/mce_plots/'+dir_name(n_elements(dir_name)-1)
-	endif
+;; 	if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
+;; 		spawn, 'cp -rf '+outdir+' /misc/mce_plots/'
+;; 		dir_name = strsplit(outdir,'/',/extract)
+;; 		spawn, 'chgrp -R mceplots /misc/mce_plots/'+dir_name(n_elements(dir_name)-1)
+;; 	endif
 endif
 	
+if keyword_set(post_plot) then auto_post_plot,poster,/close
 
 ;stop
 

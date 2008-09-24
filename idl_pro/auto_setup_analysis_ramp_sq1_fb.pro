@@ -1,4 +1,5 @@
-function auto_setup_analysis_ramp_sq1_fb, file_name,plot_file=plot_file,rows=rows
+function auto_setup_analysis_ramp_sq1_fb, file_name,plot_file=plot_file,rows=rows, $
+                                          extra_labels=extra_labels
 
 ;  Jun. 28, 2008 - Teased analysis section out of auto_setup_ramp_sq1_fb_plot.pro
 ;
@@ -16,43 +17,22 @@ function auto_setup_analysis_ramp_sq1_fb, file_name,plot_file=plot_file,rows=row
 ;
 ; Optionally the script produces post-script plots and runfile blocks.
 
-;common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
-;common ramp_sq1_var
-
-rf = mas_runfile(file_name+'.run')
-loop_params = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
-numrows = mas_runparam(rf, 'HEADER', 'RB cc num_rows_reported')
-
-; Default to all rows
-if not keyword_set(rows) then rows = indgen(numrows)
-
-
 v_factor = 1.
 v_units = ' (AD Units/1000)'
 i_factor = 1.
 i_units = ' (AD Units/1000)'
 
-; Set up plotting
-if keyword_set(plot_file) then begin
-    set_plot, 'ps'
-    device, filename= plot_file, /landscape
-    !p.multi=[0,2,4]            ;Multiple plot parameters.
-    !p.region=[0,0,0,0]         ;Plot region.
-endif
-
-;readin=auto_setup_read_2d_ramp_s1(file_name,numrows=numrows)  ;Read in file
+; Read data
 data = mas_data(file_name)
-; readin.data [ samp, bias, col, row ]
 
-; Read labels, loop sizes, etc.
+; Read labels, loop sizes, etc. from runfile
+rf = mas_runfile(file_name+'.run')
 
-;!horiz_label=readin.labels[1]
-;!vert_label = readin.labels[1]
-;!card = readin.labels[0]
+; Analyze all rows by default
+numrows = mas_runparam(rf, 'HEADER', 'RB cc num_rows_reported')
+if not keyword_set(rows) then rows = indgen(numrows)
 
-;!n_fb = readin.specs[0]
-;!fb_start = readin.specs[1]
-;!fb_step =  readin.specs[2]
+; Catch 2d ramps...
 loop_params = mas_runparam(rf, 'par_ramp', 'loop_list')
 if n_elements(strsplit(loop_params,/extract)) eq 2 then begin
     bias_params = mas_runparam(rf, 'par_ramp', 'par_step loop1 par1', /long)
@@ -73,19 +53,17 @@ fb_start = fb_params[0]
 fb_step = fb_params[1]
 n_fb = fb_params[2]
 
-;!n_bias = readin.specs[3]
-;!bias_start = readin.specs[4]
-;!bias_step =  readin.specs[5]
+;reform(fltarr(n_bias))
+;for m=0, n_bias-1 do begin
+;	s1_bias(m) = bias_start + m* bias_step 
+;endfor
+s1_bias=float(bias_start) + findgen(n_bias)*bias_step
 
-s1_bias=reform(fltarr(n_bias))
-for m=0, n_bias-1 do begin
-	s1_bias(m) = bias_start + m* bias_step 
-endfor
-
-s1_fb=reform(fltarr(n_fb))
-for m=0, n_fb-1 do begin
-	s1_fb(m) = fb_start + m* fb_step 
-endfor
+;s1_fb=reform(fltarr(n_fb))
+;for m=0, n_fb-1 do begin
+;	s1_fb(m) = fb_start + m* fb_step 
+;endfor
+s1_fb = float(fb_start) + findgen(n_fb)*fb_step
 
 a=0
 b=399
@@ -107,6 +85,15 @@ squid_multilock=intarr(n_cols,n_rows)
 
 ; Processing and plotting.  Sheesh!
 
+; Set up plotting
+if keyword_set(plot_file) then begin
+    set_plot, 'ps'
+    device, filename= plot_file, /landscape
+    !p.multi=[0,2,4]            ;Multiple plot parameters.
+    !p.region=[0,0,0,0]         ;Plot region.
+    !y.omargin=[0.,5.]          ;Leave room at top for page title
+endif
+
 for j=0,n_bias-1 do begin
         for kr=0,n_elements(rows)-1 do begin
             k = rows(kr)
@@ -117,7 +104,21 @@ for j=0,n_bias-1 do begin
 	        label = 'SA Channel ' + string(i, format='(f3.0)')	
 	        plot, s1_fb[a:b]/1000., this_data[a:b]/1000., xtitle="SQ1_FB"+i_units, ytitle="Voltage"+v_units,$
 	        charsize=1.2, xstyle=1, /ynozero,$
-	        xrange=[min(s1_fb)/1000., max(s1_fb)/1000.], title= label;, yr=[-30,30]
+	        xrange=[min(s1_fb)/1000., max(s1_fb)/1000.], title= label
+
+                ; Add dead marker text
+                if keyword_set(extra_labels) then begin
+                    delta_y = (!y.crange[1] - !y.crange[0]) / 10
+                    next_label_y = !y.crange[0] + delta_y / 2
+                    for li = 0,extra_labels.n_labels - 1 do begin
+                        if extra_labels.masks[li,i,k] ne 0 then begin
+                            xyouts,min(s1_fb)/1000.+0.2,next_label_y,extra_labels.labels[li], $
+                              charsize=0.7
+                            next_label_y = next_label_y + delta_y
+                        endif
+                    endfor
+                endif
+
 		;Select adc offsets to be in the largest gap between all slope=0 regions in the v-phi curve
 		smnum = 10
 		smdat = smooth(this_data[*],smnum)
@@ -188,8 +189,8 @@ for j=0,n_bias-1 do begin
 	; Simplified version of adc_offset selection just picks the middle of the total amplitude
 ;		new_adc_offset(i,k)=(max(smdat)+min(smdat))/2  ; Note: Old method of selection used smnum=5
 	    endfor  ; end of plotting loop in 8 columns.
-	    label_row='row #'+string(k) 
-	    xyouts, .1, 1.0, file_name + ' , '+ label_row , charsize=1.2, /normal
+	    label_row=string(format='("row # ",(I2))',k)
+	    xyouts, .1, 0.95, file_name + ' , '+ label_row , charsize=1.2, /normal
 ;	    xyouts, 0.7, 1.0, 'sq1 bias = ' + s1b , charsize=1.2, /normal
 ;	    xyouts, 0.4, 1.1, label_row , charsize=1.2, /normal
 	endfor  ; End of loop in 33 rows.
@@ -197,6 +198,7 @@ endfor
 
 if keyword_set(plot_file) then begin
     device, /close              ;close ps
+    set_plot,'x'
 endif
 
 result = { adc_offset:new_adc_offset,p2p:squid_p2p,lockrange:squid_lockrange, $

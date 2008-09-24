@@ -3,44 +3,6 @@
 ;             best row to use for squid2 fb selection row.
 
 
-; load_sq1servo_set is used to assemble v-phi from a set of single-row
-; servos into a single data structure.
-
-function load_sq1servo_set, sq1base
-
-sq1suffix='_sq1servo'
-
-; All we really care about is means and pk-pk
-n_col=8
-rf = mas_runfile(sq1base+'_row0'+sq1suffix+'.run')
-n_row = mas_runparam(rf, 'HEADER', 'RB cc num_rows_reported')
-
-means = fltarr([n_col, n_row])
-mins = means
-maxes = means
-pers = means
-pkpk = means
-
-for r = 0, n_row-1 do begin
-
-    sq1file = strcompress(sq1base+'_row'+string(r)+sq1suffix,/remove_all)
-
-    sq1 = read_bias_data(sq1file, npts=npts_sq1, rescale=0.001,runfile=sq1runfile)
-    mm1 = vphi_limits(sq1,/all_cols)
-    mins[*,r] = mm1.min
-    maxes[*,r] = mm1.max
-    means[*,r] = (mm1.min+mm1.max)/2
-    pkpk[*,r] = (mm1.max-mm1.min)/2
-    pers[*,r] = mm1.per
-
-endfor
-
-return, create_struct('mean',means,'max',maxes,'min',mins,'per',pers,'pkpk',pkpk, $
-                     'source_name',sq1base+'_row*'+sq1suffix)
-
-end
-
-
 ; vphi_limits is used to compute min/max/period of vphi curves
 
 function vphi_limits, sq1, col=col,all_cols=all_cols
@@ -77,6 +39,44 @@ endelse
 
 
 return, create_struct('max',s_max,'min',s_min,'per',s_per)
+
+end
+
+
+; load_sq1servo_set is used to assemble v-phi from a set of single-row
+; servos into a single data structure.
+
+function load_sq1servo_set, sq1base
+
+sq1suffix='_sq1servo'
+
+; All we really care about is means and pk-pk
+n_col=8
+rf = mas_runfile(sq1base+'_row0'+sq1suffix+'.run')
+n_row = mas_runparam(rf, 'HEADER', 'RB cc num_rows_reported')
+
+means = fltarr([n_col, n_row])
+mins = means
+maxes = means
+pers = means
+pkpk = means
+
+for r = 0, n_row-1 do begin
+
+    sq1file = strcompress(sq1base+'_row'+string(r)+sq1suffix,/remove_all)
+
+    sq1 = read_bias_data(sq1file, npts=npts_sq1, rescale=0.001,runfile=sq1runfile)
+    mm1 = vphi_limits(sq1,/all_cols)
+    mins[*,r] = mm1.min
+    maxes[*,r] = mm1.max
+    means[*,r] = (mm1.min+mm1.max)/2
+    pkpk[*,r] = (mm1.max-mm1.min)/2
+    pers[*,r] = mm1.per
+
+endfor
+
+return, create_struct('mean',means,'max',maxes,'min',mins,'per',pers,'pkpk',pkpk, $
+                     'source_name',sq1base+'_row*'+sq1suffix)
 
 end
 

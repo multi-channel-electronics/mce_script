@@ -1,4 +1,5 @@
 #!/bin/bash 
+
 #
 # Sets SA bias to full current (65535) on all channels.
 #

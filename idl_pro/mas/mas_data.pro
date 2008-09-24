@@ -223,6 +223,13 @@ if not keyword_set(no_split) then begin
             count2 =  8
             rescale = 2d^1
         end
+        10: begin
+            start  =  7
+            count  = 25
+            start2 =  0 ; flux jump counter
+            count2 =  7
+            rescale = 2d^3
+        end
         else:
     endcase
 

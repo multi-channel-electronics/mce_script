@@ -81,7 +81,7 @@ bias_tess $start_bias
 sleep $first_pause
 
 # Help data mode into frame header...
-update_userword $n
+mce_update_userword $n
 
 # Don't register the acq here, it's done in auto_iv or not at all.
 #acq_register $ct iv $datafile $total_bias "$MAS_LOGID"
@@ -99,7 +99,7 @@ fi
 echo "<tes_bias>" >> $biasfile
 echo "Acquiring I-V curve into data file $datafile"
 
-script=$MAS_TEMP/ramp_tes_bias.scr
+script=$MAS_TEMP/`whoami`_ramp_tes_bias.scr
 [ -e $script ] && rm $script
 
 # Get a count of the bias lines in the system
