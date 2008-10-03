@@ -10,6 +10,7 @@
 LAST_TUNE=/data/cryo/last_squid_tune
 LAST_IV=/data/cryo/last_iv_det_data
 CTIMES=/data/mce_ctimes
+ARCHIVE=/data/archive_cache
 
 # The record script must exist or it is not called...
 RECORD=/usr/bin/act_record_mce_data_acq
@@ -36,6 +37,7 @@ do_db=1
 do_iv=1
 do_tune=1
 do_link=1
+do_archive=0
 
 #Allow user to suppress db registration.
 if [ "$note" == "no_db" ]; then
@@ -72,6 +74,7 @@ case $type in
 
     *)
     files="$name $name.run"
+    do_archive=1
     ;;
 esac
 
@@ -80,10 +83,14 @@ esac
 [ "$do_iv" != "0" ] && [ -e $LAST_IV ] && cat $LAST_IV >> ${name}.run
 [ "$do_db" != "0" ] && [ -e "$RECORD" ] && $RECORD $array_id $ctime $numpts $name "$note"
 
-if [ "$do_link" != "0" ]; then
-    for a in $files; do
+for a in $files; do
+    base=${a##*/}
+    if [ "$do_link" != "0" ]; then
 	[ -e $a ] || touch $a
-	base=`echo $a | sed 's/.*\///g'`
 	ln $a $CTIMES/$base
-    done
-fi
+    fi
+    if [ "$do_archive" != "0" ]; then
+	[ -e $a ] || touch $a
+	ln $a $ARCHIVE/$base
+    fi
+done

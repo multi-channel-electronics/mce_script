@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# source $MAS_SCRIPT/mas_library.bash
+
+ARCHIVE=/data/archive
+CACHE=/data/archive_cache
+
+LOG=/data/archive_cache/log.txt
+LOGGER="tee -a $LOG"
+
+echo "**********************************************************************" |$LOGGER
+echo "Starting at `date`" | $LOGGER
+
+# Compress all *_dat files only.  Tuning files aren't slimmed.
+
+export PATH=${PATH}:/usr/local/bin # for slim_mce
+for f in ${CACHE}/[1-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*; do
+    case $f in
+        *.run)
+            ;; # Do nothing
+
+        *_dat)
+            # slim_mce will compress *_dat to *_dat.slm, and move the hard
+            # link in /data/archive_cache/ to /data/archive
+            echo "Slimming $f" | $LOGGER
+            slim_mce --force $f 2>&1 | $LOGGER
+            if [ $? -a -e ${f}.slm ]; then
+ 	        mv ${f}.{slm,run} ${ARCHIVE}  |$LOGGER
+                echo "Moving $f.slm to archive" |$LOGGER
+            else
+                echo "Slim failed; skipping ${f} and its runfile" |$LOGGER
+            fi
+            ;;
+
+        *)
+            # Other files just get moved, with their runfiles
+            mv ${f} ${f}.run ${ARCHIVE} |$LOGGER
+            ;;
+    esac
+done
+
+echo "Done at `date`" | $LOGGER
