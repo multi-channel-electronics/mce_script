@@ -26,17 +26,19 @@ fi
 num_rows_rep_in=`command_reply rb cc num_rows_reported`
 data_rate_in=`command_reply rb cc data_rate`
 use_dv_in=`command_reply rb cc use_dv`
+use_sync_in=`command_reply rb cc use_sync`
 
 mce_cmd -qx wb cc num_rows_reported $new_rows_rep
 mce_cmd -qx wb cc data_rate $new_data_rate
 mce_cmd -qx wb cc use_dv 0
+mce_cmd -qx wb cc use_sync 0
 
 data_rate=`command_reply rb cc data_rate`
 num_rows=`command_reply rb cc num_rows`
 row_len=`command_reply rb cc row_len`
 ct=`print_ctime`
 
-filename="fast_$ct"
+filename="${ct}_fast"
 mux_rate=$(( 50000000 / $num_rows / $row_len ))
 echo "MCE internal frame rate (mux rate) is $mux_rate"
 echo "Readout frame rate is $(( $mux_rate / $data_rate ))"
@@ -46,4 +48,5 @@ mce_run $filename $nf $rc
 echo "Restoring original data_rate of $data_rate_in, and num_rows_reported of $num_rows_rep_in"
 mce_cmd -qx wb cc data_rate $data_rate_in
 mce_cmd -qx wb cc num_rows_reported $num_rows_rep_in
+mce_cmd -qx wb cc use_sync $use_sync_in
 mce_cmd -qx wb cc use_dv $use_dv_in
