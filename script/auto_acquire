@@ -29,6 +29,9 @@ acq_name=${start_ctime}_$1
 n_frames=$2
 note="$3"
 
+# DSP reset to repair any PCI faults
+mce_cmd -qX "dsp_reset" -X "sleep 2000"
+
 # Register acquisition
 update_userword s
 acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames "$note"
