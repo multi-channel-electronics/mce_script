@@ -37,7 +37,7 @@ do_db=1
 do_iv=1
 do_tune=1
 do_link=1
-do_archive=0
+do_archive=1
 
 #Allow user to suppress db registration.
 if [ "$note" == "no_db" ]; then
