@@ -1,42 +1,100 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-# source $MAS_SCRIPT/mas_library.bash
+ARCHIVE="/data/archive"
+CACHE="/data/archive_cache"
 
-ARCHIVE=/data/archive
-CACHE=/data/archive_cache
+LOG="/data/archive_cache/log.txt"
+LOGGER="tee -a %s"%LOG
 
-LOG=/data/archive_cache/log.txt
-LOGGER="tee -a $LOG"
+SLIMPATH = "/usr/local/bin"
 
-echo "**********************************************************************" |$LOGGER
-echo "Starting at `date`" | $LOGGER
+import subprocess, time, glob
+import os, os.path, commands, sys, tempfile
+
+def timestamp():
+    """Convert current time (not date) to a string and return it."""
+    return time.strftime("%H:%M:%S", time.localtime())
+
+def move2dir(src, destDir):
+    """Move a file src to a directory destDir"""
+    # Careful!  Don't use shutil.move, b/c it actually copies
+    commands.getoutput("mv %s %s" % (src, destDir))
+
+
+# Log everything to a log file AND to stdout, using a pipe to "tee"
+print
+logger = subprocess.Popen(["tee","-a","%s"%LOG], stdin=subprocess.PIPE).stdin
+sys.stdout = logger
+
+print 75*"*","\n"
+print "Starting at %s"% time.asctime()
 
 # Compress all *_dat files only.  Tuning files aren't slimmed.
 
-export PATH=${PATH}:/usr/local/bin # for slim_mce
-for f in ${CACHE}/[1-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*; do
-    case $f in
-        *.run)
-            ;; # Do nothing
+files = glob.glob("%s/[1-9]%s*" % (CACHE, 9*"[0-9]"))
+files.sort()
+for f in files:
 
-        *_dat)
-            # slim_mce will compress *_dat to *_dat.slm, and move the hard
-            # link in /data/archive_cache/ to /data/archive
-            echo "Slimming $f" | $LOGGER
-            slim_mce --force $f 2>&1 | $LOGGER
-            if [ $? -a -e ${f}.slm ]; then
- 	        mv ${f}.{slm,run} ${ARCHIVE}  |$LOGGER
-                echo "Moving $f.slm to archive" |$LOGGER
-            else
-                echo "Slim failed; skipping ${f} and its runfile" |$LOGGER
-            fi
-            ;;
+    if f.endswith(".run"): 
+        pass # Handle runfiles with their partners
 
-        *)
-            # Other files just get moved, with their runfiles
-            mv ${f} ${f}.run ${ARCHIVE} |$LOGGER
-            ;;
-    esac
-done
+    elif f.endswith("_dat"):
+        # slim_mce will compress *_dat to *_dat.slm, and move the hard
+        # link in /data/archive_cache/ to /data/archive
+        print "%s Slimming %s"% (timestamp(), f)
 
-echo "Done at `date`" | $LOGGER
+        slimfile="%s.slm"%f
+        runfile="%s.run"%f
+
+        cmd1="export PATH=${PATH}:%s; slim_mce --force %s 2>&1" % (SLIMPATH, f)
+        stat,out = commands.getstatusoutput(cmd1)
+        if stat==0 and os.path.exists(slimfile):
+            print out
+
+            # Decide whether to save raw or slim file based on whether
+            # we can successfully unslim the slim file.
+            fd, tmpPath = tempfile.mkstemp(suffix=".raw")
+            cmd2="export PATH=${PATH}:%s; unslim --stdout --preserve %s > %s"%(
+                SLIMPATH, slimfile,tmpPath)
+            stat,out = commands.getstatusoutput(cmd2)
+            os.remove(tmpPath)
+            
+            if stat == 0:
+                print "%s Moving   %s to archive"% (timestamp(), slimfile)
+                move2dir(slimfile, ARCHIVE)
+            else:
+                print out
+                print "Failed to unslim!  Copying raw file to archive instead"
+                move2dir(f, ARCHIVE)
+
+            # Either way, save the runfile now, too.
+            try: 
+                move2dir(runfile, ARCHIVE)
+            except: pass
+
+        else:
+            print out
+            print "Slim failed; skipping %s and its runfile"%f
+
+    else:
+        # Other files just get moved, with their runfiles and possibly bias files
+        move2dir(f, ARCHIVE)
+        print "Moved %s to archive"%f
+        try:
+            runfile = "%s.run"%f
+            if os.path.exists(runfile):
+                move2dir(runfile, ARCHIVE)
+                print "Moved %s to archive"%runfile
+        except Exception, e:
+            print "Could not move %s"%runfile
+            print e
+        try:
+            biasfile = "%s.bias"%f
+            if os.path.exists(biasfile):
+                move2dir(biasfile, ARCHIVE)
+                print "Moved %s to archive"%biasfile
+        except Exception, e:
+            print "could not move %s"%biasfile
+            print e
+
+print "Done at %s" % time.asctime()
