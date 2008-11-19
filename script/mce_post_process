@@ -97,4 +97,17 @@ for f in files:
             print "could not move %s"%biasfile
             print e
 
+
+# Jump scanning
+cmd = '/home/mce/bin/jump_scan -1 -2'
+try:
+    stat,out = commands.getstatusoutput(cmd)
+    if stat != 0:
+        print 'Jump scanning failed with error code %i' % stat
+    else:
+        print 'Jump scanning successful'
+except:
+    print 'Jump scanning failed with exception'
+
+
 print "Done at %s" % time.asctime()
