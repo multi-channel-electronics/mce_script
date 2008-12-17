@@ -1,0 +1,166 @@
+#!/bin/bash
+
+# Change bias/servo/data_mode settings for magnetic field / misc
+# pickup tests.
+
+source $MAS_SCRIPT/mas_library.bash
+
+function bias_sq1 {
+    if [ "$1" == "on" ]; then
+        mce_cmd -q -x wb sq1 bias `mas_param -s $cfg get sq1_bias`
+    else
+        mce_cmd -q -x wb sq1 bias `repeat_string 0 $bias_rows`
+    fi
+}
+
+function bias_sq2 {
+    if [ "$1" == "on" ]; then
+        mce_cmd -q -x wb sq2 bias `mas_param -s $cfg get sq2_bias`
+    else
+        mce_cmd -q -x wb sq2 bias `repeat_string 0 $n_columns`
+    fi
+}
+
+function bias_sa {
+    if [ "$1" == "on" ]; then
+        mce_cmd -q -x wb sa bias `mas_param -s $cfg get sa_bias`
+    else
+        mce_cmd -q -x wb sa bias `repeat_string 0 $n_columns`
+    fi
+}
+
+function bias_tes {
+    if [ "$1" == "on" ]; then
+	echo Biasing tes normal...
+	bias_tess $norm_bias
+	sleep $norm_time
+	echo Biasing tes to transition.
+	bias_tess `mas_param -s $cfg get tes_bias`
+    else
+        bias_tess `repeat_string 0 $bias_lines`
+    fi
+}
+
+function bias_stages {
+    bias_sa $1
+    bias_sq2 $2
+    bias_sq1 $3
+    bias_tes $4
+}
+
+function servo {
+    if [ "$1" == "on" ]; then
+	mce_cmd -q -x wb sq1 servo_mode `repeat_string 3 $n_columns`
+    else
+	mce_cmd -q -x wb sq1 servo_mode `repeat_string 0 $n_columns`
+    fi
+}
+
+function set_data_mode {
+    case $1 in
+	error)
+	    mode=$error_mode
+	    ;;
+	fb)
+	    mode=$fb_mode
+	    ;;
+	mixed)
+	    mode=$mixed_mode
+	    ;;
+	filt)
+	    mode=$filt_mode
+	    ;;
+	*)
+	    echo Bad data mode.
+	    return
+    esac
+    mce_cmd -q -x wb rca data_mode $mode
+}
+
+#
+# main
+#
+
+command=$1
+cfg=$MAS_DATA/bias_settings.cfg
+ecfg=$MAS_DATA/experiment.cfg
+
+# Array parameters
+n_columns=32
+bias_rows=41
+bias_lines=3
+
+# Data mode stuff
+error_mode=0
+fb_mode=1
+filt_mode=10
+mixed_mode=4
+
+# TES biasing stuff from experiment.cfg
+norm_bias=`mas_param -s $ecfg get tes_bias_normal`
+norm_time=`mas_param -s $ecfg get tes_bias_normal_time`
+
+case $command in
+
+    save)
+	sq1=`command_reply rb sq1 bias`
+	sq2=`command_reply rb sq2 bias`
+	sa=`command_reply rb sa bias`
+	tes=`command_reply rb tes bias`
+	cp $MAS_TEMPLATE/bias_settings.cfg $MAS_DATA
+	mas_param -s $cfg set sq1_bias $sq1
+	mas_param -s $cfg set sq2_bias $sq2
+	mas_param -s $cfg set sa_bias $sa
+	mas_param -s $cfg set tes_bias $tes
+	;;
+
+    restore)
+	bias_sa on
+	bias_sq2 on
+	bias_sq1 on
+	bias_tes on
+	data_mode=`mas_param -s $ecfg get default_data_mode`
+	servo_mode=`mas_param -s $ecfg get servo_mode`
+	mce_cmd -q -x wb rca data_mode $data_mode
+	mce_cmd -q -x wb sq1 servo_mode `repeat_string $servo_mode $n_columns`
+	;;
+    
+    ssa_pckup | ssa_pickup)
+	servo off
+        bias_stages on  off off off
+	set_data_mode error
+	;;
+
+    sq2_pckup | sq2_pickup)
+	servo off
+        bias_stages on  on  off off
+	set_data_mode error
+	;;
+
+    sq1_pckup | sq1_pickup)
+	servo off
+        bias_stages on  on  on  off
+	set_data_mode error
+	;;
+
+    all_sq_pckup | all_sq_pickup)
+	servo off
+        bias_stages on  on  on  off
+	servo on
+	set_data_mode mixed
+	;;
+
+    all_tes_pckup | all_tes_pickup)
+	servo off
+        bias_stages on  on  on  on
+	servo on
+	set_data_mode mixed
+	;;
+
+    *)
+	echo "Unknown command '$command'"
+	exit 1
+esac
+
+
+    
