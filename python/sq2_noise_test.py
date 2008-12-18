@@ -37,7 +37,7 @@ def main():
 
     biases = [bias_start + bias_step*i for i in range(bias_count)]
     for bias in biases:
-        config_set('default_sq2_bias', bias*32)
+        config_set('default_sq2_bias', [bias]*32)
         tune()
         for j in range(n_fast):
             noise_acq('_bias_%i_%i' % (bias, j))
