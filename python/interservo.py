@@ -20,21 +20,31 @@ def expt_param(key, dtype=None):
     raise ValueError, 'can\'t handle dtype=\'%s\' '%dtype
 
 
-def reservo(m, param, gains=None, rows=None, steps=10):
+def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
     done = False
     if rows == None:
         rows = [0]*32
     if gains == None:
         gains = [0.02]*32
+    # Setup a default exit condition...
+    if steps == None:
+        steps = 1
+    count = 0
     while not done:
         data = m.read_frame(data_only=True)
         dy = [data[32*r + c] for (c,r) in enumerate(rows)]
+        if verbose:
+            print 'Measured: ', dy
         dx = [g*d for d,g in zip(dy, gains)]
         x = m.read(param[0], param[1])
         x_new = [int(a+b) for (a,b) in zip(x,dx)]
-        print x_new
+        if verbose:
+            print 'Applied: ', x_new
         m.write(param[0], param[1], x_new)
-        done = True
+        if steps != None:
+            count += 1
+            if count >= steps:
+                done = True
 
 def set_adcoffset(m, ofs):
     for rc in range(4):
@@ -76,7 +86,8 @@ def process_options():
     opts = optparse.OptionParser(usage='Usage: %prog [options] stage\n\n' \
                                      '    stage should be one of sq1, sq2, sa')
     opts.add_option('--tuning', '-t', type='string', default=None)
-    opts.add_option('--verbose', '-v', default=False)
+    opts.add_option('--verbose', '-v', action='store_true', default=False)
+    opts.add_option('--quiet', '-q', action='store_true', default=False)
     opts.add_option('--steps', '-n', type='int', default=0, \
                     help='number of servo steps to execute (default 0)')
     opts.add_option('--samples', '-s', type='int', default=10, \
@@ -85,8 +96,6 @@ def process_options():
 
 def main():
     opts, args = process_options()
-    print args
-    print opts
 
     if len(args) != 1:
         print 'Specify exactly one stage argument'
@@ -105,15 +114,6 @@ def main():
             print 'Could not find a recent tuning, or most recent tuning was ' \
                 'not a full tune (specify the tuning folder manualy)!'
             sys.exit(11)
-    print 'Source tuning: %s' % opts.tuning
-
-    # Get an mce
-    m = mce()
-    m.write('rca', 'data_mode', [0])
-
-    # Regardless of the stage, we can use the ADC_offset from sq2servo:
-    ofs = get_historical_offset(opts.tuning, 'sq2servo')
-    write_adc_offset(m, ofs)
 
     if stage == 'sq1':
         # This has no analog in the tuning... sq1_fb hardware servo'd
@@ -134,22 +134,40 @@ def main():
         gains = four_to_32(g)        
         rows = None
 
+    if not opts.quiet:
+        print 'Source tuning: %s' % opts.tuning
+        print 'Servo control: %s %s' % (param[0],param[1])
+        print 'Servo steps:   %i' % opts.steps
+        print ''
+
+    # Get an mce
+    m = mce()
+    m.write('rca', 'data_mode', [0])
+
+    # Regardless of the stage, we can use the ADC_offset from sq2servo:
+    ofs = get_historical_offset(opts.tuning, 'sq2servo')
+    write_adc_offset(m, ofs)
+
+    # Action time
     n_check = opts.samples
     n_servo = opts.steps
 
-    err = [ get_line(m, rows) for i in range(n_check)]
-    err = array(err)
-    print 'Initial error (%i): %10.2f' % (n_check, mean(abs(mean(err,axis=0))))
+    # Measure initial error
+    if not opts.quiet:
+        err = [ get_line(m, rows) for i in range(n_check)]
+        err = array(err)
+        print 'Initial error set (%i):' % n_check
+        print mean(err, axis=0)
 
-    print 'Servoing \'%s %s\' for %i steps...' % (param[0],param[1],n_servo)
-    for i in range(n_servo):
-        reservo(m, param, gains=gains)
-    err = array([ get_line(m, rows) for i in range(n_check)])
+    if not opts.quiet:
+        print 'Servoing...'
+    reservo(m, param, gains=gains, steps=n_servo, verbose=opts.verbose)
 
-    print 'Final error (%i):   %10.2f' % (n_check, mean(abs(mean(err,axis=0))))
-
-
+    if not opts.quiet:
+        err = [ get_line(m, rows) for i in range(n_check)]
+        err = array(err)
+        print 'Final error set (%i):' % n_check
+        print mean(err, axis=0)
 
 if __name__ == '__main__':
     main()
-
