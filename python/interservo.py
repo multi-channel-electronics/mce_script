@@ -115,19 +115,19 @@ def main():
                 'not a full tune (specify the tuning folder manualy)!'
             sys.exit(11)
 
-    if stage == 'sq1':
+    if stage == 's1' or stage == 'sq1':
         # This has no analog in the tuning... sq1_fb hardware servo'd
         param = ['sq1', 'fb_const']
         g = expt_param('default_servo_i', dtype='float')
         gains = [gg/4096. for gg in g]        
         rows = expt_param('sq2_rows', dtype='int')
-    elif stage == 'sq2':
+    elif stage == 's2' or stage == 'sq2':
         # This is like sq1servo, but the sq1 are off
         param = ['sq2', 'fb']
         g = expt_param('sq1servo_gain', dtype='float')
         gains = four_to_32(g)        
         rows = None
-    elif stage == 'sa':
+    elif stage == 'sa' or stage == 'ssa':
         # This is like sq2servo, but the sq2 are off
         param = ['sa', 'fb']
         g = expt_param('sq2servo_gain', dtype='float')
