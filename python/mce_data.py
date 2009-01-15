@@ -226,7 +226,7 @@ class SmallMCEFile:
 
     def Read(self, dets=None, n_frames=MAX_FRAMES, start=0,
              do_extract=True, do_scale=True, data_mode=None,
-             fields=None, force_dict=False, row_col=False,
+             field=None, fields=None, row_col=False,
              raw_frames=False):
         """
         Read MCE data, and optionally extract the MCE signals.
@@ -239,10 +239,11 @@ class SmallMCEFile:
                     data mode.
         data_mode   Overrides data_mode from runfile, or can provide data_mode if no
                     runfile is used.
-        fields      A list of fields of interest to extract, or None to get the default
-                    field, 'all' for all.
-        force_dict  Forces the output data to be a dictionary even if only a single
-                    field is found.
+        field       A single field to extract.  The output data will contain an array
+                    containing the extracted field.  (If None, the default field is used.)
+        fields      A list of fields of interest to extract, or 'all' to get all fields.
+                    This overrides the value of field, and the output data will contain
+                    a dictionary with the extracted field data.
         row_col     if True, detector data is returned as a 3-D array with indices (row,
                     column, frame)
         raw_frames  if True, return a 2d array containing raw data (including header
@@ -284,10 +285,19 @@ class SmallMCEFile:
             print 'Unimplemented data mode %i, treating as 0.'%data_mode
             dm_data = MCE_data_modes['0']
 
-        if fields == 'all':
+        # This singlular plural thing is a bit lame...
+        if field == None:
+            field = 'default'
+
+        force_dict = (fields != None)
+        if fields == None:
+            fields = [field]
+        elif fields == 'all':
             fields = dm_data.fields
-        elif fields == None or fields[0] == 'default':
-            fields = [dm_data.fields[0]]
+
+        for i,f in enumerate(fields):
+            if f=='default':
+                fields[i] = dm_data.fields[0]                
 
         data_out.data_is_dict = (len(fields) > 1 or force_dict)
         if data_out.data_is_dict:
