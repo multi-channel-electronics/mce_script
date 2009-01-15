@@ -74,6 +74,18 @@ class MCERunfile:
                 break
         return result
 
+    def Item2dRC(self, block, key_format, array=True, type='string',
+                 first = 0, count = None, rc_count=4, rc_start=1):
+        rc_data = []
+        for i in range(4):
+            d = self.Item2d(block, key_format%(i+1), array=array,
+                            type=type, first=first, count=count)
+            if d == None:
+                return None
+            for column in d:
+                rc_data.append(column)
+        return rc_data
+
     def __getitem__(self, key):
         return self.data[key]
 
