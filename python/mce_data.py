@@ -35,6 +35,51 @@ class HeaderFormat:
         self.header_size = 43
         self.footer_size = 1
 
+class BitField(object):
+    def define(self, name, start, count, scale=1.):
+        self.name = name
+        self.start = start
+        self.count = count
+        self.scale = scale
+        return self
+
+    def extract(self, data, do_scale=True):
+        """
+        Extracts the bit field from numpy array of 32-bit integers.
+        """
+        left = 32 - self.count
+        right = left - self.start
+        if left != 0:
+            data = data * 2**left
+        if right != 0:
+            data = data / 2**right
+        if do_scale and self.scale != 1.:
+            data = data * self.scale
+        return data
+
+class DataMode(dict):
+    def __init__(self):
+        dict.__init__(self)
+        self.fields = []
+    def define(self, *args):
+        for a in args:
+            self.fields.append(a.name)
+            self[a.name] = a
+        return self
+
+#Define the MCE data modes
+MCE_data_modes = { \
+    '0': DataMode().define(BitField().define('error', 0, 32)),
+    '1': DataMode().define(BitField().define('fb', 0, 32, 2.**-12)),
+    '2': DataMode().define(BitField().define('fb_filt', 0, 32)),
+    '4': DataMode().define(BitField().define('fb', 14, 18),
+                           BitField().define('error', 0, 14)),
+    '9': DataMode().define(BitField().define('fb_filt', 8, 24, 2.**1),
+                           BitField().define('fj', 0, 8)),
+    '10': DataMode().define(BitField().define('fb_filt', 7, 25, 2.**3),
+                            BitField().define('fj', 0, 7)),
+}
+
 class MCEData:
     """
     Container for MCE data (single channel) and associated header and origin information.
@@ -51,6 +96,7 @@ class MCEData:
         self.data = []
         self.row_list = []
         self.col_list = []
+
     
 class SmallMCEFile:
     """
@@ -179,8 +225,8 @@ class SmallMCEFile:
         self.col_list = rc_cols * self.n_rows
 
     def Read(self, dets=None, n_frames=MAX_FRAMES, start=0,
-             do_extract=True, do_rescale=True, data_mode=None,
-             field_list=['default'], force_dict=False, row_col=False,
+             do_extract=True, do_scale=True, data_mode=None,
+             fields=None, force_dict=False, row_col=False,
              raw_frames=False):
         """
         Read MCE data, and optionally extract the MCE signals.
@@ -189,13 +235,18 @@ class SmallMCEFile:
         n_frames    Number of frames to read
         start       Index of first frame to read
         do_extract  if True, extract signal bit-fields using data_mode from runfile
-        do_rescale  if True, rescale the extracted bit-fields to match a reference data mode.
-        data_mode   Overrides data_mode from runfile, or can provide data_mode if no runfile is used.
-        field_list  A list of fields of interest to extract.
-        force_dict  Forces the output data to be a dictionary even if only a singal field is found.
-        row_col     if True, detector data is returned as a 3-D array with fields (row, column, frame)
-        raw_frames  if True, return a 2d array containing raw data (including header and checksum).
-                    The data are unprocessed; indices are (frame, index_in_frame)
+        do_scale    if True, rescale the extracted bit-fields to match a reference
+                    data mode.
+        data_mode   Overrides data_mode from runfile, or can provide data_mode if no
+                    runfile is used.
+        fields      A list of fields of interest to extract, or None to get the default
+                    field, 'all' for all.
+        force_dict  Forces the output data to be a dictionary even if only a single
+                    field is found.
+        row_col     if True, detector data is returned as a 3-D array with indices (row,
+                    column, frame)
+        raw_frames  if True, return a 2d array containing raw data (including header
+                    and checksum), with indices (frame, index_in_frame).
         """
 
         self.ReadRunfile()
@@ -210,7 +261,6 @@ class SmallMCEFile:
         data_out.source = self.filename
         data_out.n_frames = n_frames
         data_out.header = self.header
-        data_out.data_is_dict = (len(field_list) > 1 or force_dict)
         data_out.row_list = self.row_list
         data_out.col_list = self.col_list
 
@@ -220,75 +270,38 @@ class SmallMCEFile:
                 data_mode = 0
             else:
                 if self.runfile_data == None and self.ReadRunfile()==None:
-                    print 'Failed to read runfile \'%s\' (suppress with runfile=False)'%self.runfile
+                    print 'Failed to read runfile \'%s\' (suppress with runfile=False)'% \
+                        self.runfile
                     return None
                 rf = self.runfile_data
                 acq_rc = rf.Item('FRAMEACQ', 'RC', type='int')
-                data_mode = rf.Item('HEADER', 'RB rc%i data_mode' % acq_rc[0], type='int', array=False)
+                data_mode = rf.Item('HEADER', 'RB rc%i data_mode' % \
+                                    acq_rc[0], type='int', array=False)
 
-        # Define the content and windowing of the 32 bit data.
-        data_starts = [0]
-        data_counts = [32]
-        data_scales = [1.]
-        if data_mode == 0:
-            data_fields = ['error']
-        elif data_mode == 1:
-            data_fields = ['fb']
-            data_scales = [2**-12]
-        elif data_mode == 2:
-            data_fields = ['fb_filt']
-        elif data_mode == 4:
-            data_fields = ['fb', 'error']
-            data_starts = [14, 0]
-            data_counts = [18, 14]
-            data_scales = [1., 1.]
-        elif data_mode == 9:
-            data_fields = ['fb_filt', 'fj']
-            data_starts = [8, 0]
-            data_counts = [24, 8]
-            data_scales = [2**1, 1.]
-        elif data_mode == 10:
-            data_fields = ['fb_filt', 'fj']
-            data_starts = [7, 0]
-            data_counts = [25, 7]
-            data_scales = [2**3, 1.]
-        else:
-            print 'Unimplemented data mode, %i!' % data_mode
-            data_fields = ['error']
+        # NEW CODE
+        dm_data = MCE_data_modes.get('%i'%data_mode)
+        if dm_data == None:
+            print 'Unimplemented data mode %i, treating as 0.'%data_mode
+            dm_data = MCE_data_modes['0']
 
-        if field_list == ['default']:
-            field_list = [ data_fields[0] ]
+        if fields == 'all':
+            fields = dm_data.fields
+        elif fields == None or fields[0] == 'default':
+            fields = [dm_data.fields[0]]
 
-        if field_list == ['all']:
-            field_list = data_fields
-
+        data_out.data_is_dict = (len(fields) > 1 or force_dict)
         if data_out.data_is_dict:
             data_out.data = {}
 
-        for f in field_list:
-            fidx = data_fields.index(f)
-
-#            (c,r) = (5, 37)
-#            print data[c,r], digits(data[c,r])
-            # shift sign bit into MSB
-            left = 32 - data_counts[fidx] - data_starts[fidx]
-            right = 32 - data_counts[fidx]
-            data_copy = data
-            if left != 0:
-                data_copy = data_copy * 2**left
-#            print data_copy[c,r], digits(data_copy[c,r])
-            if right != 0:
-                data_copy = data_copy / 2**right
-#            print data_copy[c,r], digits(data_copy[c,r])
-            if data_scales[fidx] != 1.:
-                data_copy = data_copy * data_scales[fidx]
-#            print data_copy[c,r]
+        for f in fields:
+            # Use BitField.extract to get each field
+            new_data = dm_data[f].extract(data, do_scale=do_scale)
             if row_col:
-                data_copy.shape = (self.n_rows, self.n_cols, self.n_frames)
+                new_data.shape = (self.n_rows, self.n_cols, self.n_frames)
             if data_out.data_is_dict:
-                data_out.data[f] = data_copy
+                data_out.data[f] = new_data
             else:
-                data_out.data = data_copy
- 
+                data_out.data = new_data
+
         return data_out
 
