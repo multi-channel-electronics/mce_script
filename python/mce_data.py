@@ -179,7 +179,7 @@ class SmallMCEFile:
         elif data_mode == 2:
             data_fields = ['fb_filt']
         elif data_mode == 4:
-            data_fields = ['fb_filt', 'error']
+            data_fields = ['fb', 'error']
             data_starts = [14, 0]
             data_counts = [18, 14]
             data_scales = [1., 1.]
