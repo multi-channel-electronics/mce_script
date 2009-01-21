@@ -79,7 +79,9 @@ if 1 then begin
     bias1_cols = where(array_params.bias_lines mod 3 eq 0)
     ; Put this line in to make it so that AR3 only uses columns 16-19 to select bias value
     ;	because of problems with parallel biasing of columns 20-23
-    if array_name eq 'AR3' then bias1_cols = where(array_params.bias_lines eq 0)
+
+;!MFH Jan.09 - removed this special treatment to see if the lines are better now
+;    if array_name eq 'AR3' then bias1_cols = where(array_params.bias_lines eq 0)
     bias2_cols = where(array_params.bias_lines mod 3 eq 1)
     bias3_cols = where(array_params.bias_lines mod 3 eq 2)
     eff_bias_lines = array_params.bias_lines
