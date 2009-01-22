@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#PBS -l cput=11:0:0
+
+cd /mnt/act2/mce_mbac/2008_time_constant_analysis
+
+idl <<EOF
+.compile mce_time_constant_data_extraction_2008
+mce_time_constant_data_extraction_2008, dir='/mnt/act2/mce_mbac/AR1/20081212/'
+EOF

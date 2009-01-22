@@ -1,0 +1,8 @@
+
+#!/bin/bash
+
+
+idl -quiet <<EOF
+.r mce_time_constant_data_extraction_2008
+mce_time_constant_data_extraction_2008, dir = '/data/cryo/20081214_chopper/'
+EOF
