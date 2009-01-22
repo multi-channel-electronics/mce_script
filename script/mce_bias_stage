@@ -5,6 +5,13 @@
 
 source $MAS_SCRIPT/mas_library.bash
 
+function refresh_biases {
+	mux_now=`command_reply rb ac enbl_mux`
+	mux on
+	sleep 0.1
+	mce_cmd -q -x wb ac enbl_mux $mux_now
+}
+
 function bias_sq1 {
     if [ "$1" == "on" ]; then
         mce_cmd -q -x wb sq1 bias `mas_param -s $cfg get sq1_bias`
@@ -46,6 +53,15 @@ function bias_stages {
     bias_sq2 $2
     bias_sq1 $3
     bias_tes $4
+    refresh_biases
+}
+
+function mux {
+    if [ "$1" == "on" ]; then
+	mce_cmd -q -x wb ac enbl_mux 0
+    else
+	mce_cmd -q -x wb ac enbl_mux 1
+    fi
 }
 
 function servo {
@@ -123,6 +139,7 @@ case $command in
 	servo_mode=`mas_param -s $ecfg get servo_mode`
 	mce_cmd -q -x wb rca data_mode $data_mode
 	mce_cmd -q -x wb sq1 servo_mode `repeat_string $servo_mode $n_columns`
+	mux on
 	;;
     
     ssa_pckup | ssa_pickup)
