@@ -1,0 +1,26 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+n_rows=33
+n_cols=32
+
+if [ "$#" != "1" ]; then
+   echo "Usage:   $0 <gaini>"
+   echo ""
+   echo "All columns and 33 rows will be set to use the specified gaini term."
+   echo "You will need to re-apply any masks."
+   exit 1
+fi
+
+TARGET='mce_cmd -q -x'
+# TARGET='cat'
+
+gain=$1
+
+for c in `seq 0 $(( $n_cols -1 ))`; do
+    rc=$(( $c / 8 + 1 ))
+    chan=$(( $c % 8 ))
+
+    repeat_string $gain $n_rows "wb rc$rc gaini$chan"
+done | $TARGET
