@@ -47,8 +47,8 @@ class BitField(object):
         """
         Extracts the bit field from numpy array of 32-bit integers.
         """
-        left = 32 - self.count
-        right = left - self.start
+        right = 32 - self.count
+        left = right - self.start
         if left != 0:
             data = data * 2**left
         if right != 0:
