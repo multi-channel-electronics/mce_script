@@ -118,18 +118,16 @@ class SmallMCEFile:
         self.row_list = []
         self.col_list = []
         self.header = None
-        self.f = None
         self.runfile = runfile
         if self.runfile == True:
             self.runfile = filename+'.run'
         self.runfile_data = None
 
     def ReadHeader(self):
-        if (self.f == None):
-            self.f = open(filename)
+        fin = open(self.filename)
         # It's a V6, or maybe a V7.
         format = HeaderFormat()
-        head_binary = numpy.fromfile(file=self.f, dtype=numpy.uint32, \
+        head_binary = numpy.fromfile(file=fin, dtype=numpy.uint32, \
                                          count=format.header_size)
 
         # Lookup each offset and store
@@ -159,7 +157,6 @@ class SmallMCEFile:
         return self.runfile_data
 
     def ReadRaw(self, dets=None, n_frames=MAX_FRAMES, start=0, raw_frames=False):
-        self.f = open(self.filename)
         if self.header == None:
             self.ReadHeader()
 
@@ -175,10 +172,12 @@ class SmallMCEFile:
                     self.n_cols = self.cols_per_card*self.header['rc_present'].count(True)
 
         size=self.n_rows*self.n_cols + self.header_size + self.footer_size
-        self.f.seek(4*start*size)
+
+        fin = open(self.filename)
+        fin.seek(4*start*size)
 
         count = size*n_frames
-        a = numpy.fromfile(file=self.f, dtype=numpy.uint32, count=count)
+        a = numpy.fromfile(file=fin, dtype=numpy.uint32, count=count)
         self.n_frames = len(a) / size
         shape = (self.n_frames, size)
         a = a.reshape(shape)
