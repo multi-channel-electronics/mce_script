@@ -2,7 +2,7 @@ CC=gcc
 
 CFLAGS+=-Wall
 
-TARGETS= eat_packets runfile_scan extract_frames catch_rampers
+TARGETS= eat_packets runfile_scan extract_frames catch_rampers ascii_frame
 
 INSTALL_DIR=/usr/mce/bin
 
