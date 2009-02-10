@@ -81,7 +81,7 @@ bias_tess $start_bias
 sleep $first_pause
 
 # Help data mode into frame header...
-update_userword $n
+mce_update_userword $n
 
 # Don't register the acq here, it's done in auto_iv or not at all.
 #acq_register $ct iv $datafile $total_bias "$MAS_LOGID"
