@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
 from mce import *
-from mce_runfile import *
+from mce_data import *
 from glob import glob
 import sys, commands
 from numpy import *
 import optparse
+
+N_RC=2
+NCOLS=N_RC*8
 
 def expt_param(key, dtype=None):
     src = '/data/cryo/current_data/experiment.cfg'
@@ -23,16 +26,16 @@ def expt_param(key, dtype=None):
 def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
     done = False
     if rows == None:
-        rows = [0]*32
+        rows = [0]*NCOLS
     if gains == None:
-        gains = [0.02]*32
+        gains = [0.02]*NCOLS
     # Setup a default exit condition...
     if steps == None:
         steps = 1
     count = 0
     while not done:
         data = m.read_frame(data_only=True)
-        dy = [data[32*r + c] for (c,r) in enumerate(rows)]
+        dy = [data[NCOLS*r + c] for (c,r) in enumerate(rows)]
         if verbose:
             print 'Measured: ', dy
         dx = [g*d for d,g in zip(dy, gains)]
@@ -55,8 +58,8 @@ def set_adcoffset(m, ofs):
 def get_historical_offset(folder, stage='ssa', rows=None):
     offsets = []
     if rows == None:
-        rows = [0]*32
-    for rc in range(4):
+        rows = [0]*NCOLS
+    for rc in range(N_RC):
         file = glob(folder+'/*RC%i_%s.run'%(rc+1,stage))
         rf = MCERunfile(file[0])
 	all_offsets = rf.Item2d('HEADER', 'RB rc%i adc_offset%%i'%(rc+1),
@@ -66,15 +69,15 @@ def get_historical_offset(folder, stage='ssa', rows=None):
     return offsets
 
 def write_adc_offset(m, ofs, fill=True, n_rows=33):
-    for c in range(32):
+    for c in range(N_RC*8):
         m.write('rc%i'%((c/8)+1), 'adc_offset%i'%(c%8), [ofs[c]]*41)
 
     
 def get_line(m, rows=None):
     if rows == None:
-        rows = [0]*32
+        rows = [0]*NCOLS
     d = m.read_frame(data_only=True)
-    return [d[r*32+c] for (c,r) in enumerate(rows)]
+    return [d[r*NCOLS+c] for (c,r) in enumerate(rows)]
 
 def four_to_32(four):
     thirtytwo = []
