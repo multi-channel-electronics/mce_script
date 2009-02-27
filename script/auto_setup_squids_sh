@@ -10,14 +10,9 @@ if [ "$1" = "" ]; then
 fi
 
 RC=",rcs=[$2]"
-row="$3"
 
 if [ "$2" == "" ] || [ "$2" == "s" ] || [ "$2" == "S" ] || [ "$2" == "all" ]; then
     RC=""
-fi
-
-if [ "$3" = "" ]; then
-    row="2"
 fi
 
 AUTO_LOG=$MAS_DATA/auto_log.txt
@@ -30,7 +25,8 @@ SCRIPTS=$MAS_SCRIPT
 IDL_PRO=$MAS_IDL
 
 SETUP_TARGET=99 #return value that indicates completion
-SETUP_IDL="auto_setup_squids,row=$row,short=$short $RC"
+#SETUP_IDL="auto_setup_squids,short=$short,/check_bias $RC"
+SETUP_IDL="auto_setup_squids,short=$short $RC"
 
 start_time=`date`
 ctime=`print_ctime`
