@@ -19,10 +19,11 @@ fi
 
 link_name=/data/cryo/current_data
 date_file=/data/cryo/current_data_name
-if [ -e $link_name ]; then
-    /bin/rm $link_name
+[ -h $link_name ] && /bin/rm $link_name
+if ! ln -s /data/cryo/$today  $link_name; then
+    echo "Linking failed, exiting."
+    exit 1
 fi
-ln -s /data/cryo/$today  $link_name
 
 if [ -e $date_file ]; then
     /bin/rm $date_file
