@@ -24,8 +24,8 @@ def new_filename(start, opts, index):
 
 def register_file(filename, frame_count, t, index, opts):
     n = opts.block_size
-    if index * n > frame_count:
-        n = frame_count - n * (index-1)
+    if (index+1) * n > frame_count:
+        n = frame_count - n * index
     s, o = getstatusoutput('acq_register %i auto %s %i "%s"' % \
                                (t, filename, n, opts.note))
     if s != 0:
