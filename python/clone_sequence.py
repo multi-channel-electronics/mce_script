@@ -20,14 +20,14 @@ def link_file(source, dest):
 
 def new_filename(start, opts, index):
     t = int(start + opts.block_size * index / opts.frame_rate)
-    return '%010i_%s' % (t, opts.suffix), t
+    return '%s/%010i_%s' % (opts.output_dir, t, opts.suffix), t
 
 def register_file(filename, frame_count, t, index, opts):
     n = opts.block_size
     if index * n > frame_count:
         n = frame_count - n * (index-1)
     s, o = getstatusoutput('acq_register %i auto %s %i "%s"' % \
-                               (ctime, filename, n, opts.note))
+                               (t, filename, n, opts.note))
     if s != 0:
         print 'WARNING: DB registration failed for %s'%filename
     return s == 0
@@ -43,6 +43,7 @@ if __name__ == '__main__':
     o.add_option('-b','--block-size',type='int',default=240000)
     o.add_option('-r','--frame-rate',type='float',default=FRAME_RATE)
     o.add_option('-n','--note',type='string',default='')
+    o.add_option('-o','--output-dir',type='string',default='/data/cryo/current_data/')
     opts, args = o.parse_args()
 
     # Minimal options
@@ -56,11 +57,13 @@ if __name__ == '__main__':
         # By default, add two minutes grace
         opts.expire_time = (opts.block_size / opts.frame_rate) + 120
 
+    n_block = (n_frames + opts.block_size - 1)/opts.block_size
+
     # Create template for finding the index files
     template = '%s.%%0%ii' % (basename, opts.digits)
     
-    # Record the start time
-    start = time()
+    # Record the start time, make sure it's unique (lame)
+    start = time()+1
 
     # Collect files in sequence (starting with runfile)
     index = -1
@@ -84,10 +87,11 @@ if __name__ == '__main__':
                 filename, t = new_filename(start, opts, index)
                 link_file(files[0],filename)
                 link_file(runfile,filename+'.run')
+                register_file(filename, n_frames, t, index, opts)
             idleness = 0
             index += 1
         else:
             # Delay before checking again round.
             sleep(opts.update_interval)
             idleness += opts.update_interval
-        done = idleness > opts.expire_time or index > MAX_INDEX
+        done = idleness > opts.expire_time or index >= n_block
