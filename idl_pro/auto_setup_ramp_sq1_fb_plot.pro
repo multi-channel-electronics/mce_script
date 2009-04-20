@@ -56,6 +56,11 @@ close, 3
 name_label = '/data/cryo' + '/' + cd + '/' + file_name 
 
 
+; Register ramp acquisition
+rf = mas_runfile(full_name+'.run')
+n_frames = mas_runparam(rf,'FRAMEACQ','DATA_FRAMECOUNT',/long)
+reg_status = auto_setup_register(acq_id, 'tune_ramp', full_name, n_frames)
+
 ; Call analysis / plotting routine
 plot_file = folder + date + 'analysis/' +file_name + '.ps'
 sq1ramp = auto_setup_analysis_ramp_sq1_fb(full_name, plot_file=plot_file, $
