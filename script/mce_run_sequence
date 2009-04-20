@@ -1,0 +1,72 @@
+#!/bin/tcsh
+
+# Acquire data from the MCE and create or append to a .run file
+#
+# Run file name is obtained with script mce_runfile_name
+
+## source $MAS_ROOT/mas_env.tcsh
+
+if ($#argv != 4) then
+  echo "----------------"
+  echo "Usage:              $0 <filename> <numpts> <RC> <block>"
+  echo ""
+  echo "     numpts   is the number of frames e.g. 24000"
+  echo "     RC       is the card number e.g. ""3"", or ""s"" for all"
+  echo "     block    is the number of frames in each sequenced file"
+  echo "----------------"
+  exit 1
+endif
+
+set filename=$MAS_DATA/$1
+set runfilename=${filename}.run
+set numpts=$2
+set rc_num=$3
+set block=$4
+
+# This ctime won't necessarily match the filename!  But it should be
+# close and it's better than nothing.
+set ctime=`date -u +%s`
+mce_cmd -qx wb cc run_id $ctime
+
+# Re-lock
+if ("$rc_num" == "s") then
+    mce_cmd -qx wb rca flx_lp_init 1
+else
+    mce_cmd -qx wb rc$rc_num flx_lp_init 1
+endif
+
+
+#RUN FILE CREATION: NO MCE COMMANDS PAST THIS POINT
+
+echo "RUNFILE_NAME=$runfilename"
+
+# Don't remove runfile, it may have been pre-initialized
+touch $runfilename
+mce_status >> $runfilename
+if ($status) then
+  echo "mcerun: MCESTATUS action failed!"
+  exit 1
+endif
+
+# Apply frameacq stamp
+
+echo "# frameacq_stamp output" >> $runfilename
+frameacq_stamp $rc_num ${filename} $numpts >> $runfilename
+if ($status) then
+  echo "frameacq_stamp failed!"
+  exit 1
+endif
+
+echo "FRAME_BASENAME=$filename"
+
+echo "acq_path /\n" \
+    "acq_config_fs $filename rc$rc_num $block\n" \
+    "acq_go $numpts" | mce_cmd -q
+
+if ($status) then
+  echo "mce_cmd failed to start acquisition."
+  exit 1
+endif
+
+exit 0
+
