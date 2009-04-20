@@ -1021,11 +1021,13 @@ save_exp_params,exp_config,exp_config_file
 
 ; Zero the biases, what are you crazy?  Sometimes, yes.
 if exp_config.tune_kill_bias > 0 then begin
+    exp_config.tes_bias = 0
     exp_config.sa_bias = 0
     exp_config.sq2_bias = 0
     exp_config.sq1_bias = 0
     exp_config.sa_fb = 0
     exp_config.sq2_fb = 0
+    exp_config.dead_detectors = 1
     save_exp_params,exp_config,exp_config_file
 endif
 
