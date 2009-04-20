@@ -30,7 +30,7 @@ n_frames=$2
 note="$3"
 
 # Set file-sequencing block size and launch file monitor
-BLOCK_SIZE=240000
+BLOCK_SIZE=262144
 python ${MAS_PYTHON}/clone_sequence.py \
     --block-size $BLOCK_SIZE --note "$note" --suffix "$1" \
     --output-dir $MAS_DATA \

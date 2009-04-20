@@ -29,16 +29,23 @@ acq_name=${start_ctime}_$1
 n_frames=$2
 note="$3"
 
+# Set file-sequencing block size and launch file monitor
+BLOCK_SIZE=262144
+python ${MAS_PYTHON}/clone_sequence.py \
+    --block-size $BLOCK_SIZE --note "$note" --suffix "$1" \
+    --output-dir $MAS_DATA \
+    $MAS_DATA/$acq_name $n_frames &
+
 # DSP reset to repair any PCI faults
 mce_cmd -qX "dsp_reset" -X "sleep 2000"
 
-# Register acquisition
+# Do not register acquisition, it is done by clone_sequence.
 update_userword s
-acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames "$note"
+##acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames "$note"
 
-# args are file_prefix, frame count, card (1,2,3,4,s)
+# args are file_prefix, frame count, card (1,2,3,4,s) sequence_frame_count
 NICECMD='nice -10'
-ACQ="$NICECMD mce_run $acq_name $n_frames s"
+ACQ="$NICECMD mce_run_sequence $acq_name $n_frames s $BLOCK_SIZE"
 ACQ_TARGET=0
 
 # Start acquisition
@@ -47,12 +54,6 @@ if [ "$?" != "$ACQ_TARGET" ]; then
     echo $ERRPREF "'$ACQ' returned error!" | $LOGGER
     exit 1
 fi
-
-# Check for CC losing lock with sync box
-#clk=`command_reply rb cc select_clk`
-#if [ "$clk" != "00000001" ]; then
-#   echo $ERRPREF "select_clk is now $clk" | $LOGGER
-#fi
 
 # Record keeping: PCI diagnostic and time elapsed
 
