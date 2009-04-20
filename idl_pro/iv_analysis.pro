@@ -757,10 +757,16 @@ endif
 
 ; Generate a file that can be run to set the recommended TES bias values
 openw,1, outdir+'/tes_bias_recommended'
-printf,1,'#!/bin/csh'
+printf,1,'#!/bin/bash'
 printf,1, '# Recommended biases to reach '+string(per_Rn_bias*100,format='(i2)')+'% Rn'
 printf,1, '#   from IV file: '+filename
-printf,1,'bias_tess '+strtrim(biases(0),1)+' '+strtrim(biases(1),1)+' '+strtrim(biases(2),1)
+printf,1,'zero_bias=$( echo `mas_param get tune_kill_bias` )'
+printf,1,'if [ "$zero_bias" == "1" ]; then'
+printf,1,'    echo tune_kill_bias is on, zeroing TES biases.'
+printf,1,'    bias_tess 0 0 0'
+printf,1,'else'
+printf,1,'    bias_tess '+strtrim(biases(0),1)+' '+strtrim(biases(1),1)+' '+strtrim(biases(2),1)
+printf,1,'fi'
 close,1
 file_chmod, outdir+'/tes_bias_recommended',/a_execute
 

@@ -32,6 +32,8 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set default_sq1_bias '+str_flat(m.default_sq1_bias)
     spawn,'mas_param -s '+filename+' set columns_off '+str_flat(m.columns_off)
     spawn,'mas_param -s '+filename+' set stop_after_sq1_servo '+str_flat(m.stop_after_sq1_servo)
+    spawn,'mas_param -s '+filename+' set tune_check_bias '+str_flat(m.tune_check_bias)
+    spawn,'mas_param -s '+filename+' set tune_kill_bias '+str_flat(m.tune_kill_bias)
     spawn,'mas_param -s '+filename+' set sa_offset_bias_ratio '+str_flat(m.sa_offset_bias_ratio)
     spawn,'mas_param -s '+filename+' set sa_ramp_bias '+str_flat(m.sa_ramp_bias)
     spawn,'mas_param -s '+filename+' set sa_ramp_flux_start '+str_flat(m.sa_ramp_flux_start)
@@ -144,6 +146,8 @@ pro load_exp_params,filename,m
         'default_sq1_bias',mas_param_int(filename,'default_sq1_bias'),  $
         'columns_off',mas_param_int(filename,'columns_off'),  $
         'stop_after_sq1_servo',mas_param_int(filename,'stop_after_sq1_servo'),  $
+        'tune_check_bias',mas_param_int(filename,'tune_check_bias'),  $
+        'tune_kill_bias',mas_param_int(filename,'tune_kill_bias'),  $
         'sa_offset_bias_ratio',mas_param_float(filename,'sa_offset_bias_ratio'),  $
         'sa_ramp_bias',mas_param_int(filename,'sa_ramp_bias'),  $
         'sa_ramp_flux_start',mas_param_int(filename,'sa_ramp_flux_start'),  $

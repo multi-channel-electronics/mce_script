@@ -57,7 +57,10 @@ rc_enable(rcs(*)-1)=1
 
 ;CHECK WHETHER THE SSA and SQ2 BIAS HAVE ALREADY BEEN SWITCHED ON
 on_bias=0
-if keyword_set(check_bias) then begin
+if not keyword_set(check_bias) then $
+  check_bias = exp_config.tune_check_bias
+
+if check_bias > 0 then begin
 	for jj=0,n_elements(RCs)-1 do begin
 	        RC=RCs(jj)
 		spawn,'check_zero rc'+strcompress(string(RC),/remove_all)+' sa_bias >> '+todays_folder+c_filename+'.log',exit_status=exit_status
@@ -1015,6 +1018,16 @@ print,'Assembling dead detector mask.'
 auto_setup_mask_dead,mask,filespec = getenv('MAS_TEMPLATE')+strcompress('dead_lists/'+exp_config.array_id+'/dead_*.cfg',/remove_all)
 exp_config.dead_detectors = reform(mask)
 save_exp_params,exp_config,exp_config_file
+
+; Zero the biases, what are you crazy?  Sometimes, yes.
+if exp_config.tune_kill_bias > 0 then begin
+    exp_config.sa_bias = 0
+    exp_config.sq2_bias = 0
+    exp_config.sq1_bias = 0
+    exp_config.sa_fb = 0
+    exp_config.sq2_fb = 0
+    save_exp_params,exp_config,exp_config_file
+endif
 
 ; Run config one last time in *case* frametest plot changes to data
 ; mode 4, and to set dead detector mask
