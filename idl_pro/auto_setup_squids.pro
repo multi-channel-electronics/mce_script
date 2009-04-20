@@ -904,7 +904,7 @@ for jj=0,n_elements(RCs)-1 do begin
         mask_list = ['connection', 'multilock', 'squid1', 'jumpers', 'other']
         mask_files = strarr(n_elements(mask_list))
         for j=0,n_elements(mask_list)-1 do $5C
-          mask_files[j] = getenv('MAS_TEMPLATE') + strcompress('dead_lists/'+exp_config.array_id+ $
+          mask_files[j] = getenv('MAS_TEMPLATE') + strcompress('/dead_lists/'+exp_config.array_id+ $
                                  '/dead_'+mask_list[j]+'.cfg', /remove_all)
         extra_labels = auto_setup_mask_labels(mask_files, mask_list,rc_indices)
         rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc',acq_id=acq_id)
@@ -1015,7 +1015,7 @@ endelse
 
 ; Compile dead detector mask.
 print,'Assembling dead detector mask.'
-auto_setup_mask_dead,mask,filespec = getenv('MAS_TEMPLATE')+strcompress('dead_lists/'+exp_config.array_id+'/dead_*.cfg',/remove_all)
+auto_setup_mask_dead,mask,filespec = getenv('MAS_TEMPLATE')+strcompress('/dead_lists/'+exp_config.array_id+'/dead_*.cfg',/remove_all)
 exp_config.dead_detectors = reform(mask)
 save_exp_params,exp_config,exp_config_file
 
