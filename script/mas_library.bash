@@ -60,7 +60,7 @@ function print_dsp_diagnostic {
 # MCE COMMAND REPLY PARSERS
 
 function command_reply {
-    mce_cmd -qpx $@ | cut -d ':' -f 2-
+    mce_cmd -qpx $@ | sed 's/^.*:\ *//g; s/\ *$//g'
     return ${PIPESTATUS[0]}
 }
 
