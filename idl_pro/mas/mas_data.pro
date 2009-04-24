@@ -71,6 +71,7 @@ frame_info = create_struct( $
                             'n_frames',    0L, $ ; place holder
                             'n_columns',   8L*rc_count, $
                             'n_rows',      header(3), $
+                            'raw_data',    0, $
                             'data_mode',   0L, $
                             'frame_size',  0L, $ ; place holder
                             'data_size',   0L, $ ; place holder
@@ -176,11 +177,14 @@ start  = 0               ; Bit field positions and sizes
 count  = 32              
 start2 = 0
 count2 = 0
+unsigned = 0
+unsigned2 = 0
 
 if not keyword_set(no_split) then begin
     
     case data_mode of
         1: rescale = 1./2d^12
+        ; 3: pass
         4: begin
             start  = 14
             count  = 18
@@ -230,6 +234,15 @@ if not keyword_set(no_split) then begin
             count2 =  7
             rescale = 2d^3
         end
+        11: begin
+            start = 3
+            count = 7
+            unsigned = 1
+            start2 = 0
+            count2 = 3
+            unsigned2 = 1
+        end
+        ; 12: pass
         else:
     endcase
 
@@ -237,14 +250,29 @@ endif
 
 
 if count2 ne 0 then $
-  data2 = extract_bitfield(data, count=count2, start=start2)
+  data2 = extract_bitfield(data, count=count2, start=start2, unsigned=unsigned)
 
-data1 = extract_bitfield(data, count=count, start=start)
+data1 = extract_bitfield(data, count=count, start=start, unsigned=unsigned2)
 
 if not keyword_set(no_rescale) then begin
   data1 = data1 * rescale
   if count2 ne 0 then $
     data2 = data2 * rescale2
+endif
+
+; Reorganize raw mode data by column (output array is 2d)
+if data_mode eq 3 or data_mode eq 12 then begin
+    ; DM 3 has 8 columns of raw data and DM 12 has 1.
+    n_col = frame_info.rc_count
+    if data_mode eq 3 then $
+      n_col = n_col * 8
+    n_frame = frame_info.n_frames * frame_info.n_rows * frame_info.n_columns / n_col
+    frame_info.n_frames = n_frame
+    frame_info.n_rows = 1
+    frame_info.n_columns = n_col
+    
+    data1 = reform(data1, frame_info.n_columns, frame_info.n_frames)
+    frame_info.raw_data = 1
 endif
 
 return,data1

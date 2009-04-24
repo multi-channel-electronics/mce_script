@@ -41,23 +41,30 @@ class BitField(object):
     """
     Describes the truncation and packing of a signal into a carrier word.
     """
-    def define(self, name, start, count, scale=1.):
+    def define(self, name, start, count, scale=1., signed=True):
         self.name = name
         self.start = start
         self.count = count
         self.scale = scale
+        self.signed = signed
         return self
 
     def extract(self, data, do_scale=True):
         """
-        Extracts the bit field from numpy array of 32-bit integers.
+        Extracts bit field from a numpy array of 32-bit signed integers.
+        Assumes a two's complement architecture!
         """
-        right = 32 - self.count
-        left = right - self.start
-        if left != 0:
-            data = data * 2**left
-        if right != 0:
-            data = data / 2**right
+        if self.signed:
+            # Integer division preserves sign
+            right = 32 - self.count
+            left = right - self.start
+            if left != 0:
+                data = data * 2**left
+            if right != 0:
+                data = data / 2**right
+        else:
+            # For unsigned fields, bit operations should be used
+            data = (data >> self.start) & ((1 << self.count)-1)
         if do_scale and self.scale != 1.:
             data = data * self.scale
         return data
@@ -91,6 +98,9 @@ MCE_data_modes = { \
                            BitField().define('fj', 0, 8)),
     '10': DataMode().define(BitField().define('fb_filt', 7, 25, 2.**3),
                             BitField().define('fj', 0, 7)),
+    '11': DataMode().define(BitField().define('row', 3, 7, signed=False),
+                            BitField().define('col', 0, 3, signed=False)),
+    '12': DataMode().define(BitField().define('raw', 0, 32)),
 }
 
 
@@ -149,7 +159,7 @@ class SmallMCEFile:
             fin.seek(offset)      
         # It's a V6, or maybe a V7.
         format = HeaderFormat()
-        head_binary = numpy.fromfile(file=fin, dtype=numpy.uint32, \
+        head_binary = numpy.fromfile(file=fin, dtype='<i4', \
                                      count=format.header_size)
         # Lookup each offset and store
         self.header = {}
@@ -220,7 +230,7 @@ class SmallMCEFile:
         # Open, seek, read.
         fin = open(self.filename)
         fin.seek(start*self.frame_size*MCE_DWORD)
-        a = numpy.fromfile(file=fin, dtype=numpy.uint32, count=count*self.frame_size)
+        a = numpy.fromfile(file=fin, dtype='<i4', count=count*self.frame_size)
         n_frames = len(a) / self.frame_size
         if len(a) != count*self.frame_size:
             print 'Read problem: %i items requested, %i items returned.'% \
@@ -230,18 +240,27 @@ class SmallMCEFile:
         self.ReadHeader(offset=start*self.frame_size*MCE_DWORD)
         # Return data
         if raw_frames:
-            return numpy.cast['int32'](a)
+            return a
         if dets != None:
             det_offsets = [self.header_size + r * self.n_cols + c for (r, c) in dets]
-            return numpy.cast['int32'](a[:,det_offsets]).transpose()
-        return numpy.cast['int32'](a[:, \
-            self.header_size:self.header_size+self.n_rows*self.n_cols].transpose())
+            return a[:,det_offsets].transpose()
+        return a[:,self.header_size:self.header_size+self.n_rows*self.n_cols].transpose()
 
-    def NameChannels(self, row_col=False):
+    def NameChannels(self, row_col=False, column_data=None):
+        """
+        Set the row_list and col_list members, based on runfile information.
+        A trivial naming is done if row_col or column_data are non-default;
+        these arguments have the same meaning as in the Read method.
+        """
         if self.header == None:
             self.ReadHeader()
         rc_p = self.header['rc_present']
 
+        # Channel names are simple for column_data
+        if column_data != None:
+            self.row_list = [0] * column_data
+            self.col_list = range(column_data)
+            return
         # We need the runfile to properly designate the readout rows/cols
         if self.runfile_data == None:
             if self.ReadRunfile() == None:
@@ -281,8 +300,8 @@ class SmallMCEFile:
         count       Number of frames to read (default=None, which means all of them).
                     Negative numbers are referred to the end of the file.
         start       Index of first frame to read (default=0).
-        do_extract  if True, extract signal bit-fields using data_mode from runfile
-        do_scale    if True, rescale the extracted bit-fields to match a reference
+        do_extract  If True, extract signal bit-fields using data_mode from runfile
+        do_scale    If True, rescale the extracted bit-fields to match a reference
                     data mode.
         data_mode   Overrides data_mode from runfile, or can provide data_mode if no
                     runfile is used.
@@ -291,9 +310,9 @@ class SmallMCEFile:
         fields      A list of fields of interest to extract, or 'all' to get all fields.
                     This overrides the value of field, and the output data will contain
                     a dictionary with the extracted field data.
-        row_col     if True, detector data is returned as a 3-D array with indices (row,
-                    column, frame)
-        raw_frames  if True, return a 2d array containing raw data (including header
+        row_col     If True, detector data is returned as a 3-D array with indices (row,
+                    column, frame).
+        raw_frames  If True, return a 2d array containing raw data (including header
                     and checksum), with indices (frame, index_in_frame).
         """
         if n_frames != None:
@@ -305,14 +324,7 @@ class SmallMCEFile:
             return data
 
         data = self.ReadRaw(dets=dets, count=count, start=start)
-        self.NameChannels(row_col=row_col)
-        
-        data_out = MCEData()
-        data_out.source = self.filename
-        data_out.n_frames = data.shape[1]
-        data_out.header = self.header
-        data_out.row_list = self.row_list
-        data_out.col_list = self.col_list
+
         # Determine data_mode
         if data_mode == None:
             if self.runfile == False:
@@ -331,6 +343,27 @@ class SmallMCEFile:
                 if modes.count(data_mode) != len(modes):
                     print 'Mixed data_mode acquisition! Using data_mode %i from rc%i\n'% \
                           (data_mode, acq_rc[0])
+
+        # Special handling for raw data modes
+        raw_modes = [3,12]
+        if data_mode in raw_modes:
+            if data_mode == 3:
+                n_raw_cols = self.n_cols
+            else:
+                n_raw_cols = 1
+        else:
+            n_raw_cols = None
+            
+        # Determine the channel listing
+        self.NameChannels(row_col=row_col, column_data=n_raw_cols)
+
+        # Create the output object
+        data_out = MCEData()
+        data_out.source = self.filename
+        data_out.n_frames = data.shape[1]
+        data_out.header = self.header
+        data_out.row_list = self.row_list
+        data_out.col_list = self.col_list
 
         # Extract data from carrier words
         dm_data = MCE_data_modes.get('%i'%data_mode)
@@ -363,6 +396,12 @@ class SmallMCEFile:
                 data_out.data[f] = new_data
             else:
                 data_out.data = new_data
+
+        # Special handling for raw data modes
+        if n_raw_cols != None:
+            data_out.data = data_out.data.transpose().reshape(-1, n_raw_cols).transpose()
+            data_out.n_frames = data_out.data.shape[1]
+            
         return data_out
 
 # Let's just hope that your MCEFile is a Small One.
