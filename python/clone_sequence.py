@@ -26,8 +26,11 @@ def register_file(filename, frame_count, t, index, opts):
     n = opts.block_size
     if (index+1) * n > frame_count:
         n = frame_count - n * index
-    s, o = getstatusoutput('acq_register %i auto %s %i "%s"' % \
-                               (t, filename, n, opts.note))
+    reg_type = 'auto'
+    if index != 0:
+        reg_type = 'clone'
+    s, o = getstatusoutput('acq_register %i %s %s %i "%s"' % \
+                               (t, reg_type, filename, n, opts.note))
     if s != 0:
         print 'WARNING: DB registration failed for %s'%filename
     return s == 0
