@@ -949,7 +949,8 @@ for jj=0,n_elements(RCs)-1 do begin
 
                 rtb_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampb',acq_id=acq_id)
 
-		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive,numrows=numrows,acq_id=acq_id
+		auto_setup_ramp_sq1_bias_plot,rtb_file_name,RC=rc,interactive=interactive, $
+                  numrows=numrows,acq_id=acq_id,poster=poster
 	endif
 
 step6:

@@ -1,5 +1,5 @@
 pro auto_setup_ramp_sq1_bias_plot, file_name,RC=rc,interactive=interactive,numrows=numrows, $
-                                   acq_id=acq_id
+                                   acq_id=acq_id, poster=poster
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -181,6 +181,14 @@ endfor
 
 close, 1
 device, /close                  ;close ps
+
+if keyword_set(poster) then begin
+    ; split off file from folder, eesh.
+    paths = strsplit(file_name,'/',/extract)
+    file_proper=paths[n_elements(paths)-1]
+    auto_post_plot,poster,filename=file_proper+'.ps'
+endif
+  
 
 print,' '
 print,'###########################################################################'
