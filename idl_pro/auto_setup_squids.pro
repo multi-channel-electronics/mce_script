@@ -128,10 +128,11 @@ sq1_bias = exp_config.default_sq1_bias
 ; Turn flux-jumping off for tuning, though it shouldn't matter.
 exp_config.flux_jumping = 0
 
-; Load default values into biases
-
-exp_config.sa_bias = def_sa_bias
-exp_config.sq2_bias = sq2_bias
+; Load default values into SA and SQ2 biases if this is a full tuning.
+if not keyword_set(short) then begin
+   exp_config.sa_bias = def_sa_bias
+   exp_config.sq2_bias = sq2_bias
+endif
 exp_config.sq1_bias = 0
 
 ; Save experiment params, make config script, run it.
