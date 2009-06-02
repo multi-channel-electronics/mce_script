@@ -216,7 +216,7 @@ for chan=0,7 do begin
 		endif else begin
 			max_point=max(sq2_v_phi(lo_index:hi_index,chan),ind_max)
                         ind_max=lo_index+ind_max
-                        ind_neg_der=where(deriv_fb1(10:ind_max-5,chan) lt 0 and sq2_v_phi(10:ind_max-5,chan) lt fbmn and sq2_v_phi(10:ind_min-5,chan) ge fbmin)
+                        ind_neg_der=where(deriv_fb1(10:ind_max-5,chan) lt 0 and sq2_v_phi(10:ind_max-5,chan) lt fbmn and sq2_v_phi(10:ind_max-5,chan) ge fbmin)
 			ind_neg_der=ind_neg_der+10
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
