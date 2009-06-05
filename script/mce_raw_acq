@@ -9,7 +9,7 @@ if [ "$#" -lt "1" ]; then
     echo "                 from num_rows and row_len... number of frames is calc'd based on"
     echo "                 num_rows_reported)"
     echo "  suffix         will be appended to the filename"
-    echo "  prefix         is a folder in $$MAS_DATA that already exists"
+    echo "  prefix         is a folder in \$MAS_DATA that already exists"
     echo "  runfile_flag   suppresses runfile creation when equal to \"no_runfile\""    
     exit 1
 fi
