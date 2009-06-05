@@ -8,7 +8,7 @@ source $MAS_SCRIPT/mas_library.bash
 if [ "$#" -lt "1" ]; then
     echo "Usage:   $0 <rc> [ <suffix> <prefix> <runfile_flag> ]"
     echo "  rc             is 1,2,3, or 4."
-    echo "  prefix         is a folder in $$MAS_DATA that already exists"
+    echo "  prefix         is a folder in \$MAS_DATA that already exists"
     echo "  suffix         will be appended to the filename"
     echo "  runfile_flag   suppresses runfile creation when equal to \"no_runfile\""    
     exit 1
