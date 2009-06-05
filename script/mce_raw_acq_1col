@@ -8,7 +8,7 @@ if [ "$#" -lt "1" ]; then
     echo "  col            is 0,...,7"
     echo "  samples        number of 50 MHz samples to take (default is 65536)"
     echo "  suffix         will be appended to the filename"
-    echo "  prefix         is a folder in $$MAS_DATA that already exists"
+    echo "  prefix         is a folder in \$MAS_DATA that already exists"
     echo "  runfile_flag   suppresses runfile creation when equal to \"no_runfile\""
     echo
     echo "  When a default sample count is not specified, num_rows_reported is "
