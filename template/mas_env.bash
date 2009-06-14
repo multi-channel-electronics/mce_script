@@ -28,3 +28,4 @@ export MAS_IDL=${MAS_ROOT}/idl_pro/
 export MAS_PYTHON=${MAS_ROOT}/python/
 
 export PATH=${PATH}:${MAS_BIN}:${MAS_SCRIPT}:${MAS_TEST_SUITE}
+export PYTHONPATH=${PYTHONPATH}:${MAS_PYTHON}

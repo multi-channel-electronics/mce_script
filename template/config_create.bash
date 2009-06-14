@@ -41,15 +41,40 @@ config_rc4=${config_rc[3]}
 echo "wb sys row_len $row_len" >> $mce_script
 echo "wb sys num_rows $num_rows" >> $mce_script
 
+if [ "$hardware_rect" == "0" ]; then
+    # Pre-v5 firmware
+    echo "wb cc num_rows_reported $num_rows_reported" >> $mce_script
+else
+    # v5 and later (rectangle mode)
+    echo "wb cc num_rows_reported $num_rows_reported" >> $mce_script
+    echo "wb cc num_cols_reported 8" >> $mce_script
+    echo "wb rca num_rows_reported $num_rows_reported" >> $mce_script
+    echo "wb rca num_cols_reported 8" >> $mce_script
+    echo "wb rca readout_row_index 0" >> $mce_script
+    echo "wb rca readout_col_index 0" >> $mce_script
+fi
+
 #----------------------------------------------
 # Clock Card
 #----------------------------------------------
-echo "wb cc num_rows_reported $num_rows_reported" >> $mce_script
 echo "wb cc data_rate $data_rate" >> $mce_script
 echo "wb cc select_clk $select_clk" >> $mce_script
 echo "wb cc use_dv $use_dv" >> $mce_script
 echo "wb cc use_sync $use_sync" >> $mce_script
 echo "wb cc ret_dat_s 1 1" >> $mce_script
+
+if [ "$hardware_rect" != "0" ]; then
+    # Assemble bits for choosing readout cards to report data
+    bit=0x20  # RC1
+    rc_bits=0
+    for i in `seq 0 3`; do
+	if [ "${hardware_rc_data[$i]}" != "0" ]; then
+	    rc_bits=$(( $rc_bits + $bit ))
+	fi
+	bit=$(( $bit / 2 ))
+    done
+    echo "wb cc rcs_to_report_data $rc_bits" >> $mce_script
+fi
 
 # Write cc user_word based on array_id - this shows up in frame data
 user_word=0
@@ -107,10 +132,15 @@ for rc in 1 2 3 4; do
     # Flux jump quanta, and enable/disable
     for c in `seq 0 7`; do 
 	chan=$(( $c +  $ch_ofs ))
-	repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
+	r_off=$(( $array_width * $chan ))
+
+	if [ "${config_flux_quanta_all}" != "0" ]; then
+	    echo "wb rc$rc flx_quanta$c ${flux_quanta_all[@]:$r_off:$array_width}" >> $mce_script
+	else
+	    repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
+	fi
 
 	if [ "${config_adc_offset_all}" != "0" ]; then
-	    r_off=$(( $array_width * $chan ))
 	    echo "wb rc$rc adc_offset$c ${adc_offset_cr[@]:$r_off:$array_width}" >> $mce_script
 	else
 	    repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script
