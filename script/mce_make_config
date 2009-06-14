@@ -44,7 +44,7 @@ cat ${MAS_TEMPLATE}/config_header.bash >> $outfile
 mas_param -s $expt bash >> $outfile
 
 # Set the output MCE script name
-echo "mce_script=$MAS_TEMP/config_mce.scr" >> $outfile
+echo "mce_script=$MAS_TEMP/`whoami`_config_mce.scr" >> $outfile
 
 # Create the output MCE script
 cat ${MAS_TEMPLATE}/config_create.bash >> $outfile
