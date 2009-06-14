@@ -26,7 +26,7 @@ for i=0,3 do begin
         rc = string(strcompress(i+1,/REMOVE_ALL))
         auto_setup_command,'wb rc'+rc+' en_fb_jump 1'
 ;        auto_setup_command,'wb rc'+rc+' en_fb_jump 0'
-        auto_setup_command,'wb rc'+rc+' data_mode 9'	;4'
+        auto_setup_command,'wb rc'+rc+' data_mode '+string(exp_config.iv_data_mode[0])
     endif
 endfor
 
@@ -39,8 +39,8 @@ if total(exp_config.config_rc) eq 4 then begin
                                   exp_config.ramp_tes_count, note=getenv('MAS_LOGID'))
         spawn, 'ramp_tes_bias '+iv_filename+' '+rc 
         if change_bias eq 1 then $ 
-          iv_analysis, /biasfile, /plotgen, /filtered $ 
-        else iv_analysis, /plotgen, /filtered 
+          iv_analysis, /biasfile, /plotgen, /filtered, /post_plot $ 
+        else iv_analysis, /plotgen, /filtered, /post_plot 
         spawn, '/data/cryo/tes_bias_recommended' 
 endif else begin
    for i=0,3 do begin
@@ -52,8 +52,8 @@ endif else begin
                                   exp_config.ramp_tes_count, note=getenv('MAS_LOGID'))
         spawn, 'ramp_tes_bias '+iv_filename+' '+rc
         if change_bias eq 1 then $
-          iv_analysis, /biasfile, /plotgen, /filtered $
-        else iv_analysis, /plotgen, /filtered
+          iv_analysis, /biasfile, /plotgen, /filtered, /post_plot $
+        else iv_analysis, /plotgen, /filtered, /post_plot
         spawn, '/data/cryo/tes_bias_recommended'
      endif
    endfor

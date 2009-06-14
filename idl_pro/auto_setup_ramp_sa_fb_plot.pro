@@ -1,5 +1,6 @@
 pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive,numrows=numrows, $
-                               acq_id=acq_id, quiet=quiet,ramp_bias=ramp_bias
+                               acq_id=acq_id, quiet=quiet,ramp_bias=ramp_bias, $
+                               poster=poster
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from ramp_sa_fb_plot.pro 
@@ -86,9 +87,9 @@ nsum = 48
 
 ;Default is A/D units.
 v_factor = 1./1000.
-v_units = ' ( x 1000 AD Units)'
+v_units = ' (AD Units/1000)'
 i_factor = 1./1000.
-i_units = ' ( x 1000 AD Units)'
+i_units = ' (AD Units/1000)'
 
 ;Converting SA_bias to current.
 vmax = 2500.  ; mV
@@ -299,10 +300,11 @@ endfor
 SA_target=target_half_point_ch_by_ch
 SA_fb_init=fb_half_point_ch_by_ch
 
-;final_sa_bias_ch_by_ch(2)=66000		;for testing purposes
-;SA_fb_init(3)=-5
+if keyword_set(ramp_bias) then begin
+    ;final_sa_bias_ch_by_ch(2)=66000		;for testing purposes
+    ;SA_fb_init(3)=-5
 
-for chan=0,7 do begin
+   for chan=0,7 do begin
 	if (final_sa_bias_ch_by_ch(chan) gt 65535) or (final_sa_bias_ch_by_ch(chan) le 0) then begin
                 if not keyword_set(quiet) then begin
                    print,' '
@@ -334,7 +336,8 @@ for chan=0,7 do begin
                 endelse
 		SA_fb_init(chan)=32000
 	endif
-endfor
+     endfor
+end
 
 file_name_sa_points=file_name+'_sa_points'
 plot_file = folder + 'analysis/' + file_name_sa_points + '.ps'
@@ -378,15 +381,11 @@ for j=0, 7 do begin
 endfor
 device,/close
 
-;spawn,'scp '+plot_file+' act:act!now@lancelot:/home// '+plot_file+' 
-
-if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-        if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-                then spawn, 'mkdir /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+plot_file+' /misc/mce_plots/'+ctime
-        spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+if keyword_set(poster) then begin
+   f = strsplit(plot_file,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
-
+   
 if keyword_set(interactive) then spawn, 'ggv '+plot_file+' &'
 
 theend:

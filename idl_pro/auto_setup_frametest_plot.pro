@@ -1,18 +1,15 @@
-pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts, $
-                               acq_id=acq_id
+pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary, $
+                               interactive=interactive,nodasscript=nodasscript,noheader=noheader, $
+                               npts=npts, acq_id=acq_id,poster=poster
 
 ;Init
 if not keyword_set(acq_id) then acq_id = 0
 
-;if not keyword_set(numrows) then numrows=41
-
-stpt=1000
-if keyword_set(npts) then npts=npts else npts=200;1435406 ;npts=number of data points, 1 point = 0.0025s
+if keyword_set(npts) then npts=npts else npts=200
 numcol=8
 coloffset=(rc-1)*8
 
-print,'DATA MODE IS HARD-CODED in FRAMETEST PLOT!!!!!'
-data_mode='4'	;'6'
+data_mode='4'
 if data_mode eq '4' then bitpart=14 else bitpart=0
 
 rcdatamode=rc
@@ -29,7 +26,6 @@ ctime=string(file_name,format='(i10)')
 if not keyword_set(nodasscript) then begin
 	auto_setup_command,'wb rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
         user_status = auto_setup_userword(rcdatamode)
-	;spawn,'mce_cmd -q -x wb rc'+strcompress(string(RC),/REMOVE_ALL)+' data_mode '+data_mode
 	spawn,'mce_run '+file_name+string(npts)+' '+string(rc),exit_status=status18
         reg_status = auto_setup_register(acq_id, 'data', getenv('MAS_DATA')+file_name, npts)
 
@@ -153,8 +149,6 @@ endelse
 
 pixel_flag_name=plot_name+'_pixel_flag.ps'
 plot_name = plot_name + '.ps'
-
-print, plot_name
 
 line=''
 ;repeat readf,1,line until strmid(line,4,9) eq "data_mode"
@@ -319,15 +313,12 @@ endfor
 printf,1,'</LOCKTEST_FLAG>'
 close,1
 
-if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-        if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-                then spawn, 'mkdir /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+plot_name+' /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+pixel_flag_name+' /misc/mce_plots/'+ctime
-        spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+if keyword_set(poster) then begin
+   f = strsplit(plot_name,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
+   f = strsplit(pixel_flag_name,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
-
-
 
 if keyword_set(interactive) then spawn,'ggv '+plot_name+' &'
 

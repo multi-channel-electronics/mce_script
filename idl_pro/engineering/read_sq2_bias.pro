@@ -1,4 +1,5 @@
 pro read_sq2_bias,column,sq2pattern,biases
+; Reads and plots a set of sq2servo files (taken at biases=biases)
 
 n_bias = n_elements(biases)
 
@@ -44,4 +45,5 @@ for b=0,n_bias-1 do begin
 endfor
 
 end
+
 

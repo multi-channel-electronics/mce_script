@@ -3,7 +3,7 @@ pro auto_setup_sq1servo_plot,file_name,SQ1BIAS=sq1bias,RC=rc,ROW=row,numrows=num
                              gain=gain,lock_rows=lock_rows, $
                              ramp_start=ramp_start, ramp_step=ramp_step, ramp_count=ramp_count, $
                              use_bias_file=use_bias_file, use_run_file=use_run_file, $
-                             super_servo=super_servo, acq_id=acq_id
+                             super_servo=super_servo, acq_id=acq_id, poster=poster
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from sq1servo_plot.pro 
@@ -333,11 +333,9 @@ for j=0,7 do begin
 endfor  
 device, /close                  ;close ps
 
-if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-        if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-                then spawn, 'mkdir /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+plot_file+' /misc/mce_plots/'+ctime
-        spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+if keyword_set(poster) then begin
+   f = strsplit(plot_file,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
 
 if keyword_set(interactive) then spawn, 'ggv '+plot_file+' &'
