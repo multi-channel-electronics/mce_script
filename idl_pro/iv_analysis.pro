@@ -77,9 +77,6 @@ if 1 then begin
     Rbias_arr = array_params.Rbias_arr
     Rbias_cable = array_params.Rbias_cable
     bias1_cols = where(array_params.bias_lines mod 3 eq 0)
-    ; Put this line in to make it so that AR3 only uses columns 16-19 to select bias value
-    ;	because of problems with parallel biasing of columns 20-23
-    if array_name eq 'AR3' then bias1_cols = where(array_params.bias_lines eq 0)
     bias2_cols = where(array_params.bias_lines mod 3 eq 1)
     bias3_cols = where(array_params.bias_lines mod 3 eq 2)
     eff_bias_lines = array_params.bias_lines
@@ -230,8 +227,7 @@ good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_sh
 ;no_srdp_shunt=where(Rshunt_arr eq 0)
 ;Rshunt_arr(no_srdp_shunt) = default_Rshunt
 
-; Revised to work with AR3 bad SRDP shunt values set to -1 in johnson_res.dat files
-if array_name eq 'AR3' and MuxColumn gt 23 then Rshunt_arr(bad_sh_rows) = 0.0007 else Rshunt_arr(bad_sh_rows) = default_Rshunt 
+Rshunt_arr(bad_sh_rows) = default_Rshunt 
 no_srdp_shunt = bad_sh_rows
 
 if keyword_set(R_oper) then R_oper = R_oper $

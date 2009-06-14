@@ -338,13 +338,6 @@ if keyword_set(poster) then begin
    auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
 
-;; if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-;;         if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-;;                 then spawn, 'mkdir /misc/mce_plots/'+ctime
-;;         spawn, 'cp -rf '+plot_file+' /misc/mce_plots/'+ctime
-;;         spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
-;; endif
-
 if keyword_set(interactive) then spawn, 'ggv '+plot_file+' &'
 
 end 
