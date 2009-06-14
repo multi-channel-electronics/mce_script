@@ -5,15 +5,9 @@
 #include <errno.h>
 #include <asm/types.h>
 
-#define BUF_SIZE 16000
+#include "mce_header.h"
 
-#define ROWS 33
-#define COLS 32
-#define HEADER_SIZE 43
-#define FOOTER_SIZE 1
-
-#define DATA_SIZE (ROWS*COLS)
-#define FRAME_SIZE (HEADER_SIZE+FOOTER_SIZE+DATA_SIZE)
+#define BUF_SIZE (8192)
 
 #define FRAME_SEQ_OFS 0x01
 #define SYNC_DV_OFS 0x0A
@@ -38,13 +32,14 @@ struct sequence_analyser dv;
 int main(int argc, char **argv) {
 
   long offset=0;
-  int frame_size=FRAME_SIZE;
+  int frame_size=-1;
+  int max_frames = -1;
   FILE *src = stdin;
   char filename[1024];
   int check_dv = 1;
 
   int option;
-  while ( -1 != (option = getopt(argc, argv, "s:f:n:N:d:"))) {
+  while ( -1 != (option = getopt(argc, argv, "s:f:n:N:a:d:"))) {
     switch(option) {
 
     case 'd':
@@ -63,6 +58,10 @@ int main(int argc, char **argv) {
       frame_size = strtol(optarg, NULL, 0);
       break;
 
+    case 'a':
+      max_frames = strtol(optarg, NULL, 0);
+      break;
+
     case 'f':
       strcpy(filename, optarg);
       src = fopen(filename, "r");
@@ -76,6 +75,7 @@ int main(int argc, char **argv) {
 	     "     -s offset       in bytes\n"
              "     -n frame_size   in bytes\n"
              "     -N frame_size   in dwords\n"
+	     "     -a max_frames   in frames\n"
 	     "     -d [1|0]        to check the sync dv number, or not\n"
              "     -f filename     otherwise data is read from stdin\n"
 	     );
@@ -87,8 +87,16 @@ int main(int argc, char **argv) {
 
   int index = 0;
   int target = 0;
-  
-  printf("frame_size=%i -> %i\n", frame_size, frame_size*4);
+
+  mce_header_t* header = get_header(NULL, src);
+
+  if (frame_size >= 0) {
+	  printf("Forced     frame_size=%i (%i)\n", frame_size, frame_size*4);
+  } else {
+	  frame_size = header->header_size + header->footer_size + 
+		  header->n_cols_rep * header->n_rows_rep * header->n_rc;
+	  printf("Determined frame_size=%i (%i)\n", frame_size, frame_size*4);
+  }
 
   sequence_init(&seq, 0, "frame_seq", FRAME_SEQ_OFS);
   sequence_init(&dv,  0, "sync_dv"  , SYNC_DV_OFS);
@@ -112,7 +120,7 @@ int main(int argc, char **argv) {
 
   printf("offset     frm_idx   frame#\n");
   
-  while (!feof(src)) {
+  while (!feof(src) && ((max_frames < 0) || count < max_frames)) {
 
     index = 0;
     target = frame_size*sizeof(u32);

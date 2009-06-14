@@ -2,11 +2,54 @@
 #include <stdio.h>
 #include <errno.h>
 #include <linux/types.h>
+#include <assert.h>
+
+#define RAMP_AMP 6000
 
 #define FILTER_GAIN 1218.
-int main(int argc, char **argv)
+
+#ifndef __i32
+#define __i32 int
+#endif
+
+__u32* extract_bitfield(__u32 *data, int count, int bit_start, int bit_count,
+			int signed_out, int in_place, __u32 *_data_out)
 {
 	int i;
+	__u32 *data_out = data;
+	int left_shift = 32 - bit_start - bit_count;
+	int right_shift = 32 - bit_count;
+
+	if (!in_place) {
+		if (_data_out == NULL) {
+			data_out = malloc(count * sizeof(__u32));
+		} else {
+			data_out = _data_out;
+		}
+	}
+	if (data_out == NULL)
+		return NULL;
+	
+	if (signed_out) {
+		__i32 divisor = (1 << right_shift);
+		for (i=0; i<count; i++)
+			data_out[i] = ((__i32)(data[i] << left_shift)) / divisor;
+	} else {
+		for (i=0; i<count; i++)
+			data_out[i] = (data[i] << left_shift) >> right_shift;
+	}
+	return data_out;
+}
+
+int main(int argc, char **argv)
+{
+	assert(sizeof(__i32)==4);
+
+	int i;
+
+	// Data mode 10...
+	int bit_start = 7;
+	int bit_count = 25;
 
 	if (argc<4) {
 		fprintf(stderr, "Usage: %s <filename> <frame_size> <first frame> <frame count>\n",
@@ -18,8 +61,8 @@ int main(int argc, char **argv)
 	int frame_start = atoi(argv[3]);
 	int frame_count = atoi(argv[4]);
 
-	double* data_max = malloc(frame_size * sizeof(double));
-	double* data_min = malloc(frame_size * sizeof(double));
+	float* data_max = malloc(frame_size * sizeof(float));
+	float* data_min = malloc(frame_size * sizeof(float));
 
 	FILE *fin = fopen(argv[1], "r");
 	if (fin==NULL) {
@@ -34,38 +77,31 @@ int main(int argc, char **argv)
 	}
 	
 	__u32 data[4096];
-	
-	__u32 mode_mask = 0x00ffffff;
-	__u32 mode_sign = 0x00800000;
+
+	float rescale = 1./128. * 8;
 
 	int first = 1;
 	int offset = 43;
 	int count = 32*33;
-	double gain = FILTER_GAIN / 2;
 
 	for (; frame_count > 0; frame_count--) {
 		if ( fread(data, frame_size, 1, fin) != 1) {
 			fprintf(stderr, "Failed with %i frames left!\n", frame_count);
 			return 1;
 		}
+		// Get feedback data only
+		extract_bitfield(data+offset, count, bit_start, bit_count, 1, 1, NULL);
+
 		if (first) {
 			for (i=0; i<count; i++) {
-				__u32 d = (data[i+offset]) & mode_mask;
-				if (d & mode_sign) d |= 0xff000000;
-				double x = (*((int*)&d)) /gain;
-//				printf("%i %u %lf\n", i, d, x);
-				
+				float x = (float)(int)data[i+offset] * rescale;
 				data_max[i] = x;
 				data_min[i] = x;
 			}
 			first = 0;
 		} else {
 			for (i=0; i<count; i++) {
-				__u32 d = (data[i+offset]) & mode_mask;
-				if (d & mode_sign) d |= 0xff000000;
-/* 				double x = (int)d; */
-				double x = (*((int*)&d)) / gain;
-
+				float x = (float)(int)data[i+offset] * rescale;
 				if (x > data_max[i]) data_max[i] = x;
 				if (x < data_min[i]) data_min[i] = x;
 			}
@@ -73,8 +109,8 @@ int main(int argc, char **argv)
 	}
 
 	for (i=0; i<count; i++) {
-		int x = (((data_max[i] - data_min[i])) > 8096./2);
-		if (x || 1) {
+		int x = (((data_max[i] - data_min[i])) > RAMP_AMP);
+		if (x) {
 			printf("Ramper? %i %i = r%02ic%02i   %lf to %lf\n",
 			       x,
 			       i, i / 32, i % 32, data_min[i], data_max[i]);

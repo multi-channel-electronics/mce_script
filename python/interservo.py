@@ -9,6 +9,7 @@ import optparse
 
 N_RC=2
 NCOLS=N_RC*8
+rc_present = None
 
 def expt_param(key, dtype=None):
     src = '/data/cryo/current_data/experiment.cfg'
@@ -50,7 +51,7 @@ def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
                 done = True
 
 def set_adcoffset(m, ofs):
-    for rc in range(4):
+    for rc in [1]:  #range(4):
         for c in range(8):
             m.write('rc%i'%(rc+1), 'adc_offset%i'%c,
                       [ofs[rc*8+c]]*41)
@@ -118,6 +119,9 @@ def main():
                 'not a full tune (specify the tuning folder manualy)!'
             sys.exit(11)
 
+    # Get basic system description
+    rc_present = expt_param('hardware_rc', dtype='int')
+
     if stage == 's1' or stage == 'sq1':
         # This has no analog in the tuning... sq1_fb hardware servo'd
         param = ['sq1', 'fb_const']
@@ -146,6 +150,7 @@ def main():
     # Get an mce
     m = mce()
     m.write('rca', 'data_mode', [0])
+    m.write('rca', 'servo_mode', [0]*8)
 
     # Regardless of the stage, we can use the ADC_offset from sq2servo:
     ofs = get_historical_offset(opts.tuning, 'sq2servo')
