@@ -1,11 +1,15 @@
 #!/usr/bin/python
 
 from mce import *
-from mce_runfile import *
+from mce_data import *
 from glob import glob
 import sys, commands
 from numpy import *
 import optparse
+
+N_RC=2
+NCOLS=N_RC*8
+rc_present = None
 
 def expt_param(key, dtype=None):
     src = '/data/cryo/current_data/experiment.cfg'
@@ -23,16 +27,16 @@ def expt_param(key, dtype=None):
 def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
     done = False
     if rows == None:
-        rows = [0]*32
+        rows = [0]*NCOLS
     if gains == None:
-        gains = [0.02]*32
+        gains = [0.02]*NCOLS
     # Setup a default exit condition...
     if steps == None:
         steps = 1
     count = 0
     while not done:
         data = m.read_frame(data_only=True)
-        dy = [data[32*r + c] for (c,r) in enumerate(rows)]
+        dy = [data[NCOLS*r + c] for (c,r) in enumerate(rows)]
         if verbose:
             print 'Measured: ', dy
         dx = [g*d for d,g in zip(dy, gains)]
@@ -47,7 +51,7 @@ def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
                 done = True
 
 def set_adcoffset(m, ofs):
-    for rc in range(4):
+    for rc in [1]:  #range(4):
         for c in range(8):
             m.write('rc%i'%(rc+1), 'adc_offset%i'%c,
                       [ofs[rc*8+c]]*41)
@@ -55,8 +59,8 @@ def set_adcoffset(m, ofs):
 def get_historical_offset(folder, stage='ssa', rows=None):
     offsets = []
     if rows == None:
-        rows = [0]*32
-    for rc in range(4):
+        rows = [0]*NCOLS
+    for rc in range(N_RC):
         file = glob(folder+'/*RC%i_%s.run'%(rc+1,stage))
         rf = MCERunfile(file[0])
 	all_offsets = rf.Item2d('HEADER', 'RB rc%i adc_offset%%i'%(rc+1),
@@ -66,15 +70,15 @@ def get_historical_offset(folder, stage='ssa', rows=None):
     return offsets
 
 def write_adc_offset(m, ofs, fill=True, n_rows=33):
-    for c in range(32):
+    for c in range(N_RC*8):
         m.write('rc%i'%((c/8)+1), 'adc_offset%i'%(c%8), [ofs[c]]*41)
 
     
 def get_line(m, rows=None):
     if rows == None:
-        rows = [0]*32
+        rows = [0]*NCOLS
     d = m.read_frame(data_only=True)
-    return [d[r*32+c] for (c,r) in enumerate(rows)]
+    return [d[r*NCOLS+c] for (c,r) in enumerate(rows)]
 
 def four_to_32(four):
     thirtytwo = []
@@ -115,6 +119,9 @@ def main():
                 'not a full tune (specify the tuning folder manualy)!'
             sys.exit(11)
 
+    # Get basic system description
+    rc_present = expt_param('hardware_rc', dtype='int')
+
     if stage == 's1' or stage == 'sq1':
         # This has no analog in the tuning... sq1_fb hardware servo'd
         param = ['sq1', 'fb_const']
@@ -143,6 +150,7 @@ def main():
     # Get an mce
     m = mce()
     m.write('rca', 'data_mode', [0])
+    m.write('rca', 'servo_mode', [0]*8)
 
     # Regardless of the stage, we can use the ADC_offset from sq2servo:
     ofs = get_historical_offset(opts.tuning, 'sq2servo')
