@@ -20,6 +20,11 @@ function to_dec {
     echo "16i ${1} p"|dc
 }
 
+function float_multiply {
+    # Is there a better way to do floating point calcs in bash?
+    echo "$1 * $2 + 0.5" | bc | sed 's/\..*//g'
+}
+
 # FUNCTIONS FOR DSP DIAGNOSTIC #
 
 function print_pci_mem {
@@ -55,7 +60,7 @@ function print_dsp_diagnostic {
 # MCE COMMAND REPLY PARSERS
 
 function command_reply {
-    mce_cmd -qpx $@ | cut -d ':' -f 2-
+    mce_cmd -qpx $@ | sed 's/^.*:\ *//g; s/\ *$//g'
     return ${PIPESTATUS[0]}
 }
 
