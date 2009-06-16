@@ -11,7 +11,7 @@ MCE_RC = 4
 MCE_COL = 8
 MCE_DWORD = 4
 
-# This maximum is to keep memory usage reasonable.
+# This block read maximum (bytes) is to keep memory usage reasonable.
 MAX_READ_SIZE = int(1e8)
 
 class HeaderFormat:
@@ -78,10 +78,15 @@ class DataMode(dict):
     def __init__(self):
         dict.__init__(self)
         self.fields = []
-    def define(self, *args):
+        self.raw = False
+    def define(self, *args, **kargs):
         for a in args:
             self.fields.append(a.name)
             self[a.name] = a
+        for k in kargs.keys():
+            if k == 'raw':
+                self.raw = True
+                self.raw_info = kargs[k]
         return self
 
 
@@ -91,7 +96,8 @@ MCE_data_modes = { \
     '0': DataMode().define(BitField().define('error', 0, 32)),
     '1': DataMode().define(BitField().define('fb', 0, 32, 2.**-12)),
     '2': DataMode().define(BitField().define('fb_filt', 0, 32)),
-    '3': DataMode().define(BitField().define('raw', 0, 32)),
+    '3': DataMode().define(BitField().define('raw', 0, 32),
+                           raw={'n_cols':8, 'offsettable': False}),
     '4': DataMode().define(BitField().define('fb', 14, 18),
                            BitField().define('error', 0, 14)),
     '9': DataMode().define(BitField().define('fb_filt', 8, 24, 2.**1),
@@ -100,7 +106,8 @@ MCE_data_modes = { \
                             BitField().define('fj', 0, 7)),
     '11': DataMode().define(BitField().define('row', 3, 7, signed=False),
                             BitField().define('col', 0, 3, signed=False)),
-    '12': DataMode().define(BitField().define('raw', 0, 32)),
+    '12': DataMode().define(BitField().define('raw', 0, 32),
+                            raw={'n_cols':1, 'offsettable': True}),
 }
 
 
@@ -114,49 +121,232 @@ class MCEData:
         self.start_frame = 0
         self.n_frames = 0
         self.header = None
-        self.data_is_dict = False
+        self.data_is_dict = True
         self.data = []
-        self.row_list = []
-        self.col_list = []
+        self.channels = []
 
+def _rangify(start, count, n, name='items'):
+    """
+    Interpret start as an index into n objects; interpret count as a
+    number of objects starting at start.  If start is negative,
+    correct it to be relative to n.  If count is negative, adjust it
+    to be relative to n.
+    """
+    if start < 0:
+        start = n + start
+    if start > n:
+        print 'Warning: %s requested at %i, beyond available %s.' %\
+            (name, start, name)
+        start = n
+    if count == None:
+        count = n - start
+    if count < 0:
+        count = n - start + count
+    if start + count > n:
+        print 'Warning: %i %s requested, exceeding available %s.' %\
+            (count, name, name)
+        count = n - start
+    print start, count
+    return start, count
+        
     
 class SmallMCEFile:
     """
     Facilitate the loading of (single channels from) raw MCE
     flat-files.  Extraction and rescaling of data content is performed
     automatically by default.
+
+    After instantiation with a data filename, a call to Read() will
+    return the detector data as an MCEData object.
+
+    See code for 'Reset' method for list of useful attributes.
     """
     def __init__(self, filename=None, runfile=True, basic_info=True):
         """
-        filename:   path to MCE flatfile
-        runfile:    if True (default), filename.run is used.  If False, no runfile is used.
-                    Pass a string here to override the runfile filename.
+        Create SmallMCEFile object and load description of the data
+        from runfile and header.
+
+        filename: path to MCE flatfile 
+
+        runfile: if True (default), filename.run is used.  If False,
+          no runfile is used.  Pass a string here to override the
+          runfile filename.
+
+        basic_info: if True (default), basic file information is
+          loaded from runfile and frame header.
         """
-        self.filename = filename
-        self.n_frames = 0
-        self.n_rows = 0
-        self.n_cols = 0
-        self.cols_per_card = 0
-        self.row_list = []
-        self.col_list = []
-        self.header = None
-        self.runfile = runfile
-        if self.runfile == True:
-            self.runfile = filename+'.run'
-        self.runfile_data = None
-        if filename != None and basic_info:
-            self.ReadHeader()
-            self.ReadRunfile()
-            self.n_frames, _ = self.FrameCount()
+        # Initialize basic parameters
+        self.Reset()        
+        self.filename = filename      # Full path to file
 
-    def FrameCount(self):
-        file_words = stat(self.filename).st_size / MCE_DWORD
-        return file_words / self.frame_size, file_words % self.frame_size
+        # Set runfile name
+        if (filename != None) and (runfile == True):
+            self.runfilename = filename+'.run'
+        else:
+            self.runfilename = runfile
 
-    def ReadHeader(self, offset=None):
+        # If the time is right, compute content and packing
+        if (filename != None) and basic_info:
+            self._GetPayloadInfo()
+        if (self.runfilename != False) and basic_info:
+            self._ReadRunfile()
+            if filename != None:
+                self._GetContentInfo()
+
+    def Reset(self):
+        # Describe data sources
+        self.filename = None
+        self.runfilename = None
+
+        # Describe payload frame (set through _GetPayloadInfo)
+        self.n_ro = 0                 # Readout frame count
+        self.size_ro = 0              # Readout data payload size, in dwords, per RC.
+        self.n_rc = 0                 # Number of RC reporting
+        self.rc_step = 0              # RC interleaving stride (due to MAS reordering)
+        self.frame_bytes = 0          # Readout frame total size, in bytes.
+
+        # Describe data content (set through _GetContentInfo)
+        self.n_frames = 0             # Number of samples per detector
+        self.n_rows = 0               # Number of rows stored by RC
+        self.n_cols = 0               # Number of cols stored by RC
+        self.data_mode = 0            # Data mode of RCs
+        self.raw_data = False         # Data is raw mode column data
+        self.divid  = 1               # Period (in frames) of CC read queries to
+                                      #  RC (i.e. data_rate)
+        self.freq = 0.                # Mean sampling frequency, in Hz.
+
+        # Members for storing meta-data
+        self.header = None            # Becomes dict of first frame header
+        self.runfile = None           # Becomes MCERunfile for this data.
+
+    def _rfMCEParam(self, card, param, array=False):
+        """
+        Look up MCE 'card, param' value in runfile.
+        """
+        return self.runfile.Item('HEADER', 'RB %s %s'%(card,param), type='int', \
+                                 array=array)
+
+    def _GetRCAItem(self, param):
+        """
+        Gets 'rc? <param>' for each RC returning data, warns if the
+        setting is not consistent across acq cards, and returns the
+        value from the first card.
+        """
+        rcs = [i+1 for i,p in enumerate(self.header['_rc_present']) if p]
+        vals = [ self._rfMCEParam('rc%i'%r, param) for r in rcs ]
+        for r,v in zip(rcs[1:], vals[1:]):
+            if v == None and vals[0] != None:
+                print 'Warning: param \'%s\' not found on rc%i.' % \
+                    (param, r)
+                continue
+            if vals[0] != v:
+                print 'Warning: param \'%s\' is not consistent accross RCs.' % \
+                    (param)
+                break
+        return vals[0]
+
+    def _GetContentInfo(self):
+        """
+        Using frame header and runfile, determines how the RC data are
+        packed into the CC readout frames.
+
+        Sets members n_cols, n_rows, divid, data_mode, n_frames.
+        """
+        if self.runfile == None:
+            if self.runfilename == False:
+                raise RuntimeError, 'Can\'t determine content params without runfile.'
+            self._ReadRunfile()
+        # In a pinch we could get these params from the runfile.
+        if self.size_ro == 0:
+            raise RuntimeError, 'Can\'t determine content params without data file.'
+        # Switch on firmware revision to determine 'num_cols_reported' support
+        fw_rev = self._GetRCAItem('fw_rev')
+        if fw_rev >= 0x5000001:
+            self.n_cols = self._GetRCAItem('num_cols_reported')
+            self.n_rows = self._GetRCAItem('num_rows_reported')
+        else:
+            self.n_cols = MCE_COL
+            self.n_rows = self._rfMCEParam('cc', 'num_rows_reported', array=False)
+        self.divid = self._rfMCEParam('cc', 'data_rate', array=False)
+
+        # Get data_mode information
+        self.data_mode = self._GetRCAItem('data_mode')
+        dm_data = MCE_data_modes.get('%i'%self.data_mode)
+        if dm_data == None:
+            dm_data = MCE_data_modes['0']
+
+        # For 50 MHz modes, the data is entirely contiguous
+        if dm_data.raw:
+            self.raw_data = True
+            self.n_rows = 1
+            self.n_cols = dm_data.raw_info['n_cols']
+            self.n_frames = self.n_ro * self.size_ro / self.n_cols
+            self.freq = 50.e6
+            return
+            
+        # For rectangle modes, check RC/CC packing is reasonable
+        count_rc = self.n_rows * self.n_cols
+        count_cc = self.size_ro
+        
+        # Check 1: Warn if count_rc does not fit evenly into count_cc
+        if count_cc % count_rc != 0:
+            print 'Warning: imperfect RC->CC frame packing (%i->%i).' % \
+                (count_rc, count_cc)
+
+        # Check 2: Warn if decimation/packing is such that samples are
+        #     not evenly spaced in time.
+        if count_rc != count_cc:
+            if count_rc * self.divid != count_cc:
+                print 'Warning: bizarro uneven RC->CC frame packing.'
+        
+        # Determine the final data count, per channel.  Any times
+        # that are not represented in all channels are lost.
+        self.n_frames = (count_cc / count_rc) * self.n_ro
+
+        # Store mean sampling frequency
+        nr, rl, dr = [self._rfMCEParam('cc', s) for s in \
+                          ['num_rows', 'row_len', 'data_rate']]
+        self.freq = (50.e6 / nr / rl / dr) * (count_cc / count_rc)
+
+
+    def _GetPayloadInfo(self):
+        """
+        Determines payload parameters using the data header and file size.
+
+        Sets members n_ro, n_rc, size_ro, frame_bytes, rc_step.
+        """
+        if self.filename == None:
+            raise RuntimeError, 'Can\'t determine payload params without data file.'
+        if self.header == None:
+            self._ReadHeader()
+        # Compute frame size from header data.
+        self.n_rc = self.header['_rc_present'].count(True)
+        # Payload size (per-RC) is the product of two numbers:
+        #  mult1 'num_rows_reported'
+        #  mult2 'num_cols_reported', or 8 in pre v5 firmware
+        mult1 = self.header['num_rows_reported']
+        mult2 = MCE_COL
+        if self.header['header_version'] >= 7:
+            self.cols_per_card = (self.header['status'] >> 16) & 0xf
+        self.rc_step = mult2
+        self.size_ro = mult1*mult2
+        self.frame_bytes = \
+            MCE_DWORD*(self.size_ro * self.n_rc + \
+                           self.header['_header_size'] + self.header['_footer_size'])
+        # Now stat the file to count the readout frames
+        file_size = stat(self.filename).st_size
+        self.n_ro = file_size / self.frame_bytes
+        if file_size % self.frame_bytes != 0:
+            print 'Warning: partial frame at end of file.'
+
+    def _ReadHeader(self, offset=None):
+        """
+        Read the frame header at file position 'offset' (bytes),
+        determine its version, and store its data in self.header.
+        """
         fin = open(self.filename)
         if offset != None:
-            fin.seek(offset)      
+            fin.seek(offset)
         # It's a V6, or maybe a V7.
         format = HeaderFormat()
         head_binary = numpy.fromfile(file=fin, dtype='<i4', \
@@ -165,141 +355,161 @@ class SmallMCEFile:
         self.header = {}
         for k in format.offsets:
             self.header[k] = head_binary[format.offsets[k]]
-        # Decode some entries to determine the frame size
-        self.header['rc_present'] = [(self.header['status'] & (1 << 10+i))!=0 \
-                                         for i in range(MCE_RC)]
-        self.header_size = format.header_size
-        self.footer_size = format.footer_size
-        self.n_rows = self.header['num_rows_reported']
-        # On rectangle mode firmware, n_cols is in bits 16:19 of the status word
-        if self.header['header_version'] <= 6:
-            self.cols_per_card = MCE_COL
-        else:
-            self.cols_per_card = (self.header['status'] >> 16) & 0xf
-        self.n_cols = self.cols_per_card*self.header['rc_present'].count(True)
-        self.frame_size = self.n_rows*self.n_cols + self.header_size + self.footer_size
+        # Provide some additional keys to help determine frame size
+        self.header['_rc_present'] = [(self.header['status'] & (1 << 10+i))!=0 \
+                                          for i in range(MCE_RC)]
+        self.header['_header_size'] = format.header_size
+        self.header['_footer_size'] = format.footer_size
 
-    def ReadRunfile(self):
+    def _ReadRunfile(self):
         """
         Load the runfile data into self.runfile_data, using the filename in self.runfile.
         Returns None if object was initialized without runfile=False
         """
-        if self.runfile == False:
+        if self.runfilename == False:
             return None
-        self.runfile_data = MCERunfile(self.runfile)
-        return self.runfile_data
+        self.runfile = MCERunfile(self.runfilename)
+        return self.runfile
 
-    def ReadRaw(self, count=None, start=0, dets=None, raw_frames=False):
+    def ReadRaw(self, count=None, start=0, raw_frames=False):
         """
-        Load raw data from MCE flatfile.  Reads a frame header to
-        determine basic file structure.  Most users will prefer the
-        Read() method.
+        Load data as CC output frames.  Most users will prefer the
+        Read() method, which decodes the data into detector channels.
+
+        Returns a (frames x dets) array of integers.
         """
-        # We can determine the frame size once we read a single frame header
-        if self.header == None:
-            self.ReadHeader()
-        # Rectangle mode transitional - confirm that runfile agrees with frame status
-        rf = self.ReadRunfile()
-        if rf != None:
-            cols = rf.Item('HEADER', 'RB sys num_cols_reported', type='int')
-            if cols != None and cols[0] != self.cols_per_card:
-                print 'Bug: runfile cols_reported disagrees with frame header.'
-                self.cols_per_card = cols[0]
-                self.n_cols = self.cols_per_card*self.header['rc_present'].count(True)
-                self.frame_size=self.n_rows*self.n_cols + self.header_size + self.footer_size
-        
-        n_frames, left_over = self.FrameCount()
-        if (left_over) != 0:
-            print 'File %s contains partial frame.'%self.filename
+        if self.size_ro <= 0:
+            self._GetPayloadInfo()
         # Do the count logic, warn user if something is amiss
-        if start > n_frames:
-            print 'Requested frames at %i, beyond end of file!'%(start)
-            start = n_frames
-        if count == None:
-            count = n_frames - start
-        if count < 0:
-            count = n_frames - start + count
-        if n_frames < start + count:
-            print 'Only %i of requested %i frames can be read.' % (n_frames-start, count)
-            count = n_frames - start
-        if count * self.frame_size * MCE_DWORD > MAX_READ_SIZE:
+        start, count = _rangify(start, count, self.n_ro, 'frames')
+        # Check max frame size
+        if count * self.frame_bytes > MAX_READ_SIZE:
             # Users: override this by changing the value of mce_data.MAX_READ_SIZE
-            print 'Warning: maximum read of %i bytes exceeded; limiting.'%MAX_READ_SIZE
-            count = MAX_READ_SIZE / MCE_DWORD / self.frame_size
+            print 'Warning: maximum read of %i bytes exceeded; limiting.' % \
+                MAX_READ_SIZE
+            count = MAX_READ_SIZE / self.frame_bytes
 
         # Open, seek, read.
+        f_dwords = self.frame_bytes / MCE_DWORD
         fin = open(self.filename)
-        fin.seek(start*self.frame_size*MCE_DWORD)
-        a = numpy.fromfile(file=fin, dtype='<i4', count=count*self.frame_size)
-        n_frames = len(a) / self.frame_size
-        if len(a) != count*self.frame_size:
-            print 'Read problem: %i items requested, %i items returned.'% \
-                  (count*self.frame_size, len(a))
-        a.shape = (n_frames, self.frame_size)
-        # Refresh header information
-        self.ReadHeader(offset=start*self.frame_size*MCE_DWORD)
-        # Return data
+        fin.seek(start*self.frame_bytes)
+        a = numpy.fromfile(file=fin, dtype='<i4', count=count*f_dwords)
+        n_frames = len(a) / f_dwords
+        if len(a) != count*f_dwords:
+            print 'Warning: read probelm, only %i of %i requested frames were read.'% \
+                  (len(a)/f_dwords, count)
+        a.shape = (n_frames, f_dwords)
         if raw_frames:
+            # Return all data (i.e. including header and checksum)
             return a
-        if dets != None:
-            det_offsets = [self.header_size + r * self.n_cols + c for (r, c) in dets]
-            return a[:,det_offsets].transpose()
-        return a[:,self.header_size:self.header_size+self.n_rows*self.n_cols].transpose()
-
-    def NameChannels(self, row_col=False, column_data=None):
-        """
-        Set the row_list and col_list members, based on runfile information.
-        A trivial naming is done if row_col or column_data are non-default;
-        these arguments have the same meaning as in the Read method.
-        """
-        if self.header == None:
-            self.ReadHeader()
-        rc_p = self.header['rc_present']
-
-        # Channel names are simple for column_data
-        if column_data != None:
-            self.row_list = [0] * column_data
-            self.col_list = range(column_data)
-            return
-        # We need the runfile to properly designate the readout rows/cols
-        if self.runfile_data == None:
-            if self.ReadRunfile() == None:
-                print 'Runfile could not be read; using basic channel naming.'
-                self.row_list = [ i/self.n_cols for i in range(self.n_cols * self.n_rows)]
-                self.col_list = [ i%self.n_cols for i in range(self.n_cols * self.n_rows)]
-                return
-        rfi = self.runfile_data.Item
-        row_index = [ rfi('HEADER', 'RB rc%i readout_row_index' %(i+1),
-                          type='int', array=False) for i in range(MCE_RC) if rc_p[i] ]
-        col_index = [ rfi('HEADER', 'RB rc%i readout_col_index' %(i+1),
-                          type='int', array=False) for i in range(MCE_RC) if rc_p[i] ]
-        self.row_list = []
-        self.col_list = []
-        for r in range(self.n_rows):
-            for ri in row_index:
-                self.row_list.extend([r + ri] * MCE_COL)
-        # Not all firmware supports readout_col_index...
-        if col_index[0] == None:
-            # Columns are entirely determined by what readout cards are present
-            rc_cols = [i for i in range(MCE_COL*MCE_RC) if rc_p[i/MCE_COL]]
         else:
-            # Adjust for RC-dependent readout index
-            rc_cols = [ MCE_COL*rc+col_index[rc]+i for i in range(MCE_COL)
-                        for rc in range(MCE_RC) if rc_p[rc] ]
-        self.col_list = rc_cols * self.n_rows
+            # Return the detector data only
+            ho = self.header['_header_size']
+            return a[:,ho:ho+self.size_ro*self.n_rc]
+
+    def _NameChannels(self):
+        """
+        Determine MCE rows and columns of channels that are read out
+        in this data file.  Return as list of (row, col) tuples.  For
+        raw mode data, only a list of columns is returned.
+        """
+        if self.runfile == None:
+            self._ReadRunfile()
+        rc_p = self.header['_rc_present']
+        rcs = [i for i,p in enumerate(rc_p) if p]
+
+        # Is this raw data?  Special handling.
+        dm_data = MCE_data_modes['%i'%self.data_mode]
+        if dm_data.raw:
+            if dm_data.raw_info['offsettable']:
+                offsets = [ self._rfMCEParam('rc%i'%(rc+1), 'readout_col_index') \
+                                for rc in rcs ]
+            else:
+                offsets = [ 0 for rc in rcs]
+            return [i + o + r*MCE_COL for i in range(dm_data.raw_info['n_cols']) \
+                        for r,o in zip(rcs, offsets)]
+
+        row_index = [ self._rfMCEParam('rc%i'%(r+1), 'readout_row_index') \
+                          for r in rcs ]
+        col_index = [ self._rfMCEParam('rc%i'%(r+1), 'readout_col_index') \
+                          for r in rcs ]
+        for i in range(len(rcs)):
+            if row_index[i] == None: row_index[i] = 0
+            if col_index[i] == None: col_index[i] = 0
+
+        # Assemble the final list by looping in the right order
+        names = []
+        for row in range(self.n_rows):
+            for rc in range(self.n_rc):
+                r = row + row_index[rc]
+                for col in range(self.n_cols):
+                    c = rc*MCE_COL + col + col_index[rc]
+                    names.append((r, c))
+        return names
+                    
+    def _ExtractRect(self, data_in):
+        """
+        Given CC data frames, extract RC channel data assuming
+        according to data content parameters.
+        """
+        # Input data should have dimensions (n_cc_frames x self.size_ro*self.n_rc)
+        n_ro = data_in.shape[0]
+
+        # Reshape data_in to (cc_frame, cc_row, cc_col) so we can work
+        # with each RC's data one-by-one
+        data_in.shape = (n_ro, -1, self.n_rc * self.rc_step)
+
+        # Short-hand some critical sizes and declare output data array
+        f = self.n_cols*self.n_rows          # RC frame size
+        p = self.size_ro / f                 # CC/RC packing multiplier
+        data = numpy.zeros((f * self.n_rc, n_ro * p))
+
+        # The only sane way to do this is one RC at a time
+        for rci in range(self.n_rc):
+            # Get data from this rc, reshape to (cc_frame, cc_idx)
+            x = data_in[:,:,self.rc_step*rci:self.rc_step*(rci+1)].reshape(n_ro, -1)
+            # Truncate partial data and reshape to (rc_frame, rc_idx)
+            x = x[:,0:f*p].reshape(-1, f)
+            # Transpose to (rc_idx, rc_frame) and store
+            data[f*rci:f*(rci+1),:] = x.transpose()
+        
+        return data
+
+
+    def _ExtractRaw(self, data_in, n_cols=8):
+        """
+        Extract 50 MHz samples from raw frame data.
+        """
+        # In raw data modes, the RCs always return a perfect set of contiguous data.
+        n_samp = data_in.shape[0] * data_in.shape[1] / self.n_rc / n_cols
+        data = numpy.zeros((n_cols*self.n_rc, n_samp), dtype='int')
+
+        # Reshape data_in to (cc_frame, cc_row, cc_col) so we can work
+        # with each RC's data one-by-one
+        data_in.shape = (-1, self.size_ro/self.rc_step, self.n_rc * self.rc_step)
+        for rci in range(self.n_rc):
+            # Get data from this rc as 1d array.
+            x = data_in[:,:,self.rc_step*rci:self.rc_step*(rci+1)].reshape(-1)
+            # Truncate partial data and reshape to (rc_sample, column)
+            nf = n_cols * (x.shape[0] / n_cols)
+            x = x[0:nf].reshape(-1, n_cols)
+            # Transpose to (column, rc_sample) and store
+            data[n_cols*rci:n_cols*(rci+1),:] = x.transpose()
+        return data
 
     def Read(self, count=None, start=0, dets=None,
              do_extract=True, do_scale=True, data_mode=None,
              field=None, fields=None, row_col=False,
-             raw_frames=False,
+             raw_frames=False, cc_indices=False,
              n_frames=None):
         """
         Read MCE data, and optionally extract the MCE signals.
 
         dets        Pass a list of (row,col) tuples of detectors to extract (None=All)
-        count       Number of frames to read (default=None, which means all of them).
-                    Negative numbers are referred to the end of the file.
-        start       Index of first frame to read (default=0).
+        count       Number of samples to read per channel (default=None,
+                    which means all of them).  Negative numbers are taken
+                    relative to the end of the file.
+        start       Index of first sample to read (default=0).
         do_extract  If True, extract signal bit-fields using data_mode from runfile
         do_scale    If True, rescale the extracted bit-fields to match a reference
                     data mode.
@@ -314,64 +524,71 @@ class SmallMCEFile:
                     column, frame).
         raw_frames  If True, return a 2d array containing raw data (including header
                     and checksum), with indices (frame, index_in_frame).
+        cc_indices  If True, count and start are interpreted as readout frame indices and
+                    not sample indices.  Default is False.
         """
         if n_frames != None:
-            print 'Read: Use of n_frames is deprecated, please use the "count=" argument.'
+            print 'Warning: Use of n_frames in Read() is deprecated, please use '\
+                'the "count=" argument.'
             count = n_frames
-        self.ReadRunfile()
+        # When raw_frames is passed, count and start are passed directly to ReadRaw.
         if raw_frames:
-            data = self.ReadRaw(count=count, start=start, raw_frames=True)
-            return data
+            return self.ReadRaw(count=count, start=start, raw_frames=True)
 
-        data = self.ReadRaw(dets=dets, count=count, start=start)
+        # We can only do this if we have a runfile
+        if self.n_frames == 0:
+            self._GetContentInfo()
 
-        # Determine data_mode
-        if data_mode == None:
-            if self.runfile == False:
-                print 'No runfile, forcing data mode 0'
-                data_mode = 0
-            else:
-                if self.runfile_data == None and self.ReadRunfile()==None:
-                    print 'Failed to read runfile \'%s\' (suppress with runfile=False)'% \
-                        self.runfile
-                    return None
-                rf = self.runfile_data
-                acq_rc = rf.Item('FRAMEACQ', 'RC', type='int')
-                modes = [rf.Item('HEADER', 'RB rc%i data_mode' % \
-                                 rc, type='int', array=False) for rc in acq_rc]
-                data_mode = modes[0]
-                if modes.count(data_mode) != len(modes):
-                    print 'Mixed data_mode acquisition! Using data_mode %i from rc%i\n'% \
-                          (data_mode, acq_rc[0])
+        if cc_indices:
+            start *= pack_factor
+            if count != None:
+                count *= pack_factor
 
-        # Special handling for raw data modes
-        raw_modes = [3,12]
-        if data_mode in raw_modes:
-            if data_mode == 3:
-                n_raw_cols = self.n_cols
-            else:
-                n_raw_cols = 1
+        # Decode start and count arguments
+        start, count = _rangify(start, count, self.n_frames, 'samples')
+
+        # Convert sample indices to readout frame indices
+        if self.raw_data:
+            # Raw data is contiguous and uninterrupted
+            cc_start = start * self.n_cols / self.size_ro
+            cc_count = ((count+start)*self.n_cols + self.size_ro-1) / \
+                self.size_ro - cc_start
         else:
-            n_raw_cols = None
-            
-        # Determine the channel listing
-        self.NameChannels(row_col=row_col, column_data=n_raw_cols)
+            # For packed data, trim excess frame words
+            pack_factor = self.size_ro / (self.n_rows * self.n_cols)
+            cc_start = start / pack_factor
+            cc_count = (count + start + pack_factor-1) / pack_factor - cc_start
+
+        # Get detector data as (n_ro x (size_ro*n_rc)) array
+        data_in = self.ReadRaw(count=cc_count, start=cc_start)
+
+        # Check data mode for processing instructions
+        dm_data = MCE_data_modes.get('%i'%self.data_mode)
+        if dm_data == None:
+            print 'Warning: unimplemented data mode %i, treating as 0.'%data_mode
+            dm_data = MCE_data_modes['0']
+
+        # Handle data packing
+        if dm_data.raw:
+            # Raw mode data is automatically contiguous
+            data = self._ExtractRaw(data_in, dm_data.raw_info['n_cols'])
+            # Trim
+            offset = start - cc_start * self.size_ro
+            data = data[:, offset:offset+count]
+        else:
+            # Normal/rectangle data may be packed incommensurately.
+            data = self._ExtractRect(data_in)
+            # Trim to caller's spec
+            offset = start - cc_start * pack_factor
+            data = data[:, offset:offset+count]
 
         # Create the output object
         data_out = MCEData()
         data_out.source = self.filename
         data_out.n_frames = data.shape[1]
         data_out.header = self.header
-        data_out.row_list = self.row_list
-        data_out.col_list = self.col_list
 
-        # Extract data from carrier words
-        dm_data = MCE_data_modes.get('%i'%data_mode)
-        if dm_data == None:
-            print 'Unimplemented data mode %i, treating as 0.'%data_mode
-            dm_data = MCE_data_modes['0']
-
-        # User passes field=... for single field, or fields=[...] for multi
+        # Unravel the field= vs. fields=[...] logic
         if field == None:
             field = 'default'
         force_dict = (fields != None)
@@ -386,22 +603,21 @@ class SmallMCEFile:
         if data_out.data_is_dict:
             data_out.data = {}
 
-        # Extract each field
+        # Extract each field and store
         for f in fields:
             # Use BitField.extract to get each field
             new_data = dm_data[f].extract(data, do_scale=do_scale)
             if row_col:
-                new_data.shape = (self.n_rows, self.n_cols, data_out.n_frames)
+                new_data.shape = (self.n_rows, self.n_cols*self.n_rc, -1)
             if data_out.data_is_dict:
                 data_out.data[f] = new_data
             else:
                 data_out.data = new_data
 
-        # Special handling for raw data modes
-        if n_raw_cols != None:
-            data_out.data = data_out.data.transpose().reshape(-1, n_raw_cols).transpose()
-            data_out.n_frames = data_out.data.shape[1]
-            
+        if not row_col:
+            # In non-row_col mode, we provide names for all the channels:
+            data_out.channels = self._NameChannels()
+
         return data_out
 
 # Let's just hope that your MCEFile is a Small One.
@@ -447,7 +663,7 @@ class MCERunfile:
             elif block_name == None:
                 if data == None or data == '':
                     if self.data.has_key(key):
-                        raise BadRunfile('duplicate block "'+key+'"')
+                        raise BadRunfile('duplicate block \'%s\''%key)
                     block_name = key
                 else:
                     raise BadRunfile('key outside of block!')
