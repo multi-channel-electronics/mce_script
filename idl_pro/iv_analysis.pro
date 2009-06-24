@@ -414,8 +414,9 @@ for j=0,32 do begin
 		endif
 
 		if trans_end_index ne 0 then begin
-		for i= 0,7 do begin
-			setpt = i*.1 +.2
+                Rn_for_plot = [0.2, per_Rn_bias, 0.8]
+                for i=0, n_elements(Rn_for_plot)-1 do begin
+                        setpt = Rn_for_plot[i]
 			vtes = iv_array(0,max(where(iv_array(0,0:trans_end_index)/iv_array(1,0:trans_end_index)/Rnormal gt setpt)))
 			ites = iv_array(1,max(where(iv_array(0,0:trans_end_index)/iv_array(1,0:trans_end_index)/Rnormal gt setpt)))
 			vbias = iv_array(2,max(where(iv_array(0,0:trans_end_index)/iv_array(1,0:trans_end_index)/Rnormal gt setpt)))
@@ -426,10 +427,7 @@ for j=0,32 do begin
 			badsh = where(no_srdp_shunt eq row)
 			if badsh(0) eq -1 then rsh=rshunt else rsh=0.
 			if keyword_set(setpntgen) then printf, 1, string(setpt)+string(vtes)+string(ites)+string(rtes)+string(ptes)+string(vbias)+string(resp)+string(resp/filtergain)+string(rsh)
-			if setpt eq 0.2 then setpnts(0,j) = vbias
-			if setpt eq per_Rn_bias then setpnts(1,j) = vbias
-			if setpt eq 0.8 then setpnts(2,j) = vbias
-;			print, setpt, vtes, ites, ptes, vbias
+                        setpnts[i,j] = vbias
 		endfor
 		endif
 		if keyword_set(setpntgen) then close,1

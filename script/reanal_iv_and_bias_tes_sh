@@ -1,0 +1,49 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+LOGGER=/bin/cat
+
+SCRNAME="auto_iv_and_bias_tes_sh"
+ERRPREF="ERROR : $SCRNAME :"
+
+start_time=`date`
+start_ctime=`print_ctime`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+echo "ARGS  : $SCRNAME : $@" | $LOGGER
+
+if [ "$#" != "2" ]; then
+    echo "Usage:     $SCRNAME <source_file> <change_bias> <log_id>"
+    echo $ERRPREF "wrong number of arguments" | $LOGGER
+    exit 1
+fi
+
+# Set up log message for acq_register
+use_file=$1
+change_bias="$2"
+[ "$3" != "" ] && export MAS_LOGID="$3"
+
+IDL_PRO=$MAS_IDL
+IV_TARGET=49 #return value that indicates completion
+IV_IDL="auto_iv_and_bias_tes,change_bias=${change_bias},use_file=\"${use_file}\""
+ 
+# Start auto_iv_and_bias
+
+cd $IDL_PRO
+idl -quiet <<EOF
+$IV_IDL
+EOF
+
+err=$?
+if [ "$err" != "$IV_TARGET" ]; then
+    echo $ERRPREF "'$IV_IDL' returned error! [$err]" | $LOGGER
+    exit 1
+fi
+
+# Record keeping: PCI diagnostic and time elapsed
+
+# diag=`print_dsp_diagnostic`
+# echo "INFO  : $SCRNAME : $diag" | $LOGGER
+delta_ctime=`print_elapsed $start_ctime`
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
