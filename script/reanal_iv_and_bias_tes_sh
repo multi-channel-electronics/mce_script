@@ -28,6 +28,10 @@ IDL_PRO=$MAS_IDL
 IV_TARGET=49 #return value that indicates completion
 IV_IDL="auto_iv_and_bias_tes,change_bias=${change_bias},use_file=\"${use_file}\""
  
+# Bias dets to idle levels, hopefully higher than final biases...
+bias_idle=`mas_param get tes_bias_idle`
+bias_tess $bias_idle
+
 # Start auto_iv_and_bias
 
 cd $IDL_PRO
