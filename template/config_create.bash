@@ -79,12 +79,10 @@ fi
 
 # Write cc user_word based on array_id - this shows up in frame data
 user_word=0
-echo Check your tea
 if [ -e "/data/cryo/array_id" ]; then
     array_id=`cat /data/cryo/array_id`
     uw_cmd="(\$1 == \"$array_id\") {print \$2}"
     user_word=`awk "$uw_cmd" $MAS_TEMPLATE/array_list`
-    echo "Found $user_word"
     [ "$user_word" == "" ] && user_word=0
 fi
 echo "wb cc user_word $user_word" >> $mce_script
