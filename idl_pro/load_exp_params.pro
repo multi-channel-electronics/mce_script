@@ -14,6 +14,8 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set hardware_rc '+str_flat(m.hardware_rc)
     spawn,'mas_param -s '+filename+' set hardware_sync '+str_flat(m.hardware_sync)
     spawn,'mas_param -s '+filename+' set hardware_bac '+str_flat(m.hardware_bac)
+    spawn,'mas_param -s '+filename+' set hardware_rect '+str_flat(m.hardware_rect)
+    spawn,'mas_param -s '+filename+' set hardware_rc_data '+str_flat(m.hardware_rc_data)
     spawn,'mas_param -s '+filename+' set sb0_select_clk '+str_flat(m.sb0_select_clk)
     spawn,'mas_param -s '+filename+' set sb0_use_dv '+str_flat(m.sb0_use_dv)
     spawn,'mas_param -s '+filename+' set sb0_use_sync '+str_flat(m.sb0_use_sync)
@@ -128,6 +130,8 @@ pro load_exp_params,filename,m
         'hardware_rc',mas_param_int(filename,'hardware_rc'),  $
         'hardware_sync',mas_param_int(filename,'hardware_sync'),  $
         'hardware_bac',mas_param_int(filename,'hardware_bac'),  $
+        'hardware_rect',mas_param_int(filename,'hardware_rect'),  $
+        'hardware_rc_data',mas_param_int(filename,'hardware_rc_data'),  $
         'sb0_select_clk',mas_param_int(filename,'sb0_select_clk'),  $
         'sb0_use_dv',mas_param_int(filename,'sb0_use_dv'),  $
         'sb0_use_sync',mas_param_int(filename,'sb0_use_sync'),  $
