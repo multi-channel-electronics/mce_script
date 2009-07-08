@@ -166,7 +166,9 @@ echo "wb ac enbl_mux  1" >> $mce_script
 
 
 # Set the TES biases via the "tes bias" virtual address
-echo "wb tes bias ${tes_bias[@]}" >> $mce_script
+if [ "$tes_bias_do_reconfig" != "0" ]; then
+    echo "wb tes bias ${tes_bias[@]}" >> $mce_script
+fi
 
 #----------------------------------------------
 # Bias Cards - use functional mappings!
