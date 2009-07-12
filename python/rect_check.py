@@ -2,9 +2,6 @@
 
 from numpy import *
 
-from mce_data import MCERunfile
-from mce import mce
-
 MCE_CLOCK = 50000000
 MCE_OVERHEAD = 44
 
@@ -99,7 +96,7 @@ class frameConfig:
         if mce == None:
             mce = self.mce
         for k, p in self.mce_params:
-            self.params[k] = m.read(p[0], p[1])[0]
+            self.params[k] = mce.read(p[0], p[1])[0]
         self.derive()
 
 
@@ -110,14 +107,16 @@ if __name__ == '__main__':
     o.add_option('-m', '--mce',action='store_true',default=False)
     opts, args = o.parse_args()
 
-    if opts.mce:
-        if len(args) > 0:
+    if opts.mce: 
+	from mce import mce
+	if len(args) > 0:
             print 'Pass runfiles or --mce, not both!'
             sys.exit(1)
         f = frameConfig(mce=mce())
         f.from_mce()
         f.report()
     else:
+	from mce_data import MCERunfile
         f = frameConfig()
         for a in args:
             f.from_runfile(a)
