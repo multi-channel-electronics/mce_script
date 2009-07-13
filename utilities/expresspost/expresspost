@@ -26,8 +26,10 @@ RETVAL=0
 PROG_BIN=/usr/src/python/expresspost/expresspost.py
 LOCKFILE=/var/lock/$PROG
 PID_FILE=/var/run/$PROG.pid
+USER=mce
 
-SOURCE=/data/cryo/
+SOURCE=/data/cryo/current_data/
+PRESCAN=/data/cryo/
 ARRAY=`cat /data/cryo/array_id`
 DEST=act@lancelot:/data/mce_plots/${ARRAY}/
 SPEC=mceplots_archive
@@ -37,9 +39,13 @@ test -f $PROG_BIN || exit 0
 
 start() {
   log_begin_msg $"Starting $PROG: "
-  start-stop-daemon --start --pidfile $PID_FILE --name $PROG \
-      --startas $PROG_BIN -- --source-dir $SOURCE --dest-location $DEST --file-spec $SPEC \
-      --aggression 0
+  touch $PID_FILE
+  chgrp $USER $PID_FILE
+  chmod g+rw $PID_FILE
+  start-stop-daemon --start --pidfile $PID_FILE --name $PROG --chuid $USER \
+      --startas $PROG_BIN -- \
+      --prescan $PRESCAN --source-dir $SOURCE --dest-location $DEST --file-spec $SPEC \
+      --compress 1 --aggression 0
   log_end_msg $?
   RETVAL=$?
   [ "$RETVAL" = 0 ] && touch $LOCKFILE
