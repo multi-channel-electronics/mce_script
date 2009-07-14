@@ -904,7 +904,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	common ramp_sq1_var, new_adc_offset, squid_p2p, squid_lockrange, squid_lockslope, squid_multilock
 
         ; Load masks for labeling the ramp plots
-        mask_list = ['connection', 'multilock', 'squid1', 'jumpers', 'other']
+        mask_list = ['connection', 'other']
         mask_files = strarr(n_elements(mask_list))
         for j=0,n_elements(mask_list)-1 do $5C
           mask_files[j] = getenv('MAS_TEMPLATE') + strcompress('dead_lists/'+exp_config.array_id+ $
