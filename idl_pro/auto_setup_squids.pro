@@ -906,7 +906,7 @@ for jj=0,n_elements(RCs)-1 do begin
         ; Load masks for labeling the ramp plots
         mask_list = ['connection', 'other']
         mask_files = strarr(n_elements(mask_list))
-        for j=0,n_elements(mask_list)-1 do $5C
+        for j=0,n_elements(mask_list)-1 do $
           mask_files[j] = getenv('MAS_TEMPLATE') + strcompress('dead_lists/'+exp_config.array_id+ $
                                  '/dead_'+mask_list[j]+'.cfg', /remove_all)
         extra_labels = auto_setup_mask_labels(mask_files, mask_list,rc_indices)
