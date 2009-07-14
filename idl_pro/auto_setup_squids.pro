@@ -121,6 +121,7 @@ exp_config.config_rc = rc_enable
 def_sa_bias = exp_config.default_sa_bias
 sq2_bias = exp_config.default_sq2_bias
 sq1_bias = exp_config.default_sq1_bias
+sq1_bias_off = exp_config.default_sq1_bias_off
 
 ; Turn flux-jumping off for tuning, though it shouldn't matter.
 exp_config.flux_jumping = 0
@@ -130,6 +131,7 @@ exp_config.flux_jumping = 0
 exp_config.sa_bias = def_sa_bias
 exp_config.sq2_bias = sq2_bias
 exp_config.sq1_bias = 0
+exp_config.sq1_bias_off = 0
 
 ; Save experiment params, make config script, run it.
 save_exp_params,exp_config,exp_config_file
@@ -228,6 +230,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.adc_offset_c[RC_indices] = 0
         exp_config.sq2_bias[RC_indices] = 0
         exp_config.sq1_bias = 0
+        exp_config.sq1_bias_off = 0
 	
 	common ramp_sa_var,plot_file,final_sa_bias_ch_by_ch,SA_target,SA_fb_init,peak_to_peak
 
@@ -396,6 +399,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.data_mode[0] = 0
         exp_config.servo_mode[0] = 1
         exp_config.sq1_bias = 0	
+        exp_config.sq1_bias_off = 0	
         exp_config.sq2_bias(RC_indices) = sq2_bias(RC_indices)
 
         save_exp_params,exp_config,exp_config_file
@@ -461,6 +465,7 @@ for jj=0,n_elements(RCs)-1 do begin
 	
         exp_config.sa_fb(RC_indices) = sq2_target
         exp_config.sq1_bias = sq1_bias
+        exp_config.sq1_bias_off = sq1_bias_off
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $
@@ -788,6 +793,7 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.servo_d = 0
         exp_config.config_adc_offset_all[0] = 0
         exp_config.sq1_bias = sq1_bias
+        exp_config.sq1_bias_off = sq1_bias_off
 
         save_exp_params,exp_config,exp_config_file
         mce_make_config, params_file=exp_config_file, $

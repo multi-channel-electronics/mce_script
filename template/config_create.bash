@@ -161,7 +161,7 @@ done
 echo "wb ac row_dly   $row_dly" >> $mce_script
 echo "wb ac row_order ${row_order[@]}" >> $mce_script
 echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
-echo "wb ac off_bias  `repeat_string 0 41`" >> $mce_script
+echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
 
 
