@@ -32,6 +32,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set default_sa_bias '+str_flat(m.default_sa_bias)
     spawn,'mas_param -s '+filename+' set default_sq2_bias '+str_flat(m.default_sq2_bias)
     spawn,'mas_param -s '+filename+' set default_sq1_bias '+str_flat(m.default_sq1_bias)
+    spawn,'mas_param -s '+filename+' set default_sq1_bias_off '+str_flat(m.default_sq1_bias_off)
     spawn,'mas_param -s '+filename+' set columns_off '+str_flat(m.columns_off)
     spawn,'mas_param -s '+filename+' set stop_after_sq1_servo '+str_flat(m.stop_after_sq1_servo)
     spawn,'mas_param -s '+filename+' set sa_offset_bias_ratio '+str_flat(m.sa_offset_bias_ratio)
@@ -109,6 +110,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set flux_quanta_all '+str_flat(m.flux_quanta_all)
     spawn,'mas_param -s '+filename+' set fb_const '+str_flat(m.fb_const)
     spawn,'mas_param -s '+filename+' set sq1_bias '+str_flat(m.sq1_bias)
+    spawn,'mas_param -s '+filename+' set sq1_bias_off '+str_flat(m.sq1_bias_off)
     spawn,'mas_param -s '+filename+' set sq2_bias '+str_flat(m.sq2_bias)
     spawn,'mas_param -s '+filename+' set sq2_fb '+str_flat(m.sq2_fb)
     spawn,'mas_param -s '+filename+' set sq2_fb_set '+str_flat(m.sq2_fb_set)
@@ -146,6 +148,7 @@ pro load_exp_params,filename,m
         'default_sa_bias',mas_param_int(filename,'default_sa_bias'),  $
         'default_sq2_bias',mas_param_int(filename,'default_sq2_bias'),  $
         'default_sq1_bias',mas_param_int(filename,'default_sq1_bias'),  $
+        'default_sq1_bias_off',mas_param_int(filename,'default_sq1_bias_off'),  $
         'columns_off',mas_param_int(filename,'columns_off'),  $
         'stop_after_sq1_servo',mas_param_int(filename,'stop_after_sq1_servo'),  $
         'sa_offset_bias_ratio',mas_param_float(filename,'sa_offset_bias_ratio'),  $
@@ -223,6 +226,7 @@ pro load_exp_params,filename,m
         'flux_quanta_all',mas_param_int(filename,'flux_quanta_all'),  $
         'fb_const',mas_param_int(filename,'fb_const'),  $
         'sq1_bias',mas_param_int(filename,'sq1_bias'),  $
+        'sq1_bias_off',mas_param_int(filename,'sq1_bias_off'),  $
         'sq2_bias',mas_param_int(filename,'sq2_bias'),  $
         'sq2_fb',mas_param_int(filename,'sq2_fb'),  $
         'sq2_fb_set',mas_param_int(filename,'sq2_fb_set'),  $
