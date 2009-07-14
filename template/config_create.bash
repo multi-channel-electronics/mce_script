@@ -96,6 +96,7 @@ for rc in 1 2 3 4; do
 #    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
     echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
+    echo "wb rc$rc readout_col_index 0" >> $mce_script
     echo "wb rc$rc sample_dly   $sample_dly" >> $mce_script
     echo "wb rc$rc sample_num   $sample_num" >> $mce_script
     echo "wb rc$rc fb_dly       $fb_dly" >> $mce_script
