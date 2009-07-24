@@ -31,20 +31,18 @@ print "Starting at %s"% time.asctime()
 
 # Compress all *_dat files only.  Tuning files aren't slimmed.
 
-files = glob.glob("%s/[1-9]%s*" % (CACHE, 9*"[0-9]"))
-files.sort()
+files = commands.getoutput("ls -tr %s" % CACHE).split()
 for f in files:
 
-    if f.endswith(".run"): 
-        pass # Handle runfiles with their partners
+    if not f.startswith('12'):
+        continue
 
-    elif f.endswith("_dat"):
+    if f.endswith("_dat"):
         # slim_mce will compress *_dat to *_dat.slm, and move the hard
         # link in /data/archive_cache/ to /data/archive
         print "%s Slimming %s"% (timestamp(), f)
 
         slimfile="%s.slm"%f
-        runfile="%s.run"%f
 
         cmd1="export PATH=${PATH}:%s; slim_mce --force %s 2>&1" % (SLIMPATH, f)
         stat,out = commands.getstatusoutput(cmd1)
@@ -67,35 +65,14 @@ for f in files:
                 print "Failed to unslim!  Copying raw file to archive instead"
                 move2dir(f, ARCHIVE)
 
-            # Either way, save the runfile now, too.
-            try: 
-                move2dir(runfile, ARCHIVE)
-            except: pass
-
         else:
             print out
             print "Slim failed; skipping %s and its runfile"%f
 
     else:
-        # Other files just get moved, with their runfiles and possibly bias files
+        # Other files just get moved
         move2dir(f, ARCHIVE)
         print "Moved %s to archive"%f
-        try:
-            runfile = "%s.run"%f
-            if os.path.exists(runfile):
-                move2dir(runfile, ARCHIVE)
-                print "Moved %s to archive"%runfile
-        except Exception, e:
-            print "Could not move %s"%runfile
-            print e
-        try:
-            biasfile = "%s.bias"%f
-            if os.path.exists(biasfile):
-                move2dir(biasfile, ARCHIVE)
-                print "Moved %s to archive"%biasfile
-        except Exception, e:
-            print "could not move %s"%biasfile
-            print e
 
 
 # Jump scanning
