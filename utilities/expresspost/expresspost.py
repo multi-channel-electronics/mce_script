@@ -161,6 +161,9 @@ class Zipper:
         if (err != 0):
             print '%s didn\'t like: ' % args[0], args
             return []
+        #args = ['/bin/rm']
+        #args.extend(sources)
+        #err = os.spawnv(os.P_WAIT, '/bin/rm', args)
         return zips
 
 def process_options():
@@ -186,6 +189,17 @@ def main():
 
     op = process_options()
 
+    if op.daemon:
+        if op.verbosity > 0:
+            print 'Daemonizing.'
+        pid = os.fork()
+        if pid:
+            exit(0)
+        pidfile = "/var/run/expresspost.pid"
+        f = open(pidfile, "w")
+        f.write("%i\n" % os.getpid())
+        f.close()
+            
     # Copier object, with destination in mind
     r = Rsyncer(op.dest_location)
     zipper = Zipper()
@@ -204,9 +218,9 @@ def main():
                     (op.aggression >=1 and a.state == ListState.open):
                 ready_set = a.GetReadyFiles()
                 if len(ready_set) > 0:
-                    if op.Compress:
+                    if op.compress:
                         print '  compressing %i files' % len(ready_set)
-                        tfiles = zipper.compress(a.FullPath(ready_set))
+                        tfiles = zipper.Compress(a.FullPath(ready_set))
                     else:
                         tfiles = a.FullPath(ready_set)
                     print '  rsyncing %i files' % len(tfiles)
@@ -214,22 +228,10 @@ def main():
                     a.MarkProcessed(ready_set)
             
 
-    # Watch for changes in the archive files.
     if op.verbosity > 0:
         print 'Initializing watcher...'
     w = WatchSet(op.source_dir, op.file_spec, recursive=True)
 
-    if op.daemon:
-        if op.verbosity > 0:
-            print 'Daemonizing.'
-        pid = os.fork()
-        if pid:
-            exit(0)
-        pidfile = "/var/run/expresspost.pid"
-        f = open(pidfile, "w")
-        f.write("%i\n" % os.getpid())
-        f.close()
-            
     # Monitor all archive requests
     count = 0
     archive_set = {}
@@ -246,6 +248,7 @@ def main():
         for f in new_files:
             if not f in archive_set.keys():
                 archive_set[f] = ArchiveList(f, read_now=False)
+        w.MarkProcessed(new_files)
 
         # Check all ArchiveLists for changes
         for f in archive_set.keys():

@@ -44,7 +44,7 @@ start() {
   chmod g+rw $PID_FILE
   start-stop-daemon --start --pidfile $PID_FILE --name $PROG --chuid $USER \
       --startas $PROG_BIN -- \
-      --prescan $PRESCAN --source-dir $SOURCE --dest-location $DEST --file-spec $SPEC \
+      --pre-scan $PRESCAN --source-dir $SOURCE --dest-location $DEST --file-spec $SPEC \
       --compress 1 --aggression 0
   log_end_msg $?
   RETVAL=$?
