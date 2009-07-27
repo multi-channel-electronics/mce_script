@@ -31,11 +31,8 @@ print "Starting at %s"% time.asctime()
 
 # Compress all *_dat files only.  Tuning files aren't slimmed.
 
-files = commands.getoutput("ls -tr %s" % CACHE).split()
+files = commands.getoutput("ls -tr %s/12*" % CACHE).split()
 for f in files:
-
-    if not f.startswith('12'):
-        continue
 
     if f.endswith("_dat"):
         # slim_mce will compress *_dat to *_dat.slm, and move the hard
