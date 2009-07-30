@@ -154,16 +154,22 @@ class Zipper:
         self.remove_source = remove_source
 
     def Compress(self, sources):
-        zips = ['%s.gz'%s for s in sources]
-        args = ['gzip']
-        args.extend(sources)
-        err = os.spawnv(os.P_WAIT, '/bin/gzip', args)
-        if (err != 0):
-            print '%s didn\'t like: ' % args[0], args
-            return []
-        #args = ['/bin/rm']
-        #args.extend(sources)
-        #err = os.spawnv(os.P_WAIT, '/bin/rm', args)
+        targets = []
+        zips = []
+	for s in sources:
+            z = '%s.gz' % s
+            if os.path.lexists(s):
+                targets.append(s)
+                zips.append(z)
+            elif os.path.lexists(z):
+                zips.append(z)
+        if len(targets) > 0:
+            args = ['gzip']
+            args.extend(targets)
+            err = os.spawnv(os.P_WAIT, '/bin/gzip', args)
+            if (err != 0):
+                print '%s didn\'t like: ' % args[0], args
+                return []
         return zips
 
 def process_options():
