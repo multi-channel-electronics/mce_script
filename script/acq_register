@@ -75,7 +75,7 @@ case $type in
     "clone")
     # no operations on the runfile when cloning!
     files="$name $name.run"
-    do_squid=0
+    do_tune=0
     do_iv=0
     ;;
 
