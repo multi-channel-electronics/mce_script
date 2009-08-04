@@ -62,6 +62,10 @@ stop() {
   echo
 }
 
+#pidofproc must be some fedora thing...
+pidofproc() {
+  cat $PID_FILE
+}
 
 status() {
     echo -n "Status of $PROG: "
@@ -69,7 +73,7 @@ status() {
         echo "$PROG is not running."
         RETVAL=3
     else
-        local pid=`pidofproc -p "$PID_FILE"`
+        local pid=`pidofproc`
         if ps -p $pid > /dev/null 2>&1; then
             echo "$PROG is running (pid=$pid)."
             RETVAL=0
