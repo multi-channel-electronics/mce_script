@@ -19,8 +19,9 @@ function usage {
     echo "     RC         is the card number e.g. \"3\", or \"s\" for all"
     echo
     echo "Recognized options (must follow the mandatory arguments):"
-    echo "     --dirfile  force dirfile data format"
-    echo "     --flatfile force flatfile data format"
+    echo "     --dirfile    force dirfile data format"
+    echo "     --flatfile   force flatfile data format"
+    echo "     --no-locking do not check/assert the data driver lock"
     [ "$1" == "" ] || exit $1
     exit 1
 }
@@ -40,6 +41,7 @@ rc=$3
 shift 3
 
 # Options processing
+locking=1
 
 for a in $@; do
     case "$a" in
@@ -51,12 +53,25 @@ for a in $@; do
 	    acq_config_suffix="_dirfile"
 	    ;;
 
+	"--no-locking")
+	    locking=0
+	    ;;
+
 	*)
 	    echo "$SCRNAME : unknown option '$a'"
 	    usage
 	    ;;
     esac
 done
+
+# Query the data lock state
+if [ "$locking" == "1" ]; then
+    if [ "$( command_reply lock_query )" == "1" ]; then
+	echo "$SCRNAME : Data lock is asserted, aborting."
+	exit 1
+    fi
+fi
+
 
 # Write current ctime into run_id location of frame header.  This
 # won't necessarily match the filename; but is better than nothing.
@@ -98,7 +113,11 @@ fi
 
 echo "FRAME_BASENAME=$filename"
 
+lock_opts=
+[ "$locking" == "1" ] && lock_opts = "-X lock_down"
+
 mce_cmd -q -o / \
+    $lock_opts \
     -X "acq_config${acq_config_suffix} $filename rc$rc" \
     -X "acq_go $numpts"
 
