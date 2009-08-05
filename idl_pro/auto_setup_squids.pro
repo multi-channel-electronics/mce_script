@@ -541,8 +541,10 @@ for jj=0,n_elements(RCs)-1 do begin
         SQ2_feedback=lon64arr(8)
         ;SQ2_feedback(*)=8200
         ;initial_sq2_fb=8200
-        SQ2_feedback(*)=15000 ; JPF 090730
-        initial_sq2_fb=10000
+        ;SQ2_feedback(*)=15000 ; JPF 090730 (no BAC)
+        ;initial_sq2_fb=10000
+        SQ2_feedback(*)=8200   ; JPF 090804 (with BAC)
+        initial_sq2_fb=8200
 
 	
 	common sq1_servo_var,SQ1_target,SQ1_feedback,file_out2

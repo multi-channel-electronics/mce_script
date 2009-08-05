@@ -56,7 +56,7 @@ if not keyword_set(gain) then gain = 1./100
 if not keyword_set(use_bias_file) then begin
 
     ; Servo arguments, sheesh
-    servo_args = '-p 50 ' + $
+    servo_args = $
       file_name_sq1_servo + ' ' + $
       string(sq1bias)+' 0 1 '+ $ ;
       string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' '+ $
@@ -64,9 +64,11 @@ if not keyword_set(use_bias_file) then begin
     
     ; Choose servo program based on super_servo switch
     if keyword_set(super_servo) then $
-      servo_cmd = 'sq1servo_all' $
-    else $
-      servo_cmd = 'sq1servo'
+       servo_cmd = 'sq1servo_all' $
+    else begin
+       servo_cmd = 'sq1servo'
+       servo_args = '-p 50 ' + servo_args
+    endelse
     
     ; Go go go
     user_status = auto_setup_userword(rc)
@@ -88,7 +90,10 @@ if not keyword_set(use_bias_file) then begin
     full_bias_filename = full_name+'.bias'
 endif else begin
     full_bias_filename = base_folder + use_bias_file
-    rf = mas_runfile(full_name+'.run')
+    if keyword_set(use_run_file) then runfile_name = base_folder + use_run_file $
+    else runfile_name = full_bias_filename + '.run'
+
+    rf = mas_runfile(runfile_name)
     loop_params_b = mas_runparam(rf,'par_ramp','par_step loop1 par1',/long)
     loop_params_f = mas_runparam(rf,'par_ramp','par_step loop2 par1',/long)
 endelse
