@@ -148,6 +148,7 @@ class Rsyncer:
         print 'spawn returned %i' % err
         if (err != 0):
             print 'rsync didn\'t like: ', args
+	return err==0
         
 class Zipper:
     def __init__(self, remove_source=False):
@@ -230,8 +231,8 @@ def main():
                     else:
                         tfiles = a.FullPath(ready_set)
                     print '  rsyncing %i files' % len(tfiles)
-                    r.Sync(tfiles, a.prefix)
-                    a.MarkProcessed(ready_set)
+                    if r.Sync(tfiles, a.prefix):
+                        a.MarkProcessed(ready_set)
             
 
     if op.verbosity > 0:
