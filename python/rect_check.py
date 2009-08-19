@@ -53,6 +53,8 @@ class frameConfig:
         d['contiguous'] = (d['n_mux'] * self.params['cc_dec'] == d['n_ro'])
         d['complete'] = (d['n_mux'] == d['n_ro'])
         d['bizarro'] = d['n_ro'] % d['n_mux'] != 0
+        d['in_bounds'] = self.params['rc_r0'] + self.params['rc_nr'] <= \
+            self.params['cc_nmux']
         #
         d['f_sam'] = d['f_ro'] * (d['n_ro'] / d['n_mux'])
         self.derived = d
@@ -73,6 +75,7 @@ class frameConfig:
         print ' Contiguous?                            %4s' % yn(d['contiguous'])
         print ' Complete?                              %4s' % yn(d['complete'])
         print ' Bizarro?                               %4s' % yn(d['bizarro'])
+        print ' Bounded?                               %4s' % yn(d['in_bounds'])
         print 'Timing:'
         print ' Mux freq:                         %9.2f' % d['f_mux']
         print ' Mean sampling freq:               %9.2f' % d['f_sam']
