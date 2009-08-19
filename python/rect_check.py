@@ -2,9 +2,6 @@
 
 from numpy import *
 
-from mce_data import MCERunfile
-from mce import mce
-
 MCE_CLOCK = 50000000
 MCE_OVERHEAD = 44
 
@@ -56,6 +53,8 @@ class frameConfig:
         d['contiguous'] = (d['n_mux'] * self.params['cc_dec'] == d['n_ro'])
         d['complete'] = (d['n_mux'] == d['n_ro'])
         d['bizarro'] = d['n_ro'] % d['n_mux'] != 0
+        d['in_bounds'] = self.params['rc_r0'] + self.params['rc_nr'] <= \
+            self.params['cc_nmux']
         #
         d['f_sam'] = d['f_ro'] * (d['n_ro'] / d['n_mux'])
         self.derived = d
@@ -76,6 +75,7 @@ class frameConfig:
         print ' Contiguous?                            %4s' % yn(d['contiguous'])
         print ' Complete?                              %4s' % yn(d['complete'])
         print ' Bizarro?                               %4s' % yn(d['bizarro'])
+        print ' Bounded?                               %4s' % yn(d['in_bounds'])
         print 'Timing:'
         print ' Mux freq:                         %9.2f' % d['f_mux']
         print ' Mean sampling freq:               %9.2f' % d['f_sam']
@@ -99,7 +99,7 @@ class frameConfig:
         if mce == None:
             mce = self.mce
         for k, p in self.mce_params:
-            self.params[k] = m.read(p[0], p[1])[0]
+            self.params[k] = mce.read(p[0], p[1])[0]
         self.derive()
 
 
@@ -110,14 +110,16 @@ if __name__ == '__main__':
     o.add_option('-m', '--mce',action='store_true',default=False)
     opts, args = o.parse_args()
 
-    if opts.mce:
-        if len(args) > 0:
+    if opts.mce: 
+	from mce import mce
+	if len(args) > 0:
             print 'Pass runfiles or --mce, not both!'
             sys.exit(1)
         f = frameConfig(mce=mce())
         f.from_mce()
         f.report()
     else:
+	from mce_data import MCERunfile
         f = frameConfig()
         for a in args:
             f.from_runfile(a)
