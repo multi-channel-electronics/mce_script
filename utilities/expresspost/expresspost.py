@@ -243,13 +243,19 @@ def main():
     count = 0
     archive_set = {}
 
+    update_count = 0
     print 'Looping.'
     while 1:
         count = count + 1
 
         new_files = w.Search()
-        if op.verbosity > 0:
-            print '  Found %i files.' % len(new_files)
+
+	if op.verbosity > 0:
+            update_count += 1
+            if update_count > 30 or len(new_files) > 0:
+                print '%s Managing %i archive sets.  Found %i new files.' % \
+                      (time.asctime(), len(archive_set.keys()), len(new_files))
+                update_count = 0
 
         # Add new_files to archive_set
         for f in new_files:
@@ -260,8 +266,11 @@ def main():
         # Check all ArchiveLists for changes
         for f in archive_set.keys():
             a = archive_set[f]
-            if a.state == ListState.unknown:
-                a.Read()
+            if a.state == ListState.processed:
+                archive_set.pop(f)
+		continue
+            #Update state
+            a.Read()
 
             if (op.aggression >= 0 and a.state == ListState.closed) or \
                     (op.aggression >=1 and a.state == ListState.open):
@@ -275,9 +284,6 @@ def main():
                     print '  rsyncing %i files' % len(tfiles)
                     r.Sync(tfiles, a.prefix)
                     a.MarkProcessed(ready_set)
-
-            if a.state == ListState.processed:
-                archive_set.pop(f)
 
         # Yawn.
         time.sleep(10)
