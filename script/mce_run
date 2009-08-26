@@ -114,7 +114,7 @@ fi
 echo "FRAME_BASENAME=$filename"
 
 lock_opts=
-[ "$locking" == "1" ] && lock_opts = "-X lock_down"
+[ "$locking" == "1" ] && lock_opts="-X lock_down"
 
 mce_cmd -q -o / \
     $lock_opts \
