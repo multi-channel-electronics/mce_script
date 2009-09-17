@@ -13,10 +13,15 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
-n_columns=`command_reply rb sq2 fb | wc -w`
+n_columns=`command_reply rb sq2 bias | wc -w`
 n_tes_bias=`command_reply rb tes bias | wc -w`
 
 rc_flags=( `mas_param -s $expt get hardware_rc` )
+
+# Test whether we have a bias card for SQ2,
+# or a "biasing address card"
+sq2_bac=0
+mce_cmd -qx rb sq2 fb 2>&1 > /dev/null || sq2_bac=1
 
 # Funny 'if' is so we can pipe output into mce_cmd. Don't issue mce
 # commands inside this block!
@@ -25,8 +30,17 @@ if [ "x" == "x" ]; then
     repeat_string "0" 41 "wb ac on_bias"
     repeat_string "0" 41 "wb ac off_bias"
     echo "wb ac enbl_mux 1"
-    
-    repeat_string "0" $n_columns "wb sq2 fb"
+
+    if [ "$sq2_bac" == "0" ]; then
+        # standard BC
+        repeat_string "0" $n_columns "wb sq2 fb"
+    else
+        # using a BAC, so we have many SQ2 fb's to zero out
+        for col in `seq 0 $(( $n_columns - 1 ))`; do
+	    repeat_string "0" 41 "wb sq2 fb_col$col"
+	done
+    fi
+
     repeat_string "0" $n_columns "wb sq2 bias"
     repeat_string "0" $n_columns "wb sa fb"
     repeat_string "0" $n_columns "wb sa bias"
