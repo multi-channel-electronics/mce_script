@@ -65,6 +65,31 @@ function command_reply {
 }
 
 
+# Bit decoding
+
+function hex_to_bits {
+    arg=$1
+    while [ $(( $arg )) -gt 0 ] ; do
+	echo -n "$(( $arg & 1 )) "
+	arg=$(( $arg / 2 ))
+    done
+    echo
+}
+
+function cards_present {
+    hex_to_bits `command_reply "rb cc cards_present"`
+}
+
+function rcs_list {
+    cards=( `cards_present` )
+    rc=1
+    for i in `seq 5 -1 2`; do
+	[ "${cards[$i]}" == "1" ] && echo -n "rc$rc "
+	rc=$(( $rc + 1 ))
+    done
+    echo
+}
+
 # HEALTH CHECKS - return 0 if system appears healthy
 
 function check_reset {
