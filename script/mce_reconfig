@@ -8,6 +8,7 @@ BIAS=/data/cryo/tes_bias_recommended
 
 norm_bias=`mas_param -s $EXPT get tes_bias_normal`
 norm_time=`mas_param -s $EXPT get tes_bias_normal_time`
+wait_time=15
 
 if [ ! -e $CONFIG ]; then
     echo "$CONFIG not found, retune or recover manually from previous day's settings."
@@ -21,3 +22,5 @@ bias_tess $norm_bias
 sleep $norm_time
 echo Biasing tes to recommended values.
 $BIAS
+echo Delaying $wait_time seconds while fridge settles...
+sleep $wait_time
