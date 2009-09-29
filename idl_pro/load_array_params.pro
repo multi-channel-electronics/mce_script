@@ -19,6 +19,7 @@ pro save_array_params,m,filename
     spawn,'mas_param -s '+filename+' set per_Rn_cut '+str_flat(m.per_Rn_cut)
     spawn,'mas_param -s '+filename+' set psat_cut '+str_flat(m.psat_cut)
     spawn,'mas_param -s '+filename+' set ncut_lim '+str_flat(m.ncut_lim)
+    spawn,'mas_param -s '+filename+' set tes_bias_fallback '+str_flat(m.tes_bias_fallback)
     spawn,'mas_param -s '+filename+' set use_srdp_Rshunt '+str_flat(m.use_srdp_Rshunt)
     spawn,'mas_param -s '+filename+' set default_Rshunt '+str_flat(m.default_Rshunt)
     spawn,'mas_param -s '+filename+' set good_shunt_range '+str_flat(m.good_shunt_range)
@@ -44,6 +45,7 @@ pro load_array_params,filename,m
         'per_Rn_cut',mas_param_float(filename,'per_Rn_cut'),  $
         'psat_cut',mas_param_float(filename,'psat_cut'),  $
         'ncut_lim',mas_param_int(filename,'ncut_lim'),  $
+        'tes_bias_fallback',mas_param_int(filename,'tes_bias_fallback'),  $
         'use_srdp_Rshunt',mas_param_int(filename,'use_srdp_Rshunt'),  $
         'default_Rshunt',mas_param_float(filename,'default_Rshunt'),  $
         'good_shunt_range',mas_param_float(filename,'good_shunt_range'),  $

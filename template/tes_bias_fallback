@@ -10,5 +10,6 @@ if [ "$zero_bias" == "1" ]; then
     echo tune_kill_bias is on, zeroing TES biases.
     bias_tess 0 0 0
 else
+    echo Loading default array biases.
     bias_tess $biases
 fi
