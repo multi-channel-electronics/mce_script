@@ -810,17 +810,19 @@ file_chmod, outdir+'/last_iv_det_data',/a_read
 device,/close
 
 if keyword_set(biasfile) then begin
-	if not_cut gt ncut_lim then begin
-		spawn, 'cp -fp '+outdir+'/tes_bias_recommended /data/cryo/'
-                det_data_link = '/data/cryo/last_iv_det_data'
-                spawn, 'rm -f ' + det_data_link
-		spawn, 'ln -s '+outdir + '/last_iv_det_data ' + det_data_link
-	endif
-;; 	if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-;; 		spawn, 'cp -rf '+outdir+' /misc/mce_plots/'
-;; 		dir_name = strsplit(outdir,'/',/extract)
-;; 		spawn, 'chgrp -R mceplots /misc/mce_plots/'+dir_name(n_elements(dir_name)-1)
-;; 	endif
+   if not_cut gt ncut_lim then begin
+      bias_script = outdir+'/tes_bias_recommended'
+      bias_data = outdir + '/last_iv_det_data'
+   endif else begin
+      ; If IV curve fails, revert to some reasonable default values!
+      bias_script = getenv('MAS_TEMPLATE') + '/tes_bias_fallback'
+      bias_data = getenv('MAS_TEMPLATE') + '/bad_iv_template'
+   endelse
+
+   spawn, 'cp -fp '+bias_script+' /data/cryo/tes_bias_recommended'
+   det_data_link = '/data/cryo/last_iv_det_data'
+   spawn, 'rm -f ' + det_data_link
+   spawn, 'ln -s '+bias_data + ' ' + det_data_link
 endif
 	
 if keyword_set(post_plot) then auto_post_plot,poster,/close

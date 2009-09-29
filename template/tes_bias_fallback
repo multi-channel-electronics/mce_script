@@ -1,0 +1,14 @@
+#!/bin/bash
+# Fall-back biases for when IV curve fails.
+
+array_id=`cat /data/cryo/array_id`
+array_file=$MAS_TEMPLATE/array_${array_id}.cfg	
+biases=`mas_param -s $array_file get tes_bias_fallback`
+zero_bias=$( echo `mas_param get tune_kill_bias` )
+
+if [ "$zero_bias" == "1" ]; then
+    echo tune_kill_bias is on, zeroing TES biases.
+    bias_tess 0 0 0
+else
+    bias_tess $biases
+fi
