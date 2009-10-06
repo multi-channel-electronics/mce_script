@@ -1052,6 +1052,8 @@ spawn,'ln -s '+todays_folder+c_filename+'.sqtune /data/cryo/last_squid_tune'
 spawn,'echo "'+current_data+'" > /data/cryo/last_squid_tune_name'
 spawn,'echo "'+string(time,format='(i10)')+'" >> /data/cryo/last_squid_tune_name'
 
+spawn,'cp '+exp_config_file+' '+todays_folder+file_folder+'/'
+
 t_elapsed = systime(1,/utc)-time
 if quiet eq 0 then begin
    print,''
