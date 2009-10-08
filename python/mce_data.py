@@ -539,6 +539,10 @@ class SmallMCEFile:
         if self.n_frames == 0:
             self._GetContentInfo()
 
+        # Allow data_mode override
+        if data_mode != None:
+            self.data_mode = data_mode
+
         if cc_indices:
             start *= pack_factor
             if count != None:
