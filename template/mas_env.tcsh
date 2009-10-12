@@ -17,6 +17,6 @@ setenv MAS_SCRIPT ${MAS_ROOT}/script/
 setenv MAS_TEST_SUITE ${MAS_ROOT}/test_suite/
 setenv MAS_IDL ${MAS_ROOT}/idl_pro/
 setenv MAS_PYTHON ${MAS_ROOT}/python/
-setenv PYTHONPATH "$PYTHONPATH:${MAS_PYTHON}:/usr/mce/python"
+setenv PYTHONPATH ${MAS_PYTHON}:/usr/mce/python/
 
 setenv PATH ${PATH}:${MAS_BIN}:${MAS_SCRIPT}:${MAS_TEST_SUITE}
