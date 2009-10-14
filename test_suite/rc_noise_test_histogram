@@ -1,0 +1,137 @@
+#!/usr/bin/python
+
+import sys
+import getopt
+import time
+
+from sys import *
+from numpy import *
+from pylab import *
+from mce_data import *
+from glob import glob
+from os import *
+
+stdev_threshold = 5.6
+
+def Usage():
+  print """Usage:
+  %s [-a] [-r #] CARD_ID
+where:
+  CARD_ID the serial number of the readout card to test.
+  -a      acquire data (otherwise, assume data already exists in $MAS_DATA/CARD_ID)
+  -r RC   readout card # (1,2,3,4) default=1; ignored if -a not specified
+
+  A directory called CARD_ID_<ctime> will be created under $MAS_DATA.  All data
+  will be acquired to this directory.
+""" % (sys.argv[0])
+  sys.exit(2)
+
+try:
+  optlist, argv = getopt.getopt(sys.argv[1:], 'ar:')
+except getopt.GetoptError, err:
+  print str(err)
+  Usage()
+
+if (len(argv) < 1):
+  Usage()
+rc_num = argv[0]
+rc = 1
+
+acquire = False
+for o,a in optlist:
+  if o == '-a':
+    acquire = True
+  if o == '-r':
+    rc = int(a)
+
+if (acquire):
+  rc_dir = "%s_%i" % (rc_num, int(time.time()))
+else:
+  rc_dir = rc_num
+
+mas_data_dir = environ["MAS_DATA"]
+if (acquire):
+  print "\nExecuting: set_directory"
+  system("set_directory")
+
+  try:
+    mkdir(mas_data_dir + rc_dir)
+  except OSError:
+    print "The directory already exist.  Cowardly refusing to continue."
+    print "Delete the directory, if you really meant to store the data in"
+    print mas_data_dir + rc_dir
+    exit(1)
+
+  print "Created directory:",mas_data_dir + rc_dir
+
+  print "\nExecuting: mce_cmd -x mce_reset"
+  system("mce_cmd -x mce_reset")
+  print "\nExecuting: mce_reconfig"
+  system("mce_reconfig")
+  print "\nExecuting: mce_zero_bias"
+  system("mce_zero_bias")
+
+x=arange(-8192,8192)
+stdev=zeros(8, dtype=double)
+for ch in range(0,8):
+  ch_dir = "%s/ch%1i" % (rc_dir, ch)
+  if (acquire):
+    mkdir(mas_data_dir + ch_dir)
+    command = 'mce_raw_acq_1col %i %i "" "" %s ""' % (rc, ch, ch_dir)
+    print "\nExecuting: ", command
+    for it in range(0,10):
+      system(command)
+
+  print "\nComputing data for rc", rc, "channel", ch
+  files=glob(mas_data_dir + ch_dir + "/*_raw")
+
+  alldata = array([], dtype=int16)
+  n=zeros(16384, dtype=int32)
+  for f in files[0:10000]:
+    data=MCEFile(f).Read(data_mode=12).data[0,:]
+    alldata = concatenate((alldata,data))
+    for d in data:
+      n[d + 8192] += 1
+
+  stdev[ch] = std(alldata)
+  print "stdev=", stdev[ch]
+
+
+  b=zeros(16)
+  for bt in range(0,16):
+    bit = 2**bt
+    for d in alldata:
+      if (d & bit):
+        b[bt]  += 1
+    print "bit ", bt, b[bt]/alldata.shape[0]
+
+  plot(x,n)
+  ymin,ymax=ylim()
+  xmin,xmax=xlim(alldata.min(),alldata.max())
+  xw=xmax-xmin
+  yw=ymax-ymin
+
+  text(0.1 * xw + xmin, 0.9  * yw + ymin, "%s/ch%i/*" % (rc_dir, ch))
+  text(0.1 * xw + xmin, 0.85  * yw + ymin, "Channel %i" % (ch))
+  text(0.1 * xw + xmin, 0.8  * yw + ymin, "stdev=%.3f" % (stdev[ch]))
+  text(0.1 * xw + xmin, 0.75 * yw + ymin, "n=%i" % (alldata.shape[0]))
+  xlabel("data value")
+  ylabel("count")
+  for bt in range(0,16):
+    text(0.7 * xw + xmin, (0.9 - bt * 0.05) * yw + ymin, "bit %02i: %.3f" % (bt,
+        b[bt]/alldata.shape[0]))
+
+  psname = "/%s_bits_ch%1i.ps" % (rc_dir, ch)
+  print "Historgram written on", mas_data_dir + rc_dir + psname
+  savefig(mas_data_dir + rc_dir + psname)
+  show()
+
+all_ok = 1;
+for ch in range(0,8):
+  if (stdev[ch] > stdev_threshold):
+    all_ok = 0
+    print "WARNING!!! CHANNEL %i exceeds threshold (%f > %f)" % (ch, stdev[ch],
+        stdev_threshold)
+
+if (all_ok):
+  print "All channels passed the test."
