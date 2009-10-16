@@ -175,8 +175,9 @@ start = 150
 margin = 25
 nfb   = ramp_count
 for chan=0,7 do begin
-	
-		if slope lt 0 then begin
+   if n_elements(slope) > 1 then this_slope = slope[chan] $
+   else this_slope = slope
+		if this_slope lt 0 then begin
                 	min_point=min(sq1_v_phi(start:nfb-1,chan),ind_min)
 			ind_min=start+ind_min
 	                ind_pos_der=where(deriv_fb1(0:ind_min-margin,chan) gt 0)

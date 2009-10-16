@@ -78,9 +78,6 @@ samp_num=exp_config.default_sample_num[0]	;number of data coadded
 if not keyword_set(numrows) then $
   numrows=exp_config.default_num_rows[0]        ;number of detectors rows to servo
 
-sq2slope = exp_config.sq2servo_slope[0]
-sq1slope = exp_config.sq1servo_slope[0]
-
 ;Set this to 1 to sweep the tes bias and look at squid v-phi response.
 ramp_sq1_bias_run=exp_config.sq1_ramp_tes_bias[0]
 
@@ -103,18 +100,18 @@ column_adc_offset=lon64arr(32)
 ;Setting detectors bias by first driving them normal and then to the transition.
 ;The values in tes_bias_idle and tes_bias_normal are written to "tes
 ;bias" virtual address.
-for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
-  auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_normal(i))
+;for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
+;  auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_normal(i))
 
-wait,exp_config.tes_bias_normal_time[0]
+;wait,exp_config.tes_bias_normal_time[0]
 
 
-exp_config.tes_bias = exp_config.tes_bias_idle
+;exp_config.tes_bias = exp_config.tes_bias_idle
 
-for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
-  auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
+;for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
+;  auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
 
-exp_config.config_rc = rc_enable
+;exp_config.config_rc = rc_enable
 
 ; Load squid biases from config file default parameters.
 
@@ -231,8 +228,11 @@ for jj=0,n_elements(RCs)-1 do begin
         exp_config.sq2_bias[RC_indices] = 0
         exp_config.sq1_bias = 0
         exp_config.sq1_bias_off = 0
-	
-	common ramp_sa_var,plot_file,final_sa_bias_ch_by_ch,SA_target,SA_fb_init,peak_to_peak
+
+        ; SA lock slope is determined by sign of sq2servo gain.
+        sa_slope = -sign(exp_config.sq2servo_gain[rc-1],/nozero)
+
+	common ramp_sa_var,final_sa_bias_ch_by_ch,SA_target,SA_fb_init,peak_to_peak
 
         if keyword_set(ramp_sa_bias) then begin         ; if we want to fine the SSA bias again
 
@@ -251,8 +251,8 @@ for jj=0,n_elements(RCs)-1 do begin
         		exit,status=2
 		endif
 		
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,/ramp_bias,RC=rc,interactive=interactive, $
-                  numrows=numrows,acq_id=acq_id,quiet=quiet,poster=poster
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,/ramp_bias,RC=rc,slope=sa_slope, $
+                  interactive=interactive,numrows=numrows,acq_id=acq_id,quiet=quiet,poster=poster
 
 		if keyword_set(interactive) then begin
 			i2=dialog_message(['The auto_setup has found the bias and the offsets',$
@@ -303,8 +303,8 @@ for jj=0,n_elements(RCs)-1 do begin
                         exit,status=3
                 endif
 
-		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,interactive=interactive, $
-                  numrows=numrows,acq_id=acq_id,quiet=quiet,poster=poster
+		auto_setup_ramp_sa_fb_plot,ssa_file_name,RC=rc,slope=sa_slope, $
+                  interactive=interactive, numrows=numrows,acq_id=acq_id,quiet=quiet,poster=poster
 
                 exp_config.config_adc_offset_all[0] = 0
                 exp_config.adc_offset_c(RC_indices) = SA_target
@@ -418,6 +418,11 @@ for jj=0,n_elements(RCs)-1 do begin
         endif
 	
         sq2_file_name=auto_setup_filename(rc=rc,directory=file_folder,acq_id=acq_id)
+
+        ; Locking slope should be consistent with servo gains.
+        sq2slope = -sign(exp_config.sq2servo_gain[rc-1],/nozero) / $
+                   sign(exp_config.sq1servo_gain[rc-1],/nozero)
+
 
         ; We may want to do sq2 servos at a series of sq2 biases.  
         if exp_config.sq2_servo_bias_ramp[0] ne 0 then begin
@@ -590,6 +595,10 @@ for jj=0,n_elements(RCs)-1 do begin
         ; also be invoked with per-column sq2 during initial runs to
         ; determine the representative row in each column.
 
+        ; Locking slope should be consistent with servo gains.
+        sq1slope = -sign(exp_config.sq1servo_gain[rc-1],/nozero) / $
+                   sign(exp_config.default_servo_i[(rc-1)*8:rc*8],/nozero)
+
         if exp_config.config_fast_sq2[0] or exp_config.sq1_servo_all_rows then begin
 
             ; This block uses either sq1servo or sq1servo_all to get
@@ -606,7 +615,7 @@ for jj=0,n_elements(RCs)-1 do begin
                   print, 'Using biasing address card (bac) to sq1servo each row separately.'
 
                 auto_setup_sq1servo_plot, sq1_base_name,SQ1BIAS=sq1_bias(0),RC=rc, $
-                  numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                  numrows=numrows,interactive=interactive,slope=sq1slope, $
                   gain=exp_config.sq1servo_gain[rc-1], $
                   ramp_start=exp_config.sq1_servo_flux_start[0], $
                   ramp_count=exp_config.sq1_servo_flux_count[0], $
@@ -630,7 +639,7 @@ for jj=0,n_elements(RCs)-1 do begin
                     free_lun,lun
 
                     auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
-                      numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                      numrows=numrows,interactive=interactive,slope=sq1slope, $
                       gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
                       ramp_start=exp_config.sq1_servo_flux_start[0], $
                       ramp_count=exp_config.sq1_servo_flux_count[0], $
@@ -643,7 +652,7 @@ for jj=0,n_elements(RCs)-1 do begin
                                             string(sq1servorow,format='(i2.2)')+'.bias',/remove_all)
                     
                     auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0),RC=rc, $
-                      numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+                      numrows=numrows,interactive=interactive,slope=sq1slope, $
                       gain=exp_config.sq1servo_gain[rc-1],LOCK_ROWS=(lonarr(32) + sq1servorow), $
                       ramp_start=exp_config.sq1_servo_flux_start[0], $
                       ramp_count=exp_config.sq1_servo_flux_count[0], $
@@ -698,7 +707,7 @@ for jj=0,n_elements(RCs)-1 do begin
             sq1_file_name=sq1_base_name
             
             auto_setup_sq1servo_plot, sq1_file_name,SQ1BIAS=sq1_bias(0), $
-              RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope,sq2slope=sq2slope, $
+              RC=rc,numrows=numrows,interactive=interactive,slope=sq1slope, $
               gain=exp_config.sq1servo_gain[rc-1],lock_rows=exp_config.sq2_rows, $
               ramp_start=exp_config.sq1_servo_flux_start[0], $
               ramp_count=exp_config.sq1_servo_flux_count[0], $

@@ -37,6 +37,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set columns_off '+str_flat(m.columns_off)
     spawn,'mas_param -s '+filename+' set stop_after_sq1_servo '+str_flat(m.stop_after_sq1_servo)
     spawn,'mas_param -s '+filename+' set sa_offset_bias_ratio '+str_flat(m.sa_offset_bias_ratio)
+    spawn,'mas_param -s '+filename+' set sa_flux_quanta '+str_flat(m.sa_flux_quanta)
     spawn,'mas_param -s '+filename+' set sa_ramp_bias '+str_flat(m.sa_ramp_bias)
     spawn,'mas_param -s '+filename+' set sa_ramp_flux_start '+str_flat(m.sa_ramp_flux_start)
     spawn,'mas_param -s '+filename+' set sa_ramp_flux_count '+str_flat(m.sa_ramp_flux_count)
@@ -73,6 +74,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set tes_bias_idle '+str_flat(m.tes_bias_idle)
     spawn,'mas_param -s '+filename+' set tes_bias_normal '+str_flat(m.tes_bias_normal)
     spawn,'mas_param -s '+filename+' set tes_bias_normal_time '+str_flat(m.tes_bias_normal_time)
+    spawn,'mas_param -s '+filename+' set tes_bias_do_reconfig '+str_flat(m.tes_bias_do_reconfig)
     spawn,'mas_param -s '+filename+' set sq2servo_safb_init '+str_flat(m.sq2servo_safb_init)
     spawn,'mas_param -s '+filename+' set sq1servo_sq2fb_init '+str_flat(m.sq1servo_sq2fb_init)
     spawn,'mas_param -s '+filename+' set ramp_tes_start '+str_flat(m.ramp_tes_start)
@@ -153,6 +155,7 @@ pro load_exp_params,filename,m
         'columns_off',mas_param_int(filename,'columns_off'),  $
         'stop_after_sq1_servo',mas_param_int(filename,'stop_after_sq1_servo'),  $
         'sa_offset_bias_ratio',mas_param_float(filename,'sa_offset_bias_ratio'),  $
+        'sa_flux_quanta',mas_param_int(filename,'sa_flux_quanta'),  $
         'sa_ramp_bias',mas_param_int(filename,'sa_ramp_bias'),  $
         'sa_ramp_flux_start',mas_param_int(filename,'sa_ramp_flux_start'),  $
         'sa_ramp_flux_count',mas_param_int(filename,'sa_ramp_flux_count'),  $
@@ -188,7 +191,8 @@ pro load_exp_params,filename,m
         'sq1_ramp_tes_bias_count',mas_param_int(filename,'sq1_ramp_tes_bias_count'),  $
         'tes_bias_idle',mas_param_int(filename,'tes_bias_idle'),  $
         'tes_bias_normal',mas_param_int(filename,'tes_bias_normal'),  $
-        'tes_bias_normal_time',mas_param_float(filename,'tes_bias_normal_time'),  $
+        'tes_bias_normal_time',mas_param_int(filename,'tes_bias_normal_time'),  $
+        'tes_bias_do_reconfig',mas_param_int(filename,'tes_bias_do_reconfig'),  $
         'sq2servo_safb_init',mas_param_int(filename,'sq2servo_safb_init'),  $
         'sq1servo_sq2fb_init',mas_param_int(filename,'sq1servo_sq2fb_init'),  $
         'ramp_tes_start',mas_param_int(filename,'ramp_tes_start'),  $
