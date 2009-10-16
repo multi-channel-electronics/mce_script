@@ -1,5 +1,6 @@
 function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start, $
-                        plots_on=plots_on,expected=expected,mean_by_column=mean_by_column
+                        plots_on=plots_on,expected=expected,mean_by_column=mean_by_column, $
+                        quiet=quiet
 ;
 ; Returns 8 x n_rows array of v-phi periods.  Means, column by column
 ; after outlier removal (using 'expected') are preseent in
@@ -10,7 +11,8 @@ function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start, $
 if not keyword_set (bias_step) then begin
     rf = mas_runfile(filename+'.run')
     bias_params = mas_runparam(rf, 'par_ramp', 'par_step loop1 par1',/float)
-    print,bias_params
+    if not keyword_set(quiet) then $
+       print,bias_params
     bias_start = bias_params[0]
     bias_step = bias_params[1]
 endif
@@ -45,12 +47,14 @@ for r=0,n_row-1 do begin
         endif
 
         if keyword_set(expected) and abs(p - expected)/expected gt 0.1 then begin
-            print,'Surprise! ',string(r)+string(c)+' is bad-amped: '+string(p)
+            if not keyword_set(quiet) then $
+              print,'Surprise! ',string(r)+string(c)+' is bad-amped: '+string(p)
             plot,x,y,xrange=[x[0], x[n-1] *2]
             oplot,x+p[0],y,color=255
             wait,1
         endif else $
-            print,'Good:     ',string(r)+string(c)+' has period'+string(p)
+            if not keyword_set(quiet) then $
+               print,'Good:     ',string(r)+string(c)+' has period'+string(p)
 
     endfor
 endfor
