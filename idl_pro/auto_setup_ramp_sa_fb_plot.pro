@@ -1,6 +1,6 @@
 pro auto_setup_ramp_sa_fb_plot,file_name,RC=rc,interactive=interactive,numrows=numrows, $
                                acq_id=acq_id, quiet=quiet,ramp_bias=ramp_bias, $
-                               poster=poster
+                               poster=poster, slope=slope
 
 ;  Aug. 21 created by Elia Battistelli (EB) for the auto_setup program
 ;	   adapted from ramp_sa_fb_plot.pro 
@@ -13,6 +13,7 @@ this_script = 'ramp_sa_fb_plot'
 ;Init
 if not keyword_set(acq_id) then acq_id = 0
 if not keyword_set(ramp_bias) then ramp_bias = 0
+if not keyword_set(slope) then slope = 1.
 
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
@@ -231,71 +232,53 @@ endif
 
 for chan=0,7 do begin
 
-   ; MFH: modified the following to be independent of the number 400.
-   ;  I didn't mess with the commented stuff.  Compare to ACT:r240.
-   ; ;! marks the equivalent orginal code.
-   
-   ;MFH - This effective scale is inherited from the original 400 coode.
+   ;MFH - This effective scale is inherited from the original 400 code.
    scale = 5 * n_fb / 400
    if scale lt 1 then scale = 1
 
-;	deriv_av_vol=smooth(deriv(i_fb,reform(av_vol(ind(chan),*,chan))),5)
-;!	deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),5))
-	deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),scale))
-	final_sa_bias_ch_by_ch(chan)=round(bias_start + ind(chan)* bias_step)
-;	min_point=min(av_vol(ind(chan),150:380,chan),ind_min)	;in case we want to lock on the negative slope
-;	ind_min=150+ind_min
+   deriv_av_vol=deriv(i_fb,smooth(reform(av_vol(ind(chan),*,chan)),scale))
+   final_sa_bias_ch_by_ch(chan)=round(bias_start + ind(chan)* bias_step)
 
-;	ind_pos_der=where(deriv_av_vol(0:ind_min-15) gt 0)
-;	if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
-;	ind_max=max(ind_pos_der)
+   ; Find position of an SA minimum.  Search range depends on desired
+   ; locking slope because we will eventually need to find an SA max.
+   if slope gt 0. then begin
+      min_start = scale*4
+      min_stop = n_fb*5/8
+   endif else begin
+      min_start = n_fb*3/8
+      min_stop = n_fb - scale*4
+   endelse
+   min_point=min(av_vol(ind(chan),min_start:min_stop,chan),ind_min)
+   ind_min = ind_min + min_start
 
-;!      min_point=min(av_vol(ind(chan),20:250,chan),ind_min) ;in case we want to lock on the positive slope
-;!      ind_min=20+ind_min
-        min_start = 4 * scale
-        min_search = min_start + indgen(n_fb*5/8 - min_start)
-        min_point=min(av_vol(ind(chan),min_search,chan),ind_min) ;in case we want to lock on the positive slope
-        ind_min = ind_min + min_start
-;!
-       ;print,ind_min
-;!        ind_neg_der=where(deriv_av_vol(ind_min+10:399) lt 0)
-        ind_neg_der=where(deriv_av_vol(ind_min+(2 * scale):n_fb-1) lt 0)
+   ; Now track to the side, waiting for slope to change.
+   if slope gt 0. then begin
+      start = ind_min+scale*2
+      stop = n_fb
+      step = 1
+   endif else begin
+      start = ind_min - 2*scale
+      stop = -1
+      step = -1
+   endelse
+   idx = start + step * indgen((stop-start)*step)
+   slope_change = where(deriv_av_vol[idx]*slope lt 0)
 
-;!       if n_elements(ind_neg_der) eq 1 then ind_neg_der=399
-;!       ind_max=min(ind_neg_der)+ind_min+10
-        if n_elements(ind_neg_der) eq 1 then ind_neg_der=n_fb-1
-        ind_max=min(ind_neg_der)+ind_min+(2*scale)
-;!
-       ;print,ind_max
-	;max_point=max(av_vol(ind(chan),ind_min-149:ind_min,chan),ind_max)	
-        ;ind_max=max(ind_pos_der)
+   if n_elements(slope_change) eq 1 then $
+      ind_max = stop - step $
+   else $
+      ind_max = idx[min(slope_change)]
 
-	;ind_max=ind_min-149+ind_max
-	ind_half_point=round(0.5*(ind_min+ind_max))
-	target_half_point_ch_by_ch(chan)=round(1000.*av_vol(ind(chan),ind_half_point,chan))
-;Mikes new target selection
-;	target_half_point_ch_by_ch(chan) = round(sa_middle(ind(chan),chan)*1000.)
-	fb_half_point_ch_by_ch(chan)=round(1000.*i_fb(ind_half_point))
-	;min_slope=min(deriv_av_vol(ind(chan),100:300,chan),indd)	
-	;ind_min_slope=indd+100						
-	;target_min_slope_ch_by_ch(chan)=round(1000.*av_vol(ind(chan),ind_min_slope,chan))
-	;fb_min_slope_ch_by_ch(chan)=round(1000.*i_fb(ind_min_slope))
-	;print,' '
+   ; Lock on half-way point between minimum and maximum
+   ind_half_point=round(0.5*(ind_min+ind_max))
+   target_half_point_ch_by_ch(chan)=round(1000.*av_vol(ind(chan),ind_half_point,chan))
+   fb_half_point_ch_by_ch(chan)=round(1000.*i_fb(ind_half_point))
 
-        if not keyword_set(quiet) then $
-           print,format='(i4, i11, i8, i12, i12)',chan, final_sa_bias_ch_by_ch(chan), ind(chan), $
-                 target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
+   if not keyword_set(quiet) then $
+      print,format='(i4, i11, i8, i12, i12)',chan, final_sa_bias_ch_by_ch(chan), ind(chan), $
+            target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
 
-;;!	print,'Channel:',chan
-;;!	print,'sa_bias @ step',ind(chan),', ie sa_bias=',final_sa_bias_ch_by_ch(chan)
-;;!	print,'target  @ half point=',target_half_point_ch_by_ch(chan)
-;;!	print,'sa_fb   @ half point=',fb_half_point_ch_by_ch(chan)
-;;!	print,'###########################################################################'
-	;print,' '
-;stop
 endfor
-
-;stop
 
 SA_target=target_half_point_ch_by_ch
 SA_fb_init=fb_half_point_ch_by_ch
