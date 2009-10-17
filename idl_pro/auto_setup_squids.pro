@@ -21,6 +21,9 @@ if quiet eq 0 then begin
 endif else $
    print,'AUTO_SETUP initializing'
 
+; Force spawns to use /bin/bash
+setenv,'SHELL=/bin/bash'
+
 ;CLOSE ALL OPEN FILES. IT HELPS AVOID ERRORS 
 close,/all
 status=0
