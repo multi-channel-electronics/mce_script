@@ -1,4 +1,5 @@
 function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start, $
+                        servo_file=servo_file, $
                         plots_on=plots_on,expected=expected,mean_by_column=mean_by_column, $
                         quiet=quiet
 ;
@@ -7,25 +8,37 @@ function measure_quanta,filename,bias_step=bias_step,bias_start=bias_start, $
 ; 'mean_by_column'.
 ;
 
+if not keyword_set (servo_file) then begin
+   if not keyword_set (bias_step) then begin
+      rf = mas_runfile(filename+'.run')
+      bias_params = mas_runparam(rf, 'par_ramp', 'par_step loop1 par1',/float)
+      if not keyword_set(quiet) then $
+         print,bias_params
+      bias_start = bias_params[0]
+      bias_step = bias_params[1]
+   endif
+   
+   d = mas_data(filename,frame_info=frame_info)
 
-if not keyword_set (bias_step) then begin
-    rf = mas_runfile(filename+'.run')
-    bias_params = mas_runparam(rf, 'par_ramp', 'par_step loop1 par1',/float)
-    if not keyword_set(quiet) then $
-       print,bias_params
-    bias_start = bias_params[0]
-    bias_step = bias_params[1]
-endif
-
-d = mas_data(filename,frame_info=frame_info)
-
-n = frame_info.n_frames
-n_row = frame_info.n_rows
-n_col = frame_info.n_columns
+   n = frame_info.n_frames
+   n_row = frame_info.n_rows
+   n_col = frame_info.n_columns
+   
+endif else begin
+   ; Servo data -- recast to 1r x Nc
+   servo = auto_setup_read_servo(filename)
+   s = size(servo.feedback)
+   n_col = s[1]
+   n_row = 1
+   n = s[2]
+   d = reform(servo.feedback, n_col, n_row, n)
+   bias_step = servo.step
+   bias_start = servo.start
+   bias_count = servo.count
+endelse
 
 x = findgen(n)*bias_step + bias_start
 p_set = fltarr([n_col, n_row])
-p_set2 = p_set
 
 for r=0,n_row-1 do begin
     for c=0,n_col-1 do begin
@@ -34,12 +47,6 @@ for r=0,n_row-1 do begin
         p = vphi_period(y, fit_width=n/3) * bias_step
         if p lt 0 then p = 0
         p_set[c, r] = p
-
-        ; This sine fit business doesn't work very well because
-        ; there are only ~2 periods and the curve is not very siney.
-;         a = fit_sine(x, y)
-;         if a[0] ne -1 then $
-;           p_set2[c, r] = a[2]
 
         if keyword_set(plots_on) then begin
             plot,x,y,xrange=[x[0], x[n-1] *2]
