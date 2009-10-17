@@ -99,20 +99,17 @@ SQ2_feedback_file(*)=8200
 column_adc_offset=lon64arr(32)
 
 
-;DETECTOR BIAS
-;Setting detectors bias by first driving them normal and then to the transition.
-;The values in tes_bias_idle and tes_bias_normal are written to "tes
-;bias" virtual address.
-;for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
-;  auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_normal(i))
-
-;wait,exp_config.tes_bias_normal_time[0]
-
-
-;exp_config.tes_bias = exp_config.tes_bias_idle
-
-;for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
-;  auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
+if exp_config.tes_bias_do_reconfig[0] ne 0 then begin
+   ;DETECTOR BIAS
+   print,'Driving TES normal, then to idle value.'
+   ;Setting detectors bias by first driving them normal and then to the transition.
+   for i=0,n_elements(exp_config.tes_bias_idle)-1 do $
+      auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_normal(i))
+   wait,exp_config.tes_bias_normal_time[0]
+   exp_config.tes_bias = exp_config.tes_bias_idle
+   for i=0,n_elements(exp_config.tes_bias_normal)-1 do $
+      auto_setup_command,'wra tes bias '+string(i)+' '+string(exp_config.tes_bias_idle(i))
+endif
 
 ;exp_config.config_rc = rc_enable
 
