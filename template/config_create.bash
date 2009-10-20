@@ -211,4 +211,5 @@ for rc in 1 2 3 4; do
     echo "wb rc$rc flx_lp_init 1" >> $mce_script
 done
 
+chgrp mce $mce_script
 #END config_create.bash
