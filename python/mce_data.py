@@ -147,7 +147,6 @@ def _rangify(start, count, n, name='items'):
         print 'Warning: %i %s requested, exceeding available %s.' %\
             (count, name, name)
         count = n - start
-    print start, count
     return start, count
         
     
@@ -297,6 +296,7 @@ class SmallMCEFile:
         # Check 2: Warn if decimation/packing is such that samples are
         #     not evenly spaced in time.
         if count_rc != count_cc:
+            # print count_rc, self.divid, count_cc
             if count_rc * self.divid != count_cc:
                 print 'Warning: bizarro uneven RC->CC frame packing.'
         
@@ -326,9 +326,9 @@ class SmallMCEFile:
         #  mult1 'num_rows_reported'
         #  mult2 'num_cols_reported', or 8 in pre v5 firmware
         mult1 = self.header['num_rows_reported']
-        mult2 = MCE_COL
-        if self.header['header_version'] >= 7:
-            self.cols_per_card = (self.header['status'] >> 16) & 0xf
+        mult2 = (self.header['status'] >> 16) & 0xf
+        if mult2 == 0:
+            mult2 = MCE_COL
         self.rc_step = mult2
         self.size_ro = mult1*mult2
         self.frame_bytes = \
