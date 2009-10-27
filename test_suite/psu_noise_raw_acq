@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set_directory
+cd $MAS_DATA
+mce_reconfig
+mce_zero_bias
+mce_cmd -x wb ac enbl_mux 0 
+a=`date +%H%M`
+b=`date +%Y%m%d`
+mkdir $a
+for i in `seq 1 10 `; do mce_raw_acq_1col 2 4 "" "" $a ""; sleep 1;  done
+cd $a
+mce_bin2asc.py `ls *raw`
+cd ..
+#scp -r $a gpd@phas.ubc.ca:~scuba2/public_html/sc2mce/system/psu/test_res/switching_noise/testing_data/UBC/$b/new_psu/
+
+
+
+
