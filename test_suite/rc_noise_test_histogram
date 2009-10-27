@@ -97,13 +97,13 @@ for ch in range(0,8):
   print "stdev=", stdev[ch]
 
 
-  b=zeros(16)
-  for bt in range(0,16):
+  b=zeros(14)
+  for bt in range(0,14):
     bit = 2**bt
     for d in alldata:
       if (d & bit):
         b[bt]  += 1
-    print "bit ", bt, b[bt]/alldata.shape[0]
+    #print "bit ", bt, b[bt]/alldata.shape[0]
 
   plot(x,n)
   ymin,ymax=ylim()
@@ -117,7 +117,7 @@ for ch in range(0,8):
   text(0.1 * xw + xmin, 0.75 * yw + ymin, "n=%i" % (alldata.shape[0]))
   xlabel("data value")
   ylabel("count")
-  for bt in range(0,16):
+  for bt in range(0,14):
     text(0.7 * xw + xmin, (0.9 - bt * 0.05) * yw + ymin, "bit %02i: %.3f" % (bt,
         b[bt]/alldata.shape[0]))
 
@@ -132,6 +132,8 @@ for ch in range(0,8):
     all_ok = 0
     print "WARNING!!! CHANNEL %i exceeds threshold (%f > %f)" % (ch, stdev[ch],
         stdev_threshold)
+  else:
+    print "ch %i with stdev %f" % (ch, stdev[ch])
 
 if (all_ok):
   print "All channels passed the test."
