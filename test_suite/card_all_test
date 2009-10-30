@@ -66,9 +66,9 @@ fpga_temp = m.read(card, 'fpga_temp')
 card_temp = m.read(card, 'card_temp')
 
 if card == "cc":
-  print "****** Check to make sure the green LED on cc switched status and is working! ******
+  print "****** Check to make sure the green LED on cc switched status and is working! ******"
 else:
-  print "****** Check to make sure the LEDs on the target card switched status! ****
+  print "****** Check to make sure the LEDs on the target card switched status! ****"
 m.write(card, 'led', [7])
 
 
