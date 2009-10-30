@@ -15,11 +15,13 @@ stdev_threshold = 5.6
 
 def Usage():
   print """Usage:
-  %s [-a] [-r #] CARD_ID
+  %s [-a] [-r #] [-c #] [-n #] CARD_ID
 where:
   CARD_ID the serial number of the readout card to test.
   -a      acquire data (otherwise, assume data already exists in $MAS_DATA/CARD_ID)
   -r RC   readout card # (1,2,3,4) default=1; ignored if -a not specified
+  -c CH   channel # (0,1,2,3,4,5,6,7) default= (all channels)
+  -n NF   number of files with 65000 samples each (default is 10)
 
   A directory called CARD_ID_<ctime> will be created under $MAS_DATA.  All data
   will be acquired to this directory.
@@ -27,7 +29,7 @@ where:
   sys.exit(2)
 
 try:
-  optlist, argv = getopt.getopt(sys.argv[1:], 'ar:')
+  optlist, argv = getopt.getopt(sys.argv[1:], 'ar:c:n:')
 except getopt.GetoptError, err:
   print str(err)
   Usage()
@@ -36,6 +38,9 @@ if (len(argv) < 1):
   Usage()
 rc_num = argv[0]
 rc = 1
+ch_start = 0
+ch_end = 8
+num_files = 10
 
 acquire = False
 for o,a in optlist:
@@ -43,6 +48,11 @@ for o,a in optlist:
     acquire = True
   if o == '-r':
     rc = int(a)
+  if o == '-c':
+    ch_start = int(a)
+    ch_end = ch_start + 1
+  if o == '-n':
+    num_files = int(a)
 
 if (acquire):
   rc_dir = "%s_%i" % (rc_num, int(time.time()))
@@ -73,13 +83,13 @@ if (acquire):
 
 x=arange(-8192,8192)
 stdev=zeros(8, dtype=double)
-for ch in range(0,8):
+for ch in range(ch_start,ch_end):
   ch_dir = "%s/ch%1i" % (rc_dir, ch)
   if (acquire):
     mkdir(mas_data_dir + ch_dir)
     command = 'mce_raw_acq_1col %i %i "" "" %s ""' % (rc, ch, ch_dir)
     print "\nExecuting: ", command
-    for it in range(0,10):
+    for it in range(0,num_files):
       system(command)
 
   print "\nComputing data for rc", rc, "channel", ch
@@ -127,7 +137,7 @@ for ch in range(0,8):
   show()
 
 all_ok = 1;
-for ch in range(0,8):
+for ch in range(ch_start,ch_end):
   if (stdev[ch] > stdev_threshold):
     all_ok = 0
     print "WARNING!!! CHANNEL %i exceeds threshold (%f > %f)" % (ch, stdev[ch],
