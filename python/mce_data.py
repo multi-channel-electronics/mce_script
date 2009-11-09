@@ -146,7 +146,6 @@ def _rangify(start, count, n, name='items'):
         print 'Warning: %i %s requested, exceeding available %s.' %\
             (count, name, name)
         count = n - start
-    print start, count
     return start, count
         
     
@@ -325,9 +324,9 @@ class SmallMCEFile:
         #  mult1 'num_rows_reported'
         #  mult2 'num_cols_reported', or 8 in pre v5 firmware
         mult1 = self.header['num_rows_reported']
-        mult2 = MCE_COL
-        if self.header['header_version'] >= 7:
-            self.cols_per_card = (self.header['status'] >> 16) & 0xf
+        mult2 = (self.header['status'] >> 16) & 0xf
+        if mult2 == 0:
+            mult2 = MCE_COL
         self.rc_step = mult2
         self.size_ro = mult1*mult2
         self.frame_bytes = \
@@ -462,18 +461,18 @@ class SmallMCEFile:
         # Short-hand some critical sizes and declare output data array
         f = self.n_cols*self.n_rows          # RC frame size
         p = self.size_ro / f                 # CC/RC packing multiplier
-        data = numpy.zeros((f * self.n_rc, n_ro * p))
+        data = numpy.zeros((self.n_rows, self.n_rc, self.n_cols, n_ro * p))
 
         # The only sane way to do this is one RC at a time
         for rci in range(self.n_rc):
             # Get data from this rc, reshape to (cc_frame, cc_idx)
             x = data_in[:,:,self.rc_step*rci:self.rc_step*(rci+1)].reshape(n_ro, -1)
-            # Truncate partial data and reshape to (rc_frame, rc_idx)
-            x = x[:,0:f*p].reshape(-1, f)
-            # Transpose to (rc_idx, rc_frame) and store
-            data[f*rci:f*(rci+1),:] = x.transpose()
-        
-        return data
+            # Truncate partial data and reshape to RC frames
+            x = x[:,0:f*p].reshape(-1, self.n_rows, self.n_cols)
+            # Transpose to (rc_row, rc_col, rc_time) and store
+            data[:,rci,:,:] = x.transpose((1,2,0))
+        # Just return with one space, one time index.
+        return data.reshape(self.n_rc*f, -1)
 
 
     def _ExtractRaw(self, data_in, n_cols=8):
