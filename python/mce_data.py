@@ -63,7 +63,6 @@ class BitField(object):
             if right != 0:
                 data = data / 2**right
         else:
-            print data.dtype, type(self.start), type(self.count)
             # For unsigned fields, bit operations should be used
             data = (data >> self.start) & ((1 << self.count)-1)
         if do_scale and self.scale != 1.:
@@ -296,7 +295,6 @@ class SmallMCEFile:
         # Check 2: Warn if decimation/packing is such that samples are
         #     not evenly spaced in time.
         if count_rc != count_cc:
-            # print count_rc, self.divid, count_cc
             if count_rc * self.divid != count_cc:
                 print 'Warning: bizarro uneven RC->CC frame packing.'
         
@@ -463,18 +461,18 @@ class SmallMCEFile:
         # Short-hand some critical sizes and declare output data array
         f = self.n_cols*self.n_rows          # RC frame size
         p = self.size_ro / f                 # CC/RC packing multiplier
-        data = numpy.zeros((f * self.n_rc, n_ro * p))
+        data = numpy.zeros((self.n_rows, self.n_rc, self.n_cols, n_ro * p))
 
         # The only sane way to do this is one RC at a time
         for rci in range(self.n_rc):
             # Get data from this rc, reshape to (cc_frame, cc_idx)
             x = data_in[:,:,self.rc_step*rci:self.rc_step*(rci+1)].reshape(n_ro, -1)
-            # Truncate partial data and reshape to (rc_frame, rc_idx)
-            x = x[:,0:f*p].reshape(-1, f)
-            # Transpose to (rc_idx, rc_frame) and store
-            data[f*rci:f*(rci+1),:] = x.transpose()
-        
-        return data
+            # Truncate partial data and reshape to RC frames
+            x = x[:,0:f*p].reshape(-1, self.n_rows, self.n_cols)
+            # Transpose to (rc_row, rc_col, rc_time) and store
+            data[:,rci,:,:] = x.transpose((1,2,0))
+        # Just return with one space, one time index.
+        return data.reshape(self.n_rc*f, -1)
 
 
     def _ExtractRaw(self, data_in, n_cols=8):
@@ -539,6 +537,10 @@ class SmallMCEFile:
         # We can only do this if we have a runfile
         if self.n_frames == 0:
             self._GetContentInfo()
+
+        # Allow data_mode override
+        if data_mode != None:
+            self.data_mode = data_mode
 
         if cc_indices:
             start *= pack_factor
