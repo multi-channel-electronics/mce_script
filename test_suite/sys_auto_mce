@@ -86,7 +86,7 @@ for column in `seq 1 $no_col`; do
   a=`ascii_frame 33 $no_col $MAS_DATA/.tmp.data 0 "%8i"|awk 'NF=='$no_col' {print $'$column'}'`
   column_data=`echo $a|awk '{printf "%d ", $1}'`
   if [ $column_data != $column ]; then
-    echo "Column data readback Test Failed! $column $colum_data"
+    echo "Column data readback Test Failed! Column: $column reads: $colum_data"
     exit 1
   fi 
 done
