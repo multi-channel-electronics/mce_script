@@ -18,17 +18,26 @@ function check_card_life {
     return 0
 }	
 
-#Reset!
+# Stop frame data and terminate acquisitions
+echo Resetting MCE
+mce_cmd -qx mce_reset
+sleep 1
+echo Resetting PCI card
+mce_cmd -qx dsp_reset
+echo Issuing fakestop for acq programs
+mce_cmd -qx fakestop
+sleep 1
+echo Emptying buffer in case there were no acq programs...
+mce_cmd -qx empty
 
-if [ "$1" == "" ]; then
-  tries=3
-else
-  tries=$1
-fi
+
+#Check card life
+tries=3
+[ "$1" != "" ] && tries=$1
 
 for a in `seq 1 $tries`; do
     mce_cmd -qx mce_reset
-#    sleep 1
+    sleep 0.2
     check_card_life
     if [ "$?" == "1" ]; then
 	echo "check_card_life failed $a"
@@ -38,9 +47,6 @@ for a in `seq 1 $tries`; do
     fi
     echo $a
 done
-
-# In any case, empty the driver buffer
-mce_cmd -qx empty
 
 if [ "$ok" != "1" ]; then
     echo "MCE reset failed."
