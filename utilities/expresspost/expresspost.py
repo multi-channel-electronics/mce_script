@@ -217,8 +217,9 @@ def main():
             
     # Check for relaunch command
     if len(sys.argv) > 1 and sys.argv[1] == 'KEEP_ALIVE':
-        # Remove keep_alive and relaunch
-        keep_alive(sys.argv[0], ['--no-pid'] + sys.argv[2:])
+        # Remove keep_alive and relaunch -- as non-daemon!
+        args = ['--no-pid'] + sys.argv[2:] + ['--daemon=0']
+        keep_alive(sys.argv[0], args)
 
     # Copier object, with destination in mind
     r = Rsyncer(op.dest_location)
