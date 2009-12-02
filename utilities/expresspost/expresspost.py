@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, time
+import sys, os, time
 from glob import glob
 import stat
 import optparse
@@ -183,6 +183,7 @@ def process_options():
     opts.add_option('--aggression', '-a', default=1)
     opts.add_option('--compress', '-z', default=1)
     opts.add_option('--verbosity', '-v', default=0)
+    opts.add_option('--no-pid', action='store_true')
 
     (op, ar) = opts.parse_args()
 
@@ -192,8 +193,14 @@ def process_options():
 
     return op
 
-def main():
+def keep_alive(cmd, args):
+    import subprocess
+    while True:
+        p = subprocess.Popen([cmd, ] + args)
+        p.wait()
+        time.sleep(60)
 
+def main():
     op = process_options()
 
     if op.daemon:
@@ -202,11 +209,17 @@ def main():
         pid = os.fork()
         if pid:
             exit(0)
-        pidfile = "/var/run/expresspost.pid"
-        f = open(pidfile, "w")
-        f.write("%i\n" % os.getpid())
-        f.close()
+        if not op.no_pid:
+            pidfile = "/var/run/expresspost.pid"
+            f = open(pidfile, "w")
+            f.write("%i\n" % os.getpid())
+            f.close()
             
+    # Check for relaunch command
+    if len(sys.argv) > 1 and sys.argv[1] == 'KEEP_ALIVE':
+        # Remove keep_alive and relaunch
+        keep_alive(sys.argv[0], ['--no-pid'] + sys.argv[2:])
+
     # Copier object, with destination in mind
     r = Rsyncer(op.dest_location)
     zipper = Zipper()
