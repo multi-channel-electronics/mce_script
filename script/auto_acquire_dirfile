@@ -1,0 +1,45 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+AUTO_LOG=$MAS_DATA/auto_log.txt
+LOGGER="tee -a $AUTO_LOG"
+
+SCRNAME="auto_acquire"
+ERRPREF="ERROR : $SCRNAME :"
+
+start_time=`date`
+start_ctime=`print_ctime`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+echo "ARGS  : $SCRNAME : $@" | $LOGGER
+
+#Process arguments
+
+if [ $# -lt 2 ]; then
+    echo "Usage:     auto_acquire <filename> <n_frames> [<log_id>]"
+    echo $ERRPREF "wrong number of arguments" | $LOGGER
+    exit 1
+fi
+
+acq_name=${start_ctime}_$1
+n_frames=$2
+note="$3"
+
+# Register acquisition
+acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames "$note"
+
+# args are file_prefix, frame count, card (1,2,3,4,s)
+NICECMD='nice -10'
+ACQ="$NICECMD mce_run $acq_name $n_frames s --dirfile"
+ACQ_TARGET=0
+
+# Start acquisition
+$ACQ
+if [ "$?" != "$ACQ_TARGET" ]; then
+    echo $ERRPREF "'$ACQ' returned error!" | $LOGGER
+    exit 1
+fi
+
+delta_ctime=`print_elapsed $start_ctime`
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER

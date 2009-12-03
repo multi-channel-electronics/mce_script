@@ -42,7 +42,7 @@ pro iv_analysis, filename=filename, DACbias=DACbias, plotgen=plotgen, filtered=f
 ;
 
 FBbits = 14 ; 26 for FB only data mode, currently 14 for fb + er mode and for filtered mode
-n_columns = 32                  ; Number of columns being analyzed
+n_columns = 8                  ; Number of columns being analyzed
 filtergain = 1216.;/2;
 
 ; if neither array_file nor array_name are defined, determine the
@@ -77,11 +77,16 @@ if 1 then begin
     Rbias_arr = array_params.Rbias_arr
     Rbias_cable = array_params.Rbias_cable
     bias1_cols = where(array_params.bias_lines mod 3 eq 0)
+    bias2_cols = where(array_params.bias_lines mod 3 eq 1)
+    bias3_cols = where(array_params.bias_lines mod 3 eq 2)
     ; Put this line in to make it so that AR3 only uses columns 16-19 to select bias value
     ;	because of problems with parallel biasing of columns 20-23
     if array_name eq 'AR3' then bias1_cols = where(array_params.bias_lines eq 0)
-    bias2_cols = where(array_params.bias_lines mod 3 eq 1)
-    bias3_cols = where(array_params.bias_lines mod 3 eq 2)
+    if array_name eq 'default' then begin 
+	bias1_cols = where(array_params.bias_lines eq 1)
+	bias2_cols = where(array_params.bias_lines eq 4)
+	bias3_cols = where(array_params.bias_lines eq 4)
+    endif
     eff_bias_lines = array_params.bias_lines
     bias_step = array_params.bias_step[0]
 
@@ -187,7 +192,7 @@ data = mas_data(filename,frame_info=frame_info)
 numpts = frame_info.n_frames
 n_columns = n_elements(data(*,0,0))
 rf = mas_runfile(filename+'.run')
-data_mode = mas_runparam(rf,'HEADER','RB rc1 data_mode',/long)
+data_mode = mas_runparam(rf,'HEADER','RB rc2 data_mode',/long)
 
 good_ivs=lonarr(n_columns)
 
@@ -214,7 +219,7 @@ rbias = Rbias_arr(eff_bias_lines(muxcolumn))
 if MuxColumn lt 10 then Mcol = '0'+string(MuxColumn, format='(i1)') $
 	else Mcol = string(MuxColumn, format='(i2)')
 
-Rshunt_arr=fltarr(33)
+Rshunt_arr=fltarr(33)+default_Rshunt
 if use_jshuntfile then begin
     jshuntfile = jshuntfile_prefix+Mcol
     j_res = read_ascii(jshuntfile, comment_symbol='#')
@@ -231,7 +236,7 @@ good_sh_rows = where(Rshunt_arr gt good_shunt_range[0] and Rshunt_arr lt good_sh
 ;Rshunt_arr(no_srdp_shunt) = default_Rshunt
 
 ; Revised to work with AR3 bad SRDP shunt values set to -1 in johnson_res.dat files
-if array_name eq 'AR3' and MuxColumn gt 23 then Rshunt_arr(bad_sh_rows) = 0.0007 else Rshunt_arr(bad_sh_rows) = default_Rshunt 
+;if array_name eq 'AR3' and MuxColumn gt 23 then Rshunt_arr(bad_sh_rows) = 0.0007 else Rshunt_arr(bad_sh_rows) = default_Rshunt 
 no_srdp_shunt = bad_sh_rows
 
 if keyword_set(R_oper) then R_oper = R_oper $
@@ -311,7 +316,7 @@ for j=0,32 do begin
 	supercon_index=0
 	trans_end_index=0
 	while i le numpts-12 do begin
-		if postnorm eq 0 and raw_array_der(1,i) le 0. then begin
+		if postnorm eq 0 and raw_array_der(1,i) gt 0. then begin
 ;			if mean(raw_array_der(1,i+1:i+11)) le 0. then begin
 			if median(raw_array_der(1,i+1:i+11)) le 0. then begin
 				supercon_index = i
@@ -320,12 +325,12 @@ for j=0,32 do begin
 				;i=numpts
 			endif
 		endif
-		if postnorm eq 1 and raw_array_der(1,i) gt 100. then begin
+		if postnorm eq 1 and raw_array_der(1,i) le 0. then begin
 ;			if mean(raw_array_der(1,i+1:i+11)) gt 100. then begin
-			if median(raw_array_der(1,i+1:i+11)) gt 100. then begin
+			if median(raw_array_der(1,i+1:i+11)) lt 0. then begin
 				trans_end_index = i
 ;				print, 'row ', row,'  transition end index ', trans_end_index
-				i=numpts
+				;i=numpts
 			endif
 		endif
 		i=i+1
@@ -333,7 +338,9 @@ for j=0,32 do begin
 
 	;To find offset, look at data on normal branch over a 0.3 V range
 	;	that runs from 0.2 - 0.5 V before the supercon index
+	;print, supercon_index, trans_end_index
 	trans_bias = raw_array(0,supercon_index)
+	;print, trans_bias
 	normal_index = where(raw_array(0,0:numpts*3/4) gt trans_bias + 0.2 and raw_array(0,0:numpts*3/4) lt trans_bias + 0.8)
 
 	if normal_index(0) eq -1 or n_elements(normal_index) eq 1 or trans_end_index eq 0 then begin
@@ -578,8 +585,10 @@ print, 'Recommended biases to reach '+string(per_Rn_bias*100,format='(i2)')+'% R
 if bias1_cols(0) ge 0 then begin
   nrow=n_elements(setpnt_all(0,*,1))
   bias1pnts = fltarr(n_elements(bias1_cols)*nrow)
+  ;print, bias1_cols 
+  ;print, setpnt_all
   for i=0,n_elements(bias1_cols)-1 do bias1pnts(i*nrow:(i+1)*nrow-1) = setpnt_all(bias1_cols(i),*,1)
-  good_det = where(bias1pnts gt 100. and bias1pnts lt 10000)
+  good_det = where(bias1pnts gt 100. and bias1pnts lt 40000)
   if good_det(0) ne -1 then begin
 
 ;COMMENTED OUT LINES TO USE HISTOGAUSS FOR DOING A GAUSSIAN FIT TO THE BIAS VALUE DISTRIBUTION, BECAUSE THEY WEREN'T FITTING WELL.
@@ -589,6 +598,7 @@ if bias1_cols(0) ge 0 then begin
 ;	xyouts,xx(0), bias1fit(0)*.8, tit, color=1, charsize=1.3
 ;	biases(0) = round(bias1fit(1)/bias_step)*bias_step
 ;	xyouts,xx(0), bias1fit(0)*.6, 'Planned bias = '+strtrim(biases(0),1), color=1, charsize=1.3
+
 	biases(0) = round(median(bias1pnts(good_det))/bias_step)*bias_step
   endif
   print, 'Columns '+strtrim(bias1_cols(0),1)+'-'+strtrim(bias1_cols(n_elements(bias1_cols)-1),1)+' = ',biases(0)

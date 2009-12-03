@@ -19,7 +19,7 @@ fi
 
 link_name=/data/cryo/current_data
 date_file=/data/cryo/current_data_name
-if [ -e $link_name ]; then
+if [ -h $link_name ]; then
     /bin/rm $link_name
 fi
 ln -s /data/cryo/$today  $link_name
