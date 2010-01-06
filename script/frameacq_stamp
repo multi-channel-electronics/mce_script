@@ -28,6 +28,7 @@ set data_filename="$argv[2]"
 set data_framecount="$argv[3]"
 
 set array_id=`cat /data/cryo/array_id`
+set mas_version=`mce_cmd -v`
 
 set fileseq_on=0
 set fileseq_format=0
@@ -36,7 +37,7 @@ set fileseq_interval=0
 echo "<FRAMEACQ>"
 
 echo "  <RUNFILE_VERSION> $runfile_version"
-echo "  <MAS_VERSION> n"
+echo "  <MAS_VERSION> $mas_version"
 echo "  <ARRAY_ID> $array_id"
 echo "  <RC> $rc"
 echo "  <DATA_FILENAME> $data_filename"
