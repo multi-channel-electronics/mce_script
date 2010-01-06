@@ -1,6 +1,7 @@
 #!/bin/bash 
 #
-# MFH - bias step script, adapted from MDN's mce_bias_step_acq - 2008/02/12
+# Acquires bias-step data, using MCE internal commanding..  Adapted
+# from MDN's mce_bias_step_acq.  MFH - 2008/02/12
 #
 # When calling from auto_*, set the MAS_LOGID variable to pass a
 # message to the acq database.
@@ -38,8 +39,9 @@ fi
 [ "$4" != "" ] && step_depth=$4
 [ "$5" != "" ] && step_period=$5
 
-# The card and parameter to step can, in principal be extracted from mce_status -g output.
-# For now, we get them from experiment.cfg.  Card id's will be 7,8,9 for bc1,2,3.  "bias" param is 33.
+# The card and parameter to step can, in principal be extracted from
+# mce_status -g output.  For now, we get them from experiment.cfg.
+# Card id's will be 7,8,9 for bc1,2,3.  "bias" param is 33.
 card_list=( `mas_param -s $MAS_DATA/experiment.cfg get bias_line_card` )
 para_list=( `mas_param -s $MAS_DATA/experiment.cfg get bias_line_para` )
 bias_card=${card_list[$line]}
@@ -47,7 +49,6 @@ bias_para=${para_list[$line]}
 
 ct=`print_ctime`
 filename="${ct}_bc$(( $line + 1 ))_step"
-# echo "bias_step data will be saved in $MAS_DATA/$filename"
 acq_register $ct bias_step $MAS_DATA/$filename $n_points "$MAS_LOGID"
 
 last_data_mode=( `command_reply rb rca data_mode` )
@@ -78,7 +79,7 @@ bias_lo=$(( $centre_bias - $half_step ))
 bias_hi=$(( $centre_bias + $half_step ))
 
 # Disable MCE internal commanding
-mce_cmd -qx wb cc internal_command_mode 0
+mce_cmd -qx wb cc internal_cmd_mode 0
 
 # Set tes bias ramp parameters
 
@@ -98,7 +99,7 @@ mce_cmd -qx wb cc ramp_step_data_num 1
 mce_cmd -qx wb rca data_mode 1
 
 # Enable the ramp and acquire
-mce_cmd -qx wb cc internal_command_mode 2
+mce_cmd -qx wb cc internal_cmd_mode 2
 
 update_userword $rc
 mce_run $filename $n_points $rc
@@ -107,7 +108,7 @@ mce_run $filename $n_points $rc
 mce_cmd -qx wb cc ramp_min_val    $centre_bias
 mce_cmd -qx wb cc ramp_max_val    $centre_bias
 sleep $(( 1 + $step_period / 1000000 ))
-mce_cmd -qx wb cc internal_command_mode 0
+mce_cmd -qx wb cc internal_cmd_mode 0
 mce_cmd -qx wb rca data_mode ${last_data_mode[0]}
 
 mce_cmd -qx wb bc$(( $line + 1)) bias $centre_bias
