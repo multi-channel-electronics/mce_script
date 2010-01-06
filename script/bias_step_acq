@@ -1,9 +1,10 @@
 #!/bin/bash 
 #
-# Acquires bias-step data.  Adapted from MDN's mce_bias_step_acq - 2008/02/12
+# Acquires bias-step data, using MCE internal commanding..  Adapted
+# from MDN's mce_bias_step_acq.  MFH - 2008/02/12
 #
-# When calling from auto_*, set the MAS_LOGID variable to pass a message to
-# the acq database.
+# When calling from auto_*, set the MAS_LOGID variable to pass a
+# message to the acq database.
 
 source $MAS_SCRIPT/mas_library.bash
 
@@ -39,8 +40,8 @@ fi
 [ "$5" != "" ] && step_period=$5
 
 # The card and parameter to step can, in principal be extracted from
-# mce_status -g output.  For now, we get them from experiment.cfg.  Card id's
-# will be 7,8,9 for bc1,2,3.  "bias" param is 33.
+# mce_status -g output.  For now, we get them from experiment.cfg.
+# Card id's will be 7,8,9 for bc1,2,3.  "bias" param is 33.
 card_list=( `mas_param -s $MAS_DATA/experiment.cfg get bias_line_card` )
 para_list=( `mas_param -s $MAS_DATA/experiment.cfg get bias_line_para` )
 bias_card=${card_list[$line]}
@@ -101,6 +102,7 @@ mce_cmd -qx wb rca data_mode 1
 # Enable the ramp and acquire
 mce_cmd -qx wb cc internal_cmd_mode 2
 
+update_userword $rc
 mce_run $filename $n_points $rc
 
 # Restore bias (in a cute way), disable ramp., restore data_mode
