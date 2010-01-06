@@ -11,8 +11,8 @@ runfile_version=2
 
 if [ $# -ne 3 ]; then
     echo "Invalid frameacq_stamp arguments!  The arguments were:"
-    echo "$argv"
-    echo "Usage:\n"
+    echo "   $@"
+    echo "Usage:"
     echo "         frameacq_stamp rc_num data_filename num_frames"
     echo
     exit 1
