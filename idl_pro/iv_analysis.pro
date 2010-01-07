@@ -653,6 +653,8 @@ for MuxColumn=0,n_columns-1 do begin
 			for i=0,nbiases-1 do begin
 				if i eq 0 then bcur = rbias else bcur = dacbias(i-1)
 				pnt = min(where(raw_bias le bcur))
+                                ; Use highest bias if no solution...
+                                if pnt lt 0 then pnt = 0
 				vtes = iv_data_all(muxcolumn,row,0,pnt)
 				ites = iv_data_all(muxcolumn,row,1,pnt)
 				vbias = raw_bias(pnt)
