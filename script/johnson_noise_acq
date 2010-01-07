@@ -1,0 +1,54 @@
+#!/bin/bash
+
+#DEBUG=echo
+#QUICK=1
+source $MAS_SCRIPT/mas_library.bash
+
+function simple_range {
+    if [ "QUICK" == "" ]; then
+	seq 0 $(( $1 - 1 ))
+    else
+	echo 0 1
+    fi
+}
+
+# I think there is no way around these being 3 and 11.  Maybe 4 and 8?
+ROWS=3   
+DIVS=11
+CC_ROWS=$(( $ROWS * $DIVS ))
+
+# REPS * FRAMES * DIVS / 15152 is the total time per detector.
+REPS=10
+FRAMES=16384
+
+#Init
+$DEBUG mce_clock_mode 1 0 0
+sleep 1
+
+ctime=`print_ctime`
+midfix=${ctime}_johnson
+echo "NOISE TIME $midfix"
+
+$DEBUG mce_cmd -q \
+    -X "wb cc data_rate $DIVS" \
+    -X "wb rca num_rows_reported $ROWS" \
+    -X "wb cc num_rows_reported $CC_ROWS" \
+    -X "wb rca data_mode 4" \
+    -X "wb tes bias 0 0 0"
+
+#filename=`printf %s_%s.tuning $ctime $midfix`
+#echo "Writing tuning info to $filename"
+#cat /data/cryo/last_squid_tune /data/cryo/last_iv_det_data > $filename
+
+for rep in `simple_range $REPS`; do
+    for div in `simple_range $DIVS`; do
+	row0=$(( $ROWS * $div ))
+	ctime=`print_ctime`
+	filename=`printf %s_%s_r%02i_%02i $ctime $midfix $row0 $rep`
+	$DEBUG acq_register $ctime johnson $MAS_DATA/$filename $FRAMES ""
+	$DEBUG mce_cmd -q -X "wb rca readout_row_index $row0"
+	$DEBUG mce_run $filename $FRAMES s
+    done
+done
+
+$DEBUG mce_clock_mode 1 2 2
