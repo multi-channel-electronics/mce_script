@@ -11,11 +11,12 @@ class MCERunfile:
         if filename != None:
             self.Read(filename)
 
-    def Read(self, filename):
+    def Read(self, filename, ignore_dups=True):
         f = open(filename, "r")
         lines = f.readlines()
         block_name = None
         block_data = {}
+        block_skip = False
         self.data = {}
 
         for l in lines:
@@ -27,14 +28,20 @@ class MCERunfile:
                     raise BadRunfile('closing tag out of place')
                 if data != '':
                     raise BadRunfile('closing tag carries data')
-                self.data[block_name] = block_data
+                if block_skip:
+                    block_skip = False
+                else:
+                    self.data[block_name] = block_data
                 block_name = None
                 block_data = {}
             elif block_name == None:
                 if data == None or data == '':
-                    if self.data.has_key(key):
-                        raise BadRunfile('duplicate block "'+key+'"')
                     block_name = key
+                    if self.data.has_key(key):
+                        if ignore_dups:
+                            block_skip = True
+                            continue
+                        raise BadRunfile('duplicate block "'+key+'"')
                 else:
                     raise BadRunfile('key outside of block!')
             else:
