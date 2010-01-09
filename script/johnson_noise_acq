@@ -5,7 +5,7 @@
 source $MAS_SCRIPT/mas_library.bash
 
 function simple_range {
-    if [ "QUICK" == "" ]; then
+    if [ "$QUICK" == "" ]; then
 	seq 0 $(( $1 - 1 ))
     else
 	echo 0 1
