@@ -7,7 +7,8 @@ function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range_
                    structure_only=structure_only,data_mode=data_mode, $
                    frame_info=frame_info, header_data=header_data, $
                    data2=data2,no_split=no_split,no_rescale=no_rescale, $
-                   no_runfile=no_runfile,runfile_name=runfile_name
+                   no_runfile=no_runfile,runfile_name=runfile_name, $
+                   no_rectangle=no_rectangle
 
 ; Usage:
 ;   mas_data, filename
@@ -25,7 +26,7 @@ function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range_
 ;   data2          destination for lower bits of data in mixed data modes
 ;   no_runfile     do not attempt to process the runfile
 ;   runfile_name   use this runfile name instead of filename.run
-
+;   no_rectangle   do not unpack rectangle-mode data
 
 fn_name='mas_data.pro'
 
@@ -273,6 +274,16 @@ if data_mode eq 3 or data_mode eq 12 then begin
     
     data1 = reform(data1, frame_info.n_columns, frame_info.n_frames)
     frame_info.raw_data = 1
+endif
+
+if not keyword_set(no_rectangle) and not keyword_set(no_runfile) then begin
+    ; Confirm rectangle mode
+    nc = mas_runparam(rf, 'HEADER', 'RB cc num_cols_reported', error=err)
+    if err ge 0 then begin
+        if count2 ne 0 then $
+          data2 = unpack_rectangle(data2, rf)
+        return, unpack_rectangle(data1, rf)
+    endif
 endif
 
 return,data1
