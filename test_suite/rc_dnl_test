@@ -10,6 +10,17 @@ from pylab import *
 from mce_data import *
 from glob import glob
 from os import *
+#
+# This script calculates DNL based on a statistical method. During this test, 
+# a ramp is applied at the input of the preamp-chain of the Readout-Card. This 
+# ramp should be full-range to improve the accuracy of the reported DNL.
+# Then 10 datasets of 64k samples each are acquired. All the samples are counted
+# in n(k), then DNL is calculated as dnl(k) = n(k)/expected - 1, where expected 
+# is the expected count in each bin for an ideal (linear) ADC. 
+# Finally, a plot is generated and an overall DNL is reported as avg(abs(dnl(k)).
+# One has to note that the accuracy of this reported DNL is very much dependent 
+# on the quality of the input ramp.
+#
 
 num_files=10
 
@@ -18,11 +29,11 @@ def Usage():
   %s [-a] [-r #] [-A RAMP_AMP] [-F RAMP_FREQ] CARD_ID
 where:
   CARD_ID      the serial number of the readout card to test.
-  -A RAMP_AMP  peak-to-peak amplitude of the ramp, in mV (default 7.5 mVpp)
-  -F RAMP_FREQ frequency of the ramp, in kHz (default: 200 kHz)
   -a           acquire data (otherwise, assume data already exists in
                $MAS_DATA/CARD_ID)
   -r RC        readout card # (1,2,3,4) default=1; ignored if -a not specified
+  -A RAMP_AMP  peak-to-peak amplitude of the ramp, in mV (default 7.5 mVpp)
+  -F RAMP_FREQ frequency of the ramp, in kHz (default: 200 kHz)
 
   A directory called CARD_ID_<ctime> will be created under $MAS_DATA.  All data
   will be acquired to this directory.
@@ -106,7 +117,8 @@ for ch in range(0,8):
   t = t - n[0] - n[16383]
 
   expected = double(t) / 16382
-
+  
+  m=mean(abs(n[1:16383]/expected -1))
   stdev=std(n[1:16383]/expected - 1)
   plot(x,n[1:16383]/expected - 1)
   ymin,ymax=ylim()
@@ -116,6 +128,7 @@ for ch in range(0,8):
 
   text(0.1 * xw + xmin, 0.9  * yw + ymin, "%s/ch%i/*" % (rc_dir, ch))
   text(0.1 * xw + xmin, 0.85  * yw + ymin, "Channel %i" % (ch))
+  text(0.7 * xw + xmin, 0.9 * yw + ymin, "mean abs=%.3f" % (m))
   text(0.7 * xw + xmin, 0.85 * yw + ymin, "stdev=%.3f" % (stdev))
   text(0.1 * xw + xmin, 0.05 * yw + ymin, "n=%i/%i" % (t,alldata.shape[0]))
   text(0.1 * xw + xmin, 0.10 * yw + ymin, "Ramp: %.2f mVpp @ %i kHz" % (amp,freq))
