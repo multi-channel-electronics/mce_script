@@ -24,7 +24,7 @@ timeout = 0.0
 
 def Usage():
   print """Usage:
-  %s [-c xx] [-n #] [-c #] CARD_ID
+  %s [-c xx] [-n #] [-b #] CARD_ID
 where: 
   CARD_ID the serial number of the card to test.
   -n BC   bias-card # (1 2 3) default=1
