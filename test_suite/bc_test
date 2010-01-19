@@ -28,7 +28,7 @@ def Usage():
 where: 
   CARD_ID the serial number of the card to test.
   -n BC   bias-card # (1 2 3) default=1
-  -c CH   channel number (0 1 ... 31) default: 0 to 31
+  -c CH   channel number (0 1 ... 31) default: all-channels (0 to 31)
   -b LN   number of low-noise bias lines (0 1 ...10) default: 2
 
 """ % (sys.argv[0])
@@ -58,7 +58,7 @@ for o,a in optlist:
     ch_end = ch_start + 1
   if o == '-b':
     ln_ch_start = 0
-    ln_ch_end = 2
+    ln_ch_end = int(a) 
 
 card = "%s%i"% (card_name, card_num)
 
@@ -76,9 +76,11 @@ m=mce()
 # DAC fixed-value test
 ##########################
 for j in range(0, 3):
-  print "Loading DACs %i to %i with %i" % (ch_start, ch_end, dac_fixed_value[j])
+  print "Loading DACs %i to %i and low-noise-bias DACs %i to %i with %i" % (ch_start, ch_end-1, ln_ch_start, ln_ch_end-1, dac_fixed_value[j])
   for i in range(ch_start, ch_end):
     m.write(card, 'flux_fb', [dac_fixed_value[j]], offset=i)
+  for i in range(ln_ch_start, ln_ch_end):
+    m.write(card, 'bias', [dac_fixed_value[j]], offset=i)
   raw_input("Press Enter to Continue")
   
 ##########################
@@ -86,7 +88,7 @@ for j in range(0, 3):
 ##########################
 save_attrs = termios.tcgetattr(sys.stdin.fileno())
 tty.setcbreak(sys.stdin.fileno())
-print "Starting a full-range Ramp on ch %i to %i" % (ch_start, ch_end)
+print "Starting a full-range Ramp on ch %i to %i and ln_bias ch %i to %i" % (ch_start, ch_end-1, ln_ch_start, ln_ch_end)
 #for i in range(ch_start, ch_end):
 while True:
   for j in range (ramp_start, ramp_end, 1000):
@@ -94,7 +96,12 @@ while True:
     for i in range (ch_start, ch_end):
       a.append(j) 
     m.write(card, 'flux_fb', a)
-  
+
+    b = []
+    for i in range (ln_ch_start, ln_ch_end):
+      b.append(j)
+    m.write(card, 'bias', b)
+
   (input_ready, _, _) = select.select((sys.stdin,), (), (), timeout)
   if sys.stdin in input_ready :
     break
