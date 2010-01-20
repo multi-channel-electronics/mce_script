@@ -460,7 +460,7 @@ def sq1_ramp_check(rcs, exp_config_file):
             print "An error occurred before running the sq1ramp check"
             return 12
 
-        rsq1_file_name = 
+        rsq1_file_name = 3
 
 def auto_setup(column, row, text, rc=None, check_bias=False, short=False,
         numrows=33, acq_id=0, ramp_sa_bias=False, quiet=False,
