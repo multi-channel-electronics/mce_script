@@ -16,13 +16,13 @@ def step1 (directory, rc, check_bias, short, numrows, ramp_sa_bias, note):
     if (not short):
         subprocess.call("set_directory")
 
-    current_data = util.current_data_name();
+    current_data = util.current_data_name()
     todays_directory = directory + current_data + "/"
     config_mce_file = todays_directory + "config_mce_auto_setup_" + current_data
 
     exp_config_file = todays_directory + "experiment.cfg"
 
-    the_time = time.time();
+    the_time = time.time()
     file_dir = "%10i" % (the_time)
 
     # logfile
@@ -43,7 +43,7 @@ def step1 (directory, rc, check_bias, short, numrows, ramp_sa_bias, note):
 
     if (rc == None):
         print "  No read-out cards specified; setting all available RCs."
-        rc = config.rc_list(exp_config_file);
+        rc = config.rc_list(exp_config_file)
 
     # check whether the SSA and SQ2 biases have already been set
     on_bias = False
@@ -94,7 +94,7 @@ def step1 (directory, rc, check_bias, short, numrows, ramp_sa_bias, note):
 
         cfg_tes_bias_idle = config.get_exp_param(exp_config_file,
                 "tes_bias_idle")
-        config.set_exp_param(exp_config_file, "tes_bias", cfg_tes_bias_idle);
+        config.set_exp_param(exp_config_file, "tes_bias", cfg_tes_bias_idle)
         for i in cfg_tes_bias_idle.size():
             util.cmd("wra tes bias {0} {1}".format(i, cfg_tes_bias_idle[i]))
 
@@ -153,7 +153,7 @@ def step1 (directory, rc, check_bias, short, numrows, ramp_sa_bias, note):
     return 1
 
 
-def step2(rc, rc_indices, file_folder, exp_config_file, def_sa_bias):
+def step2and3(rc, rc_indices, file_folder, exp_config_file, def_sa_bias):
     ssa_file_name = util.filename(rc=rc, directory=file_folder)
 
     config.set_exp_param(exp_config_file, "data_mode", 0)
@@ -181,7 +181,7 @@ def step2(rc, rc_indices, file_folder, exp_config_file, def_sa_bias):
 
         if (status2 != 0):
             print "An error has occured just before running the ramp_sa script"
-            return 0
+            return 2
 
         acquire.series_array(file_name, rc, quiet, directory)
 
@@ -222,21 +222,245 @@ def step2(rc, rc_indices, file_folder, exp_config_file, def_sa_bias):
             print "An error has occured just before running the ramp_sa script"
             return 3
 
-        SA_target = report.ssa_file_name(rc=rc, slope=sa_slope, numrows=numrows,
+        sa_dict = report.ssa_file_name(rc=rc, slope=sa_slope, numrows=numrows,
                 acq_id=acq_id, quiet=quiet)
 
         config.set_exp_config(exp_config_file, "config_adc_offset_all", 0)
         config.set_exp_config_range(exp_config_file, "adc_offset_c", rc_indices,
-                SA_target)
+                sa_dict["SA_target"])
 
-        column_adc_offset[rc_indices] = SA_target
+        column_adc_offset[rc_indices] = sa_dict["SA_target"]
 
     status5 = util.mce_make_config(params_file=exp_config_file,
             filename=config_mce_file, run_now=1)
 
+    if (status5 != 0):
+        print "An error has occurred after running the ramp_sa script"
+        return 5
 
+# step 3: SQ2 servo block
 
+    # Sets the initial SA fb (found in the previous step or set to mid-range)
+    # for the SQ2 servo
 
+    SA_feedback_file.fill(32000)
+    SA_feedback_file[rc_indices] = sa_dict["SA_fb_init"]
+
+    f = open(todays_folder + "safb.init")
+    for i in range(32):
+        f.write("%10i" % (SA_feedback_file[i]))
+    f.close()
+
+    # Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
+    config.set_exp_param(exp_config_file, "data_mode", 0)
+    config.set_exp_param(exp_config_file, "servo_mode", 1)
+    config.set_exp_param(exp_config_file, "sq1_bias", 0)
+    config.set_exp_param(exp_config_file, "sq1_bias_off", 0)
+    config.set_exp_param_range(exp_config_file, "sq2_bias", rc_indices,
+            sq2_bias[rc_indices])
+
+    status6 = util.mce_make_config(params_file=exp_config_file,
+            filename=config_mce_file, run_now=1)
+
+    if (status6 != 0):
+        print "An error has occurred before running the sq2 servo script"
+        return 6
+
+    sq2_file_name = util.filename(rc=rc, directory=file_folder)
+
+    # locking slope should be consistent with servo gains.
+    sq2slope = -idl_compat.sign(config.get_exp_param(exp_config_file,
+        "sq2servo_gain")[rc - 1]) / \
+                idl_compat.sign(config.get_exp_param(exp_config_file,
+                    "sq1servo_gain")[rc - 1])
+
+    # We may want to do sq2 servos at a series of sq2 biases.
+
+    if (config.get_exp_param(exp_config_file, "sq2_servo_bias_ramp") != 0):
+        sq2servo_plot(sq2_file_name, sq2bias=SQ2_bias, rc=rc, slope=sq2slope,
+                lockamp=1,acq_id=acq_id,no_analysis=1)
+
+        print "Exiting after sq2servo with bias ramp!"
+        return 98
+    else:
+        sq2_dict = sq2servo_plot(sq2_file_name, sq2bias=SQ2_bias, rc=rc,
+                slope=sq2slope, locamp=1, acq_id=acq_id, quiet=quiet)
+
+    config.set_exp_param_range(exp_config_file, "sa_fb", rc_indices,
+            sq2_dict["sq2_target"])
+    config.set_exp_param(exp_config_file, "sq1_bias", sq1_bias)
+    config.set_exp_param(exp_config_file, "sq1_bias_off", sq1_bias_off)
+
+    status8 = util.mce_make_config(params_file=exp_config_file,
+            filename=config_mce_file, run_now=1)
+
+    if (status8 != 0):
+        print "An error has occurred after running the sq2 servo script"
+        return 8
+
+    return 0
+
+def step4():
+   
+    sq2_feedback = array([8], dtype="int64")
+    sq2_feedback.fill(8200) # JPF 090804 (with BAC)
+    initial_sq2_fb = 8200
+
+    config.set_exp_param(exp_config_file, "data_mode", 0)
+    config.set_exp_param(exp_config_file, "num_rows", numrows)
+    config.set_exp_param(exp_config_file, "num_rows_reported", numrows)
+    config.set_exp_param(exp_config_file, "servo_mode", 1)
+    config.set_exp_param(exp_config_file, "servo_p", 0)
+    config.set_exp_param(exp_config_file, "servo_i", 0)
+    config.set_exp_param(exp_config_file, "servo_d", 0)
+
+    status9 = util.mce_make_config(params_file=exp_config_file,
+            filename=config_mce_file, run_now=1)
+
+    if (status9 != 0):
+        print "An error has occurred before running the sq1 servo script"
+        return 9
+
+    # Sets the initial SQ2 fb (found in the previous step or set to mid-range)
+    # for the SQ1 servo
+
+    sq2_feedback_file[rc_indices] = sq2_feedback
+
+    f = open(todays_folder + "sq2fb.init")
+    for i in range(32):
+        f.write("%10i" % (sq2_feedback_file[i]))
+    f.close()
+
+    sq1_base_name = util.filename(rc=rc, directory=file_folder)
+
+    # Here we either
+    # a) servo each row of each column
+    # b) servo a selected row from each column
+    #
+    # The first option is always used in fast_sq2 mode, but may
+    # also be invoked with per-column sq2 during initial runs to
+    # determine the representative row in each column.
+
+    # Locking slope should be consistent with servo gains.
+    sq1slope = -idl_compat.sign(config.get_exp_param(exp_config_file,
+        "sq1servo_gain")[rc - 1]) / \
+                idl_compat.sign(config.get_exp_param(exp_config_file,
+                    "sq1servo_gain")[(rc - 1) * 8 : rc * 8])
+
+    config_fast_sq2 = config.get_exp_param(exp_config_file, "config_fast_sq2")
+    if (config_fast_sq2 or config.get_exp_param(exp_config_file,
+        "sq1_servo_all_rows")):
+        # This block uses either sq1servo or sq1servo_all to get
+        # the full block of ramps for all rows.
+
+        sq2_feedback_full_array = empty([numrows,8], dtype="int64")
+
+        if (config_fast_sq2):
+            # Super-servo, outpus a separate .bias file for each
+            # row but produces only one data/.run file
+
+            if (quiet == 0):
+                print "Using biasing address card (bac) to sq1servo each row separately"
+
+            sq1_dict = sq1servo_plot(sq1_base_name, sq1bias=sq1_bias, rc=rc,
+                    numrows=numrows, slope=sq1slope, super_servo=1,
+                    acq_id=acq_id)
+
+            runfile = sq1_base_name + "_sq1servo.run"
+
+        for sq1servorow in range(numrows):
+            sq1_file_name = sq1_base_name + "_row" + sq1servorow
+
+            if (not config_fast_sq2):
+                # We have to call sq1servo with row.init set
+                f = todays_folder + "row.init"
+                for i in range(32):
+                    f.write("%i10" % sq1servorow)
+                f.close()
+
+                sq1_dict = sq1servo_plot(sq1_file_name, sq1bias=sq1_bias, rc=rc,
+                        numrows=numrows, slope=sq1slope)
+            else:
+                # Fast sq2 equivalent: use data produced by the super servo!
+                bias_file = sq1_base_name + \
+                        "_sq1servo.r%02i.bias" % (sq1servorow)
+
+                sq1_dict = sq1servo_plot(sq1_file_name, sq1bias=sq1_bias, rc=rc,
+                        numrows=numrows, slope=sq1slope,
+                        use_bias_file=bias_file, use_run_file=runfile)
+
+            sq2_feedback_full_array[sq1servorow, ...] = sq1_dict["sq1_target"]
+
+        # Save all sq2fb points
+        for j in rc_indices.size:
+            sq2_rows = 41
+            c_ofs = rc_indices[j] * sq2_rows
+            config.set_exp_param(exp_config_file, "sq2_fb_set", arange(c_ofs,
+                c_ofs + numrows), sq2_feedback_full_array[..., j])
+
+        # For single rowing; use the selected rows from sq2_param:
+        sq2_rows = config.get_exp_param(exp_config_file, "sq2_rows")
+        for j in range(8):
+            sq1_target[j] = sq2_feedback_full_array(sq2_rows[rc_indices[j]], j)
+
+    else:
+        # This block uses original sq1servo to
+        # lock on a specific row for each column
+
+        # Rewrite the row.init file
+        sq2_rows = config.get_exp_param(exp_config_file, "sq2_rows")
+        f = open(todays_folder + "row.init")
+        for j in range(32):
+            f.write("%10i", sq2_rows[j])
+        f.close()
+
+        sq1_file_name = sq1_base_name
+
+        sq1_dict = sq1servo_plot(sq1_file_name, sq1bias = sq1_bias, rc = rc,
+                numrows=numrows, slope=sq1slope, acq_id=acq_id)
+
+    # done.
+
+    # Single row approach -- these will be ignored in the multi-variable case!
+
+    config.set_exp_param_range(exp_config_file, "sq2_fb", rc_indices,
+            sq1_target)
+
+    status11 = util.mce_make_config(params_file=exp_config_file,
+            filename=config_mce_file, run_now=1)
+
+    if (status11 != 0):
+        print "An error has occurred after running the sq1servo script"
+        return 11
+
+    f = open(todays_folder + "sq2fb.init")
+    for i in range(32):
+        f.write(sq1_target[i % 8])
+    f.close()
+
+def sq1_ramp_check(rcs, exp_config_file):
+    for rc in rcs:
+        rc_indices = (rc - 1) * 8 + arange(8)
+
+        print "ADC offsets of rc " + rc
+
+        config.set_exp_param(exp_config_file, "data_mode", 0)
+        config.set_exp_param(exp_config_file, "servo_mode", 1)
+        config.set_exp_param(exp_config_file, "servo_p", 0)
+        config.set_exp_param(exp_config_file, "servo_i", 0)
+        config.set_exp_param(exp_config_file, "servo_d", 0)
+        config.set_exp_param(exp_config_file, "config_adc_offset_all", 0)
+        config.set_exp_param(exp_config_file, "sq1_bias", sq1_bias)
+        config.set_exp_param(exp_config_file, "sq1_bias_off", sq1_bias_off)
+
+        status12 = util.mce_make_config(params_file=exp_config_file,
+                filename=config_mce_file, run_now=1)
+
+        if (status12 != 0):
+            print "An error occurred before running the sq1ramp check"
+            return 12
+
+        rsq1_file_name = 
 
 def auto_setup(column, row, text, rc=None, check_bias=False, short=False,
         numrows=33, acq_id=0, ramp_sa_bias=False, quiet=False,
@@ -268,20 +492,27 @@ IDL auto_setup_squids."""
             if (short == 1):
                 next_step = 4
             else:
-                next_step = 5
+                continue
         else:
             next_step = 2
 
         print "Processing rc" + c
 
         if (next_step == 2):
-            next_step = step2()
-        
-        if (next_step == 3):
-            next_step = step3()
+            e = step2and3()
+            if (e != 0):
+                return e
 
         if (next_step == 4):
-            next_step = step4()
+            e = step4()
+            if (e != 0):
+                return e
 
-        if (next_step == 5):
-            next_step = step5()
+
+    if (config.get_exp_param(exp_config_file, "stop_after_sq1_servo") == 1):
+        print "stop_after_sq1servo is set, stopping."
+        return 98
+
+    # sq1 ramp check
+    sq1_ramp_check()
+

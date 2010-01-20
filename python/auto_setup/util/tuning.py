@@ -1,5 +1,6 @@
 import os, subprocess
-import util, config
+import auto_setup.config as config
+from current_data_name import current_data_name
 
 class tuningData:
     """
@@ -10,7 +11,7 @@ class tuningData:
             the_time = time.time();
             name = '%10i' % (the_time)
         self.name = name
-        self.base_dir = util.current_data_name()
+        self.base_dir = current_data_name()
         self.data_dir = os.path.join(self.base_dir, name)
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
 
