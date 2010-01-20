@@ -11,28 +11,6 @@ from numpy import *
 
 
 def step1 (directory, rc, check_bias, short, numrows, ramp_sa_bias, note):
-    # set_directory creates directories and files where to store the tuning data
-    # and plots
-    if (not short):
-        subprocess.call("set_directory")
-
-    current_data = util.current_data_name()
-    todays_directory = directory + current_data + "/"
-    config_mce_file = todays_directory + "config_mce_auto_setup_" + current_data
-
-    exp_config_file = todays_directory + "experiment.cfg"
-
-    the_time = time.time()
-    file_dir = "%10i" % (the_time)
-
-    # logfile
-    try:
-        logfile = open(todays_directory + c_filename + ".log", "w+")
-    except IOError as (errno, strerror):
-        print "Unable to create logfile (errno: {0}; {1})\nLogging disabled."\
-                .format(errno, strerror)
-        logfile = None
-
     # directory containing data files
     os.mkdir(todays_directory + file_dir)
 
@@ -143,7 +121,7 @@ def step1 (directory, rc, check_bias, short, numrows, ramp_sa_bias, note):
     f = open(header_file, "w")
     f.write("<SQUID>\n<SQ_tuning_completed> 0\n<SQ_tuning_date> ")
     f.write(current_data)
-    f.write("\n<SQ_tuning_dir> " + the_time + "\n</SQUID>\n")
+    f.write("\n<SQ_tuning_dir> " + tuning.name + "\n</SQUID>\n")
     f.close()
 
     subprocess.call(["rm", "-f", directory + "/last_squid_tune"])
@@ -464,7 +442,7 @@ def sq1_ramp_check(rcs, exp_config_file):
 
 def auto_setup(column, row, text, rc=None, check_bias=False, short=False,
         numrows=33, acq_id=0, ramp_sa_bias=False, quiet=False,
-        interactive=False, slope=1, note=None):
+        interactive=False, slope=1, note=None, data_root=None):
     """
 Run a complete auto setup.
 
@@ -472,7 +450,26 @@ This metafunction runs, in turn, each of acquisition, tuning, and reporting
 functions to perform an entire auto setup procedure, exactly like the old
 IDL auto_setup_squids."""
 
-    directory = "/data/cryo"
+    tuning = util.tuningData(data_root=data_root)
+
+    # set_directory creates directories and files where to store the tuning data
+    # and plots
+
+    # XXX set_directory does not respect data_root
+    if (not short):
+        tuning.run("set_directory")
+
+    config_mce_file = todays_directory + "config_mce_auto_setup_" + current_data
+
+    file_dir = "%10i" % (tuning.name)
+
+    # logfile
+    try:
+        logfile = open(todays_directory + c_filename + ".log", "w+")
+    except IOError as (errno, strerror):
+        print "Unable to create logfile (errno: {0}; {1})\nLogging disabled."\
+                .format(errno, strerror)
+        logfile = None
 
     print "auto_setup initialising"
     cont = step1(directory, rc, check_bias, short, numrows, ramp_sa_bias, note)

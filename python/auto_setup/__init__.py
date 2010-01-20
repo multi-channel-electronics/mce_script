@@ -24,5 +24,5 @@ import acquire
 import reduce
 import report
 
-from auto_setup import auto_setup
+from main import auto_setup
 from series_array import series_array

@@ -6,14 +6,28 @@ class tuningData:
     """
     Generic, static data useful to all methods.
     """
-    def __init__(self, name=None, exp_file=None):
+    def __init__(self, name=None, exp_file=None, data_root=None):
+
+        # The data root
+        if data_root == None:
+            try:
+                data_root = os.environ["MAS_DATA"];
+            except KeyError:
+                data_root = "/data/cryo"
+        self.data_root = data_root
+
+        # name
         if name == None:
             the_time = time.time();
             name = '%10i' % (the_time)
         self.name = name
-        self.base_dir = current_data_name()
+
+        # Data directories
+        self.base_dir = current_data_name(self.data_root)
         self.data_dir = os.path.join(self.base_dir, name)
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
+        self.config_mce_file = os.path.join(self.base_dir,
+                "config_mce_auto_setup_" + self.base_dir)
 
         # Binary file locations
         self.bin_path = '/usr/mce/bin/'
@@ -31,7 +45,13 @@ class tuningData:
         os.mkdir(self.plot_dir)
 
     def get_exp_param(self, key):
-        return config.get_exp_config(self.exp_file, key)
+        return config.get_exp_param(self.exp_file, key)
+
+    def set_exp_param(self, key, value):
+        return config.set_exp_param(self.exp_file, key, value)
+
+    def set_exp_param_range(self, key, range, value):
+        return config.set_exp_param_range(self.exp_file, key, range, value)
 
     def run(self, args):
         return subprocess.call([str(x) for x in args])
@@ -45,4 +65,3 @@ class tuningData:
         if action != None:
             s += '_' + action
         return s
-
