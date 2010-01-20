@@ -101,13 +101,13 @@ def series_array(directory, file_name, rc, numrows = 33, acq_id = 0,
   num_zeros = flag
   estim_range = numpy.empty([n_bias,8], dtype="float")
   ind = numpy.empty([8])
-  final_sa_bias_ch_by_ch= numpy.empty([8], dtype="long64")
-  target_min_slope_ch_by_ch = numpy.empty([8], dtype="long64")
-  fb_min_slope_ch_by_ch = numpy.empty([8], dtype="long64")
-  target_half_point_ch_by_ch = numpy.empty([8], dtype="long64")
-  fb_half_point_ch_by_ch = numpy.empty([8], dtype="long64")
-  SA_target = numpy.empty([8], dtype="long64")
-  SA_fb_init = numpy.empty([8], dtype="long64")
+  final_sa_bias_ch_by_ch= numpy.empty([8], dtype="int64")
+  target_min_slope_ch_by_ch = numpy.empty([8], dtype="int64")
+  fb_min_slope_ch_by_ch = numpy.empty([8], dtype="int64")
+  target_half_point_ch_by_ch = numpy.empty([8], dtype="int64")
+  fb_half_point_ch_by_ch = numpy.empty([8], dtype="int64")
+  SA_target = numpy.empty([8], dtype="int64")
+  SA_fb_init = numpy.empty([8], dtype="int64")
   sa_middle = numpy.empty([n_bias,8], dtype="float")
 
   # calculate the derivatives of the V-phi plots

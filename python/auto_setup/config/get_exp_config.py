@@ -67,6 +67,15 @@ def mas_param(file, key, type):
   else: # string
     return value.strip()
 
+def set_exp_param(file, key, value):
+  """Writes the value given to the specified parameter of the experimental
+  configuration."""
+
+  if (key == "_source"):
+    return None;
+
+  return subprocess.call(["mas_param", "-s", file, "set", key, value])
+
 def get_exp_param(file, key):
   """Returns the value of one parameter of the experimental configuration.
 

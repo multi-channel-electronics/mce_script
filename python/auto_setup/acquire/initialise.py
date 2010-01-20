@@ -1,9 +1,9 @@
-import subprocess
+import auto_setup.config as config
+import auto_setup.util as util
 
-def initialise(rc, check_bias=False, log=None):
-  # check whether the SSA and SQ2 biases have already been set
-  on_bias = False
-  if (check_bias):
-    for (c in rc):
-      exit = subprocess.Popen(["check_zero", "rc" + c, "sa_bias"], stdout=log,
-          stderr=log).wait()
+import subprocess
+input
+
+def initialise(rc, exp_config_file, check_bias=False, log=None, numrows=None,
+    ramp_sa_bias=None):
+  None
