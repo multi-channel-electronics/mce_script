@@ -13,10 +13,7 @@ class tuningData:
 
         # The data root
         if data_root == None:
-            try:
-                data_root = os.environ["MAS_DATA"];
-            except KeyError:
-                data_root = "/data/cryo"
+            data_root = "/data/cryo"
         self.data_root = data_root
 
         # name
