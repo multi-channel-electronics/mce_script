@@ -25,11 +25,12 @@ def acquire(tuning, rc, filename=None, fb=None,
 
     # File defaults
     if filename == None:
-        filename = tuning.get_filename(rc=rc, action='sq1servo')
-    try:
-        acq_id = int(filename.split('_')[0])
-    except ValueError:
-        acq_id = 0
+        filename, acq_id = tuning.get_filename(rc=rc, action='ssa')
+    else:
+        try:
+            acq_id = str(int(filename.split('_')[0]))
+        except ValueError:
+            acq_id = str(time.time())
 
     # FB
     if fb == None:

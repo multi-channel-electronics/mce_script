@@ -25,4 +25,4 @@ import reduce
 import report
 
 from main import auto_setup
-from series_array import series_array
+import series_array, sq2_servo, sq1_servo

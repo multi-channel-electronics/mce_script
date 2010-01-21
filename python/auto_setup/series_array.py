@@ -1,8 +1,3 @@
-"""MCE auto setup script.
-
-This programme doesn't work!
-"""
-
 # This is a semitranslation of the IDL auto_setup_squids program.  The
 # intent is to separate that program into three broad parts:
 #
@@ -16,113 +11,169 @@ This programme doesn't work!
 
 # -- Handy ruler ------------------------------------------------------|
 
-import subprocess
-import pylab
-import mce_data
-import numpy
+import os, time
+from mce_data import MCEFile, MCERunfile
+from numpy import *
 import auto_setup.idl_compat as idl_compat
 import auto_setup.util as util
+import auto_setup.servo as servo
 
-def series_array(directory, file_name, rc, numrows = 33, acq_id = 0,
-        ramp_bias = 0, quiet = 0, poster = 0, slope = 1):
+def go():
+    pass
 
-    full_name = directory + file_name + "_ssa"
+def acquire(tuning, rc, filename=None, do_bias=None):
+    # Convert to 0-based rc indices.
+    rci = rc - 1
 
-    rf = mce_data.MCERunfile(full_name + ".run")
+    # File defaults
+    if filename == None:
+        filename, acq_id = tuning.get_filename(rc=rc, action='ssa')
+    else:
+        try:
+            acq_id = str(int(filename.split('_')[0]))
+        except ValueError:
+            acq_id = str(time.time())
 
-    n_frames = rf.Item("FRAMEACQ", "DATA_FRAMECOUNT", "int");
+    # Bias ramp default
+    if do_bias == None:
+        do_bias = tuning.get_exp_param('sa_ramp_bias')
+        
+    # Execute ramp
+    cmd = ['ramp_sa_fb', filename, rc, int(do_bias)]
+    status = tuning.run(cmd)
+    if status != 0:
+        return False, {'error': 'command failed: %s' % str(cmd)}
 
-    reg_status = util.register(acq_id, "tune_ramp", full_name, n_frames)
+    # Register this acquisition, taking nframes from runfile.
+    fullname = os.path.join(tuning.data_dir, filename)
+    rf = MCERunfile(fullname)
+    n_frames = rf.Item('FRAMEACQ','DATA_FRAMECOUNT',type='int',array=False)
+    util.register(acq_id, 'tune_ramp', fullname, n_frames)
+    
+    return True, {'basename': acq_id,
+                  'filename':fullname,
+                  'rc': rc,
+                  'do_bias': do_bias,
+                  }
 
-    # If we're not ramping, we need the default sa bias:
-    sa_bias_runfile = rf.Item("HEADER", "RB sa bias", "int");
-    sa_bias_rc = sa_bias_runfile[(rc - 1) * 8 : (rc * 8) - 1]
 
-    nsum = 48
+def reduce(tuning, ramp_data, slope=None):
+    if not hasattr(ramp_data, 'haskey'):
+        ramp_data = {'filename': ramp_data,
+                     'basename': os.path.split(ramp_data)[-1]
+                     }
+    datafile = ramp_data['filename']
+    rf = MCERunfile(datafile + '.run')
+    n_frames = rf.Item("FRAMEACQ", "DATA_FRAMECOUNT", type="int", array=False)
 
-    # Setting up factors and captions for engineering and AD units.
+    # List RCs and columns involved here...
+    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
+    cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
 
-    # Default is A/D units.
-    v_factor = 1./1000.
-    v_units = " (AD Units/1000)"
-    i_factor = 1./1000.
-    i_units = " (AD Units/1000)"
+    # Convert to 1 slope per column
+    if slope == None:
+        slope = tuning.get_exp_param('sq2servo_gain')
+    if not hasattr(slope, '__getitem__'): slope = [slope]*4
+    if len(slope) < 8:
+        slope = (zeros((8,len(slope))) + slope).ravel()
+    slope = slope[cols]
 
-    # converting SA_bias to current
-    vmax =  2500. # mV
-    RL   = 15000. # Ohms
-    ful_scale = 65535. # Digital fs = 2^16 - 1
-    ma2uA     = 1000.  # convert to microamperes
+    # Read data preserving rows/cols dimensioning
+    data = MCEFile(datafile).Read(row_col=True).data
+    n_cols = data.shape[1]
 
-    sa_bias = 0 * vmas * ma2uA / (RL * full_scale)
+    bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', array=False).strip() == 'sa_bias')
+    
+    if bias_ramp:
+        bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+        sa_bias = array([bias0 + d_bias*arange(n_bias) for i in range(n_cols)])
+        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
+    else:
+        # If we weren't ramping the SA bias, we need to know what it was.
+        n_bias = 1
+        sa_bias = array([rf.Item('HEADER', 'RB sa bias', 'int')[cols]])
+        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
 
-    # Reading the 2-dim data aray from the file:
-    readin=read_2d_ramp(full_name, rf, numrows=numrows)
-    mcefile=readin["data"]
+    # Feedback vector.
+    fb = (fb0 + arange(n_fb) * d_fb)
 
-    #Read labels, loop sizes, etc.
-    horiz_label = readin["label"][2]
-    vert_label = readin["label"][1]
-    card = readin["label"][0]
+    # Average over rows and expand factor time into (bias x fb)
+    av_vol = mean(data.astype('float'), axis=0).reshape(n_cols,n_bias,n_fb)
 
-    n_bias = readin["spec"][0]
-    bias_start = readin["spec"][1]
-    bias_step = readin["spec"][2]
+    if bias_ramp:
+        # If this was a bias ramp, choose the best bias.
+        amps = amax(av_vol, axis=2) - amin(av_vol, axis=2)
+        bias_idx = argmax(amps, axis=1)
+    else:
+        amps = None
+        bias_idx = [0] * n_cols
 
-    n_fb = readin["spec"][3]
-    fb_start = readin["spec"][4]
-    fb_step = readin["spec"][5]
+    # Store SA bias results
+    result = {
+        'sa_bias_idx': bias_idx,
+        'sa_bias': array([s[i] for s,i in zip(sa_bias, bias_idx)]),
+        'sa_bias_merit': amps,
+        }
+    
+    # Analyze the 'best' SA curves for lock-points
+    scale = max([8 * n_fb / 400, 1])
+    y = servo.smooth(array([d[i] for d,i in zip(av_vol, bias_idx)]), scale)
+    print av_vol.shape, y.shape
+    x_offset = scale/2
+    dy = y[:,1:] - y[:,:-1]
+    y = y[:,:-1]
 
-    #Now, make data arrays of the necessary sizes.
-    av_vol  = numpy.empty([n_bias,n_fb,8],dtype="float")
-    dev_vol = numpy.empty([n_bias,n_fb,8],dtype="float")
+    lock_idx, left_idx, right_idx = [], [], []
+    for yy, ddy, s in zip(y, dy, slope):
+        # Find position of an SA minimum.  Search range depends on desired
+        # locking slope because we will eventually need to find an SA max.
+        if (s > 0):
+            min_start = scale * 4
+            min_stop = n_fb * 5 / 8
+        else:
+            min_start = n_fb * 3 / 8
+            min_stop = n_fb - scale * 4
 
-    # calculate mean and stdev of the mean for the reading column of data for
-    # each bias value and repeat for all channels.
+        ind_min = yy[min_start:min_stop].argmin() + min_start
 
-    for j in range(9):
-        for m in range(n_bias):
-            for i in range(n_fb):
-                av_vol[m,i,j]  = r["data"][...,j,m,i].mean()
-                dev_vol[m,i,j] = r["data"][...,j,m,i].std() / sqrt(nsum)
+        # Now track to the side, waiting for the slope to change.
+        if (s > 0):
+            start = ind_min + scale * 2
+            stop = len(ddy)
+            step = 1
+        else:
+            start = ind_min - 2 * scale
+            stop = -1
+            step = -1
+          
+        idx = arange(start,stop,step)
+        slope_change = (ddy * s < 0)[idx].nonzero()[0]
+        if len(slope_change)==0:
+            ind_max = stop - step
+        else:
+            ind_max = idx[slope_change.min()]
 
-    av_vol *= v_factor
-    dev_vol *= v_factor
+        # Lock on half-way point between minimum and maximum
+        lock_idx.append((ind_min+ind_max)/2)
+        left_idx.append(min(ind_max,ind_min))
+        right_idx.append(max(ind_max,ind_min))
 
-    # Set up feedback current:
-    i_fb = i_factor * ( fb_start + numpy.arange(n_fb) * fb_step)
+    lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
+    for x in ['lock_idx', 'left_idx', 'right_idx']:
+        exec('%s = array(%s) + x_offset' % (x,x))
+    result.update({
+            'lock_idx': lock_idx,
+            'lock_y': lock_y,
+            'slope': slope,
+            'left_idx': left_idx,
+            'right_idx': right_idx,
+            })
+    # Add feedback keys
+    for k in ['lock', 'left', 'right']:
+        result[k+'_x'] = fb[result[k+'_idx']]
+    return result
 
-    # Automatically find the bias, target and corresponding fb
-    # we use peak-to-peak merit function
-
-    deriv_av_vol  = numpy.empty([n_bias,n_fb,8],dtype="float")
-    mean_av_vol = numpy.empty([n_fb], dtype="float")
-    flag=numpy.zero([n_bias,8])
-    num_zeros = flag
-    estim_range = numpy.empty([n_bias,8], dtype="float")
-    ind = numpy.empty([8])
-    final_sa_bias_ch_by_ch= numpy.empty([8], dtype="int64")
-    target_min_slope_ch_by_ch = numpy.empty([8], dtype="int64")
-    fb_min_slope_ch_by_ch = numpy.empty([8], dtype="int64")
-    target_half_point_ch_by_ch = numpy.empty([8], dtype="int64")
-    fb_half_point_ch_by_ch = numpy.empty([8], dtype="int64")
-    SA_target = numpy.empty([8], dtype="int64")
-    SA_fb_init = numpy.empty([8], dtype="int64")
-    sa_middle = numpy.empty([n_bias,8], dtype="float")
-
-    # calculate the derivatives of the V-phi plots
-    for bsa in range(n_bias):
-        for chan in range(8):
-            deriv_av_vol[bsa, ..., chan] = idl_compat.deriv(i_fb,
-                    av_vol[bsa, ..., chan])
-
-    # Merit function calculated from the peak-to-peak values
-    for bsa in range(n_bias):
-        for chan in range(8):
-            estim_range[bsa,chan] = av_vol[bsa, ..., chan].max() - \
-                    av_vol[bsa, ..., chan].min()
-            sa_middle[bsa,chan] = (av_vol[bas, ..., chan].max() + \
-                    av_vol[bsa, ..., chan].min()) / 2.
+def pasdfasdfsdf():
 
     if ramp_bias:
         # Make an n_bias + 1 pages set of plots.
@@ -184,15 +235,14 @@ SA bias and target (adc_offset) channel by channel:
 
         # Find position of an SA minimum.  Search range depends on desired
         # locking slope because we will eventually need to find an SA max.
-        if (slope > 0):
+        if (s > 0):
             min_start = scale * 4
             min_stop = n_fb * 5 / 8
         else:
             min_start = n_fb * 3 / 8
             min_stop = n_fb - scale * 4
 
-        ind_min = av_vol[ind[chan],min_start:min_stop,chan].argmin() + min_start
-        min_point = av_vol[ind[chan],ind_min,chan]
+#        ind_min = [ind[chan],min_start:min_stop,chan].argmin() + min_start
 
         # Now track to the side, waiting for the slope to change.
         if (slope > 0):
@@ -265,29 +315,56 @@ WARNING: SA fb of channel """, chan, """ found on the SA V-phi curve has
             "SA_fb_init": SA_fb_init}
 
 
-def read_2d_ramp(full_name, rf, numrows=33):
-    line=""
-    roc=int(rf.Item("FRAMEACQ", "RC")[0])
-    loops=rf.Item("par_ramp", "loop_list")
-    pars=rf.Item("par_ramp", "par_list " + loops[0])
-    first=rf.Item("par_ramp", "par_title " + loops[0] + " " + pars[0])[0]
-    steps=rf.Item("par_ramp", "par_step " + loops[0] + " " + pars[0])
-    start_1st = int(steps[0])
-    step_1st = int(steps[1])
-    n_1st = int(steps[2])
+def load_ramp_data(filename, reduce=False):
+    m = MCEFile(filename)
+    rf, data = m.runfile, m.Read(row_col=True).data
+    n_cols = data.shape[1]
 
-    pars=rf.Item("par_ramp", "par_list " + loops[1])
-    second=rf.Item("par_ramp", "par_title " + loops[1] + " " + pars[0])[0]
-    steps=rf.Item("par_ramp", "par_step " + loops[1] + " " + pars[0])
-    start_2nd = int(steps[0])
-    step_2nd = int(steps[1])
-    n_2nd = int(steps[2])
+    bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', array=False).strip() == 'sa_bias')
+    if bias_ramp:
+        bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+        sa_bias = array([bias0 + d_bias*arange(n_bias) for i in range(n_cols)])
+        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
+    else:
+        # If we weren't ramping the SA bias, we need to know what it was.
+        n_bias = 1
+        sa_bias = array([rf.Item('HEADER', 'RB sa bias', 'int')[cols]])
+        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
 
-    label_array = [roc, first, second]
+    # List RCs and columns involved here...
+    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
+    cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
 
-    spec_array = [n_1st, start_1st, step_1st, n_2nd, start_2nd, step_2nd]
+    # Feedback vector.
+    fb = (fb0 + arange(n_fb) * d_fb)
 
-    file = mce_data.MCEFile(full_name)
+    data = data.reshape(-1, n_cols, n_bias, n_fb)
+    if reduce:
+        data = mean(data, axis=0)
+    return data, sa_bias, fb, bias_ramp, cols
 
-    return {"label": label_array, "spec" : spec_array,
-            "data" : file.Read().data.reshape(numrows,8,n_1st,n_2nd)}
+
+def plot(tuning, ramp_data, lock_points, plot_file=None, format='pdf'):
+    
+    if not hasattr(ramp_data, 'haskey'):
+        ramp_data = {'filename': ramp_data,
+                      'basename': os.path.split(ramp_data)[-1]}
+    if plot_file == None:
+        _, basename = os.path.split(ramp_data['filename'])
+        plot_file = os.path.join(tuning.plot_dir, '%s.%s' % (basename, format))
+
+    datafile = ramp_data['filename']
+    data, sa_bias, fb, bias_ramp, columns = load_ramp_data(datafile, reduce=True)
+    
+    # Focus on our chosen bias...
+    if bias_ramp:
+        data = array([d[i] for d,i in zip(data, lock_points['sa_bias_idx'])])
+
+    # Plot plot plot
+    servo.plot(fb, data, lock_points, plot_file,
+               title=ramp_data['basename'],
+               titles=['Column %i - SA_bias=%6i' %(c,b) \
+                           for c,b in zip(columns, lock_points['sa_bias'])],
+               xlabel='SA FB / 1000',
+               ylabel='AD Units / 1000')
+
