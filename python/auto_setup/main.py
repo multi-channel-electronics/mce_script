@@ -578,9 +578,9 @@ IDL auto_setup_squids."""
     tuning = util.tuningData(data_root=data_root)
 
     # set_directory creates directories and files where to store the tuning data
-    # and plots.  XXX set_directory does not respect data_root
+    # and plots.
     if (not short):
-        tuning.run("set_directory")
+        tuning.run("set_directory", tuning.data_root)
 
 
     # Create data and analysis directories
