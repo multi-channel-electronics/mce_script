@@ -74,7 +74,14 @@ def set_exp_param(file, key, value):
     if (key == "_source"):
         return None;
 
-    return subprocess.call(["mas_param", "-s", file, "set", key, value])
+    command = ["mas_param", "-s", file, "set", key]
+
+    if (hasattr(value, "__getitem__")):
+      command += [str(x) for x in value]
+    else:
+      command.append(str(value))
+
+    return subprocess.call(command)
 
 def get_exp_param(file, key):
     """Returns the value of one parameter of the experimental configuration.

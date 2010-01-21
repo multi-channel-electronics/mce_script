@@ -1,3 +1,4 @@
+# vi: ts=4:sw=4:et
 import os, subprocess, time
 import auto_setup.config as config
 from current_data_name import current_data_name
@@ -22,8 +23,12 @@ class tuningData:
             name = '%10i' % (self.the_time)
         self.name = name
 
+        # current data directory -- we get this from the "current_data" symlink,
+        # which may or may not point to an absolute path
+        self.current_data = os.path.basename(
+                os.readlink(os.path.join(self.data_root, "current_data")))
+
         # Data directories
-        self.current_data = current_data_name(self.data_root)
         self.base_dir = os.path.join(self.data_root, self.current_data)
         self.data_dir = os.path.join(self.base_dir, name)
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
@@ -61,21 +66,24 @@ class tuningData:
     def set_exp_param_range(self, key, range, value):
         return config.set_exp_param_range(self.exp_file, key, range, value)
 
-    def run(self, args):
-        if (not self.openlog_failed and self.log == None):
-            try:
-                self.log = open(self.log_file, "w+")
-            except IOError as (errno, strerror):
-                print "Unable to create logfile \"{0}\" (errno: {1}; {2})".\
-                        format(self.log_file, errno, strerror)
-                print "Logging disabled."
-                self.openlog_failed = True
+    def run(self, args, no_log=False):
+        if (no_log):
+            log = None
+        else:
+            if (not self.openlog_failed and not no_log and self.log == None):
+                try:
+                    self.log = open(self.log_file, "w+")
+                except IOError as (errno, strerror):
+                    print "Unable to create logfile \"{0}\" (errno: {1}; {2})".\
+                            format(self.log_file, errno, strerror)
+                    print "Logging disabled."
+                    self.openlog_failed = True
+            log = self.log
 
-        return subprocess.call([str(x) for x in args], stdout=self.log,
-                stderr=self.log)
+        return subprocess.call([str(x) for x in args], stdout=log, stderr=log)
 
     def rc_list(self):
-        hardware_rc = config.get_exp_param(file, "hardware_rc");
+        hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc");
         return [c + 1 for c in range(len(hardware_rc)) if hardware_rc[c] == 1]
     
     def filename(self, rc=None, action=None, ctime=None):

@@ -3,6 +3,7 @@ import acquire
 import reduce
 import report
 import util
+import idl_compat
 
 import os
 import subprocess
@@ -11,20 +12,17 @@ import shutil
 from numpy import *
 
 
-def step1 (tuning, rc, check_bias, short, numrows, ramp_sa_bias, note):
+def step1 (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     c_filename = os.path.join(tuning.base_dir, tuning.base_dir)
-
-    if (rc == None):
-        print "  No read-out cards specified; setting all available RCs."
-        rc = tuning.rc_list()
 
     # check whether the SSA and SQ2 biases have already been set
     on_bias = False
     if (check_bias):
-        for c in rc:
-            exit_status = tuning.run(["check_zero", "rc" + c, "sa_bias"])
+        for c in rcs:
+            exit_status = tuning.run(["check_zero", "rc{0}".format(c),
+                "sa_bias"])
             if (exit > 8):
-                print "check_zero failed with code " + exit_status
+                print "check_zero failed with code", exit_status
             on_bias += exit_status
 
     on_sq2bias = tuning.run(["check_zero", "sq2", "bias"])
@@ -39,7 +37,7 @@ def step1 (tuning, rc, check_bias, short, numrows, ramp_sa_bias, note):
         numrows= tuning.get_exp_param("default_num_rows")
 
     # set this to 1 to sweep the tes bias and look at squid v-phi response.
-    ramp_sq1_bias_run=tuning.get_exp_param("ramp_tes_bias")
+    ramp_sq1_bias_run=tuning.get_exp_param("sq1_ramp_tes_bias")
 
     # experiment.cfg setting may force a ramp_sa_bias.
     if (ramp_sa_bias == None):
@@ -93,7 +91,7 @@ def step1 (tuning, rc, check_bias, short, numrows, ramp_sa_bias, note):
   
     if (status1 != 0):
         print "An error occurred running the config file"
-        return 0
+        return {"stop": True, "ramp_sa_bias": ramp_sa_bias}
 
     # if the ssa and sq2 biases were previously off the system waits for
     # thermalisation
@@ -113,26 +111,30 @@ def step1 (tuning, rc, check_bias, short, numrows, ramp_sa_bias, note):
     # initialise the squid tuning results file
     f = open(tuning.sqtune_file, "w")
     f.write("<SQUID>\n<SQ_tuning_completed> 0\n<SQ_tuning_date> ")
-    f.write(current_data)
+    f.write(tuning.current_data)
     f.write("\n<SQ_tuning_dir> " + tuning.name + "\n</SQUID>\n")
     f.close()
 
-    tuning.run(["rm", "-f", directory + "/last_squid_tune"])
-    tuning.run(["ln", "-s", todays_folder + c_filename + ".sqtune",
-        directory + "/last_squid_tune"])
+    lst = os.path.join(tuning.data_root, "last_squid_tune")
+    os.remove(lst)
+    os.symlink(tuning.sqtune_file, lst)
 
-    return 1
+    return {"stop": False, "ramp_sa_bias": ramp_sa_bias}
 
 
-def step2and3(tuning, rc, rc_indices, def_sa_bias):
+def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
     ssa_file_name = tuning.filename(rc=rc)
+
+    def_sa_bias = tuning.get_exp_param("default_sa_bias")
 
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
     tuning.set_exp_param("config_adc_offset_all", 0)
 
-    tuning.set_exp_param_range("adc_offset_c", rc_indices, adc_offset_c)
-    tuning.set_exp_param_range("sq2_bias", rc_indices, adc_offset_c)
+    tuning.set_exp_param_range("adc_offset_c", rc_indices,
+            zeros(len(rc_indices), dtype="int"))
+    tuning.set_exp_param_range("sq2_bias", rc_indices, zeros(len(rc_indices),
+        dtype="int"))
 
     tuning.set_exp_param("sq1_bias", 0)
     tuning.set_exp_param("sq1_bias_off", 0)
@@ -160,7 +162,8 @@ def step2and3(tuning, rc, rc_indices, def_sa_bias):
         sa_offset_MCE2 = floor(final_sa_bias_ch_by_ch *
                 tuning.get_exp_param("sa_offset_bias_ratio"))
 
-        tuning.set_exp_config_range("sa_offset", rc_indices, sa_offset_MCE2)
+        tuning.set_exp_config_range("sa_offset", rc_indices,
+                sa_offset_MCE2.astype("int"))
 
         tuning.set_exp_config("config_adc_offset_all", 0)
         tuning.set_exp_config_range("adc_offset_c", rc_indices,
@@ -171,13 +174,14 @@ def step2and3(tuning, rc, rc_indices, def_sa_bias):
         # Instead of ramping the SA bias, just use the default values, and ramp
         # the SA fb to confirm that the v-phi's look good.
 
-        tuning.set_exp_param("sa_bias", rc_indices, def_sa_bias[rc_indices])
+        tuning.set_exp_param_range("sa_bias", rc_indices,
+                def_sa_bias[rc_indices])
 
         sa_offset_MCE2 = floor(def_sa_bias *
                 tuning.get_exp_param("sa_offset_bias_ratio"))
 
         tuning.set_exp_param_range("sa_offset", rc_indices,
-                sa_offset_MCE2[rc_indices])
+                sa_offset_MCE2[rc_indices].astype("int"))
 
         status3 = tuning.mce_make_config(True)
 
@@ -185,8 +189,8 @@ def step2and3(tuning, rc, rc_indices, def_sa_bias):
             print "An error has occurred just before running the ramp_sa script"
             return 3
 
-        sa_dict = report.ssa_file_name(rc=rc, slope=sa_slope, numrows=numrows,
-                acq_id=acq_id)
+        sa_dict = ramp_sa_fb_plot(ssa_file_name, rc=rc, slope=sa_slope,
+                numrows=numrows, acq_id=acq_id)
 
         tuning.set_exp_param("config_adc_offset_all", 0)
         tuning.set_exp_param_range("adc_offset_c", rc_indices,
@@ -321,7 +325,7 @@ def step4():
             runfile = sq1_base_name + "_sq1servo.run"
 
         for sq1servorow in range(numrows):
-            sq1_file_name = sq1_base_name + "_row" + sq1servorow
+            sq1_file_name = sq1_base_name + "_row{0}".format(sq1servorow)
 
             if (not config_fast_sq2):
                 # We have to call sq1servo with row.init set
@@ -402,7 +406,7 @@ def sq1_ramp_check(tuning, rcs, numrows):
     for rc in rcs:
         rc_indices = (rc - 1) * 8 + arange(8)
 
-        print "ADC offsets of rc " + rc
+        print "ADC offsets of rc", rc
 
         tuning.set_exp_param("data_mode", 0)
         tuning.set_exp_param("servo_mode", 1)
@@ -537,7 +541,7 @@ def frametest_check(tuning, rcs, numrows, row, column):
     # Permit row override, or else take it from config
     if (row == None):
         row = tuning.get_exp_param("locktest_plot_row")
-        print "Row = " + row + " is used for frametest_plot by default."
+        print "Row = {0} is used for frametest_plot by default.".format(row)
 
     if (len(rcs) < 4):
         for rc in rcs:
@@ -580,44 +584,44 @@ IDL auto_setup_squids."""
     # set_directory creates directories and files where to store the tuning data
     # and plots.
     if (not short):
-        tuning.run("set_directory", tuning.data_root)
+        tuning.run(["set_directory", tuning.data_root], no_log=True)
 
 
     # Create data and analysis directories
     tuning.make_dirs()
 
-    print "auto_setup initialising"
-    cont = step1(tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note)
+    # set rc list, if necessary
+    if (rcs == None):
+        print "  No read-out cards specified; setting all available RCs."
+        rcs = tuning.rc_list()
 
-    if (cont == 0):
+    print "auto_setup initialising"
+    s1_dict = step1(tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note)
+
+    if (s1_dict["stop"]):
         return
 
     # starts the cycle over the 4 rcs to set all the bias ad fb
     for c in rcs:
-        rc_indices = 8 * (c - 1) + arange([8])
+        rc_indices = 8 * (c - 1) + arange(8)
 
         if (short):
             column_adc_offset[rc_indices] = \
                     tuning.get_exp_param("adc_offset_c")[rc_indices]
 
-            if (short == 1):
-                next_step = 4
-            else:
+            if (short != 1):
                 continue
-        else:
-            next_step = 2
 
-        print "Processing rc" + c
+        print "Processing rc{0}".format(c)
 
-        if (next_step == 2):
-            e = step2and3()
+        if (not short):
+            e = step2and3(tuning, c, rc_indices, s1_dict["ramp_sa_bias"])
             if (e != 0):
                 return e
 
-        if (next_step == 4):
-            e = step4()
-            if (e != 0):
-                return e
+        e = step4()
+        if (e != 0):
+            return e
 
 
     if (tuning.get_exp_param("stop_after_sq1_servo") == 1):
@@ -640,18 +644,19 @@ IDL auto_setup_squids."""
     f.write("<SQ_tuning_dir> " + tuning.name)
     
     for j in range(32):
-        f.write("<Col" + j + "_squid_vphi_p2p> " + squid_p2p_arr[j])
+        f.write("<Col{0}_squid_vphi_p2p> ".format(j) + squid_p2p_arr[j])
     for j in range(32):
-        f.write("<Col" + j + "_squid_lockrange> " + squid_lockrange[j])
+        f.write("<Col{0}_squid_lockrange> ".format(j) + squid_lockrange[j])
     for j in range(32):
-        f.write("<Col" + j + "_squid_lockslope_down> " +
+        f.write("<Col{0}_squid_lockslope_down> ".format(j) +
                 squid_lockslopedn_arr[j])
     for j in range(32):
-        f.write("<Col" + j + "_squid_lockslope_up> " + squid_lockslopeup_arr[j])
+        f.write("<Col{0}_squid_lockslope_up> ".format(j) +
+                squid_lockslopeup_arr[j])
     for j in range(32):
-        f.write("<Col" + j + "_squid_multilock> " + squid_multilock_arr[j])
+        f.write("<Col{0}_squid_multilock> ".format(j) + squid_multilock_arr[j])
     for j in range(32):
-        f.write("<Col" + j + "_squid_off_recommendation> " +
+        f.write("<Col{0}_squid_off_recommendation> ".format(j) +
                 squid_off_rec_arr[j])
 
     f.write("</SQUID>")
@@ -669,6 +674,6 @@ IDL auto_setup_squids."""
     shutil.copy2(tuning.exp_file, tuning.data_dir)
 
     t_elapsed = time.time() - tuning.the_time
-    print "Tuning complete.  Time elapsed: " + t_elapsed + "seconds."
+    print "Tuning complete.  Time elapsed: {0} seconds.".format(t_elapsed)
 
     return 99
