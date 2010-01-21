@@ -20,21 +20,21 @@ class tuningData:
         self.data_root = data_root
 
         # name
+        self.the_time = time.time();
         if name == None:
-            the_time = time.time();
-            name = '%10i' % (the_time)
+            name = '%10i' % (self.the_time)
         self.name = name
 
         # Data directories
-        self.base_dir = os.path.join(self.data_root,
-                current_data_name(self.data_root))
+        self.current_data = current_data_name(self.data_root)
+        self.base_dir = os.path.join(self.data_root, self.current_data)
         self.data_dir = os.path.join(self.base_dir, name)
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
 
         # Various filenames
         self.log_file = os.path.join(self.data_dir, name+'.log')
         self.config_mce_file = os.path.join(self.base_dir,
-                "config_mce_auto_setup_" + self.name)
+                "config_mce_auto_setup_" + self.current_data)
         self.note_file = os.path.join(self.data_dir, self.name + "_note")
         self.sqtune_file = os.path.join(self.data_dir, self.name + ".sqtune")
         self.sq2fb_init_file = os.path.join(self.data_dir,
