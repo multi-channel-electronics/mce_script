@@ -3,7 +3,6 @@ import acquire
 import reduce
 import report
 import util
-import idl_compat
 
 import os
 import subprocess
@@ -106,10 +105,10 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     os.remove(lst)
     os.symlink(tuning.sqtune_file, lst)
 
-    return {"ramp_sa_bias": ramp_sa_bias}
+    return {"ramp_sa_bias": ramp_sa_bias, "sq2_bias": sq2_bias}
 
 
-def sa_and_sq2(tuning, rc, rc_indices, ramp_sa_bias, sa_feedback_file):
+def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
     ssa_file_name = tuning.filename(rc=rc)
 
     def_sa_bias = tuning.get_exp_param("default_sa_bias")
@@ -128,12 +127,12 @@ def sa_and_sq2(tuning, rc, rc_indices, ramp_sa_bias, sa_feedback_file):
 
     # SA lock slope is determined by sign of sq2servo gain
 
-    sa_slope = -idl_compat.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1])
+    sa_slope = -util.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1])
 
     # if we want to find the SSA bias again
     column_adc_offset = empty([32], dtype="int64")
 
-    if (ramp_sa_bias):
+    if (tune_data["ramp_sa_bias"]):
         status2 = tuning.mce_make_config(True)
 
         if (status2 != 0):
@@ -202,17 +201,13 @@ def sa_and_sq2(tuning, rc, rc_indices, ramp_sa_bias, sa_feedback_file):
 
     sa_feedback_file[rc_indices] = sa_dict["sa_fb_init"]
 
-    f = open(tuning.safb_init_file)
-    for i in range(32):
-        f.write("%10i" % (sa_feedback_file[i]))
-    f.close()
-
     # Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
     tuning.set_exp_param("sq1_bias", 0)
     tuning.set_exp_param("sq1_bias_off", 0)
-    tuning.set_exp_param_range("sq2_bias", rc_indices, sq2_bias[rc_indices])
+    tuning.set_exp_param_range("sq2_bias", rc_indices,
+            tune_data["sq2_bias"][rc_indices])
 
     status6 = tuning.mce_make_config(True)
 
@@ -223,8 +218,8 @@ def sa_and_sq2(tuning, rc, rc_indices, ramp_sa_bias, sa_feedback_file):
     sq2_file_name = tuning.filename(rc=rc)
 
     # locking slope should be consistent with servo gains.
-    sq2slope = -idl_compat.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1]) \
-            / idl_compat.sign(tuning.get_exp_param("sq1servo_gain")[rc - 1])
+    sq2slope = -util.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1]) \
+            / util.sign(tuning.get_exp_param("sq1servo_gain")[rc - 1])
 
     # We may want to do sq2 servos at a series of sq2 biases.
 
@@ -275,11 +270,6 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
 
     sq2_feedback_file[rc_indices] = sq2_feedback
 
-    f = open(tuning.sq2fb_init_file)
-    for i in range(32):
-        f.write("%10i" % (sq2_feedback_file[i]))
-    f.close()
-
     sq1_base_name = tuning.filename(rc=rc)
 
     # Here we either
@@ -291,8 +281,8 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
     # determine the representative row in each column.
 
     # Locking slope should be consistent with servo gains.
-    sq1slope = -idl_compat.sign(tuning.get_exp_param("sq1servo_gain")[rc - 1]) \
-            / idl_compat.sign(tuning.get_exp_param("sq1servo_gain")[(rc - 1) \
+    sq1slope = -util.sign(tuning.get_exp_param("sq1servo_gain")[rc - 1]) \
+            / util.sign(tuning.get_exp_param("sq1servo_gain")[(rc - 1) \
             * 8 : rc * 8])
 
     config_fast_sq2 = tuning.get_exp_param("config_fast_sq2")
@@ -318,12 +308,6 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
             sq1_file_name = sq1_base_name + "_row{0}".format(sq1servorow)
 
             if (not config_fast_sq2):
-                # We have to call sq1servo with row.init set
-                f = open(tuning.row_init_file)
-                for i in range(32):
-                    f.write("%i10" % sq1servorow)
-                f.close()
-
                 sq1_dict = sq1servo_plot(sq1_file_name, sq1bias=sq1_bias, rc=rc,
                         numrows=numrows, slope=sq1slope)
             else:
@@ -352,13 +336,6 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
     else:
         # This block uses original sq1servo to
         # lock on a specific row for each column
-
-        # Rewrite the row.init file
-        sq2_rows = tuning.get_exp_param("sq2_rows")
-        f = open(tuning.row_init_file)
-        for j in range(32):
-            f.write("%10i", sq2_rows[j])
-        f.close()
 
         sq1_file_name = sq1_base_name
 
@@ -587,10 +564,10 @@ IDL auto_setup_squids."""
         rcs = tuning.rc_list()
 
     print "auto_setup initialising"
-    s1_dict = initialise(tuning, rcs, check_bias, short, numrows, ramp_sa_bias,
-        note)
+    tune_data = initialise(tuning, rcs, check_bias, short, numrows,
+            ramp_sa_bias, note)
 
-    if (s1_dict == None):
+    if (tune_data == None):
         return 1
 
     # TODO - *bias.init inputs should come from experiment.cfg
@@ -612,8 +589,8 @@ IDL auto_setup_squids."""
                 column_adc_offset[rc_indices] = \
                         tuning.get_exp_param("adc_offset_c")[rc_indices]
             else:
-                s2_dict = sa_and_sq2(tuning, c, rc_indices,
-                        s1_dict["ramp_sa_bias"], sa_feedback_file)
+                s2_dict = sa_and_sq2(tuning, c, rc_indices, tune_data,
+                        sa_feedback_file)
                 if (s2_dict["status"] != 0):
                     return s2_dict["status"]
                 column_adc_offset = s2_dict["column_adc_offset"]
