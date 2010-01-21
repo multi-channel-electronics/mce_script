@@ -18,8 +18,19 @@ import auto_setup.idl_compat as idl_compat
 import auto_setup.util as util
 import auto_setup.servo as servo
 
-def go():
-    pass
+def go(tuning, rc, filename=None, do_bias=None, slope=None):
+    ok, ramp_data = acquire(tuning, rc, filename=filename, do_bias=do_bias)
+    if not ok:
+        raise RuntimeError, servo_data['error']
+
+    lock_points = reduce(tuning, servo_data, slope=slope)
+    plot(tuning, ramp_data, lock_points)
+
+    # Return dictionary of relevant results
+    return {'final_sa_bias_ch_by_ch': lock_points['sa_bias'],
+            'sa_target': lock_points['lock_y'],
+            'sa_fb_init': lock_points['lock_x'],
+            }
 
 def acquire(tuning, rc, filename=None, do_bias=None):
     # Convert to 0-based rc indices.
