@@ -12,7 +12,7 @@ import shutil
 from numpy import *
 
 
-def step1 (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
+def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     c_filename = os.path.join(tuning.base_dir, tuning.base_dir)
 
     # check whether the SSA and SQ2 biases have already been set
@@ -28,11 +28,7 @@ def step1 (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     on_sq2bias = tuning.run(["check_zero", "sq2", "bias"])
 
 
-    # reset the mce
-    print "mce_reset_clean suppressed!"
-
     # load camera defaults from experiment config file
-    samp_num = tuning.get_exp_param("default_sample_num")
     if (numrows == None):
         numrows= tuning.get_exp_param("default_num_rows")
 
@@ -42,15 +38,6 @@ def step1 (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     # experiment.cfg setting may force a ramp_sa_bias.
     if (ramp_sa_bias == None):
         ramp_sa_bias = tuning.get_exp_param("sa_ramp_bias")
-
-    # TODO - *bias.init inputs should come from experiment.cfg
-    SA_feedback_file = empty([32], dtype="int64")
-    SA_feedback_file.fill(32000)
-
-    SQ2_feedback_file = empty([32], dtype="int64")
-    SQ2_feedback_file.fill(8200)
-
-    column_adc_offset = empty([32], dtype="int64")
 
     if (tuning.get_exp_param("tes_bias_do_reconfig") != 0):
         # detector bias
@@ -91,7 +78,7 @@ def step1 (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
   
     if (status1 != 0):
         print "An error occurred running the config file"
-        return {"stop": True, "ramp_sa_bias": ramp_sa_bias}
+        return None
 
     # if the ssa and sq2 biases were previously off the system waits for
     # thermalisation
@@ -119,10 +106,10 @@ def step1 (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     os.remove(lst)
     os.symlink(tuning.sqtune_file, lst)
 
-    return {"stop": False, "ramp_sa_bias": ramp_sa_bias}
+    return {"ramp_sa_bias": ramp_sa_bias}
 
 
-def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
+def sa_and_sq2(tuning, rc, rc_indices, ramp_sa_bias, sa_feedback_file):
     ssa_file_name = tuning.filename(rc=rc)
 
     def_sa_bias = tuning.get_exp_param("default_sa_bias")
@@ -144,12 +131,14 @@ def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
     sa_slope = -idl_compat.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1])
 
     # if we want to find the SSA bias again
+    column_adc_offset = empty([32], dtype="int64")
+
     if (ramp_sa_bias):
         status2 = tuning.mce_make_config(True)
 
         if (status2 != 0):
             print "An error has occurred just before running the ramp_sa script"
-            return 2
+            return {"status": 2}
 
         acquire.series_array(tuning, rc, directory)
 
@@ -167,9 +156,9 @@ def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
 
         tuning.set_exp_config("config_adc_offset_all", 0)
         tuning.set_exp_config_range("adc_offset_c", rc_indices,
-                sa_dict["SA_target"])
+                sa_dict["sa_target"])
 
-        column_adc_offset[rc_indices] = sa_dict["SA_target"]
+        column_adc_offset[rc_indices] = sa_dict["sa_target"]
     else:
         # Instead of ramping the SA bias, just use the default values, and ramp
         # the SA fb to confirm that the v-phi's look good.
@@ -187,34 +176,35 @@ def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
 
         if (status3 != 0):
             print "An error has occurred just before running the ramp_sa script"
-            return 3
+            return {"status": 3}
 
-        sa_dict = ramp_sa_fb_plot(ssa_file_name, rc=rc, slope=sa_slope,
-                numrows=numrows, acq_id=acq_id)
+#        sa_dict = ramp_sa_fb_plot(ssa_file_name, rc=rc, slope=sa_slope,
+#                 numrows=numrows, acq_id=acq_id)
+        sa_dict = {"sa_target": zeros([8], dtype="int"), "sa_fb_init":
+          array([32000, 32000, 32000, 32000, 32000, 32000, 32000, 32000])}
 
         tuning.set_exp_param("config_adc_offset_all", 0)
         tuning.set_exp_param_range("adc_offset_c", rc_indices,
-                sa_dict["SA_target"])
+                sa_dict["sa_target"])
 
-        column_adc_offset[rc_indices] = sa_dict["SA_target"]
+        column_adc_offset[rc_indices] = sa_dict["sa_target"]
 
     status5 = tuning.mce_make_config(True)
 
     if (status5 != 0):
         print "An error has occurred after running the ramp_sa script"
-        return 5
+        return {"status": 5}
 
 # step 3: SQ2 servo block
 
     # Sets the initial SA fb (found in the previous step or set to mid-range)
     # for the SQ2 servo
 
-    SA_feedback_file.fill(32000)
-    SA_feedback_file[rc_indices] = sa_dict["SA_fb_init"]
+    sa_feedback_file[rc_indices] = sa_dict["sa_fb_init"]
 
-    f = open(todays_folder + "safb.init")
+    f = open(tuning.safb_init_file)
     for i in range(32):
-        f.write("%10i" % (SA_feedback_file[i]))
+        f.write("%10i" % (sa_feedback_file[i]))
     f.close()
 
     # Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
@@ -228,7 +218,7 @@ def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
 
     if (status6 != 0):
         print "An error has occurred before running the sq2 servo script"
-        return 6
+        return {"status": 6}
 
     sq2_file_name = tuning.filename(rc=rc)
 
@@ -239,13 +229,13 @@ def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
     # We may want to do sq2 servos at a series of sq2 biases.
 
     if (tuning.get_exp_param("sq2_servo_bias_ramp") != 0):
-        sq2servo_plot(tuning, sq2_file_name, sq2bias=SQ2_bias, rc=rc,
+        sq2servo_plot(tuning, sq2_file_name, sq2bias=sq2_bias, rc=rc,
                 slope=sq2slope, lockamp=1, acq_id=acq_id, no_analysis=1)
 
         print "Exiting after sq2servo with bias ramp!"
-        return 98
+        return {"status": 98}
     else:
-        sq2_dict = sq2servo_plot(tuning, sq2_file_name, sq2bias=SQ2_bias, rc=rc,
+        sq2_dict = sq2servo_plot(tuning, sq2_file_name, sq2bias=sq2_bias, rc=rc,
                 slope=sq2slope, locamp=1, acq_id=acq_id)
 
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_dict["sq2_target"])
@@ -256,11 +246,11 @@ def step2and3(tuning, rc, rc_indices, ramp_sa_bias):
 
     if (status8 != 0):
         print "An error has occurred after running the sq2 servo script"
-        return 8
+        return {"status": 8}
 
-    return 0
+    return {"status": 0, "column_adc_offset": column_adc_offset}
 
-def step4():
+def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
    
     sq2_feedback = array([8], dtype="int64")
     sq2_feedback.fill(8200) # JPF 090804 (with BAC)
@@ -435,6 +425,7 @@ def sq1_ramp_check(tuning, rcs, numrows):
             all_squid_lockslope = empty([32, numrows, 2], dtype="float64")
             all_squid_multilock = empty([32, numrows], dtype="float64")
 
+        samp_num = tuning.get_exp_param("default_sample_num")
         new_off = rsq1_dict["new_adc_offset"]
         for j in range(8):
             new_off[j, ...] = (rsq1_dict["new_adc_offset"][j, ...] + 
@@ -596,32 +587,40 @@ IDL auto_setup_squids."""
         rcs = tuning.rc_list()
 
     print "auto_setup initialising"
-    s1_dict = step1(tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note)
+    s1_dict = initialise(tuning, rcs, check_bias, short, numrows, ramp_sa_bias,
+        note)
 
-    if (s1_dict["stop"]):
-        return
+    if (s1_dict == None):
+        return 1
 
-    # starts the cycle over the 4 rcs to set all the bias ad fb
-    for c in rcs:
-        rc_indices = 8 * (c - 1) + arange(8)
+    # TODO - *bias.init inputs should come from experiment.cfg
+    sa_feedback_file = empty([32], dtype="int64")
+    sa_feedback_file.fill(32000)
 
-        if (short):
-            column_adc_offset[rc_indices] = \
-                    tuning.get_exp_param("adc_offset_c")[rc_indices]
+    sq2_feedback_file = empty([32], dtype="int64")
+    sq2_feedback_file.fill(8200)
 
-            if (short != 1):
-                continue
+    if (short <= 1):
+        # starts the cycle over the 4 rcs to set all the bias ad fb
+        for c in rcs:
+            print "Processing rc{0}".format(c)
 
-        print "Processing rc{0}".format(c)
+            rc_indices = 8 * (c - 1) + arange(8)
 
-        if (not short):
-            e = step2and3(tuning, c, rc_indices, s1_dict["ramp_sa_bias"])
+            if (short):
+                column_adc_offset = empty([32], dtype="int64")
+                column_adc_offset[rc_indices] = \
+                        tuning.get_exp_param("adc_offset_c")[rc_indices]
+            else:
+                s2_dict = sa_and_sq2(tuning, c, rc_indices,
+                        s1_dict["ramp_sa_bias"], sa_feedback_file)
+                if (s2_dict["status"] != 0):
+                    return s2_dict["status"]
+                column_adc_offset = s2_dict["column_adc_offset"]
+
+            e = sq1_servo(tuning, c, rc_indices, numrows, sq2_feedback_file)
             if (e != 0):
                 return e
-
-        e = step4()
-        if (e != 0):
-            return e
 
 
     if (tuning.get_exp_param("stop_after_sq1_servo") == 1):

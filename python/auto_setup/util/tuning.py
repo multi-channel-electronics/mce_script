@@ -39,6 +39,8 @@ class tuningData:
                 "config_mce_auto_setup_" + self.current_data)
         self.note_file = os.path.join(self.data_dir, self.name + "_note")
         self.sqtune_file = os.path.join(self.data_dir, self.name + ".sqtune")
+        self.safb_init_file = os.path.join(self.data_dir,
+                self.name + ".safb.init")
         self.sq2fb_init_file = os.path.join(self.data_dir,
                 self.name + ".sq2fb.init")
         self.row_init_file = os.path.join(self.data_dir,
