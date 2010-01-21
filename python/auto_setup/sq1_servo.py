@@ -4,51 +4,36 @@ from mce_data import MCERunfile, MCEFile
 
 import servo
 
-def smooth(x, scale):
-    s = x.shape
-    x.shape = (-1, s[-1])
-    y = array([convolve(xx, [1]*scale, mode='valid') for xx in x]) / scale
-    x.shape = s
-    y.shape = s[:-1] + (y.shape[-1],)
-    return y
-
 def acquire(tuning, rc, filename=None, fb=None,
-            bias=None, gain=None):
+            gain=None, super_servo=False):
 
     # Convert to 0-based rc indices.
     rci = rc - 1
 
     # File defaults
     if filename == None:
-        filename = tuning.get_filename(rc=rc, action='sq2servo')
+        filename = tuning.get_filename(rc=rc, action='sq1servo')
     try:
         acq_id = int(filename.split('_')[0])
     except ValueError:
         acq_id = 0
 
-    # Biasing semantics are complicated, fix me.
-    change_bias = not (bias == False)
-    if bias == None and tuning.get_exp_param('sq2_servo_bias_ramp')[0] != 0:
-        bias = {}
-        for k in ['start','count','step']:
-            bias[k] = tuning.get_exp_param('sq2_servo_bias_%s'%k)[0]
-    if bias == None or bias == False:
-        bias = {'start': tuning.get_exp_param('default_sq2_bias'),
-                'count': 1,
-                'step': 0 }
     # FB
     if fb == None:
         fb = {}
         for k in ['start','count','step']:
-            fb[k] = tuning.get_exp_param('sq2_servo_flux_%s'%k)[0]
+            fb[k] = tuning.get_exp_param('sq1_servo_flux_%s'%k)[0]
     if gain == None:
-        gain = tuning.get_exp_param('sq2servo_gain')[rci]
+        gain = tuning.get_exp_param('sq1servo_gain')[rci]
     
-    # Execute C servo program
-    cmd = [tuning.bin_path+'/sq2servo', filename,
-           bias['start'], bias['step'], bias['count'],
-           fb['start'], fb['step'], fb['count'],
-           rc, int(change_bias), gain]
+    if super_servo:
+        cmd = [tuning.bin_path+'sq1servo_all']
+    else:
+        cmd = [tuning.bin_path+'sq1servo', '-p', 50]
+
+    cmd += [filename, 0,0,0,
+            fb['start'], fb['step'], fb['count'],
+            rc, 1, gain]
 
     ok = tuning.run(cmd)
     if not ok:
@@ -66,18 +51,15 @@ def acquire(tuning, rc, filename=None, fb=None,
                   'filename':fullname }
 
 
-
-
-
-def reduce(tuning, sq2file, lock_amp=True, slope=None):
+def reduce(tuning, servo_data, lock_amp=True, slope=None):
     # Defaults from config file
     if slope == None:
-        slope = tuning.get_exp_param('sq2servo_gain')[rci] / \
+        slope = tuning.get_exp_param('sq1servo_gain')[rci] / \
             tuning.get_exp_param('sq1servo_gain')[rci]
-    if not hasattr(sq2file, 'haskey'):
-        sq2file = {'filename': sq2file}
+    if not hasattr(servo_data, 'haskey'):
+        servo_data = {'filename': servo_data}
 
-    datafile = sq2file['filename']
+    datafile = servo_data['filename']
     rf = MCERunfile(datafile+'.run')
     error, feedback = util.load_bias_file(datafile+'.bias')
 
@@ -89,24 +71,28 @@ def reduce(tuning, sq2file, lock_amp=True, slope=None):
 
     # Assert n_bias * n_fb == feedback.shape[1]
 
+    # Discard leading and trailing samples in each fb ramp
+    scale = n_fb / 40
+
     # Analyze each bias independently
     for ib in range(n_bias):
         # The signal we will look at
         y = feedback[:,ib*n_fb:(ib+1)*n_fb]
-        a = servo.get_lock_points(y, scale=n_fb/40, yscale=4000, lock_amp=lock_amp, slope=slope)
+        a = servo.get_lock_points(y, scale=n_fb/40, yscale=None, lock_amp=lock_amp, slope=slope)
 
     # Add feedback keys
     for k in ['lock', 'left', 'right']:
         a[k+'_x'] = fb[a[k+'_idx']]
     return a
 
-def plot(tuning, servo_data, lock_points, plot_file=None, format='pdf'):
 
+def plot(tuning, servo_data, lock_points, plot_file=None, format='pdf'):
+    
     if not hasattr(servo_data, 'haskey'):
         servo_data = {'filename': servo_data}
 
     if plot_file == None:
-        _, basename = os.path.split(servo_data['filename'])
+        _, basename = os.path.split(sq2file['filename'])
         plot_file = os.path.join(tuning.plot_dir, '%s.%s' % (basename, format))
 
     datafile = servo_data['filename']
