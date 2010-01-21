@@ -5,24 +5,31 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as tkr
 
 class tuningPlot:
-    def __init__(self, rows, cols, pages=1):
+    def __init__(self, rows, cols, pages=1, edge_labels=True,
+                 title=None):
         self.rows, self.cols = rows, cols
         self.idx = -1
-        self.fig = plt.figure(figsize=(11, 8.5))
+        self.fig = plt.figure(figsize=(8.5,11))
+        self.title = title
+        self.edge_labels = edge_labels
 
     def subplot(self, r=None, c=None,
                 title=None, xlabel=None, ylabel=None):
+        if self.idx < 0 and self.title != None:
+            self.fig.text(0.5, 0.95, self.title,
+                          ha='center', va='bottom', fontsize=12,
+                          family='monospace')
         if r == None and c == None:
             self.idx += 1
-            r, c = self.idx % self.rows, self.idx / self.rows
+            c, r = self.idx % self.cols, self.idx / self.cols
         else:
             self.idx = c*self.rows + r
         ax = self.fig.add_subplot(self.rows, self.cols, self.idx+1)
         if title != None:
             ax.set_title(title)
-        if xlabel != None:
+        if xlabel != None and (not self.edge_labels or r==self.rows-1):
             ax.set_xlabel(xlabel, size=8)
-        if ylabel != None:
+        if ylabel != None and (not self.edge_labels or c==0):
             ax.set_ylabel(ylabel, size=8)
         self.ax = ax
         return self.ax
@@ -35,6 +42,8 @@ class tuningPlot:
 
         #Font sizes
         ax.title.set_fontsize(6)
+        ax.xaxis.label.set_fontsize(6)
+        ax.yaxis.label.set_fontsize(6)
 
         #Set the tick distribution for x and y
         ax.xaxis.set_major_locator(tkr.MaxNLocator(10))

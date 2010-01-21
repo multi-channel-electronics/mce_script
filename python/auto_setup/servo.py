@@ -1,3 +1,4 @@
+import auto_setup.util as util
 from numpy import *
 
 def smooth(x, scale):
@@ -58,4 +59,25 @@ def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
             'left_idx': i_left,
             'right_idx': i_right,
             }
-x
+
+
+def plot(x, y, lock_points, plot_file,
+         title=None, xlabel=None, ylabel=None, titles=None):
+    n = y.shape[0]
+    for a in ['xlabel', 'ylabel', 'titles']:
+        if eval(a) == None or type(eval(a)) == str:
+            exec('%s=[%s]*n' % (a,a))
+    n_cols = y.shape[0]
+    for page in range((n_cols + 7)/8):
+        p = util.tuningPlot(4, 2, title=title)
+        for j in range(8):
+            i = page*8 + j
+            ax = p.subplot(title=titles[i], xlabel=xlabel[i], ylabel=ylabel[i])
+            ax.plot(x/1000., y[i]/1000.)
+            ax.axhline(y=lock_points['lock_y'][i]/1000.,c='k')
+            ax.axvline(x=lock_points['lock_x'][i]/1000.,c='k')
+            ax.axvline(x=lock_points['left_x'][i]/1000.,c='k',ls='dashed')
+            ax.axvline(x=lock_points['right_x'][i]/1000.,c='k',ls='dashed')
+            p.format()
+        p.save(plot_file)
+    

@@ -1,16 +1,23 @@
+import os
 import auto_setup.util as util
 from numpy import *
 from mce_data import MCERunfile, MCEFile
 
 import servo
 
-def smooth(x, scale):
-    s = x.shape
-    x.shape = (-1, s[-1])
-    y = array([convolve(xx, [1]*scale, mode='valid') for xx in x]) / scale
-    x.shape = s
-    y.shape = s[:-1] + (y.shape[-1],)
-    return y
+def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None):
+
+    ok, servo_data = acquire(tuning, rc, filename=filename, fb=fb,
+                             bias=bias, gain=gain)
+    if not ok:
+        raise RuntimeError, servo_data['error']
+
+    lock_points = reduce(tuning, servo_data, slope=slope)
+    plot(tuning, servo_data, lock_points)
+
+    # Return dictionary of relevant results
+    return {'sq2_target': lock_points['lock_y']}
+
 
 def acquire(tuning, rc, filename=None, fb=None,
             bias=None, gain=None):
@@ -50,8 +57,8 @@ def acquire(tuning, rc, filename=None, fb=None,
            fb['start'], fb['step'], fb['count'],
            rc, int(change_bias), gain]
 
-    ok = tuning.run(cmd)
-    if not ok:
+    status = tuning.run(cmd)
+    if status != 0:
         return False, {'error': 'command failed: %s' % str(cmd)}
 
     # Register this acquisition, taking nframes from runfile.
@@ -66,16 +73,14 @@ def acquire(tuning, rc, filename=None, fb=None,
                   'filename':fullname }
 
 
-
-
-
 def reduce(tuning, sq2file, lock_amp=True, slope=None):
     # Defaults from config file
     if slope == None:
         slope = tuning.get_exp_param('sq2servo_gain')[rci] / \
             tuning.get_exp_param('sq1servo_gain')[rci]
     if not hasattr(sq2file, 'haskey'):
-        sq2file = {'filename': sq2file}
+        sq2file = {'filename': sq2file,
+                   'basename': os.path.split(sq2file)[-1]}
 
     datafile = sq2file['filename']
     rf = MCERunfile(datafile+'.run')
@@ -103,7 +108,8 @@ def reduce(tuning, sq2file, lock_amp=True, slope=None):
 def plot(tuning, servo_data, lock_points, plot_file=None, format='pdf'):
 
     if not hasattr(servo_data, 'haskey'):
-        servo_data = {'filename': servo_data}
+        servo_data = {'filename': servo_data,
+                   'basename': os.path.split(servo_data)[-1]}
 
     if plot_file == None:
         _, basename = os.path.split(servo_data['filename'])
@@ -118,18 +124,14 @@ def plot(tuning, servo_data, lock_points, plot_file=None, format='pdf'):
     fb_params = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
     fb_0, d_fb, n_fb = fb_params
     fb = arange(fb_0, n_fb*d_fb+fb_0, d_fb)
+    
+    # What columns are these?
+    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
+    channels = [(int(rc)-1)*8 + i for i in range(8) for rc in rcs]
 
     # Plot plot plot
-    n_cols = servo_val.shape[0]
-    for page in range((n_cols + 7)/8):
-        p = util.tuningPlot(4, 2)
-        for chan in range(8):
-            i = page*8 + chan
-            ax = p.subplot(title='Column %i' % i)
-            ax.plot(fb/1000., servo_val[i]/1000.)
-            ax.axhline(y=lock_points['lock_y'][i]/1000.,c='k')
-            ax.axvline(x=lock_points['lock_x'][i]/1000.,c='k')
-            ax.axvline(x=lock_points['left_x'][i]/1000.,c='k',ls='dashed')
-            ax.axvline(x=lock_points['right_x'][i]/1000.,c='k',ls='dashed')
-            p.format()
-        p.save(plot_file)
+    servo.plot(fb, servo_val, lock_points, plot_file,
+               title=servo_data['basename'],
+               titles=['Column %i' %c for c in channels],
+               xlabel='SQ2 FB / 1000',
+               ylabel='SA FB / 1000')
