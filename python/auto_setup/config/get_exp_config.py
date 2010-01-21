@@ -112,10 +112,6 @@ def get_exp_config(file):
 
     return config;
 
-def rc_list(file):
-    hardware_rc = get_exp_param(file, "hardware_rc");
-    return [c + 1 for c in range(len(hardware_rc)) if hardware_rc[c] == 1]
-
 def set_exp_param_range(file, key, range, value):
     a = get_exp_param(file, key)
     a[range] = value
