@@ -105,11 +105,12 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     os.remove(lst)
     os.symlink(tuning.sqtune_file, lst)
 
-    return {"ramp_sa_bias": ramp_sa_bias, "sq2_bias": sq2_bias}
+    return {"ramp_sa_bias": ramp_sa_bias, "sq1_bias": sq1_bias,
+            "sq1_bias_off": sq1_bias_off, "sq2_bias": sq2_bias}
 
 
 def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
-    ssa_file_name = tuning.filename(rc=rc)
+    ssa_file_name, acq_id = tuning.filename(rc=rc)
 
     def_sa_bias = tuning.get_exp_param("default_sa_bias")
 
@@ -215,7 +216,7 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
         print "An error has occurred before running the sq2 servo script"
         return {"status": 6}
 
-    sq2_file_name = tuning.filename(rc=rc)
+    sq2_file_name, acq_id = tuning.filename(rc=rc)
 
     # locking slope should be consistent with servo gains.
     sq2slope = -util.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1]) \
@@ -270,7 +271,7 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
 
     sq2_feedback_file[rc_indices] = sq2_feedback
 
-    sq1_base_name = tuning.filename(rc=rc)
+    sq1_base_name, acq_id = tuning.filename(rc=rc)
 
     # Here we either
     # a) servo each row of each column
@@ -361,7 +362,7 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
 
     return 0
 
-def sq1_ramp_check(tuning, rcs, numrows):
+def sq1_ramp_check(tuning, rcs, numrows, tune_data):
     new_adc_arr = [ "" ] * 32
     squid_p2p_arr = [ "" ] * 32
     squid_lockrange_arr = [ "" ] * 32
@@ -381,8 +382,8 @@ def sq1_ramp_check(tuning, rcs, numrows):
         tuning.set_exp_param("servo_i", 0)
         tuning.set_exp_param("servo_d", 0)
         tuning.set_exp_param("config_adc_offset_all", 0)
-        tuning.set_exp_param("sq1_bias", sq1_bias)
-        tuning.set_exp_param("sq1_bias_off", sq1_bias_off)
+        tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
+        tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
 
         status12 = tuning.mce_make_config(True)
 
@@ -390,7 +391,7 @@ def sq1_ramp_check(tuning, rcs, numrows):
             print "An error occurred before running the sq1ramp check"
             return 12
 
-        rsq1_file_name = tuning.filename(rc=rc, action="sq1ramp", acq_id=acq_id)
+        rsq1_file_name, acq_id = tuning.filename(rc=rc, action="sq1ramp")
 
         rsq1_dict = ramp_sq1_fb_plot(tuning, rc=rc, numrows=numrows,
                 acq_id=acq_id)
@@ -434,8 +435,7 @@ def sq1_ramp_check(tuning, rcs, numrows):
             tuning.get_exp_param("array_id"), "dead_" + m + ".cfg") for m in
             mask_list ]
         extra_lables = util.mask_labels(mask_files, mask_list, rc)
-        rsq1c_file_name = tuning.filename(rc=rc, action="sq1rampc",
-                acq_id=acq_id)
+        rsq1c_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampc")
 
         rsq1_dict = ramp_sq1_fb_plot(tuning, rsq1c_file_name, rc=rc,
                 numrows=numrows, acq_id=acq_id, extra_labels=extra_labels)
@@ -475,8 +475,7 @@ def sq1_ramp_check(tuning, rcs, numrows):
                 print "An error occurred before setting the new adc_off after ramp_sq1_bias"
                 return 16
 
-            rtb_file_name = tuning.filename(rc=rc, action="sq1rampb",
-                    acq_id=acq_id)
+            rtb_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampb")
 
             ramp_sq1_bias_plot(rtb_file_name, rc=rc, numrows=numrows,
                     acq_id=acq_id)
@@ -513,12 +512,11 @@ def frametest_check(tuning, rcs, numrows, row, column):
 
     if (len(rcs) < 4):
         for rc in rcs:
-            lock_file_name = tuning.filename(rc=rc, action="lock",
-                    acq_id=acq_id)
+            lock_file_name, acq_id = tuning.filename(rc=rc, action="lock")
             frametest_plot(lock_file_name, column=column, row=row, rc=rc,
                     binary=1, acq_id=acq_id)
     else:
-        lock_file_name = tuning.filename(rc="s", action="lock", acq_id=acq_id)
+        lock_file_name, acq_id = tuning.filename(rc="s", action="lock")
         rc = 5
         frametest_plot(lock_file_name, column=column, row=row, rc=rc,
                 binary=1, acq_id=acq_id)
@@ -605,7 +603,7 @@ IDL auto_setup_squids."""
         return 98
 
     # sq1 ramp check
-    sq1_ramp_check(tuning, rcs, numrows)
+    sq1_ramp_check(tuning, rcs, numrows, tune_data)
 
     # frametest check
     frametest_check(tuning, rcs, numrows, row, column)

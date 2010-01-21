@@ -85,12 +85,13 @@ class tuningData:
     def filename(self, rc=None, action=None, ctime=None):
         if ctime == None:
             ctime = time.time()
-        s = str(ctime)
+        acq_id = str(ctime)
+        s = acq_id
         if rc != None:
             s += '_RC%s' % (str(rc))
         if action != None:
             s += '_' + action
-        return s
+        return s, acq_id
     
     def mce_make_config(self, run_now=False):
         make_command = ["mce_make_config", self.exp_file, self.config_mce_file]
