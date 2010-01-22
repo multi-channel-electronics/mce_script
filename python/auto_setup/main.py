@@ -1,8 +1,6 @@
 # vi: ts=4:sw=4:et
-import acquire
-import reduce
-import report
 import util
+import series_array
 
 import os
 import subprocess
@@ -404,11 +402,10 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
             all_squid_multilock = empty([32, numrows], dtype="float64")
 
         samp_num = tuning.get_exp_param("default_sample_num")
-        new_off = rsq1_dict["new_adc_offset"]
         for j in range(8):
-            new_off[j, ...] = (rsq1_dict["new_adc_offset"][j, ...] + 
-                    column_adc_offset[j + 8 * (rc - 1)]) / samp_num
-            all_adc_offsets[(rc - 1) * 8 + j, ...] = new_off[j, ...]
+            all_adc_offsets[(rc - 1) * 8 + j, ...] = \
+                    (rsq1_dict["new_adc_offset"][j, ...] + 
+                            column_adc_offset[j + 8 * (rc - 1)]) / samp_num
 
         array_width = tuning.get_exp_param("array_width")
         for j in range(8):

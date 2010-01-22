@@ -1,7 +1,6 @@
 # vi: ts=4:sw=4:et
 import os, subprocess, time
 import auto_setup.config as config
-from current_data_name import current_data_name
 
 class tuningData:
     """
@@ -34,7 +33,7 @@ class tuningData:
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
 
         # Various filenames
-        self.log_file = os.path.join(self.data_dir, name+'.log')
+        self.log_file = "log.file"#os.path.join(self.data_dir, name+'.log')
         self.config_mce_file = os.path.join(self.base_dir,
                 "config_mce_auto_setup_" + self.current_data)
         self.note_file = os.path.join(self.data_dir, self.name + "_note")
@@ -48,7 +47,7 @@ class tuningData:
         # Log file
         self.openlog_failed = False
         self.log = None
-        
+
     def make_dirs(self):
         os.mkdir(self.data_dir)
         os.mkdir(self.plot_dir)
@@ -66,9 +65,13 @@ class tuningData:
         if (no_log):
             log = None
         else:
-            if (not self.openlog_failed and not no_log and self.log == None):
+            if (not self.openlog_failed and self.log == None):
                 try:
                     self.log = open(self.log_file, "w+")
+                    self.log.write("Auto tuning run started "
+                        + time.asctime(time.gmtime(self.the_time)) + " UTC\n")
+                    self.log.write("Dir:  " + self.base_dir + "\n")
+                    self.log.write("Name: " + self.name + "\n")
                 except IOError as (errno, strerror):
                     print "Unable to create logfile \"{0}\" (errno: {1}; {2})".\
                             format(self.log_file, errno, strerror)
@@ -76,7 +79,15 @@ class tuningData:
                     self.openlog_failed = True
             log = self.log
 
-        return subprocess.call([str(x) for x in args], stdout=log, stderr=log)
+        if (log):
+          log.write("\nExecuting")
+          log.writelines([" " + str(x) for x in args] + ["\n"])
+          log.flush()
+
+        s = subprocess.call([str(x) for x in args], stdout=log, stderr=log)
+
+        if (log):
+          log.write("Exit Status: " + str(s) + "\n")
 
     def rc_list(self):
         hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc");
@@ -94,22 +105,29 @@ class tuningData:
         return s, acq_id
     
     def mce_make_config(self, run_now=False):
-        make_command = ["mce_make_config", self.exp_file, self.config_mce_file]
-        config_command = self.config_mce_file
-
         # create the config
         try:
-            status = self.run(make_command)
+            status = self.run(["mce_make_config", self.exp_file,
+              self.config_mce_file])
         except OSError, e:
             print "Config creation failed:", e
+            return -1
 
         if (status > 0):
             return status
 
+        # run it
         if (run_now):
             try:
-                status = self.run(config_command)
+                status = self.run([self.config_mce_file])
             except OSError, e:
                 print "Config run failed:", e
+                return -1
   
         return status
+
+    def writelog(self, message, flush=False):
+      if (self.log):
+        self.log.write(message)
+        if (flush):
+          self.log.flush()

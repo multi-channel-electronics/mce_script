@@ -22,8 +22,6 @@ something slightly less lame with the end points.
 
   # reflect the input on the edges
   s = numpy.r_[2 * a[0] - a[w:1:-1], a, 2 * a[-1]-a[-1:-w:-1]]
-#  s = numpy.r_[numpy.zeros(w), a, numpy.zeros(w)]
-  print(s)
 
   # perform the convolution
   y = numpy.convolve(numpy.ones(w,'d')/w, s, mode='same')
