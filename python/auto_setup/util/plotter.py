@@ -1,26 +1,36 @@
+import biggles
+# assert biggles.__version__ >= 1.6.4
+
 import pylab as pl
 import scipy as sp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tkr
 
-class tuningPlot:
-    def __init__(self, rows, cols, pages=1, edge_labels=True,
-                 title=None):
+
+class tuningPlotX:
+    def __init__(self, rows, cols, pages=0, edge_labels=True,
+                 title=None, filename=None):
         self.rows, self.cols = rows, cols
         self.idx = -1
         self.fig = plt.figure(figsize=(8.5,11))
         self.title = title
         self.edge_labels = edge_labels
+        self.page_manager = None
+        self.page = 0
+        if pages > 0:
+            self.page_manager = 'multi'
+            self.filename = filename
 
     def subplot(self, r=None, c=None,
                 title=None, xlabel=None, ylabel=None):
-        if self.idx < 0 and self.title != None:
-            self.fig.text(0.5, 0.95, self.title,
-                          ha='center', va='bottom', fontsize=12,
-                          family='monospace')
         if r == None and c == None:
-            self.idx += 1
+            self.idx = (self.idx + 1) % 8
+            if self.idx==0:
+                if self.page > 0 and self.page_manager != None:
+                    self.save(self.filename % (self.page+1))
+                    self.fig.clf()
+                self.page += 1
             c, r = self.idx % self.cols, self.idx / self.cols
         else:
             self.idx = c*self.rows + r
@@ -77,7 +87,58 @@ class tuningPlot:
     def save(self, filename):
         plt.savefig(filename)
 
-#adjustments to make sure text is readable
-#pl.savefig('plotter2', dpi=250, papertype='letter', orientation='landscape')
-#plt.subplots_adjust(wspace=0.25, hspace=-0.5)
-#plt.show()
+
+
+
+
+class tuningPlotB:
+    def __init__(self, rows, cols, pages=0, edge_labels=True,
+                 title=None, filename=None):
+        self.rows, self.cols = rows, cols
+        self.idx = -1
+        self.fig = self._newpage(title=title)
+        self.edge_labels = edge_labels
+        self.page_manager = None
+        self.page = 0
+        if pages > 0:
+            self.page_manager = 'multi'
+            self.filename = filename
+
+    def _newpage(self, title=None):
+        self.fig = biggles.Table(self.rows, self.cols)
+        if title != None:
+            self.fig.title = title
+        return self.fig
+
+    def subplot(self, r=None, c=None,
+                title=None, xlabel=None, ylabel=None):
+        #if self.idx < 0 and self.title != None:
+        #    self.fig.text(0.5, 0.95, self.title,
+        #                  ha='center', va='bottom', fontsize=12,
+        #                  family='monospace')
+        if r == None and c == None:
+            self.idx = (self.idx + 1) % 8
+            if self.idx==0:
+                if self.page > 0 and self.page_manager != None:
+                    self.save(self.filename % (self.page+1))
+                    self._newpage()
+                self.page += 1
+            c, r = self.idx % self.cols, self.idx / self.cols
+        ax = biggles.FramedPlot()
+        if title != None:
+            ax.title = title
+        if xlabel != None and (not self.edge_labels or r==self.rows-1):
+            ax.xlabel = xlabel
+        if ylabel != None and (not self.edge_labels or c==0):
+            ax.ylabel = ylabel
+        self.fig[r,c]  = ax
+        return ax
+
+    def show(self):
+        self.plt.show()
+
+    def save(self, filename):
+        self.fig.write_img( 400, 600, filename)
+
+
+tuningPlot = tuningPlotB

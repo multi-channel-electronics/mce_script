@@ -125,6 +125,6 @@ def plot(tuning, servo_data, lock_points, plot_file=None, format='pdf'):
 
     # Plot plot plot
     servo.plot(fb, servo_val, lock_points, plot_file,
-               title=['Column %i' %c for c in channels],
+               titles=['Column %i' %c for c in channels],
                xlabel='SQ1 FB / 1000',
                ylabel='SQ2 FB / 1000')

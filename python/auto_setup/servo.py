@@ -1,5 +1,6 @@
 import auto_setup.util as util
 from numpy import *
+import biggles
 
 def smooth(x, scale):
     s = x.shape
@@ -63,21 +64,27 @@ def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
 
 def plot(x, y, lock_points, plot_file,
          title=None, xlabel=None, ylabel=None, titles=None):
-    n = y.shape[0]
+    n_plots = y.shape[0]
     for a in ['xlabel', 'ylabel', 'titles']:
         if eval(a) == None or type(eval(a)) == str:
-            exec('%s=[%s]*n' % (a,a))
-    n_cols = y.shape[0]
-    for page in range((n_cols + 7)/8):
-        p = util.tuningPlot(4, 2, title=title)
+            exec('%s=[%s]*n_plots' % (a,a))
+    print x.shape, y.shape
+    n_pages = (n_plots + 7) / 8
+    print n_pages, n_plots, len(xlabel)
+    p = util.tuningPlot(4, 2, title=title, filename=plot_file, pages=n_pages)
+    for page in range(n_pages):
         for j in range(8):
             i = page*8 + j
+            if i >= n_plots: break
             ax = p.subplot(title=titles[i], xlabel=xlabel[i], ylabel=ylabel[i])
-            ax.plot(x/1000., y[i]/1000.)
-            ax.axhline(y=lock_points['lock_y'][i]/1000.,c='k')
-            ax.axvline(x=lock_points['lock_x'][i]/1000.,c='k')
-            ax.axvline(x=lock_points['left_x'][i]/1000.,c='k',ls='--')
-            ax.axvline(x=lock_points['right_x'][i]/1000.,c='k',ls='--')
-            p.format()
-        p.save(plot_file)
+            ax.add(biggles.LineY(lock_points['lock_y'][i]/1000.))
+            ax.add(biggles.LineX(lock_points['lock_x'][i]/1000.))
+            ax.add(biggles.LineX(lock_points['left_x'][i]/1000.,type='dashed'))
+            ax.add(biggles.LineX(lock_points['right_x'][i]/1000.,type='dashed'))
+            ax.add(biggles.Curve(x/1000., y[i]/1000.))
+        try:
+            filename = plot_file % page
+        except TypeError:
+            filename = plot_file
+        p.save(filename)
     

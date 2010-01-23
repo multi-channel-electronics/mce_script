@@ -187,7 +187,7 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
         return {"status": 98}
     else:
         sq2_dict = sq2servo_plot(tuning, sq2_file_name,
-            sq2bias=tune_data["sq2_bias"], rc=rc, slope=sq2slope, locamp=1,
+            sq2bias=tune_data["sq2_bias"], rc=rc, slope=sq2slope, lockamp=1,
             acq_id=acq_id)
 
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_dict["sq2_target"])

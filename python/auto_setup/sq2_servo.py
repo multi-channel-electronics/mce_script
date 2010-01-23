@@ -5,12 +5,16 @@ from mce_data import MCERunfile, MCEFile
 
 import servo
 
-def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None):
+def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
+       do_analysis=True):
 
     ok, servo_data = acquire(tuning, rc, filename=filename, fb=fb,
                              bias=bias, gain=gain)
     if not ok:
         raise RuntimeError, servo_data['error']
+
+    if not do_analysis:
+        return None
 
     lock_points = reduce(tuning, servo_data, slope=slope)
     plot(tuning, servo_data, lock_points)
