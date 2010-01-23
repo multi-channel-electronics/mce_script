@@ -16,8 +16,7 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     on_bias = False
     if (check_bias):
         for c in rcs:
-            exit_status = tuning.run(["check_zero", "rc{0}".format(c),
-                "sa_bias"])
+            exit_status = tuning.run(["check_zero", "rc%i" % (c), "sa_bias"])
             if (exit > 8):
                 print "check_zero failed with code", exit_status
             on_bias += exit_status
@@ -43,15 +42,15 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
         # setting detectors bias by first driving them normal and then
         # to the transition.
         cfg_tes_bias_norm = tuning.get_exp_param("tes_bias_normal")
-        for i in cfg_tes_bias_norm.size():
-            util.cmd("wra tes bias {0} {1}".format(i, cfg_tes_bias_norm[i]))
+        for i,x in enumerate(cfg_tes_bias_norm):
+            tuning.cmd("wra tes bias %i %s" % (i, x))
 
         time.sleep(tuning.get_exp_param("tes_bias_normal_time"))
 
         cfg_tes_bias_idle = tuning.get_exp_param("tes_bias_idle")
         tuning.set_exp_param("tes_bias", cfg_tes_bias_idle)
-        for i in cfg_tes_bias_idle.size():
-            util.cmd("wra tes bias {0} {1}".format(i, cfg_tes_bias_idle[i]))
+        for i,x in enumerate(cfg_tes_bias_idle):
+            tuning.cmd("wra tes bias %i %s" % (i, x))
 
     # load squid biases from config file default parameters
 
@@ -67,16 +66,12 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
 
     tuning.set_exp_param("sa_bias", def_sa_bias)
     tuning.set_exp_param("sq2_bias", sq2_bias)
-    tuning.set_exp_param("sq1_bias", 0)
-    tuning.set_exp_param("sq1_bias_off", 0)
+    tuning.set_exp_param("sq1_bias", zeros([len(sq1_bias)]))
+    tuning.set_exp_param("sq1_bias_off", zeros([len(sq1_bias_off)]))
 
     # Save experiment params, make config script, run it.
-    status1 = tuning.mce_make_config(True)
+    tuning.write_config()
   
-    if (status1 != 0):
-        print "An error occurred running the config file"
-        return None
-
     # if the ssa and sq2 biases were previously off the system waits for
     # thermalisation
 
@@ -100,7 +95,11 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
     f.close()
 
     lst = os.path.join(tuning.data_root, "last_squid_tune")
-    os.remove(lst)
+    try:
+      os.remove(lst)
+    except OSError:
+      pass # last_squid_tune didn't exist
+
     os.symlink(tuning.sqtune_file, lst)
 
     return {"ramp_sa_bias": ramp_sa_bias, "sq1_bias": sq1_bias,
@@ -121,46 +120,17 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
     tuning.set_exp_param_range("sq2_bias", rc_indices, zeros(len(rc_indices),
         dtype="int"))
 
-    tuning.set_exp_param("sq1_bias", 0)
-    tuning.set_exp_param("sq1_bias_off", 0)
+    tuning.set_exp_param("sq1_bias", zeros([len(tune_data["sq1_bias"])]))
+    tuning.set_exp_param("sq1_bias_off",
+        zeros([len(tune_data["sq1_bias_off"])]))
 
     # SA lock slope is determined by sign of sq2servo gain
 
-    sa_slope = -util.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1])
-
-    # if we want to find the SSA bias again
     column_adc_offset = empty([32], dtype="int64")
 
-    if (tune_data["ramp_sa_bias"]):
-        status2 = tuning.mce_make_config(True)
-
-        if (status2 != 0):
-            print "An error has occurred just before running the ramp_sa script"
-            return {"status": 2}
-
-        acquire.series_array(tuning, rc, directory)
-
-        sa_dict = reduce.series_array(tuning, rc, numrows, acq_id, ramp_bias,
-                slope)
-        
-        tuning.set_exp_config_range("sa_bias", rc_indices,
-                sa_dict["final_sa_bias_ch_by_ch"])
-
-        sa_offset_MCE2 = floor(final_sa_bias_ch_by_ch *
-                tuning.get_exp_param("sa_offset_bias_ratio"))
-
-        tuning.set_exp_config_range("sa_offset", rc_indices,
-                sa_offset_MCE2.astype("int"))
-
-        tuning.set_exp_config("config_adc_offset_all", 0)
-        tuning.set_exp_config_range("adc_offset_c", rc_indices,
-                sa_dict["sa_target"])
-
-        column_adc_offset[rc_indices] = sa_dict["sa_target"]
-    else:
+    if (not tune_data["ramp_sa_bias"]):
         # Instead of ramping the SA bias, just use the default values, and ramp
         # the SA fb to confirm that the v-phi's look good.
-
         tuning.set_exp_param_range("sa_bias", rc_indices,
                 def_sa_bias[rc_indices])
 
@@ -170,28 +140,18 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
         tuning.set_exp_param_range("sa_offset", rc_indices,
                 sa_offset_MCE2[rc_indices].astype("int"))
 
-        status3 = tuning.mce_make_config(True)
+    tuning.write_config()
 
-        if (status3 != 0):
-            print "An error has occurred just before running the ramp_sa script"
-            return {"status": 3}
+    sa_dict = series_array.go(tuning, rc, filename=ssa_file_name,
+            do_bias=tune_data["ramp_sa_bias"])
 
-#        sa_dict = ramp_sa_fb_plot(ssa_file_name, rc=rc, slope=sa_slope,
-#                 numrows=numrows, acq_id=acq_id)
-        sa_dict = {"sa_target": zeros([8], dtype="int"), "sa_fb_init":
-          array([32000, 32000, 32000, 32000, 32000, 32000, 32000, 32000])}
+    tuning.set_exp_param("config_adc_offset_all", 0)
+    tuning.set_exp_param_range("adc_offset_c", rc_indices,
+            sa_dict["sa_target"])
 
-        tuning.set_exp_param("config_adc_offset_all", 0)
-        tuning.set_exp_param_range("adc_offset_c", rc_indices,
-                sa_dict["sa_target"])
+    column_adc_offset[rc_indices] = sa_dict["sa_target"]
 
-        column_adc_offset[rc_indices] = sa_dict["sa_target"]
-
-    status5 = tuning.mce_make_config(True)
-
-    if (status5 != 0):
-        print "An error has occurred after running the ramp_sa script"
-        return {"status": 5}
+    tuning.write_config()
 
 # step 3: SQ2 servo block
 
@@ -203,16 +163,13 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
     # Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
-    tuning.set_exp_param("sq1_bias", 0)
-    tuning.set_exp_param("sq1_bias_off", 0)
+    tuning.set_exp_param("sq1_bias", zeros([len(tune_data["sq1_bias"])]))
+    tuning.set_exp_param("sq1_bias_off",
+        zeros([len(tune_data["sq1_bias_off"])]))
     tuning.set_exp_param_range("sq2_bias", rc_indices,
             tune_data["sq2_bias"][rc_indices])
 
-    status6 = tuning.mce_make_config(True)
-
-    if (status6 != 0):
-        print "An error has occurred before running the sq2 servo script"
-        return {"status": 6}
+    tuning.write_config()
 
     sq2_file_name, acq_id = tuning.filename(rc=rc)
 
@@ -229,18 +186,15 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
         print "Exiting after sq2servo with bias ramp!"
         return {"status": 98}
     else:
-        sq2_dict = sq2servo_plot(tuning, sq2_file_name, sq2bias=sq2_bias, rc=rc,
-                slope=sq2slope, locamp=1, acq_id=acq_id)
+        sq2_dict = sq2servo_plot(tuning, sq2_file_name,
+            sq2bias=tune_data["sq2_bias"], rc=rc, slope=sq2slope, locamp=1,
+            acq_id=acq_id)
 
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_dict["sq2_target"])
     tuning.set_exp_param("sq1_bias", sq1_bias)
     tuning.set_exp_param("sq1_bias_off", sq1_bias_off)
 
-    status8 = tuning.mce_make_config(True)
-
-    if (status8 != 0):
-        print "An error has occurred after running the sq2 servo script"
-        return {"status": 8}
+    tuning.write_config()
 
     return {"status": 0, "column_adc_offset": column_adc_offset}
 
@@ -258,11 +212,7 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
     tuning.set_exp_param("servo_i", 0)
     tuning.set_exp_param("servo_d", 0)
 
-    status9 = tuning.mce_make_config(True)
-
-    if (status9 != 0):
-        print "An error has occurred before running the sq1 servo script"
-        return 9
+    tuning.write_config()
 
     # Sets the initial SQ2 fb (found in the previous step or set to mid-range)
     # for the SQ1 servo
@@ -304,7 +254,7 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
             runfile = sq1_base_name + "_sq1servo.run"
 
         for sq1servorow in range(numrows):
-            sq1_file_name = sq1_base_name + "_row{0}".format(sq1servorow)
+            sq1_file_name = sq1_base_name + "_row%i" % (sq1servorow)
 
             if (not config_fast_sq2):
                 sq1_dict = sq1servo_plot(sq1_file_name, sq1bias=sq1_bias, rc=rc,
@@ -347,11 +297,7 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
 
     tuning.set_exp_param_range("sq2_fb", rc_indices, sq1_target)
 
-    status11 = tuning.mce_make_config(True)
-
-    if (status11 != 0):
-        print "An error has occurred after running the sq1servo script"
-        return 11
+    tuning.write_config()
 
     f = open(tuning.sq2fb_init_file)
     for i in range(32):
@@ -383,11 +329,7 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
         tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
         tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
 
-        status12 = tuning.mce_make_config(True)
-
-        if (status12 != 0):
-            print "An error occurred before running the sq1ramp check"
-            return 12
+        tuning.write_config()
 
         rsq1_file_name, acq_id = tuning.filename(rc=rc, action="sq1ramp")
 
@@ -419,12 +361,7 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
         # Turn on adc_offset config for all columns
         tuning.set_exp_param("config_adc_offset_all", 1)
 
-        status14 = tuning.mce_make_config(True)
-
-        if (status14 != 0):
-            print "An error has occurred after running the sq1ramp check"
-            return 14
-
+        tuning.write_config()
 
         # load masks for labeling the ramp plots
         mask_list = ["connection", "other"]
@@ -466,11 +403,7 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
 
         # only do rampc if it's a full tuning
         if (tuning.get_exp_param("ramp_tes_bias") == 1 and not short):
-            status16 = tuning.mce_make_config(True)
-
-            if (status16 != 0):
-                print "An error occurred before setting the new adc_off after ramp_sq1_bias"
-                return 16
+            tuning.write_config()
 
             rtb_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampb")
 
@@ -496,16 +429,12 @@ def frametest_check(tuning, rcs, numrows, row, column):
         tuning.set_exp_param_range("sq2_bias", bad_columns,
                 zeros(len(bad_columns)))
 
-    status17 = tuning.mce_make_config(True)
-
-    if (status17 != 0):
-        print "An error occurred before taking a sample of data"
-        return 17
+    tuning.write_config()
 
     # Permit row override, or else take it from config
     if (row == None):
         row = tuning.get_exp_param("locktest_plot_row")
-        print "Row = {0} is used for frametest_plot by default.".format(row)
+        print "Row = %i is used for frametest_plot by default." % row
 
     if (len(rcs) < 4):
         for rc in rcs:
@@ -527,14 +456,14 @@ def frametest_check(tuning, rcs, numrows, row, column):
 
     # Run config one last time in *case* frametest plot changes to data
     # mode 4, and to set dead detector mask
-    tuning.mce_make_config(True)
+    tuning.write_config()
 
 
 
 
 def auto_setup(rcs=None, check_bias=False, short=False, row=None,
         column=None, numrows=33, acq_id=0, ramp_sa_bias=False, slope=1,
-        note=None, data_root=None):
+        note=None, data_root=None, debug=False):
     """
 Run a complete auto setup.
 
@@ -542,7 +471,7 @@ This metafunction runs, in turn, each of acquisition, tuning, and reporting
 functions to perform an entire auto setup procedure, exactly like the old
 IDL auto_setup_squids."""
 
-    tuning = util.tuningData(data_root=data_root)
+    tuning = util.tuningData(data_root=data_root, debug=debug)
 
     # set_directory creates directories and files where to store the tuning data
     # and plots.
@@ -555,10 +484,10 @@ IDL auto_setup_squids."""
 
     # set rc list, if necessary
     if (rcs == None):
-        print "  No read-out cards specified; setting all available RCs."
+        print "  Tuning all available RCs."
         rcs = tuning.rc_list()
 
-    print "auto_setup initialising"
+    # initialse the auto setup
     tune_data = initialise(tuning, rcs, check_bias, short, numrows,
             ramp_sa_bias, note)
 
@@ -575,7 +504,7 @@ IDL auto_setup_squids."""
     if (short <= 1):
         # starts the cycle over the 4 rcs to set all the bias ad fb
         for c in rcs:
-            print "Processing rc{0}".format(c)
+            print "Processing rc%i" % c
 
             rc_indices = 8 * (c - 1) + arange(8)
 
@@ -615,20 +544,19 @@ IDL auto_setup_squids."""
     f.write("<SQ_tuning_dir> " + tuning.name)
     
     for j in range(32):
-        f.write("<Col{0}_squid_vphi_p2p> ".format(j) + squid_p2p_arr[j])
+        f.write(("<Col%i_squid_vphi_p2p> " % j) + squid_p2p_arr[j])
     for j in range(32):
-        f.write("<Col{0}_squid_lockrange> ".format(j) + squid_lockrange[j])
+        f.write(("<Col%i_squid_lockrange> " % j) + squid_lockrange[j])
     for j in range(32):
-        f.write("<Col{0}_squid_lockslope_down> ".format(j) +
-                squid_lockslopedn_arr[j])
+        f.write(("<Col%i_squid_lockslope_down> " % j) +
+            squid_lockslopedn_arr[j])
     for j in range(32):
-        f.write("<Col{0}_squid_lockslope_up> ".format(j) +
-                squid_lockslopeup_arr[j])
+        f.write(("<Col%i_squid_lockslope_up> " % j) + squid_lockslopeup_arr[j])
     for j in range(32):
-        f.write("<Col{0}_squid_multilock> ".format(j) + squid_multilock_arr[j])
+        f.write(("<Col%i_squid_multilock> " % j) + squid_multilock_arr[j])
     for j in range(32):
-        f.write("<Col{0}_squid_off_recommendation> ".format(j) +
-                squid_off_rec_arr[j])
+        f.write(("<Col%i_squid_off_recommendation> " % j) +
+            squid_off_rec_arr[j])
 
     f.write("</SQUID>")
     f.close()
@@ -645,6 +573,6 @@ IDL auto_setup_squids."""
     shutil.copy2(tuning.exp_file, tuning.data_dir)
 
     t_elapsed = time.time() - tuning.the_time
-    print "Tuning complete.  Time elapsed: {0} seconds.".format(t_elapsed)
+    print "Tuning complete.  Time elapsed: %i seconds." % t_elapsed
 
     return 99

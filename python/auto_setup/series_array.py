@@ -21,9 +21,9 @@ import auto_setup.servo as servo
 def go(tuning, rc, filename=None, do_bias=None, slope=None):
     ok, ramp_data = acquire(tuning, rc, filename=filename, do_bias=do_bias)
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError, ramp_data['error']
 
-    lock_points = reduce(tuning, servo_data, slope=slope)
+    lock_points = reduce(tuning, ramp_data, slope=slope)
     plot(tuning, ramp_data, lock_points)
 
     # Return dictionary of relevant results
@@ -52,14 +52,15 @@ def acquire(tuning, rc, filename=None, do_bias=None):
     # Execute ramp
     cmd = ['ramp_sa_fb', filename, rc, int(do_bias)]
     status = tuning.run(cmd)
-    if status != 0:
-        return False, {'error': 'command failed: %s' % str(cmd)}
+    if status:
+        return False, {'error': 'command failed: %s with status %i' %
+                (str(cmd), status)}
 
     # Register this acquisition, taking nframes from runfile.
-    fullname = os.path.join(tuning.data_dir, filename)
-    rf = MCERunfile(fullname)
+    fullname = os.path.join(tuning.base_dir, filename)
+    rf = MCERunfile(fullname + ".run")
     n_frames = rf.Item('FRAMEACQ','DATA_FRAMECOUNT',type='int',array=False)
-    util.register(acq_id, 'tune_ramp', fullname, n_frames)
+    tuning.register(acq_id, 'tune_ramp', fullname, n_frames)
     
     return True, {'basename': acq_id,
                   'filename':fullname,
@@ -69,11 +70,12 @@ def acquire(tuning, rc, filename=None, do_bias=None):
 
 
 def reduce(tuning, ramp_data, slope=None):
-    if not hasattr(ramp_data, 'haskey'):
+    if not hasattr(ramp_data, 'has_key'):
         ramp_data = {'filename': ramp_data,
                      'basename': os.path.split(ramp_data)[-1]
                      }
     datafile = ramp_data['filename']
+    
     rf = MCERunfile(datafile + '.run')
     n_frames = rf.Item("FRAMEACQ", "DATA_FRAMECOUNT", type="int", array=False)
 
@@ -102,7 +104,7 @@ def reduce(tuning, ramp_data, slope=None):
     else:
         # If we weren't ramping the SA bias, we need to know what it was.
         n_bias = 1
-        sa_bias = array([rf.Item('HEADER', 'RB sa bias', 'int')[cols]])
+        sa_bias = array(rf.Item('HEADER', 'RB sa bias', 'int'))[cols]
         fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
 
     # Feedback vector.
@@ -122,7 +124,7 @@ def reduce(tuning, ramp_data, slope=None):
     # Store SA bias results
     result = {
         'sa_bias_idx': bias_idx,
-        'sa_bias': array([s[i] for s,i in zip(sa_bias, bias_idx)]),
+        'sa_bias': array([int(s[i]) for s,i in zip(sa_bias, bias_idx)]),
         'sa_bias_merit': amps,
         }
     
@@ -331,6 +333,10 @@ def load_ramp_data(filename, reduce=False):
     rf, data = m.runfile, m.Read(row_col=True).data
     n_cols = data.shape[1]
 
+    # List RCs and columns involved here...
+    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
+    cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
+
     bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', array=False).strip() == 'sa_bias')
     if bias_ramp:
         bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
@@ -339,12 +345,8 @@ def load_ramp_data(filename, reduce=False):
     else:
         # If we weren't ramping the SA bias, we need to know what it was.
         n_bias = 1
-        sa_bias = array([rf.Item('HEADER', 'RB sa bias', 'int')[cols]])
+        sa_bias = array(rf.Item('HEADER', 'RB sa bias', 'int'))[cols]
         fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
-
-    # List RCs and columns involved here...
-    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
-    cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
 
     # Feedback vector.
     fb = (fb0 + arange(n_fb) * d_fb)
@@ -357,7 +359,7 @@ def load_ramp_data(filename, reduce=False):
 
 def plot(tuning, ramp_data, lock_points, plot_file=None, format='pdf'):
     
-    if not hasattr(ramp_data, 'haskey'):
+    if not hasattr(ramp_data, 'has_key'):
         ramp_data = {'filename': ramp_data,
                       'basename': os.path.split(ramp_data)[-1]}
     if plot_file == None:
@@ -372,7 +374,9 @@ def plot(tuning, ramp_data, lock_points, plot_file=None, format='pdf'):
         data = array([d[i] for d,i in zip(data, lock_points['sa_bias_idx'])])
 
     # Plot plot plot
-    servo.plot(fb, data, lock_points, plot_file,
+    print "fb=",fb.shape
+    print "data=",data.shape
+    servo.plot(fb, data.reshape(-1, len(fb)), lock_points, plot_file,
                title=ramp_data['basename'],
                titles=['Column %i - SA_bias=%6i' %(c,b) \
                            for c,b in zip(columns, lock_points['sa_bias'])],

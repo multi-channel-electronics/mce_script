@@ -44,7 +44,7 @@ def mas_param(file, key, type):
                 stdout=subprocess.PIPE);
         value = p.communicate()[0];
         status = p.wait();
-    except OSError as (errno, strerror):
+    except OSError, (errno, strerror):
         print "Failed to load parameter " + key + \
             "\n[Errno {0}] {1}".format(errno, strerror)
         return None
@@ -81,7 +81,10 @@ def set_exp_param(file, key, value):
     else:
       command.append(str(value))
 
-    return subprocess.call(command)
+    status = subprocess.call(command)
+
+    if (status != 0):
+        raise OSError("An error occurred while setting " + key)
 
 def get_exp_param(file, key):
     """Returns the value of one parameter of the experimental configuration.
@@ -93,13 +96,18 @@ def get_exp_param(file, key):
         # for compatibility with the dictionary
         return file;
     if key in string_keys:
-        return mas_param(file, key, 2)
+        v = mas_param(file, key, 2)
     elif key in float_keys:
-        return mas_param(file, key, 1)
+        v = mas_param(file, key, 1)
     elif key in int_keys:
-        return mas_param(file, key, 0)
+        v = mas_param(file, key, 0)
+    else:
+        raise ValueError("unknown experimental parameter: " + key)
+    
+    if (v == None):
+        raise KeyError("key [ " + key + " ] missing from " + file)
 
-    raise ValueError("unknown experimental parameter: " + key)
+    return v
 
 def get_exp_config(file):
     """Returns a dictionary containing the experimental configuration.

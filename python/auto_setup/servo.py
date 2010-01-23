@@ -76,8 +76,8 @@ def plot(x, y, lock_points, plot_file,
             ax.plot(x/1000., y[i]/1000.)
             ax.axhline(y=lock_points['lock_y'][i]/1000.,c='k')
             ax.axvline(x=lock_points['lock_x'][i]/1000.,c='k')
-            ax.axvline(x=lock_points['left_x'][i]/1000.,c='k',ls='dashed')
-            ax.axvline(x=lock_points['right_x'][i]/1000.,c='k',ls='dashed')
+            ax.axvline(x=lock_points['left_x'][i]/1000.,c='k',ls='--')
+            ax.axvline(x=lock_points['right_x'][i]/1000.,c='k',ls='--')
             p.format()
         p.save(plot_file)
     

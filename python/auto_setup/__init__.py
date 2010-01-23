@@ -20,9 +20,5 @@ import idl_compat
 import util
 import config
 
-import acquire
-import reduce
-import report
-
 from main import auto_setup
 import series_array, sq2_servo, sq1_servo

@@ -6,10 +6,11 @@ class tuningData:
     """
     Generic, static data useful to all methods.
     """
-    def __init__(self, name=None, exp_file=None, data_root=None):
+    def __init__(self, name=None, exp_file=None, data_root=None, debug=False):
 
         # Binary file locations
         self.bin_path = '/usr/mce/bin/'
+        self.debug = debug
 
         # The data root
         if data_root == None:
@@ -72,7 +73,7 @@ class tuningData:
                         + time.asctime(time.gmtime(self.the_time)) + " UTC\n")
                     self.log.write("Dir:  " + self.base_dir + "\n")
                     self.log.write("Name: " + self.name + "\n")
-                except IOError as (errno, strerror):
+                except IOError, (errno, strerror):
                     print "Unable to create logfile \"{0}\" (errno: {1}; {2})".\
                             format(self.log_file, errno, strerror)
                     print "Logging disabled."
@@ -84,6 +85,9 @@ class tuningData:
           log.writelines([" " + str(x) for x in args] + ["\n"])
           log.flush()
 
+        if (self.debug):
+          print "Executing: " + str(args)
+
         s = subprocess.call([str(x) for x in args], stdout=log, stderr=log)
 
         if (log):
@@ -93,7 +97,7 @@ class tuningData:
         hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc");
         return [c + 1 for c in range(len(hardware_rc)) if hardware_rc[c] == 1]
     
-    def filename(self, rc=None, action=None, ctime=None):
+    def filename(self, rc=None, action=None, ctime=None, absolute=False):
         if ctime == None:
             ctime = time.time()
         acq_id = str(ctime)
@@ -102,9 +106,15 @@ class tuningData:
             s += '_RC%s' % (str(rc))
         if action != None:
             s += '_' + action
+
+        if (absolute):
+            s = os.path.join(self.data_dir, s)
+        else:
+            s = os.path.join(self.name, s)
+
         return s, acq_id
     
-    def mce_make_config(self, run_now=False):
+    def write_config(self, run_now=True):
         # create the config
         try:
             status = self.run(["mce_make_config", self.exp_file,
@@ -114,7 +124,7 @@ class tuningData:
             return -1
 
         if (status > 0):
-            return status
+          raise ValueError("mce_make_config failed.")
 
         # run it
         if (run_now):
@@ -124,10 +134,25 @@ class tuningData:
                 print "Config run failed:", e
                 return -1
   
-        return status
+        if (status > 0):
+          raise ValueError("Executing " + self.config_mce_file + "failed.")
+
+        return 0
 
     def writelog(self, message, flush=False):
-      if (self.log):
-        self.log.write(message)
-        if (flush):
-          self.log.flush()
+        if (self.log):
+            self.log.write(message)
+            if (flush):
+                self.log.flush()
+
+    def cmd(self, command):
+        return self.run(["mce_cmd", "-q", "-x"] + command.split())
+
+    def register(self, ctime, type, filename, numpts, note=None):
+        cmd = ["acq_register", ctime, type, filename, numpts]
+        if (note):
+            cmd.append(note)
+        else:
+            cmd.append("")
+
+        return self.run(cmd)
