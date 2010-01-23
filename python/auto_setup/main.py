@@ -1,6 +1,8 @@
 # vi: ts=4:sw=4:et
 import util
 import series_array
+import sq2_servo
+import sq1_servo
 
 import os
 import subprocess
@@ -36,9 +38,6 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
         ramp_sa_bias = tuning.get_exp_param("sa_ramp_bias")
 
     if (tuning.get_exp_param("tes_bias_do_reconfig") != 0):
-        # detector bias
-        print "driving TES normal, then to idle value."
-
         # setting detectors bias by first driving them normal and then
         # to the transition.
         cfg_tes_bias_norm = tuning.get_exp_param("tes_bias_normal")
@@ -107,8 +106,6 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
 
 
 def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
-    ssa_file_name, acq_id = tuning.filename(rc=rc)
-
     def_sa_bias = tuning.get_exp_param("default_sa_bias")
 
     tuning.set_exp_param("data_mode", 0)
@@ -142,8 +139,7 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
 
     tuning.write_config()
 
-    sa_dict = series_array.go(tuning, rc, filename=ssa_file_name,
-            do_bias=tune_data["ramp_sa_bias"])
+    sa_dict = series_array.go(tuning, rc, do_bias=tune_data["ramp_sa_bias"])
 
     tuning.set_exp_param("config_adc_offset_all", 0)
     tuning.set_exp_param_range("adc_offset_c", rc_indices,
@@ -151,7 +147,7 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
 
     column_adc_offset[rc_indices] = sa_dict["sa_target"]
 
-    tuning.write_config()
+    #tuning.write_config()
 
 # step 3: SQ2 servo block
 
@@ -159,6 +155,10 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
     # for the SQ2 servo
 
     sa_feedback_file[rc_indices] = sa_dict["sa_fb_init"]
+    f = open(os.path.join(tuning.base_dir, "safb.init"), "w")
+    for x in sa_feedback_file:
+        f.write("%i\n" % x)
+    f.close()
 
     # Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
     tuning.set_exp_param("data_mode", 0)
@@ -171,34 +171,21 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
 
     tuning.write_config()
 
-    sq2_file_name, acq_id = tuning.filename(rc=rc)
-
-    # locking slope should be consistent with servo gains.
-    sq2slope = -util.sign(tuning.get_exp_param("sq2servo_gain")[rc - 1]) \
-            / util.sign(tuning.get_exp_param("sq1servo_gain")[rc - 1])
-
-    # We may want to do sq2 servos at a series of sq2 biases.
+    sq2_data = sq2_servo.go(tuning, rc, bias=tune_data["ramp_sa_bias"])
 
     if (tuning.get_exp_param("sq2_servo_bias_ramp") != 0):
-        sq2servo_plot(tuning, sq2_file_name, sq2bias=sq2_bias, rc=rc,
-                slope=sq2slope, lockamp=1, acq_id=acq_id, no_analysis=1)
-
         print "Exiting after sq2servo with bias ramp!"
         return {"status": 98}
-    else:
-        sq2_dict = sq2servo_plot(tuning, sq2_file_name,
-            sq2bias=tune_data["sq2_bias"], rc=rc, slope=sq2slope, lockamp=1,
-            acq_id=acq_id)
 
-    tuning.set_exp_param_range("sa_fb", rc_indices, sq2_dict["sq2_target"])
-    tuning.set_exp_param("sq1_bias", sq1_bias)
-    tuning.set_exp_param("sq1_bias_off", sq1_bias_off)
+    tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["sq2_target"])
+    tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
+    tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
 
     tuning.write_config()
 
     return {"status": 0, "column_adc_offset": column_adc_offset}
 
-def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
+def do_sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
    
     sq2_feedback = array([8], dtype="int64")
     sq2_feedback.fill(8200) # JPF 090804 (with BAC)
@@ -221,88 +208,25 @@ def sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
 
     sq1_base_name, acq_id = tuning.filename(rc=rc)
 
-    # Here we either
-    # a) servo each row of each column
-    # b) servo a selected row from each column
-    #
-    # The first option is always used in fast_sq2 mode, but may
-    # also be invoked with per-column sq2 during initial runs to
-    # determine the representative row in each column.
+    f = open(os.path.join(tuning.base_dir, "sq2fb.init"), "w")
+    for x in sq2_feedback_file:
+        f.write("%i\n" % x)
+    f.close()
 
-    # Locking slope should be consistent with servo gains.
-    sq1slope = -util.sign(tuning.get_exp_param("sq1servo_gain")[rc - 1]) \
-            / util.sign(tuning.get_exp_param("sq1servo_gain")[(rc - 1) \
-            * 8 : rc * 8])
+    sq1_data = sq1_servo.go(tuning, rc)
 
-    config_fast_sq2 = tuning.get_exp_param("config_fast_sq2")
-    if (config_fast_sq2 or tuning.get_exp_param("sq1_servo_all_rows")):
-        # This block uses either sq1servo or sq1servo_all to get
-        # the full block of ramps for all rows.
+    # XXX need to save big array from super servo here.
 
-        sq2_feedback_full_array = empty([numrows,8], dtype="int64")
+    # Save all sq2fb points
+    #for j in rc_indices.size:
+    #    sq2_rows = 41
+    #    c_ofs = rc_indices[j] * sq2_rows
+    #    tuning.set_exp_param("sq2_fb_set", arange(c_ofs,
+    #        c_ofs + numrows), sq2_feedback_full_array[..., j])
 
-        if (config_fast_sq2):
-            # Super-servo, outpus a separate .bias file for each
-            # row but produces only one data/.run file
-
-            print "Using biasing address card (bac) to sq1servo each row separately"
-
-            sq1_dict = sq1servo_plot(tuning, sq1_base_name, sq1bias=sq1_bias,
-                    rc=rc, numrows=numrows, slope=sq1slope, super_servo=1,
-                    acq_id=acq_id)
-
-            runfile = sq1_base_name + "_sq1servo.run"
-
-        for sq1servorow in range(numrows):
-            sq1_file_name = sq1_base_name + "_row%i" % (sq1servorow)
-
-            if (not config_fast_sq2):
-                sq1_dict = sq1servo_plot(sq1_file_name, sq1bias=sq1_bias, rc=rc,
-                        numrows=numrows, slope=sq1slope)
-            else:
-                # Fast sq2 equivalent: use data produced by the super servo!
-                bias_file = sq1_base_name + \
-                        "_sq1servo.r%02i.bias" % (sq1servorow)
-
-                sq1_dict = sq1servo_plot(sq1_file_name, sq1bias=sq1_bias, rc=rc,
-                        numrows=numrows, slope=sq1slope,
-                        use_bias_file=bias_file, use_run_file=runfile)
-
-            sq2_feedback_full_array[sq1servorow, ...] = sq1_dict["sq1_target"]
-
-        # Save all sq2fb points
-        for j in rc_indices.size:
-            sq2_rows = 41
-            c_ofs = rc_indices[j] * sq2_rows
-            tuning.set_exp_param("sq2_fb_set", arange(c_ofs,
-                c_ofs + numrows), sq2_feedback_full_array[..., j])
-
-        # For single rowing; use the selected rows from sq2_param:
-        sq2_rows = tuning.get_exp_param("sq2_rows")
-        for j in range(8):
-            sq1_target[j] = sq2_feedback_full_array(sq2_rows[rc_indices[j]], j)
-
-    else:
-        # This block uses original sq1servo to
-        # lock on a specific row for each column
-
-        sq1_file_name = sq1_base_name
-
-        sq1_dict = sq1servo_plot(sq1_file_name, sq1bias = sq1_bias, rc = rc,
-                numrows=numrows, slope=sq1slope, acq_id=acq_id)
-
-    # done.
-
-    # Single row approach -- these will be ignored in the multi-variable case!
-
-    tuning.set_exp_param_range("sq2_fb", rc_indices, sq1_target)
+    tuning.set_exp_param_range("sq2_fb", rc_indices, sq1_data["sq1_target"])
 
     tuning.write_config()
-
-    f = open(tuning.sq2fb_init_file)
-    for i in range(32):
-        f.write(sq1_target[i % 8])
-    f.close()
 
     return 0
 
@@ -333,7 +257,7 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
 
         rsq1_file_name, acq_id = tuning.filename(rc=rc, action="sq1ramp")
 
-        rsq1_dict = ramp_sq1_fb_plot(tuning, rc=rc, numrows=numrows,
+        rsq1_data = ramp_sq1_fb_plot(tuning, rc=rc, numrows=numrows,
                 acq_id=acq_id)
 
         if (rc == rcs[0]):
@@ -346,7 +270,7 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
         samp_num = tuning.get_exp_param("default_sample_num")
         for j in range(8):
             all_adc_offsets[(rc - 1) * 8 + j, ...] = \
-                    (rsq1_dict["new_adc_offset"][j, ...] + 
+                    (rsq1_data["new_adc_offset"][j, ...] + 
                             column_adc_offset[j + 8 * (rc - 1)]) / samp_num
 
         array_width = tuning.get_exp_param("array_width")
@@ -371,18 +295,18 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
         extra_lables = util.mask_labels(mask_files, mask_list, rc)
         rsq1c_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampc")
 
-        rsq1_dict = ramp_sq1_fb_plot(tuning, rsq1c_file_name, rc=rc,
+        rsq1_data = ramp_sq1_fb_plot(tuning, rsq1c_file_name, rc=rc,
                 numrows=numrows, acq_id=acq_id, extra_labels=extra_labels)
 
         for j in range(8):
             all_squid_p2p[(rc - 1) * 8 + j, ...] = \
-                    rsq1_dict["squid_p2p"][j, ...]
+                    rsq1_data["squid_p2p"][j, ...]
             all_squid_lockrange[(rc - 1) * 8 + j, ...] = \
-                    rsq1_dict["squid_lockrange"][j, ...]
+                    rsq1_data["squid_lockrange"][j, ...]
             all_squid_lockslope[(rc - 1) * 8 + j, ..., ...] = \
-                    rsq1_dict["squid_lockslope"][j, ..., ...]
+                    rsq1_data["squid_lockslope"][j, ..., ...]
             all_squid_multilock[(rc - 1) * 8 + j, ...] = \
-                    rsq1_dict["squid_multilock"][j, ...]
+                    rsq1_data["squid_multilock"][j, ...]
 
         locktest_pass_amp = tuning.get_exp_param("locktest_pass_amplitude")
         for j in range(8):
@@ -519,7 +443,7 @@ IDL auto_setup_squids."""
                     return s2_dict["status"]
                 column_adc_offset = s2_dict["column_adc_offset"]
 
-            e = sq1_servo(tuning, c, rc_indices, numrows, sq2_feedback_file)
+            e = do_sq1_servo(tuning, c, rc_indices, numrows, sq2_feedback_file)
             if (e != 0):
                 return e
 

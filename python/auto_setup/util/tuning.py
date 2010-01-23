@@ -92,6 +92,7 @@ class tuningData:
 
         if (log):
           log.write("Exit Status: " + str(s) + "\n")
+          log.flush()
 
     def rc_list(self):
         hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc");

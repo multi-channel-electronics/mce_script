@@ -102,7 +102,7 @@ def get_exp_param(file, key):
     elif key in int_keys:
         v = mas_param(file, key, 0)
     else:
-        raise ValueError("unknown experimental parameter: " + key)
+        raise KeyError("unknown experimental parameter: " + key)
     
     if (v == None):
         raise KeyError("key [ " + key + " ] missing from " + file)

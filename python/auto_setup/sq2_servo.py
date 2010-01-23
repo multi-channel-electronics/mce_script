@@ -1,4 +1,4 @@
-import os
+import os, time
 import auto_setup.util as util
 from numpy import *
 from mce_data import MCERunfile, MCEFile
@@ -17,6 +17,7 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
         return None
 
     lock_points = reduce(tuning, servo_data, slope=slope)
+
     plot(tuning, servo_data, lock_points)
 
     # Return dictionary of relevant results
@@ -31,7 +32,7 @@ def acquire(tuning, rc, filename=None, fb=None,
 
     # File defaults
     if filename == None:
-        filename, acq_id = tuning.get_filename(rc=rc, action='ssa')
+        filename, acq_id = tuning.filename(rc=rc, action='ssa')
     else:
         try:
             acq_id = str(int(filename.split('_')[0]))
@@ -39,51 +40,56 @@ def acquire(tuning, rc, filename=None, fb=None,
             acq_id = str(time.time())
 
     # Biasing semantics are complicated, fix me.
+    if bias == None:
+      bias = tuning.get_exp_param('sq2_servo_bias_ramp')
     change_bias = not (bias == False)
-    if bias == None and tuning.get_exp_param('sq2_servo_bias_ramp')[0] != 0:
+
+    if (bias == True):
         bias = {}
         for k in ['start','count','step']:
-            bias[k] = tuning.get_exp_param('sq2_servo_bias_%s'%k)[0]
-    if bias == None or bias == False:
-        bias = {'start': tuning.get_exp_param('default_sq2_bias'),
-                'count': 1,
-                'step': 0 }
+            bias[k] = tuning.get_exp_param('sq2_servo_bias_%s'%k)
+    elif (bias == False):
+        bias = {'start': 0, 'count': 1, 'step': 0 }
+
     # FB
     if fb == None:
         fb = {}
         for k in ['start','count','step']:
-            fb[k] = tuning.get_exp_param('sq2_servo_flux_%s'%k)[0]
+            fb[k] = tuning.get_exp_param('sq2_servo_flux_%s'%k)
     if gain == None:
         gain = tuning.get_exp_param('sq2servo_gain')[rci]
     
     # Execute C servo program
-    cmd = [tuning.bin_path+'/sq2servo', filename,
+    cmd = [os.path.join(tuning.bin_path, 'sq2servo'), filename,
            bias['start'], bias['step'], bias['count'],
            fb['start'], fb['step'], fb['count'],
            rc, int(change_bias), gain]
 
     status = tuning.run(cmd)
-    if status != 0:
+    if status:
         return False, {'error': 'command failed: %s' % str(cmd)}
 
     # Register this acquisition, taking nframes from runfile.
-    fullname = os.path.join(tuning.data_dir, filename)
-    rf = MCERunfile(fullname)
+    fullname = os.path.join(tuning.base_dir, filename)
+    rf = MCERunfile(fullname + ".run")
     n_frames = rf.Item('par_ramp', 'par_step loop1 par1', type='int')[2] * \
         rf.Item('par_ramp', 'par_step loop2 par1', type='int')[2]
     
-    util.register(acq_id, 'tune_servo', fullname, n_frames)
+    tuning.register(acq_id, 'tune_servo', fullname, n_frames)
     
     return True, {'basename': acq_id,
                   'filename':fullname }
 
 
-def reduce(tuning, sq2file, lock_amp=True, slope=None):
+def reduce(tuning, rc, sq2file, lock_amp=True, slope=None):
+    # Convert to 0-based rc indices.
+    rci = rc - 1
+
     # Defaults from config file
     if slope == None:
         slope = tuning.get_exp_param('sq2servo_gain')[rci] / \
             tuning.get_exp_param('sq1servo_gain')[rci]
-    if not hasattr(sq2file, 'haskey'):
+    if not hasattr(sq2file, 'has_key'):
         sq2file = {'filename': sq2file,
                    'basename': os.path.split(sq2file)[-1]}
 
@@ -112,7 +118,7 @@ def reduce(tuning, sq2file, lock_amp=True, slope=None):
 
 def plot(tuning, servo_data, lock_points, plot_file=None, format='pdf'):
 
-    if not hasattr(servo_data, 'haskey'):
+    if not hasattr(servo_data, 'has_key'):
         servo_data = {'filename': servo_data,
                    'basename': os.path.split(servo_data)[-1]}
 

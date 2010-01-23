@@ -38,7 +38,7 @@ def acquire(tuning, rc, filename=None, do_bias=None):
 
     # File defaults
     if filename == None:
-        filename, acq_id = tuning.get_filename(rc=rc, action='ssa')
+        filename, acq_id = tuning.filename(rc=rc, action='ssa')
     else:
         try:
             acq_id = str(int(filename.split('_')[0]))
@@ -170,7 +170,7 @@ def reduce(tuning, ramp_data, slope=None):
         left_idx.append(min(ind_max,ind_min))
         right_idx.append(max(ind_max,ind_min))
 
-    lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
+    lock_y = array([int(yy[i]) for i,yy in zip(lock_idx, y)])
     for x in ['lock_idx', 'left_idx', 'right_idx']:
         exec('%s = array(%s) + x_offset' % (x,x))
     result.update({
