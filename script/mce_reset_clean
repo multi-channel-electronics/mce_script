@@ -51,6 +51,9 @@ done
 # In any case, empty the driver buffer
 mce_cmd -qx empty
 
+# Let's release that data lock too.
+mce_cmd -qx lock_reset
+
 if [ "$ok" != "1" ]; then
     echo "MCE reset failed."
     exit 1

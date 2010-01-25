@@ -1,5 +1,5 @@
 function sq2_quanta,ctime=ctime,tuning_folder=tuning_folder,filename=filename,expected=expected, $
-                    quiet=quiet, plots_on=plots_on
+                    plots_on=plots_on
   
   if not keyword_set(expected) then expected = 30000
 
@@ -14,7 +14,7 @@ function sq2_quanta,ctime=ctime,tuning_folder=tuning_folder,filename=filename,ex
 
   for i = 0,n_elements(files) - 1 do begin
      print,files[i]
-     q = measure_quanta(files[i], expected=expected, /servo, plots_on=plots_on, quiet=quiet)
+     q = measure_quanta(files[i], expected=expected, /servo, plots_on=plots_on, /quiet)
      q = q[*,0]
      print, long(q)
   endfor

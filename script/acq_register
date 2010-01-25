@@ -47,10 +47,10 @@ numpts="$4"
 note="$5"
 
 # By default, do all actions
-do_db=1
-do_iv=1
+do_db=0
+do_iv=0
 do_tune=1
-do_link=1
+do_link=0
 
 #Allow user to suppress db registration.
 if [ "$note" == "no_db" ]; then
