@@ -25,7 +25,7 @@ case "$rc" in
 
     s | S)
 	col_index=0
-	col_count=32
+	col_count=16
 	;;
 
     *)

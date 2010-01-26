@@ -14,11 +14,12 @@
 #
 # JAB 20100121
 
+source $MAS_SCRIPT/mas_library.bash
+RUNFILE_PIPE=/data/cryo/mas_data_pipe.run
+
 if [ "$#" -lt "1" ];
 then
-    echo "must specify whether or not to acquire data with the MCE, 0=no, 1=yes"
-    echo "mce_partial_loadcurve mce_acquire [start_bias bias_step(negative) data_pause(sec)]"
-    exit 1
+    mce_acquire=0
 else
     mce_acquire=$1
 fi
@@ -41,11 +42,11 @@ if [ "$#" -ge "4" ];
 then
     data_pause=$4
 else
-    data_pause=.1
+    data_pause=.01
 fi
 
-source $MAS_SCRIPT/mas_library.bash
-
+fb_jump_query=`mce_cmd -qx rb rca en_fb_jump`
+fb_jump_query=${fb_jump_query[@]:15:100}
 bias_query=`mce_cmd -qx rb tes bias`
 word_query=`mce_cmd -qx rb cc user_word`
 word_query=${word_query[@]:15:100}
@@ -61,6 +62,8 @@ do
    fi
 done
 
+echo ${tes_bias[@]}
+
 if [ $mce_acquire -eq 1 ];
 then
     dt=`cat /data/cryo/current_data_name`
@@ -74,9 +77,14 @@ then
     frameacq_stamp $n $datafile $total_bias >> $runfile
 fi
 
-# Set to the start_bias in the normal branch and wait before ramping down   
-mce_cmd -qx wb tes bias $tes_bias
+# Set to the start_bias in the normal branch and wait before ramping down
+# Reinitialize the servo and enable fb jump, for cleaner iv curves   
+bias_write=`repeat_string $tes_bias 16`
+mce_cmd -qx wb tes bias $bias_write
 sleep 1
+mce_cmd -qx wb rca flx_lp_init 1
+sleep 1
+mce_cmd -qx wb rca en_fb_jump 1
 
 # Determine max number of iterations for bias stepping
 min_bias=$start_bias
@@ -90,6 +98,8 @@ do
     fi
 done
 max_steps=$(( (( $start_bias - $min_bias )) / (( -1 * $bias_step )) ))
+
+echo $max_steps
 
 # Signal start of bias ramp
 mce_cmd -qx wb cc user_word 0
@@ -108,7 +118,7 @@ do
 	fi
     done
     mce_cmd -qx wb tes bias ${tes_bias[@]}
-    user_word_write=$(( $start_bias + $bias_step ))
+    user_word_write=$(( $start_bias + ( $bias_step * $i ) ))
     mce_cmd -qx wb cc user_word $user_word_write
     sleep $data_pause
     if [ $mce_acquire -eq 1 ];
@@ -124,7 +134,11 @@ done
 mce_cmd -qx wb tes bias ${bias_query[@]:15:200}
 mce_cmd -qx wb cc user_word $word_query
 
-mce_cmd -qx dsp_reset
+# Restore en_fb_jump settings
+mce_cmd -qx wb rca en_fb_jump ${fb_jump_query[@]}
+
+# Reinitialize the servo
+mce_cmd -qx wb rca flx_lp_init 1
 
 # Signal that we are done
 $GCP_DIR/../scripts/bicep/controlSystem command "signal/send done"

@@ -48,6 +48,5 @@ done >> $script
 
 mce_cmd -qf $script
 
-my_data=/data/cryo
-
 mce_cmd -qx wb tes bias ${bias_query[@]:15:200}
+mce_cmd -qx wb rca flx_lp_init 1

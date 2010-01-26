@@ -66,15 +66,15 @@ runfile=$datafile.run
 biasfile=$datafile.bias
 logfile=$datafile.log
 
-if [ "$normal_time" != "0" ]; then
-    echo "Driving detectors normal (bias = $bias_normal)"
-    bias_tess $bias_normal
-    sleep $normal_time
-    bias_tess 0
-    sleep $normal_time
-    bias_tess $bias_normal
-    sleep $normal_time
-fi
+#if [ "$normal_time" != "0" ]; then
+#    echo "Driving detectors normal (bias = $bias_normal)"
+#    bias_tess $bias_normal
+#    sleep $normal_time
+#    bias_tess 0
+#    sleep $normal_time
+#    bias_tess $bias_normal
+#    sleep $normal_time
+#fi
 
 echo "Setting first bias and waiting $first_pause s; time between other points will be $data_pause_us us"
 bias_tess $start_bias
@@ -143,18 +143,18 @@ my_data=/data/cryo
 
 echo "Completed I-V acquisition!"
 
-if [ "$normal_time" != "0" ]; then
-    echo "Driving detectors normal (bias=$normal_bias)"
-    bias_tess $bias_normal
-    sleep $normal_time
-    bias_tess 0
-    sleep $normal_time
-    bias_tess $bias_normal
-    sleep $normal_time
-fi
+#if [ "$normal_time" != "0" ]; then
+#    echo "Driving detectors normal (bias=$normal_bias)"
+#    bias_tess $bias_normal
+#    sleep $normal_time
+#    bias_tess 0
+#    sleep $normal_time
+#    bias_tess $bias_normal
+#    sleep $normal_time
+#fi
 
-echo "Setting biases to initial value of $end_bias"
-bias_tess $end_bias
+#echo "Setting biases to initial value of $end_bias"
+#bias_tess $end_bias
 
 echo "IV run time: " `print_elapsed $ct` "s"
 

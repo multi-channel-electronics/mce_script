@@ -15,8 +15,8 @@ nf=$1
 rc=$2
 
 # Acquisition should not exceed 20kHz
-new_data_rate=1
-new_rows_rep=1
+new_data_rate=38
+new_rows_rep=33
 if [ "$3" != "" ]; then
     new_data_rate=$3
 fi
@@ -38,11 +38,8 @@ data_rate=`command_reply rb cc data_rate`
 num_rows=`command_reply rb cc num_rows`
 row_len=`command_reply rb cc row_len`
 ct=`print_ctime`
+
 filename="fast_$ct"
-
-# Prepend tuning information to runfile
-acq_register $ct auto $MAS_DATA/$filename $nf ""
-
 mux_rate=$(( 50000000 / $num_rows / $row_len ))
 echo "MCE internal frame rate (mux rate) is $mux_rate"
 echo "Readout frame rate is $(( $mux_rate / $data_rate ))"

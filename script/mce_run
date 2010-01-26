@@ -22,6 +22,7 @@ function usage {
     echo "     --dirfile    force dirfile data format"
     echo "     --flatfile   force flatfile data format"
     echo "     --no-locking do not check/assert the data driver lock"
+    echo "     --no-register do not call acq_register script"
     [ "$1" == "" ] || exit $1
     exit 1
 }
@@ -42,6 +43,7 @@ shift 3
 
 # Options processing
 locking=1
+register=1
 
 for a in $@; do
     case "$a" in
@@ -55,6 +57,10 @@ for a in $@; do
 
 	"--no-locking")
 	    locking=0
+	    ;;
+
+	"--no-register")
+	    register=0
 	    ;;
 
 	*)
@@ -107,6 +113,11 @@ frameacq_stamp $rc ${filename} $numpts >> $runfilename
 if [ "$?" != "0" ]; then
     echo "$SCRNAME : frameacq_stamp failed!"
     exit 1
+fi
+
+# Tuning data?
+if [ "$register" != "0" ]; then
+    acq_register "" "data" $filename $numpts ""
 fi
 
 # Acquisition
