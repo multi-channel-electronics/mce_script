@@ -51,6 +51,53 @@ def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
             if count >= steps:
                 done = True
 
+<<<<<<< .mine
+def read_sq2_all(m, n_rows, n_cols, col0=0):
+    data = [m.read('sq2', 'fb_col%i' % i, count=n_rows) for i in range(col0, n_cols+col0)]
+    return array(data).transpose()
+    
+def write_sq2_all(m, data):
+    for i in range(data.shape[1]):
+        m.write('sq2', 'fb_col%i' % i, data[:,i])
+
+
+def reservo_all(m, gains=None, quanta=None, n_rows=None, n_cols=None, steps=None, verbose=False):
+    """
+    Special version for fast sq2 fb switching...
+    """
+    SQ2_DAC = 16384
+    if quanta == None:
+        quanta = [SQ2_DAC] * n_cols
+    quanta = array(quanta).copy()
+    quanta[quanta>0] = quanta[quanta>0] * (SQ2_DAC / quanta[quanta>0].astype('int'))
+    quanta[quanta<=0] = SQ2_DAC
+
+    done = False
+    if n_rows == None:
+        n_rows = NROWS
+    if n_cols == None:
+        n_cols = NCOLS
+    if gains == None:
+        gains = array([0.02]*NCOLS)
+    # Setup a default exit condition...
+    if steps == None:
+        steps = 1
+    count = 0
+    while not done:
+        data = array(m.read_frame(data_only=True)).reshape(n_rows, -1)
+        dy = data
+        dx = (gains.reshape(1, -1) * dy).astype('int')
+        # Get sq2fb
+        sq2_now = read_sq2_all(m, n_rows, n_cols)
+        print data[14, 1], sq2_now[14, 1]
+        sq2_new = (sq2_now + dx) % quanta
+        write_sq2_all(m, sq2_new)
+        if steps != None:
+            count += 1
+            if count >= steps:
+                done = True
+
+=======
 def read_sq2_all(m, n_rows, n_cols, col0=0):
     data = [m.read('sq2', 'fb_col%i' % i, count=n_rows) for i in range(col0, n_cols+col0)]
     return array(data).transpose()
@@ -91,6 +138,7 @@ def reservo_all(m, gains=None, n_rows=None, n_cols=None, steps=None, verbose=Fal
             if count >= steps:
                 done = True
 
+>>>>>>> .r609
 def set_adcoffset(m, ofs):
     for rc in [1]:  #range(4):
         for c in range(8):
