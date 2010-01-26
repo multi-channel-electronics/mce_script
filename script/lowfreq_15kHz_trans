@@ -1,0 +1,57 @@
+#!/bin/bash
+
+#lowfreq_15kHz_trans dir
+
+
+mce_reconfig
+mce_cmd -qx wb rca data_mode 10
+
+col=3
+nsamp=3000000
+
+for tbias in 3200 3000 2800 2600 2400 2200
+do
+
+dir=$1'/bias'$tbias'/'
+mkdir '/data/cryo/current_data/'$1/'bias'$tbias'/'
+
+bias_tess $tbias
+
+row=24
+
+filename=$dir'/lowfreq_row'$row'_col'$col
+
+rcnumrows=2
+row_len=98                       
+ccnumrows=33                       
+ccnumcols=8
+datarate=$(( $ccnumrows * $ccnumcols / $rcnumrows ))
+if [ $col -lt 8 ]; then 
+    rc=1 
+else 
+    rc=2
+fi
+
+samplenum=10
+sampledly=$(( $row_len-$samplenum )) 
+
+sampleuse=$(( $nsamp/$ccnumrows/$ccnumcols ))
+sampint=( `echo $sampleuse | awk '{printf "%.0f",$1}' `)
+
+mce_cmd -qx wb sys row_len $row_len                   #added 20091016 JAB for readout rate adj
+mce_cmd -qx wb rca sample_dly $sampledly
+mce_cmd -qx wb rca sample_num $samplenum
+mce_cmd -qx wb sys num_rows 33
+mce_cmd -qx wb rca num_rows_reported $rcnumrows
+mce_cmd -qx wb rca num_cols_reported 1
+mce_cmd -qx wb cc num_rows_reported $ccnumrows
+mce_cmd -qx wb cc num_cols_reported $ccnumcols
+mce_cmd -qx wb cc data_rate $datarate
+mce_cmd -qx wb rca readout_row_index $row
+mce_cmd -qx wb rca readout_col_index $col
+#sleep 1
+mce_run $filename $sampint $rc
+#sleep 1
+mce_cmd -qx dsp_reset
+
+done

@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# This is the script to take 15kHz data using rectangle mode.  
+# This is apparently more stable with v5 firmware than mce_fast_acq
+#
+# AO : modified 'rectmode_15kHz_acq' to automatically assign filenames 'fast_x' like 'mce_fast_acq'
+
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   rectmode_15kHz_acq n_frames rc"
+    exit 1
+fi
+
+datarate=40
+row_len=100              
+sampreq=$1
+rc=$2
+nsamp=$(( $sampreq/$datarate ))
+
+ct=`print_ctime`
+filename="fast_$ct"
+
+# mce_cmd -qx wb sys row_len $row_len           
+mce_cmd -qx wb sys num_rows 33
+mce_cmd -qx wb rca num_rows_reported 1
+mce_cmd -qx wb rca num_cols_reported 8
+mce_cmd -qx wb cc num_rows_reported $datarate
+mce_cmd -qx wb cc num_cols_reported 8
+mce_cmd -qx wb cc data_rate $datarate
+
+sleep 1
+echo "Data will be in $MAS_DATA/$filename"
+mce_run $filename $nsamp $rc
+sleep 1
+#mce_cmd -qx dsp_reset

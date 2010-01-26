@@ -1,0 +1,86 @@
+#!/bin/bash
+#
+# This is the uber noise/tau script... it does everything.  Literally.
+# More specifically, it takes open-loop 15kHz (fast) noise spectra (50 timestreams),
+# open-loop 50MHz (raw) noise spectra (50 timestreams), tes bias square wave data
+# for tau measurements, and the sq1-err calibration open-loop via a sq1_fb sqr wave.  
+#
+#
+# JAB 20090512
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   uber_tau_script_1tile dir"
+    exit 1
+fi
+
+rc=2
+
+# Don't fiddle with tes bias when using mce_reconfig in 'really_freeze_servo.py'
+mas_param set tes_bias_do_reconfig 0
+mce_make_config
+mce_reconfig
+
+#for tbias in 5300 5100 4900 5200
+#for (( tbias=4700; tbias>=3500; tbias=tbias-200 )) 
+for (( tbias=5300; tbias>=3100; tbias=$tbias-100 ))
+do
+
+dir=$1'/bias'$tbias'/'
+#taudir=$dir'/tau'
+mkdir '/data/cryo/current_data/'$1/'bias'$tbias'/'
+#mkdir $taudir
+
+sleep 1
+bias_tess $tbias
+sleep 1
+
+for row in 11 12 27 28
+do
+
+mce_reconfig
+sleep 2
+
+~/python/really_freeze_servo_1Tile.py -r $row --o
+sleep 2
+
+#fb_val=(`mce_cmd -qrx rb sq1 fb_const`)
+#echo 'fb_val= '${fb_val[@]}
+#sleep 1
+
+####tau measurement below#########
+for step in 1 2
+do
+#step=5
+
+for period in 200 400 800
+do
+
+biasmax=$(($tbias + $step))
+
+#####figure out an appropriate period for the tes bias sqrwave for tau in raw mode#############################
+#####may choose to take fewer than 50 traces if period is small, and can coadd a lot square waves
+#####in fast mode I had a period of 500, and took 250000 samples -- 500 cycles --  for descent s/n higher in transition
+
+sleep 1
+bias_sqrwave $tbias $biasmax $period 8 33
+sleep 2
+# take time constant data
+#
+
+fastfilename=$dir'/fast_step'$step'_per'$period'_row'$row
+mce_cmd -qx wb cc data_rate 1
+mce_cmd -qx wb cc num_rows_reported 1
+sleep 2
+mce_run $fastfilename 500000 $rc
+sleep 2
+mce_cmd -x dsp_reset
+sleep 2
+done
+
+mce_cmd -x wb cc internal_cmd_mode 0
+done
+
+done
+done

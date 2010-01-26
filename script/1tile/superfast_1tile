@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# This is the script to take superfast data on BICEP2.
+#
+#
+# JAB 20090715 superfast_1tile original
+# JAB 20091001 superfast modification for BICEP2.
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   superfast col row nsamp filename"
+    exit 1
+fi
+
+rc=2
+col=$1
+row=$2
+nsamp=$3
+filename=$4
+
+mce_cmd -qx wb sys num_rows 2
+mce_cmd -qx wb rca num_rows_reported 1
+mce_cmd -qx wb rca num_cols_reported 1
+mce_cmd -qx wb cc num_rows_reported 4
+mce_cmd -qx wb cc num_cols_reported 8
+mce_cmd -qx wb cc data_rate 32
+mce_cmd -qx wb rca readout_row_index 0
+mce_cmd -qx wb rca readout_col_index $col
+sleep 2
+mce_run $filename $nsamp $rc
+sleep 1
+mce_cmd -qx dsp_reset

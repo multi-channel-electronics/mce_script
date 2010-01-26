@@ -1,0 +1,39 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+# JAB 20090425
+# Accumulate N timestreams 65536 samples long in raw 50MHz mode 12,
+# calling mce_raw_acq_1col for col specified.  Data are written to $MAS_DATA,
+# as raw_ctime.
+#
+# rawacq_ntimestreams numbertraces directory mce_col
+
+if [ "$#" -lt "2"]; then
+ echo "------------------"
+ echo "usage: rawacq_ntimestreams numbertraces dir mce_col"
+exit 1
+fi
+
+mce_cmd -x wb cc internal_cmd_mode 0
+
+sleep 2
+
+if (($3 < 8)); then rc=1; else rc=2; fi
+rccol=$(($3 -8*($rc-1)))
+
+extn='col'$3
+
+for (( i = 0 ; i < $1 ; i++ ))
+do
+
+echo "acquiring 65536 raw samples, trace $i of $1 on col$3"
+
+mce_raw_acq_1col $rc $rccol 65536 $extn $2
+
+sleep 2
+mce_cmd -x dsp_reset
+
+done
+
+echo "acquisition of $2 traces complete for col$3"

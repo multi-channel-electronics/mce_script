@@ -1,0 +1,117 @@
+#!/bin/bash
+#
+# This is the uber noise/tau script... it does everything.  Literally.
+# More specifically, it takes open-loop 15kHz (fast) noise spectra (50 timestreams),
+# open-loop 50MHz (raw) noise spectra (50 timestreams), tes bias square wave data
+# for tau measurements, and the sq1-err calibration open-loop via a sq1_fb sqr wave.  
+#
+#
+# JAB 20090512
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   uber_noise_script_1tile dir"
+    exit 1
+fi
+
+dir=$1
+rc=2
+
+# Don't fiddle with tes bias when using mce_reconfig in 'really_freeze_servo.py'
+mas_param set tes_bias_do_reconfig 0
+mce_make_config
+
+#for tbias in 5300 5100 4900 4700 4500 4300 4100 3900 3700 3500
+for tbias in 0
+do
+
+dir=$1'/bias'$tbias'/'
+#taudir=$dir'/tau'
+mkdir '/data/cryo/current_data/'$1/'bias'$tbias'/'
+#mkdir $taudir
+
+sleep 1
+bias_tess $tbias
+sleep 1
+
+# c2r9**, c2r10**, c2r23**, c2r24**, c2r25**, c2r26**
+# c1r9**, c1r10**, c1r23**, c1r24**, c1r25**, c1r26** 
+
+#for row in 9 10 23 24 25 26 
+for row in 9 10 23 24 25 26
+do
+
+for col in 2
+do
+
+mce_reconfig
+sleep 2
+~/python/really_freeze_servo_1Tile.py -r $row --o
+sleep 1
+
+fb_val=(`mce_cmd -qrx rb sq1 fb_const`)
+echo 'fb_val= ' ${fb_val[@]}
+sleep 1
+
+#if [[ $row == 31 ]]; then col=1; else col=2; fi
+
+# take fast noise timestreams at 15kHz, sampling all cols from rc of interest
+#
+fastfilename=$dir'/fastspectra_row'$row'_col'$col
+mce_cmd -qx wb cc data_rate 1
+mce_cmd -qx wb cc num_rows_reported 1
+sleep 2
+mce_run $fastfilename 500000 $rc
+sleep 2
+mce_cmd -x dsp_reset
+sleep 2
+
+# take raw noise timestreams at 50MHz
+#
+
+rawacq_ntimestreams_1tile 50 $dir $col $row
+sleep 2
+mce_cmd -x dsp_reset
+sleep 2
+index=$((5+8*($rc-1)+$col))
+extn='calib_row'$row'_col'$col
+min=$((${fb_val[$index]}-10))
+max=$((${fb_val[$index]}+10))
+sleep 2
+bias_sqrwave $min $max 2 4 31
+sleep 2
+mce_raw_acq_1col $rc $col 65536 $extn $dir 
+sleep 2
+
+mce_cmd -x wb cc internal_cmd_mode 0
+sleep 1
+
+mce_cmd -x wb sq1 fb_const ${fb_val[@]:5}
+sleep 1
+
+####tau measurement below#########
+
+
+#biasmax=$(($tbias + 1))
+
+#####figure out an appropriate period for the tes bias sqrwave for tau in raw mode#############################
+#####may choose to take fewer than 50 traces if period is small, and can coadd a lot square waves
+#####in fast mode I had a period of 500, and took 250000 samples -- 500 cycles --  for descent s/n higher in transition
+
+#bias_sqrwave $tbias $biasmax period? 9 32
+
+# take time constant data
+#
+#for (( col=0; col<=7; col++ ))
+#    do
+#	rawacq_50timestreams 50 $taudir $col
+#done
+
+mce_cmd -x wb cc internal_cmd_mode 0
+sleep 1
+mce_reconfig
+sleep 1
+done
+done
+done

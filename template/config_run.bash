@@ -34,6 +34,6 @@ if [ -e "$SOURCE_TUNE" ] && ! [ -d "$SOURCE_TUNE" ] && ( \
 else
     echo "Problem linking $SOURCE_TUNE to $LAST_TUNE" >& 2
     exit 1
-endif
+fi
 
 #END config_run.bash
