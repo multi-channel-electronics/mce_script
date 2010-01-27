@@ -1,0 +1,73 @@
+#!/bin/bash
+
+if [ "$MAS_ROOT" == "" ]; then
+    echo MAS_ROOT variable not set.
+    exit 1
+fi
+
+# All our new files should be group rw
+umask 002
+
+today=`date +%Y%m%d`
+cd /data/cryo # $MAS_DATA is broken.
+if [ ! -e $today ]; then
+    mkdir $today
+    chmod g+s $today
+fi
+
+# Create current_data link and put today's date into current_data_name
+
+link_name=/data/cryo/current_data
+date_file=/data/cryo/current_data_name
+if [ -e $link_name ]; then
+    /bin/rm $link_name
+fi
+ln -s /data/cryo/$today  $link_name
+
+if [ -e $date_file ]; then
+    /bin/rm $date_file
+fi
+echo $today > $date_file
+
+
+# Determine array name and names of config files
+array_id=`cat /data/cryo/array_id`
+if [ "$array_id" == "" ]; then
+    echo "No array ID found in /data/cryo/array_id!"
+    array_id="default"
+fi
+case "$array_id" in
+    default)
+        exp_cfg=experiment.cfg
+	arr_cfg=array.cfg
+	;;
+    *)
+        exp_cfg=experiment_${array_id}.cfg
+	arr_cfg=array_${array_id}.cfg
+esac
+
+# Populate the new data folder.
+
+cd $today
+
+if [ ! -e analysis ]; then
+    mkdir analysis
+    chmod g+s analysis
+fi
+
+[ -e experiment.cfg ] || cp $MAS_TEMPLATE/$exp_cfg experiment.cfg
+
+# Create an mce config script
+
+new_config="config_mce_auto_setup_$today"
+if [ -e $new_config ]; then
+  echo "There is already a config_mce_auto_setup file in this directory"
+else
+    mce_make_config
+    chmod u+rwx $new_config
+    chmod g+rws $new_config
+fi
+
+# Reopen the log file, or launch the server
+
+maslog reopen 2> /dev/null || maslog_server

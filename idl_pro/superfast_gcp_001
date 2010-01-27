@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# This is the script to take superfast noise data through the transition on BICEP2, using GCP.
+#
+#
+# JAB 20091225
+
+source $MAS_SCRIPT/mas_library.bash
+
+tbias=(`mce_cmd -qrx rb tes bias`)
+useme=${tbias[6]}
+
+dir='/noise_gcp/bias'$useme'/'
+mkdir '/data/cryo/current_data/noise_gcp'
+mkdir '/data/cryo/current_data/noise_gcp/bias'$useme'/'
+
+# Don't fiddle with tes bias when using mce_reconfig in 'really_freeze_servo.py'
+mas_param set tes_bias_do_reconfig 0
+mas_param set sq1_bias_off 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+mce_make_config
+mce_reconfig                                         #20091016 JAB added to fix sq2fb-tesbias xtalk issue
+
+sleep 1
+
+for row in 5 10 15 20 25 30
+do
+
+echo 'row='$row
+
+## light pixels all tiles Run8.0
+case "$row" in
+     5 ) coluse=( 0 2 4 6 8 12 15 ) ;;
+     10 ) coluse=( 0 3 5 7 8 9 11 13 ) ;;
+     15 ) coluse=( 0 1 2 4 6 7 10 12 15 ) ;;
+     20 ) coluse=( 0 1 3 9 10 11 13 15 ) ;;
+     25 ) coluse=( 0 2 4 5 6 8 10 12 ) ;;
+     30 ) coluse=( 0 1 3 5 7 9 11 13 ) ;;
+esac
+
+for col in ${coluse[@]}
+do
+
+if [ $col -lt 8 ]; then
+    rc=1
+else
+    rc=2
+fi
+
+mce_cmd -x dsp_reset
+mce_reconfig
+sleep 1
+~/python_tools/really_freeze_servo.py -r $row --o        #JAB 20091001 really_freeze_servo.py moved to ~/python_tools/
+
+# take super-fast noise timestreams at 400kHz, sampling pixel of interest
+#
+filename=$dir'/superfast_row'$row'_col'$col
+superfast_acq $col $row 12000000 $filename                 #JAB 20091007 commented out, this gives 320,000samples, 12.8sec
+sleep 1
+mce_cmd -x dsp_reset
+
+done
+done
+
+sleep 1
+mce_reconfig
+sleep 1
+
+/bin/echo -e "mark remove,all\nexit\n" | /home/bicep/gcp/bin/bicepCommand host=bicep33

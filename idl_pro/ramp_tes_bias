@@ -1,0 +1,165 @@
+#!/bin/bash
+#
+# Adapted from ramp_tes_bias for DAS
+#
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "2" ]; then
+  echo "----------------"
+  echo "Usage: ramp_tes_bias datafile n [ bias_start bias_step bias_count bias_pause first_pause [ normal_bias normal_time ] ] "
+  echo "   datafile      is the name of the datafile"
+  echo "   n             is the rc card number (1 to 4)"
+  echo
+  echo "   bias_start    is the first bias to apply"
+  echo "   bias_step     is the change in bias in each step (you probably want a *negative* value here)"
+  echo "   bias_count    is the total number of biases to apply"
+  echo "   bias_pause    is the delay time (in seconds) between biases"
+  echo "   first_pause   is the stabilization delay (in seconds) after applying the first bias"
+  echo
+  echo "   normal_bias   is the bias applied just prior to beginning the ramp"
+  echo "   normal_time   is the number of seconds to apply the normal bias (if 0, no normal bias is applied)"
+  echo
+  echo "At the end of the script, the biases are returned to the values they had when the script was called."
+  echo "Note that the file will be saved under the data directory."
+  echo ""
+  echo "To pass an observing log id to the registration program, set the variable "
+  echo "      export MAS_LOGID='observinglog.id=xxxx'"
+  echo "----------------"
+  exit 1
+fi
+
+# Set default bias step and normalizing parameters
+expt_file=$MAS_DATA/experiment.cfg
+total_bias=`mas_param -s $expt_file get ramp_tes_count`
+bias_step=`mas_param -s $expt_file get ramp_tes_step`
+start_bias=`mas_param -s $expt_file get ramp_tes_start`
+bias_normal=`mas_param -s $expt_file get tes_bias_normal`
+normal_time=`mas_param -s $expt_file get tes_bias_normal_time`
+first_pause=`mas_param -s $expt_file get ramp_tes_initial_pause`
+end_bias=`mas_param -s $expt_file get ramp_tes_final_bias`
+data_pause_us=`mas_param -s $expt_file get ramp_tes_period_us`
+
+# Command line overrides
+if [ "$#" -gt "2" ]; then
+    start_bias=$3
+    bias_step=$4
+    total_bias=$5
+    data_pause_us=`float_multiply 1000000.0 $6`
+    if [ "$data_pause_us" == "" ]; then data_pause_us="0"; fi
+    first_pause=$7
+fi
+
+if [ "$#" -gt "7" ]; then
+    bias_normal=$8
+    normal_time=$9
+fi
+
+ct=`print_ctime`
+dt=`cat /data/cryo/current_data_name`
+
+data_root=$1
+n=$2
+datafile=$MAS_DATA/$data_root
+
+runfile=$datafile.run
+biasfile=$datafile.bias
+logfile=$datafile.log
+
+if [ "$normal_time" != "0" ]; then
+    echo "Driving detectors normal (bias = $bias_normal)"
+    bias_tess $bias_normal
+    sleep $normal_time
+    bias_tess 0
+    sleep $normal_time
+    bias_tess $bias_normal
+    sleep $normal_time
+fi
+
+echo "Setting first bias and waiting $first_pause s; time between other points will be $data_pause_us us"
+bias_tess $start_bias
+sleep $first_pause
+
+# Help data mode into frame header...
+mce_update_userword $n
+
+# Don't register the acq here, it's done in auto_iv or not at all.
+#acq_register $ct iv $datafile $total_bias "$MAS_LOGID"
+
+#Generate .run file
+mce_status >> $runfile
+
+# Apply frameacq stamp
+frameacq_stamp $n $datafile $total_bias >> $runfile
+if [ "$?" != "0" ]; then
+  echo "frameacq_stamp failed!"
+  exit 1
+fi
+
+echo "<tes_bias>" >> $biasfile
+echo "Acquiring I-V curve into data file $datafile"
+
+script=$MAS_TEMP/`whoami`_ramp_tes_bias.scr
+[ -e $script ] && rm $script
+
+# Get a count of the bias lines in the system
+bias_lines=`command_reply rb tes bias | wc -w`
+
+if [ "$data_pause_us" -gt "0" ]; then
+    sleep_arg="-P 'sleep $data_pause_us' 0"
+else
+    sleep_arg=""
+fi
+
+# This doesn't work, probably because mce_ramp chokes on negative values.
+# echo mce_ramp -M "acq_config $datafile rc$n" \
+#     -L $total_bias \
+#     -V $start_bias $bias_step \
+#     -P "wb tes bias" $bias_lines \
+#     -P "acq_go 1" 0 \
+#     $sleep_arg
+# mce_ramp -M "acq_config $datafile rc$n" \
+#     -L $total_bias \
+#     -V $start_bias $bias_step \
+#     -P "wb tes bias" $bias_lines \
+#     -P "acq_go 1" 0 \
+#     $sleep_arg > $script
+# exit
+
+echo "acq_config $datafile rc$n" > $script
+for i in `seq 0 $(( $total_bias - 1 ))`; do
+   bias=$(( $start_bias + $i * $bias_step ))
+   echo $bias >> $biasfile
+   repeat_string $bias $bias_lines "wb tes bias"
+   if [ "$data_pause_us" -gt "0" ]; then
+       echo "sleep $data_pause_us"
+   fi
+   echo "acq_go 1"
+done >> $script
+
+mce_cmd -qf $script
+
+my_data=/data/cryo
+
+echo "Completed I-V acquisition!"
+
+if [ "$normal_time" != "0" ]; then
+    echo "Driving detectors normal (bias=$normal_bias)"
+    bias_tess $bias_normal
+    sleep $normal_time
+    bias_tess 0
+    sleep $normal_time
+    bias_tess $bias_normal
+    sleep $normal_time
+fi
+
+echo "Setting biases to initial value of $end_bias"
+bias_tess $end_bias
+
+echo "IV run time: " `print_elapsed $ct` "s"
+
+last_iv=$my_data/last_iv_completed
+[ -h $last_iv ] && rm -f $last_iv
+ln -s $datafile $last_iv
+
+echo "$datafile" > $my_data/last_iv_completed_name

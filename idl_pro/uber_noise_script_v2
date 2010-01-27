@@ -1,0 +1,109 @@
+#!/bin/bash
+#
+# This is the uber noise/tau script... it does everything.  Literally.
+# More specifically, it takes open-loop 15kHz (fast) noise spectra (50 timestreams),
+# open-loop 50MHz (raw) noise spectra (50 timestreams), tes bias square wave data
+# for tau measurements, and the sq1-err calibration open-loop via a sq1_fb sqr wave.  
+#
+#
+# JAB 20090512
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   uber_noise_script_v2 dir"
+    exit 1
+fi
+
+# Don't fiddle with tes bias when using mce_reconfig in 'really_freeze_servo.py'
+mas_param set tes_bias_do_reconfig 0
+mce_make_config
+
+#for tbias in 5300 5100 4900 5200
+#for (( tbias=4700; tbias>=3500; tbias=tbias-200 )) 
+for tbias in 0
+do
+
+dir=$1
+dir=$1'/bias'$tbias'/'
+#taudir=$dir'/tau'
+mkdir '/data/cryo/current_data/'$1/'bias'$tbias'/'
+#mkdir $taudir
+
+bias_tess $tbias
+#sleep 1
+
+#open-input sq1s run5
+#c0r22,c1r14,c2r8,c2r29,c4r9,c4r29,c8r32,c9r3,c9r30,c10r2,c12r28,c13r5,c13r8,c13r16,c14r8,c14r10,c14r15
+
+for row in 2 3 5 8 9 10 14 15 16 22 28 29 30 32
+do
+
+case "$row" in
+     2 ) coluse=( 10 ) ;;
+     3 ) coluse=( 9 ) ;;
+     5 ) coluse=( 13 ) ;;
+     8 ) coluse=( 2 13 14 ) ;;
+     9 ) coluse=( 4 ) ;;
+     10 ) coluse=( 14 ) ;;
+     14 ) coluse=( 1 ) ;;
+     15 ) coluse=( 14 ) ;;
+     16 ) coluse=( 13 ) ;;
+     22 ) coluse=( 0 ) ;;
+     28 ) coluse=( 12 ) ;;
+     29 ) coluse=( 2 4 ) ;;
+     30 ) coluse=( 9 ) ;;
+     32 ) coluse=( 8 ) ;;
+esac
+
+for col in ${coluse[@]}
+do
+
+if [ $col -lt 8 ]; then
+    rc=1
+else
+    rc=2
+fi
+
+mce_reconfig
+~/python_tools/really_freeze_servo.py -r $row --o
+
+fb_val=(`mce_cmd -qrx rb sq1 fb_const`)
+echo 'fb_val= '${fb_val[@]}
+
+# take fast noise timestreams at 15kHz, sampling all cols from rc of interest
+# do this before raw acquistions to avoid taking fast noise data in mode 12
+#
+fastfilename=$dir'/fastspectra_row'$row'_col'$col
+mce_cmd -qx wb rca data_mode 0
+mce_cmd -qx wb cc data_rate 1
+mce_cmd -qx wb cc num_rows_reported 1
+mce_run $fastfilename 150000 $rc
+
+# take raw noise timestreams at 50MHz
+#rawacq_50timestreams 50 $dir $col
+
+rccol=$(($col -8*($rc-1)))
+extn='row'$row'_col'$col
+for (( i = 0 ; i < 50 ; i++ ))
+do
+#echo "acquiring 65536 raw samples, trace $i of $1 on col$3"
+mce_raw_acq_1col $rc $rccol 65536 $extn $2
+done
+
+
+
+stepsize=10
+index=$((5+8*($rc-1)+$col))
+extn=$dir'calib_row'$row'_col'$col
+min=$((${fb_val[$index]}-$stepsize))
+max=$((${fb_val[$index]}+$stepsize))
+fb1const_sqrwave $min $max 50 $rc
+rectmode_15kHz_acq 10000 $rc $extn
+
+mce_cmd -x wb cc internal_cmd_mode 0
+#mce_cmd -x wb sq1 fb_const ${fb_val[@]:5}
+
+done
+done
+done

@@ -1,0 +1,37 @@
+#!/bin/bash
+# This script checks whether all values of a certain parameter are set to 0
+#
+# Revision history:
+# <date $Date: 2007/10/25 18:12:15 $>    - <initials $Author: mce $>
+# $Log: check_zero,v $
+# Revision 1.5  2007/10/25 18:12:15  mce
+# MA can handle replies with more than 1 line and any number of values per line
+# reports number of non-zero items
+#
+#
+#
+if [ $# -lt 2 ]; then
+    echo "----------------"
+    echo "Usage: check_zero card parameter [quiet]"
+    echo "       card is the target card (i.e. rc1)"
+    echo "       parameter is the parameter to check (i.e. sa_bias)"
+    echo "       set 3rd parameter to 1 to suppress output"
+    echo "This script checks whether the parameter is set to 0 and returns 1, otherwise it returns 0"
+    echo "Warning: This script has no error checking and if mcecmd fails, you will not know!"
+    echo "----------------"
+    exit 127
+fi
+
+card=$1
+param=$2
+quiet=$3
+
+result=`mce_cmd -qpx rb $card $param`
+val=`echo $result | awk 'BEGIN {s=0} (1) {for (i=3; i<= NF; i=i+1) if ($i != 0) s += 1} END {print s}'`
+if [ $val -ne 0 ]; then
+    [ "$quiet" == "1" ] || echo "Number of non-zero items: $val"
+    exit $val
+else
+    [ "$quiet" == "1" ] || echo "All items are set to 0!"
+    exit 0
+fi

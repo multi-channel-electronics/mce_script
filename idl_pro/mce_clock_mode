@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [ "$#" != "3" ]; then
+    echo "Usage:      $0 <select_clk> <use_sync> <use_dv>"
+    echo "E.g.:"
+    echo "         To ignore the sync box:    $0 0 0 0"
+    echo "         To use the sync box:       $0 1 2 2"
+    echo "         Use sync box clock only:   $0 1 0 0"
+    exit 1
+fi
+
+if [ "$1" == "0" ]; then
+    mce_cmd -q -X "wb cc use_dv $3" -X "wb cc use_sync $2" || exit 1
+    mce_cmd -q -X "wb cc select_clk 0" || exit 1
+    sleep 1
+else
+    mce_cmd -q -X "wb cc select_clk 1" || exit 1
+    sleep 1
+    mce_cmd -q -X "wb cc use_dv $3" -X "wb cc use_sync $2" || exit 1
+fi

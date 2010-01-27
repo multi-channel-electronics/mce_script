@@ -1,0 +1,234 @@
+#!/bin/bash
+#
+source $MAS_SCRIPT/mas_library.bash
+
+# Revision History:
+# <date $Date: 2007/11/13 04:11:09 $> - <initials: $Author: preaction $>
+# $Log: ramp_tes_bias,v $
+# Revision 1.14  2007/11/13 04:11:09  preaction
+#
+#  Modified Files:
+#  	auto_configure auto_setup_squids_sh pidz_dead_off
+#  	ramp_tes_bias set_directory
+#
+# Committing all actmceidl_pro and actmcescripts files to CVS for MCE software freeze.
+# MDN
+#
+# Revision 1.13  2007/11/05 16:34:58  preaction
+#
+#  Modified Files:
+#  	ramp_tes_bias
+# Changed wait time after driving normal.  Also explored different normal bias times and different acquisition rates, and settled on the current values (which are the same as was used previously).
+# MDN
+#
+# Revision 1.12  2007/10/30 21:54:29  preaction
+# MFH - in prep for snapshot to put on Calamari.
+#
+# Revision 1.11  2007/10/22 16:26:59  preaction
+#
+#  Modified Files:
+#  	dredge_fifo ramp_tes_bias
+#
+# Bug was fixed in ramp_tes_bias, which was generating .run files in actmceidl_pro.
+# MDN
+#
+# Revision 1.10  2007/10/22 16:24:46  preaction
+#
+#  Modified Files:
+#  	auto_acquire config_mce_auto_setup_template dredge_fifo
+#  	pidz_dead_off ramp_sq1_bias ramp_sq1_fb ramp_tes_bias
+#  	set_directory
+#
+# Scripts modified prior to first light observations with MBAC on 10-22-07.
+# MN & EB
+#
+# Revision 1.9  2007/10/20 16:28:20  preaction
+# EB: added the call for the scheduler
+#
+# Revision 1.8  2007/10/17 02:22:52  preaction
+#
+#  Modified Files:
+#  	ramp_tes_bias
+#
+# Fixed bug that was introduced in last version, which only changed the file naming convention.  Oops.
+# MDN
+#
+# Revision 1.7  2007/10/17 01:24:48  preaction
+#
+#  Modified Files:
+#  	ramp_tes_bias
+#
+# Modified to conform to new file naming conventions (c-time_iv).
+# MDN
+#
+# Revision 1.6  2007/09/22 00:12:41  preaction
+# MA@ubc added error codes
+#
+# Revision 1.5  2007/09/18 01:27:12  preaction
+#
+#  Modified Files:
+#  	bias_tess ramp_tes_bias scripted_noise setdata
+#
+# Committing all files for script freeze prior to ending MBAC run.
+#
+# MDN
+#
+# Revision 1.4  2007/09/12 16:10:39  preaction
+#
+#  Modified Files:
+#  	ramp_tes_bias
+#
+# Modified to work with new bias cards and have possibility of setting different biases
+# to drive detectors normal on different cards.
+# MDN
+#
+# Revision 1.3  2007/09/12 02:25:43  preaction
+#
+#  Modified Files:
+#  	ramp_tes_bias
+#
+# Modified to account for changes in bias card resistors, which should allow
+# us to output high enough current to drive all detectors normal without
+# additional heating.
+# MDN
+#
+# Revision 1.2  2007/09/11 16:27:03  preaction
+#
+#  Modified Files:
+#  	adc_offset_auto bias_tess chopper_remote_control
+#  	config_mce_auto_setup_template mceframeacq pidz_dead_off
+#  	ramp_tes_bias scripted_noise set_directory setdata sq1servo
+#  	mux_lock/sq1servo mux_lock/sq1servo.c
+#  Added Files:
+#  	bias_step_run
+#
+# Committing all to CVS 9-11-2007 MDN
+#
+# S: ----------------------------------------------------------------------
+#
+# Revision 1.1.1.1  2007/09/02 19:50:14  preaction
+# first commit of MCE DAS scripts for MBAC
+#
+# Revision 1.2  2006/02/16 22:23:07  mce
+# Mandana: improved based on feedback from act
+# uses mcecmd instead of mcebatchgo to be able to handle sleep command
+# bias values are adjusted for act setting, we may have to adjust them later.
+#
+# Revision 1.1  2006/02/14 00:33:18  mce
+# Mandana: new script to ramp tes bias, edit the loop(ramp) parameters inside the script
+#
+#
+if [ $# != 2 ]; then
+  echo "----------------"
+  echo "Usage: ramp_tes_bias datafile n"
+  echo "   datafile is the name of the datafile"
+  echo "   n        is the rc card number (1 to 4)"
+  echo "Note that the file will be saved under the data directory."
+  echo "----------------"
+  exit 1
+fi
+
+total_bias=1000 #60  	#480   #number of steps to decrement
+bias_step=1 #100	#25
+start_bias=1000	#12000 
+bias_normal1=1000	#Bias to drive detectors normal on each bias card
+bias_normal2=1000
+bias_normal3=1000
+normal_time=0.1
+initial_wait=1   #10 
+end_bias=0	#4000
+
+#@ total_bias = 200  	#number of steps to decrement
+#@ bias_step  = 150
+#@ start_bias = 30000
+#@ bias_normal = 45000
+#@ initial_wait = 120
+#@ end_bias = 9000
+
+data_pause_us=10    # 100000, normally, step period in microseconds 
+ct=`print_ctime`
+dt=`cat /data/cryo/current_data_name`
+
+data_root=$1
+datafile=$MAS_DATA/$data_root
+n=$2
+
+runfile=$datafile.run
+biasfile=$datafile.bias
+logfile=$datafile.log
+
+echo "Driving detectors normal before I-V curve acquisition using ramp_tes_bias script." #>> /data/cryo/script_log.txt #
+bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> /data/cryo/script_log.txt #
+sleep $normal_time
+
+bias_tess 0
+sleep $normal_time
+bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> /data/cryo/script_log.txt #
+sleep $normal_time
+
+echo "waiting $initial_wait sec for temperature to stabilize" #>> /data/cryo/script_log.txt #
+bias_tess $start_bias
+echo "Will wait $data_pause_us usec between each data point." #>> /data/cryo/script_log.txt #
+sleep $initial_wait
+
+cat /data/cryo/last_squid_tune >> $runfile
+#Generate .run file
+mce_status >> $runfile
+
+# Apply frameacq stamp
+frameacq_stamp $n $datafile $total_bias >> $runfile
+if [ "$?" != "0" ]; then
+  echo "frameacq_stamp failed!"
+  exit 1
+fi
+
+#if ($n == s) then
+#  echo "<RC> 1 2 3 4" >> $MAS_DATA/$runfile
+#else      
+#  echo "<RC> $n" >> $MAS_DATA/$runfile
+#endif
+
+[ -e $biasfile ] && rm $biasfile
+
+echo "<tes_bias>" >> $biasfile
+echo "Acquiring I-V curve into data file $datafile" #>> /data/cryo/script_log.txt #
+
+#touch /data/cryo/${dt}/$datafile
+#ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
+#ln /data/cryo/${dt}/$runfile /data/mce_ctimes/$runfile
+#ln /data/cryo/${dt}/$biasfile /data/mce_ctimes/$biasfile
+
+#echo "executing ramp"
+for i in `seq 0 $(( $total_bias - 1 ))`; do
+   bias=$(( $start_bias - $i * $bias_step ))
+   bias_tess $bias >> $logfile
+#   mce_cmd -qx rb bc2 bias
+   echo "$bias" >> $biasfile
+
+   echo -e \
+       "acq_config $datafile rc$n\n" \
+       "acq_go 1\n" \
+       "sleep $data_pause_us" | \
+       mce_cmd -q
+    if [ "$?" != "0" ]; then
+	    exit 3
+    fi
+done
+
+my_data=/data/cryo
+
+echo "Completed I-V acquisition!"
+echo "Driving detectors normal, then setting detector bias to $end_bias"
+bias_tess $bias_normal1 $bias_normal2 $bias_normal3  >> $my_data/script_log.txt #
+sleep $normal_time
+bias_tess $end_bias  >> $my_data/script_log.txt 
+
+set ctf=`print_ctime`
+echo "I-V start time: $ct" >> $my_data/script_log.txt 
+echo "I-V end time: $ctf" >> $my_data/script_log.txt 
+
+last_iv=$my_data/last_iv_completed
+[ -e $last_iv ] && rm -f $last_iv
+ln -s $datafile $last_iv
+
+echo "$datafile" > $my_data/last_iv_completed_name

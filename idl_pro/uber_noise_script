@@ -1,0 +1,93 @@
+#!/bin/bash
+#
+# This is the uber noise/tau script... it does everything.  Literally.
+# More specifically, it takes open-loop 15kHz (fast) noise spectra (50 timestreams),
+# open-loop 50MHz (raw) noise spectra (50 timestreams), tes bias square wave data
+# for tau measurements, and the sq1-err calibration open-loop via a sq1_fb sqr wave.  
+#
+#
+# JAB 20090512
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "2" ]; then
+    echo "Usage:   uber_noise_script row rc dir"
+    echo "  where rc is 1 or 2"
+    exit 1
+fi
+
+row=$1
+rc=$2
+
+# Don't fiddle with tes bias when using mce_reconfig in 'really_freeze_servo.py'
+mas_param set tes_bias_do_reconfig 0
+mce_make_config
+
+#for tbias in 5300 5100 4900 5200
+#for (( tbias=4700; tbias>=3500; tbias=tbias-200 )) 
+for tbias in 3000
+do
+
+dir=$3'bias'$tbias'/'
+#taudir=$dir'/tau'
+mkdir '/data/cryo/current_data/'$3'bias'$tbias'/'
+#mkdir $taudir
+
+bias_tess $tbias
+sleep 1
+
+mce_reconfig
+sleep 1
+
+~/python_tools/really_freeze_servo.py -r $row --o
+sleep 1
+
+fb_val=(`mce_cmd -qrx rb sq1 fb_const`)
+echo 'fb_val= '${fb_val[@]}
+
+sleep 1
+
+# take fast noise timestreams at 15kHz, sampling all cols from rc of interest
+# do this before raw acquistions to avoid taking fast noise data in mode 12
+#
+fastfilename=$dir'/fastspectra'
+mce_cmd -qx wb cc data_rate 1
+mce_cmd -qx wb cc num_rows_reported 1
+mce_run $fastfilename 500000 $rc
+
+# take raw noise timestreams at 50MHz
+#
+for (( col=0; col<=7; col++ ))
+    do
+	rawacq_50timestreams 50 $dir $col
+done
+
+for fb_amp in 10
+do
+#fb_amp=20
+fb_step=$(( $fb_amp/2 ))
+
+  for (( rccol=0; rccol<=7; rccol++ ))
+    do
+	mcecol=$(($rccol+8*($rc-1)))
+	index=$(($rccol+5))
+	extn='calib_fbamp'$fb_amp'_col'$mcecol
+	min=$((${fb_val[$index]}-$fb_step))
+    	max=$((${fb_val[$index]}+$fb_step))
+    	bias_sqrwave $min $max 2 3 31
+        sleep 2
+    	mce_raw_acq_1col $rc $rccol 65536 $extn $dir 
+	sleep 2
+	mce_cmd -x dsp_reset
+  done
+done
+
+mce_cmd -x wb cc internal_cmd_mode 0
+sleep 1
+
+mce_cmd -x wb sq1 fb_const ${fb_val[@]:5}
+sleep 1
+
+mce_cmd -x wb cc internal_cmd_mode 0
+
+done

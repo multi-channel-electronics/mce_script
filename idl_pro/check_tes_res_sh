@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# JAB 20091227
+#
+# Shell script that spawns check_tes_res.m matlab routine for determining the
+# detector resistances by acquiring a small tes bias ramp.
+
+cd ~/
+matlab -nodesktop -nosplash -r "check_tes_res(1,[],[]);"
+
+end

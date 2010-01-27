@@ -1,0 +1,53 @@
+#!/bin/bash
+#
+# script for ramping tes biases from there starting values by 50ADU, and then resetting to original value.  Each column can have different starting bias.
+#
+# JAB 20100115
+
+bias_step=1
+total_bias=50
+data_pause_us=10000
+
+bias_query=`mce_cmd -qx rb tes bias`
+biases=${bias_query[@]:15:200}
+for ii in $biases
+do
+  bias=( ${bias[@]} $ii )
+done
+
+dt=`cat /data/cryo/current_data_name`
+
+data_root=ramp_test
+n=s
+datafile=$MAS_DATA/$data_root
+
+runfile=$datafile.run
+biasfile=$datafile.bias
+
+echo "<tes_bias>" >> $biasfile
+mce_status >> $runfile
+frameacq_stamp $n $datafile $total_bias >> $runfile
+
+script=$MAS_TEMP/`whoami`_ramp_tes_bias.scr
+[ -e $script ] && rm $script
+
+echo "acq_config $datafile rc$n" > $script
+for i in `seq 0 $(( $total_bias - 1 ))`; do
+   for jj in `seq 0 15`
+   do    
+        bias[jj]=$(( ${bias[jj]} + $bias_step ))
+   done
+   echo ${bias[@]} >> $biasfile
+   temp=` echo wb tes bias ${bias[@]}`
+   echo $temp >> $script
+   if [ "$data_pause_us" -gt "0" ]; then
+       echo "sleep $data_pause_us"
+   fi
+   echo "acq_go 1"
+done >> $script
+
+mce_cmd -qf $script
+
+my_data=/data/cryo
+
+mce_cmd -qx wb tes bias ${bias_query[@]:15:200}

@@ -1,0 +1,124 @@
+#!/bin/bash
+#
+# This is the uber noise/tau script... it does everything.  Literally.
+# More specifically, it takes open-loop 15kHz (fast) noise spectra (50 timestreams),
+# open-loop 50MHz (raw) noise spectra (50 timestreams), tes bias square wave data
+# for tau measurements, and the sq1-err calibration open-loop via a sq1_fb sqr wave.  
+#
+#
+# JAB 20090512 uber_tau_script_1tile
+# JAB 20091003 uber_tau_script for 4tile bicep2
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   uber_tau_script dir"
+    exit 1
+fi
+
+# Don't fiddle with tes bias when using mce_reconfig in 'really_freeze_servo.py'
+mas_param set tes_bias_do_reconfig 0
+mce_make_config
+mce_reconfig
+
+#for tbias in 3400
+for (( tbias=4400; tbias>=1800; tbias=$tbias-200 ))
+do
+
+dir=$1'/bias'$tbias'/'
+#taudir=$dir'/tau'
+mkdir '/data/cryo/current_data/'$1/'bias'$tbias'/'
+#mkdir $taudir
+
+sleep 1
+bias_tess $tbias
+sleep 1
+
+
+#for (( row=0; row<=33; row=$row+1 ))
+#for row in 8 9 24 25
+for row in 5 10 15 20 25 30
+#for row in 8
+do
+
+echo 'row='$row
+
+#### light pixels all tiles Run8.0
+##case "$row" in
+##     5 ) coluse=( 0 2 4 6 8 12 15 ) ;;
+##     8 ) coluse=( 0 8 ) ;;
+##     9 ) coluse=( 0 8 ) ;;
+##     10 ) coluse=( 0 3 5 7 8 9 11 13 ) ;;
+##     15 ) coluse=( 0 1 2 4 6 7 10 12 15 ) ;;
+##     20 ) coluse=( 0 1 3 9 10 11 13 15 ) ;;
+##     24 ) coluse=( 15 ) ;;
+##     25 ) coluse=( 0 2 4 5 6 8 10 12 ) ;;
+##    # 25 ) coluse=( 15 ) ;;
+##     30 ) coluse=( 0 1 3 5 7 9 11 13 ) ;;
+##esac
+
+mce_reconfig
+~/python_tools/really_freeze_servo.py -r $row --o
+
+##for col in ${coluse[@]}
+##do
+
+##echo 'col='$col
+
+#fb_val=(`mce_cmd -qrx rb sq1 fb_const`)
+#echo 'fb_val= '${fb_val[@]}
+#sleep 1
+
+####tau measurement below#########
+for step in 1                #normally use 1 2
+do
+#step=5
+
+for period in 400 800    #normally use 200 400 800
+do
+
+biasmax=$(($tbias + $step))
+
+#####figure out an appropriate period for the tes bias sqrwave for tau in raw mode#############################
+#####may choose to take fewer than 50 traces if period is small, and can coadd a lot square waves
+#####in fast mode I had a period of 500, and took 250000 samples -- 500 cycles --  for decent s/n higher in transition
+
+sleep 1
+bias_sqrwave $tbias $biasmax $period 9 32   #card=9 param=32 for 4tile
+sleep 2
+# take time constant data
+#
+
+fastfilename=$dir'/fast_step'$step'_per'$period'_row'$row
+
+##uncomment below to #---# for rectangle mode sampling
+
+#fastfilename=$fastfilename'_col'$col
+#acq_15kHz_rectmode_1pix $col $row 500000 $fastfilename
+#------------#
+
+##uncomment below to #---# for standard 15kHz sampling
+
+fastfilename1=$fastfilename'_rc1'
+fastfilename2=$fastfilename'_rc2'
+mce_cmd -qx wb cc data_rate 1
+mce_cmd -qx wb cc num_rows_reported 1
+sleep 1
+mce_run $fastfilename1 500000 1
+sleep 1
+mce_cmd -x dsp_reset
+sleep 1
+mce_run $fastfilename2 500000 2
+sleep 1
+mce_cmd -x dsp_reset
+sleep 1
+#-----------#
+
+done
+
+mce_cmd -x wb cc internal_cmd_mode 0
+done
+
+done
+##done
+done

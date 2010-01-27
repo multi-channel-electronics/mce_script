@@ -1,0 +1,130 @@
+#!/bin/bash
+#
+# mce_partial_loadcurve mce_acquire [start_bias bias_step(negative) data_pause(sec)]
+#
+# mce_acquire = acquire data with mce (1), do not acquire data with mce (0)
+#
+# optional arguments:
+# start_bias = tes bias (ADU) from which to start ramping down
+# bias_step = negative integer specifying size of bias steps ramping down
+# data_pause = time in sec between bias steps
+#
+# Script for ramping tes bias from 10000ADU down to starting bias values on each column.  Truncated load curve is used to determine detector loading.
+# Based on JAB's ramp_tes_bias_return and RWO's mce_bias_bump shell scripts.
+#
+# JAB 20100121
+
+if [ "$#" -lt "1" ];
+then
+    echo "must specify whether or not to acquire data with the MCE, 0=no, 1=yes"
+    echo "mce_partial_loadcurve mce_acquire [start_bias bias_step(negative) data_pause(sec)]"
+    exit 1
+else
+    mce_acquire=$1
+fi
+
+if [ "$#" -ge "2" ];
+then
+    start_bias=$2
+else
+    start_bias=10000
+fi
+
+if [ "$#" -ge "3" ];
+then
+    bias_step=$3
+else
+    bias_step=-10
+fi
+
+if [ "$#" -ge "4" ];
+then
+    data_pause=$4
+else
+    data_pause=.1
+fi
+
+source $MAS_SCRIPT/mas_library.bash
+
+bias_query=`mce_cmd -qx rb tes bias`
+word_query=`mce_cmd -qx rb cc user_word`
+word_query=${word_query[@]:15:100}
+biases=${bias_query[@]:15:200}
+for ii in $biases
+do
+  bias=( ${bias[@]} $ii )
+   if [ $ii -ne "0" ]; 
+   then 
+        tes_bias=( ${tes_bias[@]} $start_bias ); 
+   else 
+        tes_bias=( ${tes_bias[@]} 0 ); 
+   fi
+done
+
+if [ $mce_acquire -eq 1 ];
+then
+    dt=`cat /data/cryo/current_data_name`
+    data_root=ramp_test
+    n=s
+    datafile=$MAS_DATA/$data_root
+    runfile=$datafile.run
+    biasfile=$datafile.bias
+    echo "<tes_bias>" >> $biasfile
+    mce_status >> $runfile
+    frameacq_stamp $n $datafile $total_bias >> $runfile
+fi
+
+# Set to the start_bias in the normal branch and wait before ramping down   
+mce_cmd -qx wb tes bias $tes_bias
+sleep 1
+
+# Determine max number of iterations for bias stepping
+min_bias=$start_bias
+for i in `seq 0 15`
+do 
+    if [ ${bias[i]} -lt $min_bias ] && [ ${bias[i]} -gt 0 ]; 
+    then
+	min_bias=${bias[i]}
+    else
+	min_bias=$min_bias
+    fi
+done
+max_steps=$(( (( $start_bias - $min_bias )) / (( -1 * $bias_step )) ))
+
+# Signal start of bias ramp
+mce_cmd -qx wb cc user_word 0
+sleep 0.1
+
+# Start ramping each column down independently from the start_bias to it's original bias
+for (( i=0 ; i<=$max_steps ; i++ ))
+do
+    for jj in `seq 0 15`
+    do
+	if [ ${tes_bias[jj]} -gt ${bias[jj]} ]; 
+	then
+	    tes_bias[jj]=$(( ${tes_bias[jj]} + $bias_step ))
+	else
+	    tes_bias[jj]=$(( ${tes_bias[jj]} + 0 ))
+	fi
+    done
+    mce_cmd -qx wb tes bias ${tes_bias[@]}
+    user_word_write=$(( $start_bias + $bias_step ))
+    mce_cmd -qx wb cc user_word $user_word_write
+    sleep $data_pause
+    if [ $mce_acquire -eq 1 ];
+    then
+	echo ${tes_bias[@]} >> $biasfile
+	mce_cmd -q \
+	    -X "acq_config $datafile rc$n" \
+	    -X "acq_go 1"
+    fi
+done
+
+# Ensure that original biases are restored, as is the original user word
+mce_cmd -qx wb tes bias ${bias_query[@]:15:200}
+mce_cmd -qx wb cc user_word $word_query
+
+mce_cmd -qx dsp_reset
+
+# Signal that we are done
+$GCP_DIR/../scripts/bicep/controlSystem command "signal/send done"
