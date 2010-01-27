@@ -1,0 +1,104 @@
+#!/bin/bash
+#
+# mce_full_loadcurve mce_acquire [start_bias bias_step(negative) data_pause(sec)]
+#
+# mce_acquire = acquire data with mce (1), do not acquire data with mce (0)
+#
+# optional arguments:
+# start_bias = tes bias (ADU) from which to start ramping down
+# bias_step = negative integer specifying size of bias steps ramping down
+# data_pause = time in sec between bias steps
+#
+# Script for ramping tes bias from 10000ADU down to 0 on each column.
+#
+# JAB 20100121
+
+source $MAS_SCRIPT/mas_library.bash
+RUNFILE_PIPE=/data/cryo/mas_data_pipe.run
+
+if [ "$#" -lt "1" ];
+then
+    mce_acquire=0
+else
+    mce_acquire=$1
+fi
+
+if [ "$#" -ge "2" ];
+then
+    start_bias=$2
+else
+    start_bias=10000
+fi
+
+if [ "$#" -ge "3" ];
+then
+    bias_step=$3
+else
+    bias_step=-10
+fi
+
+if [ "$#" -ge "4" ];
+then
+    data_pause=$4
+else
+    data_pause=.01
+fi
+
+fb_jump_query=`mce_cmd -qx rb rca en_fb_jump`
+fb_jump_query=${fb_jump_query[@]:15:100}
+word_query=`mce_cmd -qx rb cc user_word`
+word_query=${word_query[@]:15:100}
+
+if [ $mce_acquire -eq 1 ];
+then
+    dt=`cat /data/cryo/current_data_name`
+    data_root=ramp_test
+    n=s
+    datafile=$MAS_DATA/$data_root
+    runfile=$datafile.run
+    biasfile=$datafile.bias
+    echo "<tes_bias>" >> $biasfile
+    mce_status >> $runfile
+    frameacq_stamp $n $datafile $total_bias >> $runfile
+fi
+
+# Set to the start_bias in the normal branch and wait before ramping down
+# Reinitialize the servo and enable fb jump, for cleaner iv curves   
+bias_write=`repeat_string $start_bias 16`
+mce_cmd -qx wb tes bias $bias_write
+sleep 1
+mce_cmd -qx wb rca flx_lp_init 1
+sleep 1
+mce_cmd -qx wb rca en_fb_jump 1
+
+# Signal start of bias ramp
+mce_cmd -qx wb cc user_word 0
+sleep 0.1
+
+# Start ramping from start_bias to 0 in steps of bias_step
+for bias_use in `seq $start_bias $bias_step 0`
+do
+    bias_write=`repeat_string $bias_use 16`
+    mce_cmd -qx wb tes bias $bias_write
+    mce_cmd -qx wb cc user_word $bias_use
+    sleep $data_pause
+    if [ $mce_acquire -eq 1 ];
+    then
+	echo $bias_use >> $biasfile
+	mce_cmd -q \
+	    -X "acq_config $datafile rc$n" \
+	    -X "acq_go 1"
+    fi
+done
+
+# Ensure that the original user word
+mce_cmd -qx wb cc user_word $word_query
+
+# Restore en_fb_jump settings
+mce_cmd -qx wb rca en_fb_jump ${fb_jump_query[@]}
+
+# Reinitialize the servo
+mce_cmd -qx wb rca flx_lp_init 1
+
+# Signal that we are done
+$GCP_DIR/../scripts/bicep/controlSystem command "signal/send done"
