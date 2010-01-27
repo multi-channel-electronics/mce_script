@@ -176,9 +176,9 @@ printf,20,'<SQ_tuning_date> '+current_data
 printf,20,'<SQ_tuning_dir> '+string(time,format='(i10)')
 printf,20,'</SQUID>'
 close,20
-
-; Store id of runfile block
-exp_config.tune_id = current_data + '/' + c_filename+'.sqtune'
+                                                                                                                   
+spawn,'rm -f /data/cryo/last_squid_tune'
+spawn,'ln -s '+todays_folder+c_filename+'.sqtune /data/cryo/last_squid_tune'
 
 ;#######STARTS THE CYCLE OVER THE 4 RCs TO SET ALL THE BIAS AND FB#######
 
@@ -1056,6 +1056,11 @@ for j=0,31 do printf,20,'<Col'+strtrim(j,1)+'_squid_off_recommendation> '+squid_
 printf,20,'</SQUID>'
 close,20
                                                                                                   
+spawn,'rm -f /data/cryo/last_squid_tune'
+spawn,'ln -s '+todays_folder+c_filename+'.sqtune /data/cryo/last_squid_tune' 
+spawn,'echo "'+current_data+'" > /data/cryo/last_squid_tune_name'
+spawn,'echo "'+string(time,format='(i10)')+'" >> /data/cryo/last_squid_tune_name'
+
 spawn,'cp '+exp_config_file+' '+todays_folder+file_folder+'/'
 
 t_elapsed = systime(1,/utc)-time
