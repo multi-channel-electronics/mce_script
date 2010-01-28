@@ -106,14 +106,12 @@ sq2_bias = loop_params_b[0]
 sq2_bstep = loop_params_b[1]
 n_bias = loop_params_b[2]
 
-sq2_fb = loop_params_f[0]
-sq2_fb_s = loop_params_f[1]
+input_fb = loop_params_f[0]
+input_fb_s = loop_params_f[1]
 npts = loop_params_f[2]
 
 
-r0=fltarr(npts,8)
 r1 = fltarr(npts,8)
-fb0=fltarr(npts,8)
 fb1 = fltarr(npts,8)
 values = fltarr(16)
 
@@ -132,7 +130,7 @@ for i=0, npts-1 do begin
 endfor
 free_lun,lun
 
-sq2_sweep = (sq2_fb + findgen(npts)*sq2_fb_s) /1000.
+input_sweep = (input_fb + findgen(npts)*input_fb_s) /1000.
 ;Let's draw
 
 set_plot, 'ps'
@@ -144,18 +142,18 @@ for j=0,7 do begin
 	label = string(j, format='(f4.0)')
 	fbmax = max(fb1[10:*,j])/1000
 	fbmin=min(fb1[10:*,j])/1000
-	plot,sq2_sweep, fb1[*,j]/1000,/ys, ytitle ='SA_FB/1000',$
+	plot,input_sweep, fb1[*,j]/1000,/ys, ytitle ='SA_FB/1000',$
         xtitle='SQ2_FB/1000', /xs, title='Feed Back, SA Channel '+ label,$
         yrange=[fbmin,fbmax]
-	;oplot,sq2_sweep, fb1[*,j]/1000, linestyle=1
+	;oplot,input_sweep, fb1[*,j]/1000, linestyle=1
 
 	ymin = min(r1[10:*,j])/1000 -2.
 	ymax = max(r1[10:*,j])/1000 +2
-	plot, sq2_sweep, r1[*,j]/1000, ytitle=' AD_reading/1000',$
+	plot, input_sweep, r1[*,j]/1000, ytitle=' AD_reading/1000',$
         xtitle='SQ2_FB/1000',$
         /ys, /xs, title='AD Output, SA Channel'+ label,$
    	yrange=[ymin, ymax]
-	;oplot,sq2_sweep, r1[*,j]/1000., linestyle=1
+	;oplot,input_sweep, r1[*,j]/1000., linestyle=1
 
 	label = 'SQ2_BIAS = ' + string(sq2_bias, format='(f7.0)')
 	xyouts, 0.1, 1.01, label, /normal	;print value of sq_bias
@@ -178,9 +176,9 @@ deriv_fb1=fb1
 sq2_v_phi=fb1
 				
 for chan=0,7 do begin	;calculate the derivatives of the V-phi plots
-;	deriv_fb1(*,chan)=smooth(deriv(sq2_sweep(*),fb1(*,chan)),10)
+;	deriv_fb1(*,chan)=smooth(deriv(input_sweep(*),fb1(*,chan)),10)
 ; Changed to smooth before derivative. MDN 4-2-2008
-	deriv_fb1(*,chan)=deriv(sq2_sweep(*),smooth(fb1(*,chan),10))
+	deriv_fb1(*,chan)=deriv(input_sweep(*),smooth(fb1(*,chan),10))
 	sq2_v_phi(*,chan)=smooth(fb1(*,chan),10)
     endfor
 
@@ -234,11 +232,11 @@ for chan=0,7 do begin
 				ind_half_point = fb_pnt + ind_max ;where(abs(fb1(ind_max:ind_min)-fb_mean) eq fb_close) + ind_max
 			endelse
 			target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
-			fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
+			fb_half_point_ch_by_ch(chan)=round(1000.*input_sweep(ind_half_point))
 		endif else begin
 			ind_half_point=round((ind_min+ind_max)/2)
 			target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
-			fb_half_point_ch_by_ch(chan)=round(1000.*sq2_sweep(ind_half_point))
+			fb_half_point_ch_by_ch(chan)=round(1000.*input_sweep(ind_half_point))
                 endelse
 
                 if not keyword_set(quiet) then begin
@@ -287,15 +285,18 @@ charsz=1
 set_plot, 'ps'
 device, filename= plot_file, /landscape
 
+!p.region=[0,0,0,0]             ;Plot region.
+!y.omargin=[0.,5.]              ;Leave room at top for page title
+
 for j=0,7 do begin
 	label = string(j, format='(f4.0)')
 	fbmax = max(fb1[10:*,j])/1000
 	fbmin=min(fb1[10:*,j])/1000
-	plot,sq2_sweep, fb1[*,j]/1000,/ys, ytitle ='SA_FB/1000',$
+	plot,input_sweep, fb1[*,j]/1000,/ys, ytitle ='SA_FB/1000',$
         xtitle='SQ2_FB/1000', /xs, title='Feed Back, SA Channel '+ label,$
         yrange=[fbmin,fbmax],charsize=charsz
-	;oplot,sq2_sweep, fb1[*,j]/1000, linestyle=1
-	oplot, [sq2_sweep(0),sq2_sweep(n_elements(sq2_sweep)-1)],[SQ2_target(j),SQ2_target(j)]/1000.
+	;oplot,input_sweep, fb1[*,j]/1000, linestyle=1
+	oplot, [input_sweep(0),input_sweep(n_elements(input_sweep)-1)],[SQ2_target(j),SQ2_target(j)]/1000.
 	oplot, [SQ2_feedback(j),SQ2_feedback(j)]/1000.,[-200,200]
 endfor  
 

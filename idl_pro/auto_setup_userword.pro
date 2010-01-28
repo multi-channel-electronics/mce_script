@@ -1,8 +1,7 @@
-function auto_setup_userword,rc
+function auto_setup_userword,arg
 
-; Make sure userword contains data_mode, array_id, ctime
-spawn, 'mce_update_userword ' + string(rc), exit_status=exit_status
+; Um, don't do anything.
 
-return, exit_status
+return, 0
 
 end
