@@ -96,6 +96,7 @@ for rc in 1 2 3 4; do
 #    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
     echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
+    echo "wb rc$rc readout_col_index 0" >> $mce_script
     echo "wb rc$rc sample_dly   $sample_dly" >> $mce_script
     echo "wb rc$rc sample_num   $sample_num" >> $mce_script
     echo "wb rc$rc fb_dly       $fb_dly" >> $mce_script
@@ -161,12 +162,14 @@ done
 echo "wb ac row_dly   $row_dly" >> $mce_script
 echo "wb ac row_order ${row_order[@]}" >> $mce_script
 echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
-echo "wb ac off_bias  `repeat_string 0 41`" >> $mce_script
+echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
 
 
 # Set the TES biases via the "tes bias" virtual address
-echo "wb tes bias ${tes_bias[@]}" >> $mce_script
+if [ "$tes_bias_do_reconfig" != "0" ]; then
+    echo "wb tes bias ${tes_bias[@]}" >> $mce_script
+fi
 
 #----------------------------------------------
 # Bias Cards - use functional mappings!
@@ -211,5 +214,4 @@ for rc in 1 2 3 4; do
     echo "wb rc$rc flx_lp_init 1" >> $mce_script
 done
 
-chgrp mce $mce_script
 #END config_create.bash
