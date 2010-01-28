@@ -1,3 +1,11 @@
+function sign,x,nozero=nozero
+  if x gt 0. then return,  1.
+  if x lt 0. then return, -1.
+  if keyword_set(nozero) then return, 1.
+  return, 0.
+end
+
+
 pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,text=text,numrows=numrows,note=note,ramp_sa_bias=ramp_sa_bias,check_bias=check_bias,short=short,quiet=quiet
 
 ; Aug. 21, 2006, created by Elia Battistelli (EB)
