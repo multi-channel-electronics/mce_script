@@ -4,7 +4,7 @@ from pylab import *
 from numpy import *
 
 from mce_data import *
-import sys
+import sys, os
 from glob import glob
 
 from logbin import logbin
@@ -38,7 +38,7 @@ def spectra(files, column=0):
         d = load_raw_file(fn)
         if not check_data(d.data):
             print 'Weird data in %s'%fn
-        f, p = power(d.data[column,:])
+        f, p = power(d.data[column,:65536])
         spectra.append(p)
     return f, array(spectra)
 
@@ -75,66 +75,55 @@ def model_3db(p):
     return f[idx]
 
 if __name__ == '__main__':
+    from optparse import OptionParser
+    o = OptionParser()
+    opts, args = o.parse_args()
+
+    if len(args) == 1 and os.path.isdir(args[0]):
+        files = glob('%s/*raw' % args[0])
+        if len(files) == 0:
+            print 'No files found in directory "%s"' % args[0]
+            sys.exit(1)
+    else:
+        files = args
+        if len(files) == 0:
+            print 'Give directory or filenames.'
+            sys.exit(1)
+
+    # Column is always 0 for one-RC raw grabs.
     column = 0
-    files = sys.argv[1:]
     n_files = len(files)
     ts = time_series(files, column)
 
     print 'Computing RMS for %i files.' % n_files
-    rr = []
-    for t in ts:
-        #print t.std()
-        rr.append(t.std())
-    print 'Mean: ', mean(rr), ' +- ', std(rr)
+    rr = [t.std() for t in ts]
+    print 'RMS:                     ', mean(rr), ' +- ', std(rr)
         
-    f, p = spectra(sys.argv[1:], column)
-
-    # Log bin
+    # Load spectra, average bin.
+    f, p = spectra(files, column)
     pr = sqrt(mean(p**2, axis=0))
     f2, y2 = logbin(f, pr, bins=1000)
+
+    # Scale to be n_pts invariant
     
-    # Levels
+    # Levels levels levels
     white_cut = 0.1e6
     high_cut = 15e6
     white_level = sqrt(mean(p[:,f<white_cut]**2))
     high_level = sqrt(mean(p[:,f>high_cut]**2))
 
-    print 'White noise level: ', white_level
-    print 'Noise floor level: ', high_level
-    print 'Ratio: ', high_level / white_level
+    print 'White noise (ADC/rtHz):  ', white_level
+    print 'Noise floor (ADC/rtHz):  ', high_level
+    print 'Ratio:                   ', high_level / white_level
 
     # Find 3dB
     f3db_level = white_level / sqrt(2.)
     search_cut = 0.5e6
     f3db = f2[((f2 > search_cut)*(y2 <= f3db_level)).nonzero()][0]
 
-    print 'f_3db: ', f3db/1e6, 'MHz'
-    
-if 0:
-    # plot plot plot
-    subplot(211)
-    plot(f, pr)
-    xlim(0,5e5)
-    subplot(212)
-    loglog(f[1:], pr[1:])
-    xlim(1e3, 25e6)
-    ylim(1e-5, 1e-0)
-    
-    show()
-    clf()
-    loglog(f2, y2)
-    show()
-    m = f2 > 1e5
-    x = f2[m]
-    y = T_1(y2[m])
-    p0 = (T_1(1e-3), T_1(2e-4), 5e6, 2., 10e6, 2.)
-    args = (x,y)
-    p1, _ = leastsq(resid, p0, args=args)
-    print p1
-    
-    print model_3db(p1)
-    
-if 1:
+    print 'f_3db (MHz):             ', f3db/1e6, 'MHz'
+
+    # Plot plot plot.
     loglog(f2, y2)
     plot([1e3, white_cut], [white_level]*2)
     plot([high_cut, 25e6], [high_level]*2)
