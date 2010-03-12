@@ -68,173 +68,213 @@ def acquire(tuning, rc, filename=None, do_bias=None):
                   'do_bias': do_bias,
                   }
 
+class SARamp:
+    def __init__(self, filename=None, reduce_rows=False):
+        self.data = None
+        self.analysis = None
+        if filename != None:
+            self.read_data(filename, reduce_rows=reduce_rows)
 
-def reduce(tuning, ramp_data, slope=None):
-    if not hasattr(ramp_data, 'has_key'):
-        ramp_data = {'filename': ramp_data,
-                     'basename': os.path.split(ramp_data)[-1]
-                     }
-    datafile = ramp_data['filename']
-    
-    rf = MCERunfile(datafile + '.run')
-    n_frames = rf.Item("FRAMEACQ", "DATA_FRAMECOUNT", type="int", array=False)
+    def _check_data(self, simple=False):
+        if self.data == None:
+            raise RuntimeError, 'SARamp needs data.'
+        if simple and self.data_style != 'rectangle':
+            raise RuntimeError, 'Simple SARamp expected (use split?)'
 
-    # List RCs and columns involved here...
-    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
-    cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
+    def _check_analysis(self, existence=False):
+        if self.analysis == None:
+            if existence:
+                self.analysis = {}
+            else:
+                raise RuntimeError, 'SARamp lacks desired analysis structure.'
 
-    # Convert to 1 slope per column
-    if slope == None:
-        slope = tuning.get_exp_param('sq2servo_gain')
-    if not hasattr(slope, '__getitem__'): slope = [slope]*4
-    if len(slope) < 8:
-        slope = (zeros((8,len(slope))) + slope).ravel()
-    slope = slope[cols]
+    def reduce_rows(self):
+        s = list(self.data_shape)
+        n_r, n_c, n_fb = s[-3:]
+        self.data.shape = (-1, n_r, n_c, n_fb)
+        self.data = self.data.astype('float').mean(axis=-3).reshape(-1, n_fb)
+        s[-3] = 1
+        self.data_shape = s
+        self.rows = [-1]
 
-    # Read data preserving rows/cols dimensioning
-    data = MCEFile(datafile).Read(row_col=True).data
-    n_cols = data.shape[1]
+    def read_data(self, filename, reduce_rows=False):
+        self.mcefile = MCEFile(filename)
+        self.data = self.mcefile.Read(row_col=True).data
+        self.data_origin = {'filename': filename,
+                            'basename': filename.split('/')[-1]}
+        self.data_style = 'rectangle'
+        self.data_shape = self.data.shape
+        # Ravel.
+        self.data.shape = (-1, self.data.shape[-1])
+        # Record the rows and columns, roughly
+        rf = self.mcefile.runfile
+        rcs = rf.Item('FRAMEACQ', 'RC', type='int')
+        self.cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
+        self.rows = array([i for i in arange(self.data_shape[0])])
 
-    bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', array=False).strip() == 'sa_bias')
-    
-    if bias_ramp:
-        bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
-        sa_bias = array([bias0 + d_bias*arange(n_bias) for i in range(n_cols)])
-        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
-    else:
-        # If we weren't ramping the SA bias, we need to know what it was.
-        n_bias = 1
-        sa_bias = array(rf.Item('HEADER', 'RB sa bias', 'int'))[cols]
-        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
-
-    # Feedback vector.
-    fb = (fb0 + arange(n_fb) * d_fb)
-
-    # Average over rows and expand factor time into (bias x fb)
-    av_vol = mean(data.astype('float'), axis=0).reshape(n_cols,n_bias,n_fb)
-
-    if bias_ramp:
-        # If this was a bias ramp, choose the best bias.
-        amps = amax(av_vol, axis=2) - amin(av_vol, axis=2)
-        bias_idx = argmax(amps, axis=1)
-    else:
-        amps = None
-        bias_idx = [0] * n_cols
-
-    # Store SA bias results
-    result = {
-        'sa_bias_idx': bias_idx,
-        'sa_bias': array([int(s[i]) for s,i in zip(sa_bias, bias_idx)]),
-        'sa_bias_merit': amps,
-        }
-    
-    # Analyze the 'best' SA curves for lock-points
-    scale = max([8 * n_fb / 400, 1])
-    y = servo.smooth(array([d[i] for d,i in zip(av_vol, bias_idx)]), scale)
-    x_offset = scale/2
-    dy = y[:,1:] - y[:,:-1]
-    y = y[:,:-1]
-
-    lock_idx, left_idx, right_idx = [], [], []
-    for yy, ddy, s in zip(y, dy, slope):
-        # Find position of an SA minimum.  Search range depends on desired
-        # locking slope because we will eventually need to find an SA max.
-        if (s > 0):
-            min_start = scale * 4
-            min_stop = n_fb * 5 / 8
+        # Might easily include a bias ramp.
+        bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', \
+                                 array=False).strip() == 'sa_bias')
+        if bias_ramp:
+            bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+            fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
+            self.bias_style = 'ramp'
+            self.bias = bias0 + d_bias*arange(n_bias)
         else:
-            min_start = n_fb * 3 / 8
-            min_stop = n_fb - scale * 4
+            # If we weren't ramping the SA bias, we like to know what it was.
+            fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+            self.bias_style = 'select'
+            self.bias = array(rf.Item('HEADER', 'RB sa bias', 'int'))[self.cols]
 
-        ind_min = yy[min_start:min_stop].argmin() + min_start
+        self.d_fb = d_fb
+        self.fb = fb0 + arange(n_fb) * d_fb
 
-        # Now track to the side, waiting for the slope to change.
-        if (s > 0):
-            start = ind_min + scale * 2
-            stop = len(ddy)
-            step = 1
+        # Natural order
+        if bias_ramp:
+            self.data.shape = (len(self.rows), len(self.cols), n_bias, n_fb)
+            self.data = self.data.transpose([2, 0, 1, 3])
+            self.data_shape = self.data.shape
+            self.data_style = 'super-rectangle'
         else:
-            start = ind_min - 2 * scale
-            stop = -1
-            step = -1
+            self.data_shape = self.data.shape
+            self.data_style = 'rectangle'
+        self.data = self.data.reshape(-1, n_fb)
+        if reduce_rows:
+            self.reduce_rows()
+        
+    def split(self):
+        """
+        Split multi-bias data (from combined bias+fb ramp) into single
+        objects per bias.  Returns a list of single bias ramps.
+        """
+        if self.data_style != 'super-rectangle':
+            return [self]
+
+        n_bias, n_row, n_col, n_fb = self.data_shape
+        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'mcefile']
+        output = []
+        for i in range(n_bias):
+            sa = SARamp()
+            for k in copy_keys:
+                exec('sa.%s = self.%s' %(k,k))
+            sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
+            sa.data_shape = self.data_shape[1:]
+            sa.data_style = 'rectangle'
+            sa.bias_style = 'select'
+            sa.bias = [self.bias[i] for c in self.cols]
+            output.append(sa)
+        return output
+
+    def subselect(self, selector):
+        """
+        Reduce the SA data by selecting certain curves from
+        super-entries in each column.
+        """
+        self._check_analysis(existence=True)
+        sa = self.split()[0]
+        sa.data.shape = sa.data_shape
+        self.data.shape = self.data_shape
+        for i, s in enumerate(selector):
+            sa.bias[i] = self.bias[s]
+            sa.data[:,i,:] = self.data[s,:,i,:]
+        sa.data.shape = (-1, sa.data_shape[-1])
+        self.data.shape = (-1, self.data_shape[-1])
+        return sa
+
+    def reduce1(self):
+        """
+        Compute peak-to-peak response.
+        """
+        self._check_data()
+        self._check_analysis(existence=True)
+        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
+        self.analysis['y_span'] = span
+        if self.data_style == 'super-rectangle':
+            # Identify bias index of largest response in each column
+            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=0)
+            self.analysis['y_span_select'] = select
+        return self.analysis
+    
+    def reduce2(self, tuning=None, slope=None):
+        self._check_data()
+        self._check_analysis(existence=True)
+
+        # Convert to 1 slope per column
+        if slope == None:
+            slope = tuning.get_exp_param('sq2servo_gain')
+        if not hasattr(slope, '__getitem__'): slope = [slope]*4
+        if len(slope) < 8:
+            slope = (zeros((8,len(slope))) + slope).ravel()
+        slope = slope[self.cols]
+
+        # Analyze all SA curves for lock-points
+        n_fb = len(self.fb)
+        scale = max([8 * n_fb / 400, 1])
+        y = servo.smooth(self.data, scale)
+        x_offset = scale/2
+        dy = y[:,1:] - y[:,:-1]
+        y = y[:,:-1]
+
+        lock_idx, left_idx, right_idx = [], [], []
+        for i, (yy, ddy) in enumerate(zip(y, dy)):
+            s = slope[i % self.data_shape[-2]]
+            # Find position of an SA minimum.  Search range depends on desired
+            # locking slope because we will eventually need to find an SA max.
+            if (s > 0):
+                min_start = scale * 4
+                min_stop = n_fb * 5 / 8
+            else:
+                min_start = n_fb * 3 / 8
+                min_stop = n_fb - scale * 4
+
+            ind_min = yy[min_start:min_stop].argmin() + min_start
+
+            # Now track to the side, waiting for the slope to change.
+            if (s > 0):
+                start = ind_min + scale * 2
+                stop = len(ddy)
+                step = 1
+            else:
+                start = ind_min - 2 * scale
+                stop = -1
+                step = -1
           
-        idx = arange(start,stop,step)
-        slope_change = (ddy * s < 0)[idx].nonzero()[0]
-        if len(slope_change)==0:
-            ind_max = stop - step
-        else:
-            ind_max = idx[slope_change.min()]
+            idx = arange(start,stop,step)
+            slope_change = (ddy * s < 0)[idx].nonzero()[0]
+            if len(slope_change)==0:
+                ind_max = stop - step
+            else:
+                ind_max = idx[slope_change.min()]
 
-        # Lock on half-way point between minimum and maximum
-        lock_idx.append((ind_min+ind_max)/2)
-        left_idx.append(min(ind_max,ind_min))
-        right_idx.append(max(ind_max,ind_min))
+            # Lock on half-way point between minimum and maximum
+            lock_idx.append((ind_min+ind_max)/2)
+            left_idx.append(min(ind_max,ind_min))
+            right_idx.append(max(ind_max,ind_min))
 
-    lock_y = array([int(yy[i]) for i,yy in zip(lock_idx, y)])
-    for x in ['lock_idx', 'left_idx', 'right_idx']:
-        exec('%s = array(%s) + x_offset' % (x,x))
-    result.update({
-            'lock_idx': lock_idx,
-            'lock_y': lock_y,
-            'slope': slope,
-            'left_idx': left_idx,
-            'right_idx': right_idx,
-            })
-    # Add feedback keys
-    for k in ['lock', 'left', 'right']:
-        result[k+'_x'] = fb[result[k+'_idx']]
-    return result
+        lock_y = array([int(yy[i]) for i,yy in zip(lock_idx, y)])
+        for x in ['lock_idx', 'left_idx', 'right_idx']:
+            self.analysis[x] = eval('array(%s)' % (x))
+        self.analysis.update({
+                'lock_y': lock_y,
+                'slope': slope,
+                })
+        # Add feedback keys
+        for k in ['lock', 'left', 'right']:
+            self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
+        return self.analysis
 
-def load_ramp_data(filename, reduce=False):
-    m = MCEFile(filename)
-    rf, data = m.runfile, m.Read(row_col=True).data
-    n_cols = data.shape[1]
-
-    # List RCs and columns involved here...
-    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
-    cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
-
-    bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', array=False).strip() == 'sa_bias')
-    if bias_ramp:
-        bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
-        sa_bias = array([bias0 + d_bias*arange(n_bias) for i in range(n_cols)])
-        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
-    else:
-        # If we weren't ramping the SA bias, we need to know what it was.
-        n_bias = 1
-        sa_bias = array(rf.Item('HEADER', 'RB sa bias', 'int'))[cols]
-        fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
-
-    # Feedback vector.
-    fb = (fb0 + arange(n_fb) * d_fb)
-
-    data = data.reshape(-1, n_cols, n_bias, n_fb)
-    if reduce:
-        data = mean(data, axis=0)
-    return data, sa_bias, fb, bias_ramp, cols
-
-
-def plot(tuning, ramp_data, lock_points, plot_file=None, format='pdf'):
-    
-    if not hasattr(ramp_data, 'has_key'):
-        ramp_data = {'filename': ramp_data,
-                      'basename': os.path.split(ramp_data)[-1]}
-    if plot_file == None:
-        _, basename = os.path.split(ramp_data['filename'])
-        plot_file = os.path.join(tuning.plot_dir, '%s.%s' % (basename, format))
-
-    datafile = ramp_data['filename']
-    data, sa_bias, fb, bias_ramp, columns = load_ramp_data(datafile, reduce=True)
-    
-    # Focus on our chosen bias...
-    if bias_ramp:
-        data = array([d[i] for d,i in zip(data, lock_points['sa_bias_idx'])])
-
-    # Plot plot plot
-    servo.plot(fb, data.reshape(-1, len(fb)), lock_points, plot_file,
-               title=ramp_data['basename'],
-               titles=['Column %i - SA_bias=%6i' %(c,b) \
-                           for c,b in zip(columns, lock_points['sa_bias'])],
-               xlabel='SA FB / 1000',
-               ylabel='AD Units / 1000')
+    def plot(self, tuning=None, plot_file=None, format='pdf'):
+        self._check_data()
+        self._check_analysis()
+        if plot_file == None:
+            plot_file = os.path.join(tuning.plot_dir, '%s.%s' % \
+                                         (self.data_origin['basename'], format))
+        # Plot plot plot
+        servo.plot(self.fb, self.data, self.data_shape[-3:-1],
+                   self.analysis, plot_file,
+                   title=self.data_origin['basename'],
+                   titles=['Column %i - SA_bias=%6i' %(c,b) \
+                               for c,b in zip(self.cols, self.bias)],
+                   xlabel='SA FB / 1000',
+                   ylabel='AD Units / 1000')
 

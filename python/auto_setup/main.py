@@ -3,6 +3,7 @@ import util
 import series_array
 import sq2_servo
 import sq1_servo
+import frame_test
 
 import os
 import subprocess
@@ -123,7 +124,7 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
 
     # SA lock slope is determined by sign of sq2servo gain
 
-    column_adc_offset = empty([32], dtype="int64")
+    column_adc_offset = empty([32], dtype="int")
 
     if (not tune_data["ramp_sa_bias"]):
         # Instead of ramping the SA bias, just use the default values, and ramp
@@ -187,7 +188,7 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
 
 def do_sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
    
-    sq2_feedback = array([8], dtype="int64")
+    sq2_feedback = array([8], dtype="int")
     sq2_feedback.fill(8200) # JPF 090804 (with BAC)
     initial_sq2_fb = 8200
 
@@ -261,11 +262,11 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
                 acq_id=acq_id)
 
         if (rc == rcs[0]):
-            all_adc_offsets = empty([32, numrows], dtype="float64")
-            all_squid_p2p = empty([32, numrows], dtype="float64")
-            all_squid_lockrange = empty([32, numrows], dtype="float64")
-            all_squid_lockslope = empty([32, numrows, 2], dtype="float64")
-            all_squid_multilock = empty([32, numrows], dtype="float64")
+            all_adc_offsets = empty([32, numrows], dtype="float")
+            all_squid_p2p = empty([32, numrows], dtype="float")
+            all_squid_lockrange = empty([32, numrows], dtype="float")
+            all_squid_lockslope = empty([32, numrows, 2], dtype="float")
+            all_squid_multilock = empty([32, numrows], dtype="float")
 
         samp_num = tuning.get_exp_param("default_sample_num")
         for j in range(8):
@@ -289,7 +290,7 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
 
         # load masks for labeling the ramp plots
         mask_list = ["connection", "other"]
-        make_files = [ os.environ["MAS_TEMPLATE"] + os.path.join("dead_lists",
+        mask_files = [ os.environ["MAS_TEMPLATE"] + os.path.join("dead_lists",
             tuning.get_exp_param("array_id"), "dead_" + m + ".cfg") for m in
             mask_list ]
         extra_lables = util.mask_labels(mask_files, mask_list, rc)
@@ -313,8 +314,8 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
             for i in range(numrows):
                 squid_p2p_arr[(rc - 1) * 8 + j] += \
                         " %6i" % (all_squid_p2p[(rc - 1) * 8 + j, i])
-                squid_lockrange_arr[(rc - 1) * 8 + j] += \
-                        " %6i" % (squid_lockrange[(rc - 1) * 8 + j, i])
+#                squid_lockrange_arr[(rc - 1) * 8 + j] += \
+#                        " %6i" % (squid_lockrange[(rc - 1) * 8 + j, i])
                 squid_lockslopedn_arr[(rc - 1) * 8 + j] += \
                         " %6i" % (all_squid_lockslope[(rc - 1) * 8 + j, i, 0])
                 squid_lockslopeup_arr[(rc - 1) * 8 + j] += \
@@ -419,10 +420,10 @@ IDL auto_setup_squids."""
         return 1
 
     # TODO - *bias.init inputs should come from experiment.cfg
-    sa_feedback_file = empty([32], dtype="int64")
+    sa_feedback_file = empty([32], dtype="int")
     sa_feedback_file.fill(32000)
 
-    sq2_feedback_file = empty([32], dtype="int64")
+    sq2_feedback_file = empty([32], dtype="int")
     sq2_feedback_file.fill(8200)
 
     if (short <= 1):
@@ -433,7 +434,7 @@ IDL auto_setup_squids."""
             rc_indices = 8 * (c - 1) + arange(8)
 
             if (short):
-                column_adc_offset = empty([32], dtype="int64")
+                column_adc_offset = empty([32], dtype="int")
                 column_adc_offset[rc_indices] = \
                         tuning.get_exp_param("adc_offset_c")[rc_indices]
             else:

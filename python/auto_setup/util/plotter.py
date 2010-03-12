@@ -1,144 +1,171 @@
 import biggles
+
 # assert biggles.__version__ >= 1.6.4
+MIN_BIGGLES = '1.6.4'
+def _iver(v):
+    return [int(x) for x in v.split('.')]
 
-import pylab as pl
-import scipy as sp
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.ticker as tkr
+if _iver(biggles.__version__) < _iver(MIN_BIGGLES):
+    raise RuntimeError, 'This package needs biggles %s or so.' % MIN_BIGGLES
 
 
-class tuningPlotX:
-    def __init__(self, rows, cols, pages=0, edge_labels=True,
-                 title=None, filename=None):
-        self.rows, self.cols = rows, cols
-        self.idx = -1
-        self.fig = plt.figure(figsize=(8.5,11))
-        self.title = title
-        self.edge_labels = edge_labels
-        self.page_manager = None
-        self.page = 0
-        if pages > 0:
-            self.page_manager = 'multi'
-            self.filename = filename
+def _carry(idx, lim):
+    y = idx[-1] + 1
+    if len(lim) == 1 or y < lim[-1]:
+        return idx[:-1] + (y,)
+    return _carry(idx[:-1], lim[:-1]) + (0,)
 
-    def subplot(self, r=None, c=None,
-                title=None, xlabel=None, ylabel=None):
-        if r == None and c == None:
-            self.idx = (self.idx + 1) % 8
-            if self.idx==0:
-                if self.page > 0 and self.page_manager != None:
-                    self.save(self.filename % (self.page+1))
-                    self.fig.clf()
-                self.page += 1
-            c, r = self.idx % self.cols, self.idx / self.cols
+def _div_up(x, y):
+    return (x + y - 1) / y
+
+
+class plotGridder:
+    """
+    Schemer for arranging curves for sets of rows and columns onto
+    pages of 4x4 (or so) plots.
+    """
+    props = [
+        ('title', None),
+        ('xlabel', None),
+        ('ylabel', None),
+        ('stacked', True),
+        ('rowcol_labels', False),
+        ('col_labels', False),
+        ('force_vlabel', False),
+        ('force_hlabel', False),
+        ('target_shape', (4,4)),
+        ]
+
+    def __init__(self, shape, filename, **kwargs):
+        self.filename = filename
+        self.shape = shape
+
+        for k, v in self.props:
+            setattr(self, k, v)
+        keys = [a for a,_ in self.props]
+        for k, v in zip(kwargs.keys(), kwargs.values()):
+            if not k in keys:
+                raise ValueError, "keyword '%s' not valid" % k
+            setattr(self, k, v)
+            
+        # Dimensions of target space
+        nr, nc = shape
+        if nc % 8 != 0:
+            raise ValueError, 'give me n_columns = 0 mod 8'
+        M, N = self.target_shape[-1::-1]
+        S = max(M*N / nc, 1)
+        H = _div_up(nc, M*N)
+        V = _div_up(nr, S)
+
+        # Store
+        self.target_shape = [V, H, S, M, N]
+
+        # Prepare for nextism
+        self.reset()
+
+    def __del__(self):
+        if not self.written and self.canvas != None:
+            self._write_hpage()
+
+    def reset(self):
+        self.canvas = None
+        self.written = False
+        self.plot_files = []
+        self.pointer = (0,0,0,0)
+
+    def _create_hpage(self):
+        V, H, S, M, N = self.target_shape
+        v, h, m, n = self.pointer
+        if self.stacked:
+            page = biggles.Table(1, M)
+            for i in range(M):
+                page[0,i] = biggles.FramedArray(N,1)
+                if self.xlabel != None:
+                    page[0,i].xlabel = self.xlabel
+                if self.ylabel != None:
+                    page[0,i].ylabel = self.ylabel
+                r, c1, _, c2 = self.to_rowcol((v,h,i,0)) + self.to_rowcol((v,h,i,N-1))
+                if self.rowcol_labels:
+                    page[0,i].title = 'Row %2i  Cols %2i-%2i' % (r, c1, c2)
+                if self.col_labels:
+                    page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
         else:
-            self.idx = c*self.rows + r
-        ax = self.fig.add_subplot(self.rows, self.cols, self.idx+1)
-        if title != None:
-            ax.set_title(title)
-        if xlabel != None and (not self.edge_labels or r==self.rows-1):
-            ax.set_xlabel(xlabel, size=8)
-        if ylabel != None and (not self.edge_labels or c==0):
-            ax.set_ylabel(ylabel, size=8)
-        self.ax = ax
-        return self.ax
-
-    def format(self):
-        ax = self.ax
-        # Scale the axis of the thing you plotted
-        #ax.axis('scaled')
-        #ax.axis([0,65, 0,20])
-
-        #Font sizes
-        ax.title.set_fontsize(6)
-        ax.xaxis.label.set_fontsize(6)
-        ax.yaxis.label.set_fontsize(6)
-
-        #Set the tick distribution for x and y
-        ax.xaxis.set_major_locator(tkr.MaxNLocator(10))
-        ax.xaxis.set_minor_locator(tkr.MaxNLocator(30))
-        ax.yaxis.set_major_locator(tkr.MaxNLocator(5))
-        ax.yaxis.set_minor_locator(tkr.MaxNLocator(80))
-
-        #Set X tick attributes
-        for xticka in ax.xaxis.get_major_ticks():
-            xticka.tick2line.set_markersize(4)
-            xticka.tick1line.set_markersize(4)
-            xticka.label1.set_fontsize(6)
+            page = biggles.Table(N, M)
+            for i in range(M):
+                if self.col_labels:
+                    page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
+                for j in range(N):
+                    page[j,i] = biggles.FramedPlot()
+                    r, c = self.to_rowcol((v,h,i,j))
+                    if self.rowcol_labels:
+                        page[j,i].title = 'Row %i Col %i' % (r, c)
+        if self.title != None:
+            page.title = self.title
+        self.canvas = page
+        self.written = False
     
-        for xticki in ax.xaxis.get_minor_ticks():
-            xticki.tick2line.set_markersize(2)
-            xticki.tick1line.set_markersize(2)
-            
-        #Set Y tick attributes
-        for yticka in ax.yaxis.get_major_ticks():
-            yticka.tick2line.set_markersize(6)
-            yticka.tick1line.set_markersize(6)
-            yticka.label1.set_fontsize(6)
-            
-        for yticki in ax.yaxis.get_minor_ticks():
-            yticki.tick2line.set_markersize(4)
-            yticki.tick1line.set_markersize(3)
+    def _get_plot(self):
+        _,_,m,n = self.pointer
+        if self.stacked:
+            return self.canvas[0,m][n,0]
+        else:
+            return self.canvas[n,m]
 
-    def show(self):
-        plt.show()
+    def _write_hpage(self):
+        V, H,_,_,_ = self.target_shape
+        v, h, _, _ = self.pointer
+        filename = self.filename
+        if V > 1 or self.force_vlabel:
+            filename += '_%02i' % v
+        if H > 1 or self.force_hlabel:
+            filename += '_%i' % h
+        filename += '.png'
+        self.canvas.write_img(600, 450, filename)
+        self.written = True
+        if not filename in self.plot_files:
+            self.plot_files.append(filename)
 
-    def save(self, filename):
-        plt.savefig(filename)
+    def index_of(self, row, col):
+        V, H, S, M, N = self.target_shape
+        vpage = row / S
+        hpage = col / (M*N)
+        if S == 1:
+            major = (col - hpage*(M*N)) / M
+            minor = (col - hpage*(M*N)) % M
+        else:
+            major = (col - (M*N) / S * (row % S)) / M
+            minor = (col - (M*N) / S * (row % S)) % M
+        return vpage, hpage, major, minor
 
+    def to_rowcol(self, pointer):
+        V, H, S, M, N = self.target_shape
+        v, h, m, n = pointer
+        row = v*S + m*S / M
+        if S == 1:
+            col = h*M*N + m*N + n
+        else:
+            col = m*N + n - (m*S / M)*(M*N/S)
+        return row, col
 
+    def __iter__(self):
+        self.reset()
+        return self
 
+    def next(self):
+        """
+        Returns row, column, and biggles plot object.  Use them wisely.
+        """
+        row, col = self.to_rowcol(self.pointer)
+        if row >= self.shape[0]:
+            raise StopIteration
 
+        if self.pointer[-2:] == (0,0):
+            if self.canvas != None:
+                self._write_hpage()
+            self._create_hpage()
 
-class tuningPlotB:
-    def __init__(self, rows, cols, pages=0, edge_labels=True,
-                 title=None, filename=None):
-        self.rows, self.cols = rows, cols
-        self.idx = -1
-        self.fig = self._newpage(title=title)
-        self.edge_labels = edge_labels
-        self.page_manager = None
-        self.page = 0
-        if pages > 0:
-            self.page_manager = 'multi'
-            self.filename = filename
+        ax = self._get_plot()
 
-    def _newpage(self, title=None):
-        self.fig = biggles.Table(self.rows, self.cols)
-        if title != None:
-            self.fig.title = title
-        return self.fig
-
-    def subplot(self, r=None, c=None,
-                title=None, xlabel=None, ylabel=None):
-        #if self.idx < 0 and self.title != None:
-        #    self.fig.text(0.5, 0.95, self.title,
-        #                  ha='center', va='bottom', fontsize=12,
-        #                  family='monospace')
-        if r == None and c == None:
-            self.idx = (self.idx + 1) % 8
-            if self.idx==0:
-                if self.page > 0 and self.page_manager != None:
-                    self.save(self.filename % (self.page+1))
-                    self._newpage()
-                self.page += 1
-            c, r = self.idx % self.cols, self.idx / self.cols
-        ax = biggles.FramedPlot()
-        if title != None:
-            ax.title = title
-        if xlabel != None and (not self.edge_labels or r==self.rows-1):
-            ax.xlabel = xlabel
-        if ylabel != None and (not self.edge_labels or c==0):
-            ax.ylabel = ylabel
-        self.fig[r,c]  = ax
-        return ax
-
-    def show(self):
-        self.plt.show()
-
-    def save(self, filename):
-        self.fig.write_img( 400, 600, filename)
-
-
-tuningPlot = tuningPlotB
+        # Increment
+        self.pointer = _carry(self.pointer, self.target_shape[:2] + self.target_shape[-2:])
+        return row, col, ax

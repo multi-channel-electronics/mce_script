@@ -21,4 +21,4 @@ import util
 import config
 
 from main import auto_setup
-import series_array, sq2_servo, sq1_servo
+import series_array, sq2_servo, sq1_servo, frame_test

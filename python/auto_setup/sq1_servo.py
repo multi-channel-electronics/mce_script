@@ -1,4 +1,4 @@
-import time, os
+import time, os, glob
 import auto_setup.util as util
 from numpy import *
 from mce_data import MCERunfile, MCEFile
@@ -19,7 +19,7 @@ def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
     if not ok:
         raise RuntimeError, servo_data['error']
 
-    lock_points = reduce(tuning, rc, servo_data, slope=slope)
+    lock_points = reduce(tuning, servo_data, slope=slope)
     plot(tuning, rc, servo_data, lock_points)
 
     # Return dictionary of relevant results
@@ -74,71 +74,161 @@ def acquire(tuning, rc, filename=None, fb=None,
                   'filename':fullname }
 
 
-def reduce(tuning, rc, servo_data, lock_amp=True, slope=None):
-    # Convert to 0-based rc indices.
-    rci = rc - 1
-
-    # Defaults from config file
-    if slope == None:
-        slope = tuning.get_exp_param('sq1servo_gain')[rci] / \
-            tuning.get_exp_param('sq1servo_gain')[rci]
-    if not hasattr(servo_data, 'has_key'):
-        servo_data = {'filename': servo_data}
-
-    datafile = servo_data['filename']
-    rf = MCERunfile(datafile+'.run')
-    error, feedback = util.load_bias_file(datafile+'.bias')
-
-    # How many biases is this?
-    n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')[2]
-    fb_params = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
-    fb_0, d_fb, n_fb = fb_params
-    fb = arange(fb_0, n_fb*d_fb+fb_0, d_fb)
-
-    # Assert n_bias * n_fb == feedback.shape[1]
-
-    # Discard leading and trailing samples in each fb ramp
-    scale = n_fb / 40
-
-    # Analyze each bias independently
-    for ib in range(n_bias):
-        # The signal we will look at
-        y = feedback[:,ib*n_fb:(ib+1)*n_fb]
-        a = servo.get_lock_points(y, scale=n_fb/40, yscale=None, lock_amp=lock_amp, slope=slope)
-
-    # Add feedback keys
-    for k in ['lock', 'left', 'right']:
-        a[k+'_x'] = fb[a[k+'_idx']]
-    return a
+class SQ1Servo:
+    def __init__(self, filename=None):
+        self.data = None
+        self.analysis = None
+        if filename != None:
+            self.read_data(filename)
 
 
-def plot(tuning, rc, servo_data, lock_points, plot_file=None, format='pdf'):
-    # Convert to 0-based rc indices.
-    rci = rc - 1
-    
-    if not hasattr(servo_data, 'has_key'):
-        servo_data = {'filename': servo_data}
+    def _check_data(self, simple=False):
+        if self.data == None:
+            raise RuntimeError, 'SQ1Servo needs data.'
+        if simple and self.data_style != 'rectangle':
+            raise RuntimeError, 'Simple SQ1Servo expected (use split?)'
 
-    if plot_file == None:
-        _, basename = os.path.split(servo_data['filename'])
-        plot_file = os.path.join(tuning.plot_dir, '%s.%s' % (basename, format))
+    def _check_analysis(self, existence=False):
+        if self.analysis == None:
+            if existence:
+                self.analysis = {}
+            else:
+                raise RuntimeError, 'SQ1Servo lacks desired analysis structure.'
 
-    datafile = servo_data['filename']
-    rf = MCERunfile(datafile+'.run')
-    error, servo_val = util.load_bias_file(datafile+'.bias')
+    def _read_super(self, filename):
+        data = []
+        for n_row in range(64):
+            f = '%s_row%02i.bias' % n_row
+            if not os.path.lexists(f):
+                break
+            data.append(util.load_bias_file(f))
+        self.data_style = 'rectangle'
+        self.error = array([a for a,_ in data])
+        self.data = array([a for _,a in data])
+        self.rows = array([i for i in range(n_row)])
+        n_bias, _, n_col, n_fb = self.data_shape
+        self.data = self.data.reshape(n_row*n_col,n_bias,n_fb). \
+            transpose([1,0,2]).reshape(-1, n_fb)
+        self.error = self.error.reshape(n_row*n_col,n_bias,n_fb). \
+            transpose([1,0,2]).reshape(-1, n_fb)
+        self.data_style += 'rectangle'
 
-    # How many biases is this?
-    n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')[2]
-    fb_params = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
-    fb_0, d_fb, n_fb = fb_params
-    fb = arange(fb_0, n_fb*d_fb+fb_0, d_fb)
+    def _read_single(self, filename):
+        self.error, self.data = util.load_bias_file(filename+'.bias')
+        self.rows = array(self.rf.Item('servo_init', 'row.init', 'int'))[self.cols]
+        n_row = 1
+        n_bias, _, n_col, n_fb = self.data_shape
+        self.data = self.data.reshape(n_row*n_col,n_bias,n_fb). \
+            transpose([1,0,2]).reshape(-1, n_fb)
+        self.error = self.error.reshape(n_row*n_col,n_bias,n_fb). \
+            transpose([1,0,2]).reshape(-1, n_fb)
+        self.data_style += 'select'
 
-    # What columns are these?
-    rcs = rf.Item('FRAMEACQ', 'RC', type='int')
-    channels = [(int(rc)-1)*8 + i for i in range(8) for rc in rcs]
+    def read_data(self, filename):
+        rf = MCERunfile(filename+'.run')
+        self.rf = rf
+        self.data_origin = {'filename': filename,
+                            'basename': filename.split('/')[-1]}
+        # Record the columns
+        rcs = rf.Item('FRAMEACQ', 'RC', type='int')
+        self.cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
 
-    # Plot plot plot
-    servo.plot(fb, servo_val, lock_points, plot_file,
-               titles=['Column %i' %c for c in channels],
-               xlabel='SQ1 FB / 1000',
-               ylabel='SQ2 FB / 1000')
+        # Fix me: runfile always indicates bias was ramped, even though it usually wasn't
+        bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', \
+                                 array=False).strip() == 'sq1bias')
+        if bias_ramp:
+            bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+            fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
+            self.bias_style = 'ramp'
+            self.bias = bias0 + d_bias*arange(n_bias)
+        else:
+            # If we weren't ramping the SQ1 bias, we like to know what it was.
+            fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+            self.bias_style = 'select'
+            self.bias = array(rf.Item('HEADER', 'RB sq2 bias', 'int'))[self.cols]
+            n_bias = 1
+
+        self.d_fb = d_fb
+        self.fb = fb0 + arange(n_fb) * d_fb
+
+        # Prime
+        self.data_shape = (n_bias, 1, len(self.cols), n_fb)
+        print self.data_shape
+        # Attempt load after counting bias/fb steps
+        if len(glob.glob(filename+'.bias')):
+            self.data_style = ''
+            self._read_single(filename)
+        else:
+            self.data_style = 'super-'
+            self._read_super(filename)
+
+    def subselect(self, selector):
+        if not self.data_style == 'select':
+            raise 'SQ2servo is already row-selected.'
+        n_row, n_col, n_fb = self.data_shape[-3:]
+        new_data = self.data.reshape(-1,n_row,n_col,n_fb)[:,0,:,:]
+        for i,s in enumerate(selector):
+            new_data[:,0,i,:] = self.data[:,s,i,:]
+        self.data = new_data.reshape(-1, n_fb)
+        self.data_shape = self.data_shape[:-3] + (1, n_col, n_fb)
+        self.rows = selector
+        self.data_style = 'select'
+
+    def split(self):
+        """
+        Split multi-bias data (from combined bias+fb ramp) into single
+        objects per bias.  Returns a list of single bias servos.
+        """
+        if self.data_style != 'super-rectangle':
+            return [self]
+
+        n_bias, n_row, n_col, n_fb = self.data_shape
+        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'rf']
+        output = []
+        for i in range(n_bias):
+            sa = SARamp()
+            for k in copy_keys:
+                exec('sa.%s = self.%s' %(k,k))
+            sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
+            sa.data_shape = self.data_shape[1:]
+            sa.data_style = 'rectangle'
+            sa.bias_style = 'select'
+            sa.bias = [self.bias[i] for c in self.cols]
+            output.append(sa)
+        return output
+
+    def reduce(self, slope=None):
+        self._check_data()
+        self._check_analysis(existence=True)
+        
+        if slope == None:
+            slope = tuning.get_exp_param('sq2servo_gain')
+        if not hasattr(slope, '__getitem__'): slope = [slope]*4
+        if len(slope) < 8:
+            slope = (zeros((8,len(slope))) + slope).ravel()
+        slope = slope[self.cols]
+
+        if any(slope != slope[0]):
+            z = zeros(self.data_shape[:-1])
+            z[:,:,:] = slope.reshape(1,-1,1)
+            slope = z
+        else:
+            slope = slope[0]
+        n_fb = len(self.fb)
+        self.analysis = servo.get_lock_points(self.data, scale=n_fb/40, yscale=4000, lock_amp=True, slope=slope)
+
+        # Add feedback keys
+        for k in ['lock', 'left', 'right']:
+            self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
+        return self.analysis
+        
+    def plot(self, plot_file=None):
+        self._check_data()
+        self._check_analysis()
+
+        # Plot plot plot
+        servo.plot(self.fb, self.data, self.data_shape[-3:-1],
+                   self.analysis, plot_file,
+                   title=self.data_origin['basename'],
+                   xlabel='SQ1 FB / 1000',
+                   ylabel='SQ2 FB / 1000')

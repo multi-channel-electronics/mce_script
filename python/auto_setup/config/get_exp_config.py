@@ -89,7 +89,7 @@ def set_exp_param(file, key, value):
 def get_exp_param(file, key):
     """Returns the value of one parameter of the experimental configuration.
 
-    file: the name of the configuation file to read.
+    file: the name of the configuration file to read.
     key: the name of the parameter to read."""
 
     if (key == "_source"):
@@ -131,3 +131,4 @@ def set_exp_param_range(file, key, range, value):
     a = get_exp_param(file, key)
     a[range] = value
     set_exp_param(file, key, a)
+
