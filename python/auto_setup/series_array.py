@@ -27,9 +27,9 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
     plot(tuning, ramp_data, lock_points)
 
     # Return dictionary of relevant results
-    return {'final_sa_bias_ch_by_ch': lock_points['sa_bias'],
-            'sa_target': lock_points['lock_y'],
-            'sa_fb_init': lock_points['lock_x'],
+    return {'sa_bias': lock_points['sa_bias'],
+            'fb': lock_points['lock_x'],
+            'target': lock_points['lock_y'],
             }
 
 def acquire(tuning, rc, filename=None, do_bias=None):

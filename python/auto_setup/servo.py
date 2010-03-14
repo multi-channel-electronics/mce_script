@@ -81,73 +81,6 @@ def add_curves(ax, x, y, lp, i,
             ax.add(biggles.Slope(m, (x0*scale,y0*scale),type='dashed'))
 
 
-class plotMap:
-    def __init__(self, plot_shape, data_shape):
-        self.ps = plot_shape,
-        self.ds = data_shape
-        self.pn = self.ps[0]*self.ps[1]
-    
-    def data_rc(self, p_page, p_idx):
-        # row, col
-        i = p_page * self.pn + p_idx
-        return i / self.ds[1], i % self.ds[1]
-
-    def stack_title(self, p_page, p_col):
-        r, c = self.data_rc(p_page, p_col*self.ps[0])
-        dc = self.data_rc(p_page, (p_col+1)*self.ps[0]-1)
-
-def plot1(x, y, lock_points, plot_file,
-         shape=(4,4), scale=1./1000,
-         title=None, xlabel=None, ylabel=None,
-         titles=None,
-         rows=None, cols=None,
-         insets=None,
-         lock_levels=True,
-         set_points=False,
-         intervals=False,
-         slopes=False):
-    n_plots = y.shape[0]
-    for a in ['xlabel', 'ylabel', 'titles']:
-        if eval(a) == None or type(eval(a)) == str:
-            exec('%s=[%s]*n_plots' % (a,a))
-    per_page = shape[0] * shape[1]
-    n_pages = (n_plots + per_page) / per_page
-    print n_pages, n_plots, len(xlabel)
-
-    for page in range(n_pages):
-        p = util.tuningPlotStack(shape[0], shape[1], multi=True,
-                                 title=title)
-        for j in range(per_page):
-            i = page*per_page + j
-            if i >= n_plots: break
-            
-            ax = p.subplot(title=titles[i], xlabel=xlabel[i], ylabel=ylabel[i])
-            if set_points:
-                ax.add(biggles.LineX(lock_points['lock_x'][i]*scale))
-            if lock_levels:
-                ax.add(biggles.LineY(lock_points['lock_y'][i]*scale))
-            if intervals:
-                ax.add(biggles.LineX(lock_points['left_x'][i]*scale,type='dashed'))
-                ax.add(biggles.LineX(lock_points['right_x'][i]*scale,type='dashed'))
-            if slopes:
-                for d in ['up', 'dn']:
-                    m,x0,y0 = [lock_points['lock_%s'%(e)][i]
-                               for e in ['%s_sl'%d,'%s_x'%d,'y']]
-                    ax.add(biggles.Slope(m, (x0*scale,y0*scale),type='dashed'))
-            if insets != None:
-                print insets[i]
-                ax.add(biggles.PlotLabel(0., 0., insets[i],
-                                         halign='left',valign='bottom'))
-            ax.add(biggles.Curve(x/1000., y[i]/1000.))
-            # Prevent small signals from causing large tick labels
-            hi, lo = amax(y[i])/1000, amin(y[i])/1000
-            if hi - lo < 4:
-                mid = (hi+lo)/2
-                ax.yrange = (mid-2, mid+2)
-        p.set_stack_props(title=['Col %i' % i for i in range(4)])
-        filename = plot_file % page
-        p.save(filename)
-    
 def plot(x, y, y_rc, lock_points, plot_file,
          shape=(4,2), scale=1./1000,
          title=None, xlabel=None, ylabel=None,
@@ -159,7 +92,6 @@ def plot(x, y, y_rc, lock_points, plot_file,
          intervals=False,
          slopes=False):
 
-    print y_rc
     nr, nc = y_rc
     pl = util.plotGridder(y_rc, plot_file, title=title, xlabel=xlabel, ylabel=ylabel,
                           target_shape=shape, col_labels=True)

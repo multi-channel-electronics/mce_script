@@ -146,9 +146,9 @@ class tuningData:
             if (flush):
                 self.log.flush()
 
-    def write_sqtune(self, filename=None, sq1_ramp=None):
+    def write_sqtune(self, filename=None, sq1_ramp=None, link=False):
         if filename == None:
-            filename = tuning.sqtune_file
+            filename = self.sqtune_file
         done = sq1_ramp != None
         f = open(filename, 'w')
         f.write("<SQUID>\n")
@@ -157,8 +157,21 @@ class tuningData:
         f.write("<SQ_tuning_dir> %s\n" % tuning.name)
         if done:
             f.write('etc, etc\n')
-
         f.write("</SQUID>\n")
+        f.close()
+        
+        lst = os.path.join(self.data_root, "last_squid_tune")
+        if os.path.lexists(lst):
+            os.remove(lst)
+        os.symlink(filename, lst)
+
+    def write_note(self, note, filename=None):
+        if filename == None:
+            filename = self.note_file
+        f = open(filename, "w+")
+        f.write("#Note entered with SQUID autotuning data acquisition\n")
+        f.write(note)
+        f.write("\n")
         f.close()
 
     def cmd(self, command):

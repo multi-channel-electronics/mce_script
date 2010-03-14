@@ -81,83 +81,73 @@ def initialise (tuning, rcs, check_bias, short, numrows, ramp_sa_bias, note):
 
     # write a note file
     if (note != None):
-        f = open(tuning.note_file, "w+")
-        f.write("#Note entered with SQUID autotuning data acquisition\n")
-        f.write(note)
-        f.write("\n")
-        f.close()
+        tuning.write_note(note)
 
     # initialise the squid tuning results file
-    f = open(tuning.sqtune_file, "w")
-    f.write("<SQUID>\n<SQ_tuning_completed> 0\n<SQ_tuning_date> ")
-    f.write(tuning.current_data)
-    f.write("\n<SQ_tuning_dir> " + tuning.name + "\n</SQUID>\n")
-    f.close()
-
-    lst = os.path.join(tuning.data_root, "last_squid_tune")
-    try:
-      os.remove(lst)
-    except OSError:
-      pass # last_squid_tune didn't exist
-
-    os.symlink(tuning.sqtune_file, lst)
+    tuning.write_sqtune(link=True)
 
     return {"ramp_sa_bias": ramp_sa_bias, "sq1_bias": sq1_bias,
             "sq1_bias_off": sq1_bias_off, "sq2_bias": sq2_bias}
 
+#  do_*
+#  
+#  These functions execute a stage of the tuning.  Each is structured
+#  in the same way; first the MCE is configured so that the spawned
+#  program can do the work.  Then the ramper or servoer is spawned and
+#  the data analyzed.  The results of the analysis are then used to
+#  update the experiment.cfg file and MCE with new set/lock points.
 
-def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
+def do_sa_ramp(tuning, rc, rc_indices, tune_data):
     def_sa_bias = tuning.get_exp_param("default_sa_bias")
 
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
-    tuning.set_exp_param("config_adc_offset_all", 0)
 
+    tuning.set_exp_param("config_adc_offset_all", 0)
     tuning.set_exp_param_range("adc_offset_c", rc_indices,
             zeros(len(rc_indices), dtype="int"))
+
     tuning.set_exp_param_range("sq2_bias", rc_indices, zeros(len(rc_indices),
         dtype="int"))
-
     tuning.set_exp_param("sq1_bias", zeros([len(tune_data["sq1_bias"])]))
     tuning.set_exp_param("sq1_bias_off",
         zeros([len(tune_data["sq1_bias_off"])]))
 
-    # SA lock slope is determined by sign of sq2servo gain
-
-    column_adc_offset = empty([32], dtype="int")
-
+    offset_ratio = tuning.get_exp_param("sa_offset_bias_ratio")
     if (not tune_data["ramp_sa_bias"]):
         # Instead of ramping the SA bias, just use the default values, and ramp
         # the SA fb to confirm that the v-phi's look good.
         tuning.set_exp_param_range("sa_bias", rc_indices,
                 def_sa_bias[rc_indices])
 
-        sa_offset_MCE2 = floor(def_sa_bias *
-                tuning.get_exp_param("sa_offset_bias_ratio"))
-
         tuning.set_exp_param_range("sa_offset", rc_indices,
-                sa_offset_MCE2[rc_indices].astype("int"))
+                (offset_ratio * def_sa_bias[rc_indices]).astype('int'))
 
+    # Update settings, acquire and analyze the ramp.
     tuning.write_config()
-
     sa_dict = series_array.go(tuning, rc, do_bias=tune_data["ramp_sa_bias"])
 
-    tuning.set_exp_param("config_adc_offset_all", 0)
-    tuning.set_exp_param_range("adc_offset_c", rc_indices,
-            sa_dict["sa_target"])
+    # Update ADC offsets and SA feedback based on SA analysis.
+    tuning.set_exp_param_range("adc_offset_c", rc_indices, sa_dict["target"])
+    tuning.set_exp_param_range("sa_bias", rc_indices, sa_dict["sa_bias"])
+    # Maybe the bias and SA offset, too.
+    if tune_data["ramp_sa_bias"]:
+        tuning.set_exp_param_range("sa_bias", rc_indices, sa_dict["sa_bias"])
+        tuning.set_exp_param_range("sa_offset", rc_indices,
+                (offset_ratio * sa_dict["sa_bias"]).astype('int'))
 
-    column_adc_offset[rc_indices] = sa_dict["sa_target"]
+    tuning.write_config()
+    return {"status": 0, "column_adc_offset": sa_dict["target"]}
 
-    #tuning.write_config()
 
-# step 3: SQ2 servo block
+def do_sq2_servo(tuning, rc, rc_indices, tune_data):
+    def_sa_bias = tuning.get_exp_param("default_sa_bias")
 
     # Sets the initial SA fb (found in the previous step or set to mid-range)
     # for the SQ2 servo
-
-    sa_feedback_file[rc_indices] = sa_dict["sa_fb_init"]
+    sa_fb_init = tuning.get_exp_param('sa_fb')
     f = open(os.path.join(tuning.base_dir, "safb.init"), "w")
-    for x in sa_feedback_file:
+    for x in sa_fb_init:
         f.write("%i\n" % x)
     f.close()
 
@@ -170,27 +160,35 @@ def sa_and_sq2(tuning, rc, rc_indices, tune_data, sa_feedback_file):
     tuning.set_exp_param_range("sq2_bias", rc_indices,
             tune_data["sq2_bias"][rc_indices])
 
-    tuning.write_config()
-
-    sq2_data = sq2_servo.go(tuning, rc, bias=tune_data["ramp_sa_bias"])
-
     if (tuning.get_exp_param("sq2_servo_bias_ramp") != 0):
-        print "Exiting after sq2servo with bias ramp!"
-        return {"status": 98}
+        raise RuntimeError, "sq2_servo_bias_ramp is not yet supported..."
 
-    tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["sq2_target"])
+    # Update settings, acquire and analyze the ramp.
+    tuning.write_config()
+    sq2_data = sq2_servo.go(tuning, rc)
+
+    # Save SQ2 set point (SA feedback) and SQ2 feedback
+    tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["target"])
+    tuning.set_exp_param_range("sq2_fn", rc_indices, sq2_data["fb"])
+
+    # Why are these here?
     tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
     tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
 
     tuning.write_config()
+    return {"status": 0}
 
-    return {"status": 0, "column_adc_offset": column_adc_offset}
 
-def do_sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
+def do_sq1_servo(tuning, rc, rc_indices, numrows):
    
-    sq2_feedback = array([8], dtype="int")
-    sq2_feedback.fill(8200) # JPF 090804 (with BAC)
-    initial_sq2_fb = 8200
+    # Sets the initial SQ2 fb (found in the previous step or set to mid-range)
+    # for the SQ1 servo
+    #sq2_fb_init = tuning.get_exp_param('sq2_fb')
+    sq2_fb_init = [8200] * len(rc_indices)
+    f = open(os.path.join(tuning.base_dir, "sq2fb.init"), "w")
+    for x in sq2_fb_init:
+        f.write("%i\n" % x)
+    f.close()
 
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("num_rows", numrows)
@@ -201,18 +199,6 @@ def do_sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
     tuning.set_exp_param("servo_d", 0)
 
     tuning.write_config()
-
-    # Sets the initial SQ2 fb (found in the previous step or set to mid-range)
-    # for the SQ1 servo
-
-    sq2_feedback_file[rc_indices] = sq2_feedback
-
-    sq1_base_name, acq_id = tuning.filename(rc=rc)
-
-    f = open(os.path.join(tuning.base_dir, "sq2fb.init"), "w")
-    for x in sq2_feedback_file:
-        f.write("%i\n" % x)
-    f.close()
 
     sq1_data = sq1_servo.go(tuning, rc)
 
@@ -230,6 +216,7 @@ def do_sq1_servo(tuning, rc, rc_indices, numrows, sq2_feedback_file):
     tuning.write_config()
 
     return 0
+
 
 def sq1_ramp_check(tuning, rcs, numrows, tune_data):
     new_adc_arr = [ "" ] * 32
@@ -419,35 +406,23 @@ IDL auto_setup_squids."""
     if (tune_data == None):
         return 1
 
-    # TODO - *bias.init inputs should come from experiment.cfg
-    sa_feedback_file = empty([32], dtype="int")
-    sa_feedback_file.fill(32000)
+    # Short 0: do everything.
+    # Short 1: skip SA ramp and SQ2 servo
+    for c in rcs:
+        print "Processing rc%i" % c
+        rc_indices = 8 * (c - 1) + arange(8)
+        if short == 0:
+            sa_dict = do_sa_ramp(tuning, c, rc_indices, tune_data)
+            s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data)
+            if (s2_dict["status"] != 0):
+                return s2_dict["status"]
 
-    sq2_feedback_file = empty([32], dtype="int")
-    sq2_feedback_file.fill(8200)
+        e = do_sq1_servo(tuning, c, rc_indices, numrows)
+        if (e != 0):
+            return e
 
-    if (short <= 1):
-        # starts the cycle over the 4 rcs to set all the bias ad fb
-        for c in rcs:
-            print "Processing rc%i" % c
-
-            rc_indices = 8 * (c - 1) + arange(8)
-
-            if (short):
-                column_adc_offset = empty([32], dtype="int")
-                column_adc_offset[rc_indices] = \
-                        tuning.get_exp_param("adc_offset_c")[rc_indices]
-            else:
-                s2_dict = sa_and_sq2(tuning, c, rc_indices, tune_data,
-                        sa_feedback_file)
-                if (s2_dict["status"] != 0):
-                    return s2_dict["status"]
-                column_adc_offset = s2_dict["column_adc_offset"]
-
-            e = do_sq1_servo(tuning, c, rc_indices, numrows, sq2_feedback_file)
-            if (e != 0):
-                return e
-
+    # All that for some ADC offsets?
+    column_adc_offset = tuning.get_exp_param("adc_offset_c")
 
     if (tuning.get_exp_param("stop_after_sq1_servo") == 1):
         print "stop_after_sq1servo is set, stopping."
@@ -500,4 +475,4 @@ IDL auto_setup_squids."""
     t_elapsed = time.time() - tuning.the_time
     print "Tuning complete.  Time elapsed: %i seconds." % t_elapsed
 
-    return 99
+    return 0

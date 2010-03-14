@@ -21,7 +21,9 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
     plot(tuning, servo_data, lock_points)
 
     # Return dictionary of relevant results
-    return {'sq2_target': lock_points['lock_y']}
+    return {'fb': lock_points['lock_x'],
+            'target': lock_points['lock_y'],
+            }
 
 
 def acquire(tuning, rc, filename=None, fb=None,
