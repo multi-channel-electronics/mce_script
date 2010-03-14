@@ -60,14 +60,14 @@ endif
 user_status = auto_setup_userword(rc)
 if keyword_set(bias_count) then begin
     ; Ramp the SQ2 bias as well as the SQ2 FB
-    spawn_str = 'sq2servo '+file_name_sq2_servo+' '+ $
+    spawn_str = 'sq2servo -p 20 '+file_name_sq2_servo+' '+ $
       string(bias_start)+' '+string(bias_step)+' '+string(bias_count)+' '+ $
       string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
       string(rc)+' '+string(target)+' '+string(gain)+' 0'+ $
       ' >> /data/cryo/current_data/'+logfile
 endif else begin
     ; Ramp the SQ2 FB without changing the SQ2 biases.
-    spawn_str = 'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
+    spawn_str = 'sq2servo -p 20 '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
       string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
       string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
       ' >> /data/cryo/current_data/'+logfile

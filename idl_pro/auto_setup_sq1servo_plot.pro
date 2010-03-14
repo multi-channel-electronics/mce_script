@@ -67,8 +67,8 @@ if not keyword_set(use_bias_file) then begin
        servo_cmd = 'sq1servo_all' $
     else begin
        servo_cmd = 'sq1servo'
-       servo_args = '-p 50 ' + servo_args
     endelse
+    servo_args = '-p 50 ' + servo_args
     
     ; Go go go
     user_status = auto_setup_userword(rc)
