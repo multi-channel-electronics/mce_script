@@ -7,7 +7,7 @@ mce_cmd -qx wb ac enbl_mux 0
 
 rcnum=$1
 chnum=$2
-if [ "x$chnum" = "x" ] || [ "x$rcnum" = "x" ]; then
+if [ "$chnum" == "" ] || [ "$rcnum" == "" ]; then
     echo "Usage:"
     echo "  $0 rc_num channel"
     echo
@@ -15,17 +15,17 @@ if [ "x$chnum" = "x" ] || [ "x$rcnum" = "x" ]; then
     exit 1
 fi
 
-a=`date +%H%M`
+a=`date +%H%M%S`
 b=`date +%Y%m%d`
 echo "rc = $rcnum, ch = $chnum, dest = $a"
 
 for rc in $rcnum; do
     for chan in $chnum; do
 	echo Getting rc$rc channel $chan ...
-	dest=$MAS_DATA/${a}_rc${rc}_$chan
-	mkdir $dest
+	dest=${a}_rc${rc}_$chan
+	mkdir $MAS_DATA/$dest
 	for i in `seq 1 10 `; do
-	    mce_raw_acq_1col $rcnum $chnum "" "" $dest ""
+	    mce_raw_acq_1col $rcnum $chnum "" "" $dest/ ""
 	    sleep 1
 	done
     done
