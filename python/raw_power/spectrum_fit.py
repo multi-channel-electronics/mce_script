@@ -77,6 +77,8 @@ def model_3db(p):
 if __name__ == '__main__':
     from optparse import OptionParser
     o = OptionParser()
+    o.add_option('--plot', default='show',
+                 help='PNG filename or "show" to show.')
     opts, args = o.parse_args()
 
     if len(args) == 1 and os.path.isdir(args[0]):
@@ -129,4 +131,8 @@ if __name__ == '__main__':
     plot([high_cut, 25e6], [high_level]*2)
     plot([f3db]*2, [high_level, white_level])
     xlim(1e3, 2.5e7)
-    show()
+    if opts.plot == 'show':
+        show()
+    else:
+        savefig(opts.plot)
+
