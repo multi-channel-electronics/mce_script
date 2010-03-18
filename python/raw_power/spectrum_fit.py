@@ -1,6 +1,13 @@
 #!/usr/bin/python
 
-from pylab import *
+try:
+    from pylab import *
+    plotter = 'pylab'
+except:
+    print 'pylab absent, trying biggles.'
+    import biggles as bg
+    plotter = 'biggles'
+
 from numpy import *
 
 from mce_data import *
@@ -8,7 +15,11 @@ import sys, os
 from glob import glob
 
 from logbin import logbin
-from scipy.optimize import leastsq
+
+def file_info(fn):
+    d = MCEFile(fn+'.run')
+    rc = rf.Item('FRAMEACQ','RC',type='int',array=False)
+    chan = rf.Item('Column','RC',type='int',array=False)
 
 def load_raw_file(fn, kill_partial=33, drop_initial=1):
     d = MCEFile(fn).Read()
@@ -126,13 +137,26 @@ if __name__ == '__main__':
     print 'f_3db (MHz):             ', f3db/1e6, 'MHz'
 
     # Plot plot plot.
-    loglog(f2, y2)
-    plot([1e3, white_cut], [white_level]*2)
-    plot([high_cut, 25e6], [high_level]*2)
-    plot([f3db]*2, [high_level, white_level])
-    xlim(1e3, 2.5e7)
-    if opts.plot == 'show':
-        show()
+    if plotter == 'pylab':
+        loglog(f2, y2)
+        plot([1e3, white_cut], [white_level]*2)
+        plot([high_cut, 25e6], [high_level]*2)
+        plot([f3db]*2, [high_level, white_level])
+        xlim(1e3, 2.5e7)
+        if opts.plot == 'show':
+            show()
+        else:
+            savefig(opts.plot)
     else:
-        savefig(opts.plot)
+        fp = bg.FramedPlot()
+        fp.x1.log = 1
+        fp.y1.log = 1
+        fp.add(bg.Curve(f2, y2))
+        fp.add(bg.Curve([1e3, white_cut], [white_level]*2))
+        fp.add(bg.Curve([high_cut, 25e6], [high_level]*2))
+        fp.add(bg.Curve([f3db]*2, [high_level, white_level]))
+        if opts.plot == 'show':
+            fp.show()
+        else:
+            fp.write_img(600, 500, opts.plot)
 
