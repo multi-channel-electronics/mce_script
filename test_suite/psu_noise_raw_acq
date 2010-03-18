@@ -1,0 +1,27 @@
+#!/bin/bash
+
+cd $MAS_DATA
+mce_reconfig
+mce_zero_bias
+mce_cmd -qx wb ac enbl_mux 0 
+
+rcnum=$1
+chnum=$2
+if [ "x$chnum" = "x" ] || [ "x$rcnum" = "x" ]; then
+    echo "Usage:"
+    echo "  $0 rc_num channel"
+    echo
+    echo "Output will be placed in $MAS_DATA/<time>"
+    exit 1
+fi
+
+a=`date +%H%M`
+b=`date +%Y%m%d`
+echo "rc = $rcnum, ch = $chnum, dest = $a"
+mkdir $MAS_DATA/$a
+for i in `seq 1 10 `; do
+    mce_raw_acq_1col $rcnum $chnum "" "" $MAS_DATA/$a ""
+    sleep 1
+done
+cd $a
+echo "Done"
