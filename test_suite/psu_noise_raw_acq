@@ -1,12 +1,10 @@
 #!/bin/bash
 
 cd $MAS_DATA
-mce_reconfig
-mce_zero_bias
 mce_cmd -qx wb ac enbl_mux 0 
 
-rcnum=$1
-chnum=$2
+rcnum="$1"
+chnum="$2"
 ana=$3
 if [ "$chnum" == "" ] || [ "$rcnum" == "" ]; then
     echo "Usage:"
@@ -17,7 +15,7 @@ if [ "$chnum" == "" ] || [ "$rcnum" == "" ]; then
 fi
 
 case "x$ana" in
-    xanalyze x)
+    xanalyze|x)
 	;;
     *)
 	echo "analyze argument should be \"analyze\" or blank."
@@ -30,17 +28,17 @@ b=`date +%Y%m%d`
 echo "rc = $rcnum, ch = $chnum, dest = $a"
 
 for rc in $rcnum; do
-    for chan in $chnum; do
-	echo Getting rc$rc channel $chan ...
-	dest=${a}_rc${rc}_$chan
+    for ch in $chnum; do
+	echo Getting rc$rc channel $ch ...
+	dest=${a}_rc${rc}_$ch
 	mkdir $MAS_DATA/$dest
 	for i in `seq 1 10 `; do
-	    mce_raw_acq_1col $rcnum $chnum "" "" $dest/ ""
+	    mce_raw_acq_1col $rc $ch "" "" $dest/ ""
 	    sleep 1
 	done
 	# Analysis?
 	if [ "$ana" == "analyze" ]; then
-	    python $MAS_PYTHON/raw_power spectrum_fit.py $MAS_DATA/$dest \
+	    python $MAS_PYTHON/raw_power/spectrum_fit.py $MAS_DATA/$dest \
 		--plot $MAS_DATA/${dest}.png | tee $MAS_DATA/${dest}.txt
 	fi
     done
