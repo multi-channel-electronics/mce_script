@@ -18,10 +18,17 @@ fi
 a=`date +%H%M`
 b=`date +%Y%m%d`
 echo "rc = $rcnum, ch = $chnum, dest = $a"
-mkdir $MAS_DATA/$a
-for i in `seq 1 10 `; do
-    mce_raw_acq_1col $rcnum $chnum "" "" $MAS_DATA/$a ""
-    sleep 1
+
+for rc in $rcnum; do
+    for chan in $chnum; do
+	echo Getting rc$rc channel $chan ...
+	dest=$MAS_DATA/${a}_rc${rc}_$chan
+	mkdir $dest
+	for i in `seq 1 10 `; do
+	    mce_raw_acq_1col $rcnum $chnum "" "" $dest ""
+	    sleep 1
+	done
+    done
 done
-cd $a
+
 echo "Done"
