@@ -1,0 +1,42 @@
+#!/bin/bash
+
+rcnum="$1"
+chnum="$2"
+ana=$3
+
+if [ "$chnum" == "" ] || [ "$rcnum" == "" ]; then
+    echo "Usage:"
+    echo "  $0 rc_num channel [analyze]"
+    echo
+    echo "Output will be placed in $MAS_DATA/<time>"
+    exit 1
+fi
+
+case "x$ana" in
+    xanalyze|x)
+	;;
+    *)
+	echo "analyze argument should be \"analyze\" or blank."
+	exit 1
+	;;
+esac
+    
+a=`date +%H%M%S`
+b=`date +%Y%m%d`
+echo "rc = $rcnum, ch = $chnum, dest = $a"
+dest=${a}_mux
+mkdir $MAS_DATA/$dest
+
+for rc in $rcnum; do
+    for ch in $chnum; do
+	echo Getting rc$rc channel $ch ...
+	mce_raw_acq_1col $rc $ch "" "" ${dest}/ ""
+	# Analysis?
+	if [ "$ana" == "analyze" ]; then
+	    echo Think think think.
+	fi
+	sleep 1
+    done
+done
+
+echo "Done"
