@@ -116,9 +116,9 @@ class plotGridder:
         v, h, _, _ = self.pointer
         filename = self.filename
         if V > 1 or self.force_vlabel:
-            filename += '_%02i' % v
+            filename += '_%02i' % (v-1)
         if H > 1 or self.force_hlabel:
-            filename += '_%i' % h
+            filename += '_%i' % ((h-1+H)%H)
         filename += '.png'
         self.canvas.write_img(600, 450, filename)
         self.written = True

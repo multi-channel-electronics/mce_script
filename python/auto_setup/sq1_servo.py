@@ -7,23 +7,29 @@ import servo
 
 def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
 
-    # XXX Super servo logic goes here.
-    print "Super servo logic is MISSING!"
-    f = open(os.path.join(tuning.base_dir, "row.init"), "w")
-    for i in range(32):
-        f.write("0\n")
-    f.close()
+    super_servo = tuning.get_exp_param('config_fast_sq2') or \
+        tuning.get_exp_param('sq1_servo_all_rows')
+
+    if not super_servo:
+        f = open(os.path.join(tuning.base_dir, "row.init"), "w")
+        for r in tuning.get_exp_param('sq2_rows'):
+            f.write("%i\n" % r)
+        f.close()
 
     ok, servo_data = acquire(tuning, rc, filename=filename, fb=fb,
-                             gain=gain)
+                             gain=gain, super_servo=super_servo)
     if not ok:
         raise RuntimeError, servo_data['error']
 
-    lock_points = reduce(tuning, servo_data, slope=slope)
-    plot(tuning, rc, servo_data, lock_points)
+    sq = SQ1Servo(filename)
+    lock_points = sq.reduce(slope=slope)
+    sq.plot('sq2servo')
 
     # Return dictionary of relevant results
-    return {'sq1_target': lock_points['lock_y']}
+    return {'fb': lock_points['lock_x'],
+            'target': lock_points['lock_y'],
+            'super_servo': super_servo,
+            }
 
 
 def acquire(tuning, rc, filename=None, fb=None,
@@ -50,7 +56,7 @@ def acquire(tuning, rc, filename=None, fb=None,
         gain = tuning.get_exp_param('sq1servo_gain')[rci]
     
     if super_servo:
-        cmd = [tuning.bin_path+'sq1servo_all']
+        cmd = [tuning.bin_path+'sq1servo_all', '-p', 50]
     else:
         cmd = [tuning.bin_path+'sq1servo', '-p', 50]
 
@@ -98,7 +104,7 @@ class SQ1Servo:
     def _read_super(self, filename):
         data = []
         for n_row in range(64):
-            f = '%s_row%02i.bias' % n_row
+            f = '%s.r%02i.bias' % (filename, n_row)
             if not os.path.lexists(f):
                 break
             data.append(util.load_bias_file(f))
@@ -112,6 +118,7 @@ class SQ1Servo:
         self.error = self.error.reshape(n_row*n_col,n_bias,n_fb). \
             transpose([1,0,2]).reshape(-1, n_fb)
         self.data_style += 'rectangle'
+        self.data_shape = n_bias, n_row, n_col, n_fb
 
     def _read_single(self, filename):
         self.error, self.data = util.load_bias_file(filename+'.bias')
@@ -231,4 +238,5 @@ class SQ1Servo:
                    self.analysis, plot_file,
                    title=self.data_origin['basename'],
                    xlabel='SQ1 FB / 1000',
-                   ylabel='SQ2 FB / 1000')
+                   ylabel='SQ2 FB / 1000',
+                   set_points=True)

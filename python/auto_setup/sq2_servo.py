@@ -16,9 +16,9 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
     if not do_analysis:
         return None
 
-    lock_points = reduce(tuning, servo_data, slope=slope)
-
-    plot(tuning, servo_data, lock_points)
+    sq = SQ2Servo(filename)
+    lock_points = sq.reduce(slope=slope)
+    sq.plot('sq2servo')
 
     # Return dictionary of relevant results
     return {'fb': lock_points['lock_x'],
@@ -83,12 +83,12 @@ def acquire(tuning, rc, filename=None, fb=None,
                   'filename':fullname }
 
 class SQ2Servo:
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, tuning=None):
         self.data = None
         self.analysis = None
+        self.tuning = None
         if filename != None:
             self.read_data(filename)
-
 
     def _check_data(self, simple=False):
         if self.data == None:
@@ -177,7 +177,7 @@ class SQ2Servo:
         self._check_analysis(existence=True)
         
         if slope == None:
-            slope = tuning.get_exp_param('sq2servo_gain')
+            slope = self.tuning.get_exp_param('sq2servo_gain')
         if not hasattr(slope, '__getitem__'): slope = [slope]*4
         if len(slope) < 8:
             slope = (zeros((8,len(slope))) + slope).ravel()
@@ -197,7 +197,7 @@ class SQ2Servo:
             self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
         return self.analysis
         
-    def plot(self, plot_file=None, format='pdf'):
+    def plot(self, plot_file=None):
         self._check_data()
         self._check_analysis()
 

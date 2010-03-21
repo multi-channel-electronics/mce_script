@@ -48,8 +48,12 @@ def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
     # Lock mid-way in y or x?
     if lock_amp:
         target = array([yy[a] + yy[b] for yy,a,b in zip(y, i_left, i_right)]) / 2
-        lock_idx = array([(slope*(yy[a:b]-tt)>=0).nonzero()[0][0]+a \
-                              for a,b,tt,yy in zip(i_left, i_right, target, y)])
+        lock_idx = []
+        for a,b,tt,yy in zip(i_left, i_right, target, y):
+            zz = (slope*(yy[a:b]-tt)>=0).nonzero()[0]
+            if len(zz) == 0: zz = [(b-a)/2]
+            lock_idx.append(zz[0]+a)
+        lock_idx = array(lock_idx).astype('int')
     else:
         lock_idx = (i_left + i_right)/2
     lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
@@ -90,7 +94,9 @@ def plot(x, y, y_rc, lock_points, plot_file,
          lock_levels=True,
          set_points=False,
          intervals=False,
-         slopes=False):
+         slopes=False,
+         upscale=None,
+         ):
 
     nr, nc = y_rc
     pl = util.plotGridder(y_rc, plot_file, title=title, xlabel=xlabel, ylabel=ylabel,
@@ -98,7 +104,6 @@ def plot(x, y, y_rc, lock_points, plot_file,
             
     for r, c, ax in pl:
         i = c + r*nc
-        print r, c, i
         if set_points:
             ax.add(biggles.LineX(lock_points['lock_x'][i]*scale))
         if lock_levels:
@@ -115,9 +120,10 @@ def plot(x, y, y_rc, lock_points, plot_file,
             ax.add(biggles.PlotLabel(0., 0., insets[i],
                                          halign='left',valign='bottom'))
         ax.add(biggles.Curve(x/1000., y[i]/1000.))
-        # Prevent small signals from causing large tick labels
-        hi, lo = amax(y[i])/1000, amin(y[i])/1000
-        if hi - lo < 4:
-            mid = (hi+lo)/2
-            ax.yrange = (mid-2, mid+2)
+        if upscale != None:
+            # Prevent small signals from causing large tick labels
+            hi, lo = amax(y[i])/1000, amin(y[i])/1000
+            if hi - lo < 4:
+                mid = (hi+lo)/2
+                ax.yrange = (mid-2, mid+2)
 

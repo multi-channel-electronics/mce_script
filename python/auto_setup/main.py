@@ -202,19 +202,20 @@ def do_sq1_servo(tuning, rc, rc_indices, numrows):
 
     sq1_data = sq1_servo.go(tuning, rc)
 
-    # XXX need to save big array from super servo here.
-
-    # Save all sq2fb points
-    #for j in rc_indices.size:
-    #    sq2_rows = 41
-    #    c_ofs = rc_indices[j] * sq2_rows
-    #    tuning.set_exp_param("sq2_fb_set", arange(c_ofs,
-    #        c_ofs + numrows), sq2_feedback_full_array[..., j])
-
-    tuning.set_exp_param_range("sq2_fb", rc_indices, sq1_data["sq1_target"])
+    if sq1_data['super_servo']:
+        fb_set = sq1_data['lock_y'].reshape(numrows,-1)
+        fb_column = fb_set[tuning.get_exp_param('sq2_rows')]
+    else:
+        fb_column = sq1_data['lock_y']
+        fb_set = array([fb_column]*numrows).transpose()
+        
+    # Save results
+    tuning.set_exp_param_range('sq2_fb', rc_indices, fb_column)
+    nr = tuning.get_exp_param('array_width')  # 41 probly
+    for j in rc_indices:
+        tuning.set_exp_param_range('sq2_fb_set', range(nr*j,nr*j+nr), fb_set)
 
     tuning.write_config()
-
     return 0
 
 
