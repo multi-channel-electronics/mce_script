@@ -1,0 +1,47 @@
+#!/bin/bash
+
+cd $MAS_DATA
+mce_cmd -qx wb ac enbl_mux 0 
+
+rcnum="$1"
+chnum="$2"
+ana=$3
+if [ "$chnum" == "" ] || [ "$rcnum" == "" ]; then
+    echo "Usage:"
+    echo "  $0 rc_num channel [analyze]"
+    echo
+    echo "Output will be placed in $MAS_DATA/<time>"
+    exit 1
+fi
+
+case "x$ana" in
+    xanalyze|x)
+	;;
+    *)
+	echo "analyze argument should be \"analyze\" or blank."
+	exit 1
+	;;
+esac
+    
+a=`date +%H%M%S`
+b=`date +%Y%m%d`
+echo "rc = $rcnum, ch = $chnum, dest = $a"
+
+for rc in $rcnum; do
+    for ch in $chnum; do
+	echo Getting rc$rc channel $ch ...
+	dest=${a}_rc${rc}_$ch
+	mkdir $MAS_DATA/$dest
+	for i in `seq 1 10 `; do
+	    mce_raw_acq_1col $rc $ch "" "" $dest/ ""
+	    sleep 1
+	done
+	# Analysis?
+	if [ "$ana" == "analyze" ]; then
+	    python $MAS_PYTHON/raw_power/spectrum_fit.py $MAS_DATA/$dest \
+		--plot $MAS_DATA/${dest}.png | tee $MAS_DATA/${dest}.txt
+	fi
+    done
+done
+
+echo "Done"
