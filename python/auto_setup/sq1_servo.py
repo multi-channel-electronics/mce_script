@@ -81,9 +81,10 @@ def acquire(tuning, rc, filename=None, fb=None,
 
 
 class SQ1Servo:
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, tuning=None):
         self.data = None
         self.analysis = None
+        self.tuning = tuning
         if filename != None:
             self.read_data(filename)
 
@@ -204,12 +205,12 @@ class SQ1Servo:
             output.append(sa)
         return output
 
-    def reduce(self, slope=None):
+    def reduce(self, slope=1.):
         self._check_data()
         self._check_analysis(existence=True)
         
         if slope == None:
-            slope = tuning.get_exp_param('sq2servo_gain')
+            slope = self.tuning.get_exp_param('sq2servo_gain')
         if not hasattr(slope, '__getitem__'): slope = [slope]*4
         if len(slope) < 8:
             slope = (zeros((8,len(slope))) + slope).ravel()
@@ -229,7 +230,7 @@ class SQ1Servo:
             self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
         return self.analysis
         
-    def plot(self, plot_file=None):
+    def plot(self, plot_file):
         self._check_data()
         self._check_analysis()
 
@@ -239,4 +240,6 @@ class SQ1Servo:
                    title=self.data_origin['basename'],
                    xlabel='SQ1 FB / 1000',
                    ylabel='SQ2 FB / 1000',
-                   set_points=True)
+                   set_points=True,
+                   upscale=False,
+                   tight_scale=True)

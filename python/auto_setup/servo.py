@@ -86,7 +86,7 @@ def add_curves(ax, x, y, lp, i,
 
 
 def plot(x, y, y_rc, lock_points, plot_file,
-         shape=(4,2), scale=1./1000,
+         shape=(4,2), img_size=None, scale=1./1000,
          title=None, xlabel=None, ylabel=None,
          titles=None,
          rows=None, cols=None,
@@ -95,12 +95,20 @@ def plot(x, y, y_rc, lock_points, plot_file,
          set_points=False,
          intervals=False,
          slopes=False,
-         upscale=None,
+         scale_style='tight',
+         label_style='row_col',
          ):
 
     nr, nc = y_rc
+    cl, rl, rcl = False, False, False
+    if label_style == 'col_only':
+        cl = True
+    elif label_style == 'row_col':
+        rcl = True
+
     pl = util.plotGridder(y_rc, plot_file, title=title, xlabel=xlabel, ylabel=ylabel,
-                          target_shape=shape, col_labels=True)
+                          target_shape=shape, img_size=img_size,
+                          col_labels=cl, rowcol_labels=rcl)
             
     for r, c, ax in pl:
         i = c + r*nc
@@ -120,10 +128,15 @@ def plot(x, y, y_rc, lock_points, plot_file,
             ax.add(biggles.PlotLabel(0., 0., insets[i],
                                          halign='left',valign='bottom'))
         ax.add(biggles.Curve(x/1000., y[i]/1000.))
-        if upscale != None:
+
+        if scale_style == 'roll-off':
             # Prevent small signals from causing large tick labels
             hi, lo = amax(y[i])/1000, amin(y[i])/1000
             if hi - lo < 4:
                 mid = (hi+lo)/2
                 ax.yrange = (mid-2, mid+2)
-
+        elif scale_style == 'tight':
+            hi, lo = amax(y[i]) / 1000., amin(y[i]) / 1000.
+            dx = (hi - lo)*.1
+            ax.yrange = lo - dx, hi + dx
+            ax.xrange = x[0]/1000., x[-1]/1000.

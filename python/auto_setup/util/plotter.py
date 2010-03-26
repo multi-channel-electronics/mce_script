@@ -1,11 +1,9 @@
+import distutils.version as dvs
 import biggles
 
 # assert biggles.__version__ >= 1.6.4
 MIN_BIGGLES = '1.6.4'
-def _iver(v):
-    return [int(x) for x in v.split('.')]
-
-if _iver(biggles.__version__) < _iver(MIN_BIGGLES):
+if dvs.StrictVersion(MIN_BIGGLES) > biggles.__version__:
     raise RuntimeError, 'This package needs biggles %s or so.' % MIN_BIGGLES
 
 
@@ -16,6 +14,9 @@ def _carry(idx, lim):
     return _carry(idx[:-1], lim[:-1]) + (0,)
 
 def _div_up(x, y):
+    """
+    int(ceil(x/y))
+    """
     return (x + y - 1) / y
 
 
@@ -34,6 +35,7 @@ class plotGridder:
         ('force_vlabel', False),
         ('force_hlabel', False),
         ('target_shape', (4,4)),
+        ('img_size', (600, 450)),
         ]
 
     def __init__(self, shape, filename, **kwargs):
@@ -71,37 +73,48 @@ class plotGridder:
         self.canvas = None
         self.written = False
         self.plot_files = []
-        self.pointer = (0,0,0,0)
+        self.pointer = None
 
-    def _create_hpage(self):
+    def _create_hpage_stacked(self):
         V, H, S, M, N = self.target_shape
         v, h, m, n = self.pointer
-        if self.stacked:
-            page = biggles.Table(1, M)
-            for i in range(M):
-                page[0,i] = biggles.FramedArray(N,1)
-                if self.xlabel != None:
-                    page[0,i].xlabel = self.xlabel
-                if self.ylabel != None:
-                    page[0,i].ylabel = self.ylabel
-                r, c1, _, c2 = self.to_rowcol((v,h,i,0)) + self.to_rowcol((v,h,i,N-1))
-                if self.rowcol_labels:
-                    page[0,i].title = 'Row %2i  Cols %2i-%2i' % (r, c1, c2)
-                if self.col_labels:
-                    page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
-        else:
-            page = biggles.Table(N, M)
-            for i in range(M):
-                if self.col_labels:
-                    page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
-                for j in range(N):
-                    page[j,i] = biggles.FramedPlot()
-                    r, c = self.to_rowcol((v,h,i,j))
-                    if self.rowcol_labels:
-                        page[j,i].title = 'Row %i Col %i' % (r, c)
+        page = biggles.Table(1, M)
+        for i in range(M):
+            page[0,i] = biggles.FramedArray(N,1)
+            if self.xlabel != None:
+                page[0,i].xlabel = self.xlabel
+            if self.ylabel != None:
+                page[0,i].ylabel = self.ylabel
+            r, c1, _, c2 = self.to_rowcol((v,h,i,0)) + self.to_rowcol((v,h,i,N-1))
+            if self.rowcol_labels:
+                page[0,i].title = 'Row %2i  Cols %2i-%2i' % (r, c1, c2)
+            if self.col_labels:
+                page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
         if self.title != None:
             page.title = self.title
-        self.canvas = page
+        return page
+        
+    def create_hpage_spotted(self):
+        V, H, S, M, N = self.target_shape
+        v, h, m, n = self.pointer
+        page = biggles.Table(N, M)
+        for i in range(M):
+            if self.col_labels:
+                page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
+            for j in range(N):
+                page[j,i] = biggles.FramedPlot()
+                r, c = self.to_rowcol((v,h,i,j))
+                if self.rowcol_labels:
+                    page[j,i].title = 'Row %i Col %i' % (r, c)
+        if self.title != None:
+            page.title = self.title
+        return page
+
+    def _create_hpage(self):
+        if self.stacked:
+            self.canvas = self._create_hpage_stacked()
+        else:
+            self.canvas = self._create_hpage_spotted()
         self.written = False
     
     def _get_plot(self):
@@ -116,11 +129,11 @@ class plotGridder:
         v, h, _, _ = self.pointer
         filename = self.filename
         if V > 1 or self.force_vlabel:
-            filename += '_%02i' % (v-1)
+            filename += '_%02i' % v
         if H > 1 or self.force_hlabel:
-            filename += '_%i' % ((h-1+H)%H)
+            filename += '_%i' % ((h+H)%H)
         filename += '.png'
-        self.canvas.write_img(600, 450, filename)
+        self.canvas.write_img(self.img_size[0], self.img_size[1], filename)
         self.written = True
         if not filename in self.plot_files:
             self.plot_files.append(filename)
@@ -155,17 +168,22 @@ class plotGridder:
         """
         Returns row, column, and biggles plot object.  Use them wisely.
         """
+        # Increment indices
+        if self.pointer == None:
+            self.pointer = (0,0,0,0)
+        else:            
+            new_pointer = _carry(self.pointer, self.target_shape[:2] + \
+                                     self.target_shape[-2:])
+            if new_pointer[-2:] == (0,0) and self.canvas != None:
+                self._write_hpage()
+            self.pointer = new_pointer
+
+        if self.pointer[-2:] == (0,0):
+            self._create_hpage()
+                
         row, col = self.to_rowcol(self.pointer)
         if row >= self.shape[0]:
             raise StopIteration
 
-        if self.pointer[-2:] == (0,0):
-            if self.canvas != None:
-                self._write_hpage()
-            self._create_hpage()
-
-        ax = self._get_plot()
-
         # Increment
-        self.pointer = _carry(self.pointer, self.target_shape[:2] + self.target_shape[-2:])
-        return row, col, ax
+        return row, col, self._get_plot()

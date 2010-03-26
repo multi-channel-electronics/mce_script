@@ -94,7 +94,7 @@ def get_lock_points(data, slope=None, max_points=5, min_spacing=5):
 
 
 def lock_stats(data, target=0., range=None, slope=1.,
-               slope_properties=True, slope_points=5):
+               slope_properties=True, slope_points=5, flag=False):
     """
     Analyze V-phi curve in data, return position and character of lock
     points.
@@ -108,8 +108,11 @@ def lock_stats(data, target=0., range=None, slope=1.,
     if not slope_properties:
         return ok, L+range[0]
     else:
-        a, m = get_lock_slope(data-target, L, slope_points=slope_points)
-        return ok, a+range[0], m
+        if not ok:
+            return ok, range[0], 0
+        a, m = get_lock_slope(data-target, L+range[0], slope_points=slope_points)
+        if flag: print L, range, a, m
+        return ok, a, m
 
 
 
@@ -119,6 +122,45 @@ class SQ1Ramp:
         self.analysis = None
         if filename != None:
             self.read_data(filename)
+
+    @staticmethod
+    def join(args, basename):
+        """
+        Arguments are SQ1Ramp objects, loaded with data.
+        """
+        synth = SQ1Ramp()
+        synth.mcefile = None
+        # Check data shapes and styles for compatibility
+        base_shape = args[0].data_shape
+        base_style = args[0].data_style
+        for s in args[1:]:
+            if s.data_shape != base_shape:
+                raise ValueError, 'data shapes are not compatible'
+            if s.data_style != base_style:
+                raise ValueError, 'data shapes are not compatible'
+        # This is probably different readout cards, so stack in columns.
+        n_col, n_fb = base_shape[-2:]
+        synth.data_shape = base_shape[:-2] + (n_col * len(args), n_fb)
+        synth.data_style = base_style
+        synth.data_origin = {'basename': basename }
+        # Combine data
+        synth.data = zeros(synth.data_shape)
+        synth.data.shape = (-1, len(args)) + base_shape[-2:]
+        for i, s in enumerate(args):
+            synth.data[:,i,:,:] = s.data.reshape(-1, n_col, n_fb)
+        synth.data.shape = (-1, n_fb)
+
+        if synth.data_style == 'rectangle':
+            synth.cols = array([hstack(s.cols) for s in args])
+            synth.rows = args[0].rows.copy()
+        else:
+            synth.cols = array([hstack(s.cols) for s in args])
+            synth.rows = array([hstack(s.rows) for s in args])
+
+        # Check and copy...
+        synth.fb = args[0].fb.copy()
+        synth.d_fb = args[0].d_fb
+        return synth
 
     def _check_data(self):
        if self.data == None:
@@ -147,7 +189,14 @@ class SQ1Ramp:
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
 
-    def reduce1(self, slope=None):
+    def reduce1(self, rule='y_space'):
+        """
+        Finds curve amplitudes, locking levels, locking points.
+        Creates analysis elements
+               {min,max}_y
+               {left,,right}_idx
+               lock_{idx,y}
+        """
         self._check_data()
         # Analyze every single stupid rampc curve
         scale = max([len(self.fb)/40, 1])
@@ -163,10 +212,19 @@ class SQ1Ramp:
         # Indices of extrema, by det.
         Tex = [x.nonzero()[0] for x in Thi+Tlo]
 
-        # Find widest region between extrema
-        dT = [ x[1:] - x[:-1] for x in Tex ]
-        widx = [ argmax(x) for x in dT ]
-        lims = [ (x[i], x[i+1]) for x,i in zip(Tex, widx) ]
+        if rule=='x_space':
+            # Find widest region between extrema
+            dT = [ x[1:] - x[:-1] for x in Tex ]
+            widx = [ argmax(x) for x in dT ]
+            lims = [ (x[i], x[i+1]) for x,i in zip(Tex, widx) ]
+        elif rule == 'y_space':
+            # Find largest y-separation between local extrema
+            lims = []
+            for T_set, yy in zip(Tex, y):
+                z = sorted([(yy[x], x) for x in T_set])
+                dz = [a[0] - b[0] for a, b in zip(z[1:],z[:-1])]
+                idx = argmax(dz)
+                lims.append((z[idx][1], z[idx+1][1]))
 
         # Compute suggested ADC offset based on these.
         adc_offset = array([(yy[a]+yy[b])/2 for (a,b),yy in zip(lims,y)])
@@ -189,12 +247,17 @@ class SQ1Ramp:
         return self.analysis
 
     def reduce2(self, slope=None):
+        """
+        Measures slopes at lock points, creating analysis elements
+               lock_{up,down}_{idx,x,sl,ok}
+        """
         self._check_data()
         
         # Smooth
         scale = max([len(self.fb)/40, 1])
         y = servo.smooth(self.data, scale)
         x_offset = scale/2
+        abs_lims = [-x_offset, len(self.fb)-x_offset-1]
 
         # Find lock points and slopes
         result = self.analysis
@@ -203,24 +266,33 @@ class SQ1Ramp:
         for word, sgn in [('up', 1), ('dn',-1)]:
             ok, idx, sl = [zeros(y.shape[0], x) for x in ['bool','int','float']]
             for i, (yy, t) in enumerate(zip(y, targets)):
-                o, d, s = lock_stats(yy, target=t, slope_points=scale/2, slope=sgn)
+                rg = (len(yy)/4, len(yy))
+                o, d, s = lock_stats(yy, target=t, slope_points=scale/2, slope=sgn,
+                                     range=rg, flag=(i==509))
                 ok[i], idx[i], sl[i] = o, d, s
+            idx[idx<abs_lims[0]] = abs_lims[0]
+            idx[idx>abs_lims[1]] = abs_lims[1]
             result['lock_%s_idx'%word] = idx + x_offset
             result['lock_%s_sl'%word] = sl / self.d_fb
             result['lock_%s_ok'%word] = ok.astype('int')
             result['lock_%s_x'%word] = self.fb[result['lock_%s_idx'%word]]
         return result
 
-    def plot(self, tuning=None, dead_masks=None, plot_file=None, format='png'):
+    def reduce(self, slope=None):
+        self.reduce1()
+        self.reduce2(slope=slope)
+        return self.analysis
+
+    def plot(self, plot_file=None, dead_masks=None, format='png'):
         self._check_data()
         self._check_analysis()
 
         if plot_file == None:
             # fix me, get the plot filename...
             _, basename = os.path.split(ramp_data['filename'])
-            plot_file = os.path.join(tuning.plot_dir, '%s_%%02i.%s' % (basename, format))
+            plot_file = os.path.join(self.tuning.plot_dir, '%s_%%02i.%s' % (basename, format))
 
-        nr, nc = len(self.rows), len(self.cols)
+        nr, nc = self.data_shape[-3:-1]
         if dead_masks != None:
             insets = ['' for i in range(nr*nc)]
             for dm in dead_masks:
@@ -229,11 +301,15 @@ class SQ1Ramp:
         else:
             insets = None
         # Plot plot plot
-        servo.plot(self.fb, self.data, self.data_shape[-3:-1],
+        servo.plot(self.fb, self.data, (nr, nc),
                    self.analysis, plot_file,
+                   shape=(8,4),
+                   img_size=(900, 800),
                    insets=insets,
                    title=self.data_origin['basename'],
                    slopes=True, set_points=False, intervals=False,
                    xlabel='SQ1 FB / 1000',
                    ylabel='AD Units / 1000',
+                   scale_style='tight',
+                   label_style='row_col',
                    )
