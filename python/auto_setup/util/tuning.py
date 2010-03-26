@@ -153,8 +153,8 @@ class tuningData:
         f = open(filename, 'w')
         f.write("<SQUID>\n")
         f.write("<SQ_tuning_completed> %i\n" % int(done))
-        f.write("<SQ_tuning_date> %s\n" % tuning.current_data)
-        f.write("<SQ_tuning_dir> %s\n" % tuning.name)
+        f.write("<SQ_tuning_date> %s\n" % self.current_data)
+        f.write("<SQ_tuning_dir> %s\n" % self.name)
         if done:
             f.write('etc, etc\n')
         f.write("</SQUID>\n")

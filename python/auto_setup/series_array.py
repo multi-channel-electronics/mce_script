@@ -23,8 +23,9 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
     if not ok:
         raise RuntimeError, ramp_data['error']
 
-    lock_points = reduce(tuning, ramp_data, slope=slope)
-    plot(tuning, ramp_data, lock_points)
+    sa = SARamp(ramp_data['filename'])
+    lock_points = sa.reduce(tuning=tuning)
+    sa.plot(tuning=tuning)
 
     # Return dictionary of relevant results
     return {'sa_bias': lock_points['sa_bias'],
@@ -181,6 +182,11 @@ class SARamp:
         self.data.shape = (-1, self.data_shape[-1])
         return sa
 
+    def reduce(self, tuning=None):
+        self.reduce1()
+        self.reduce2(tuning=tuning)
+        return self.analysis
+
     def reduce1(self):
         """
         Compute peak-to-peak response.
@@ -201,10 +207,8 @@ class SARamp:
 
         # Convert to 1 slope per column
         if slope == None:
-            slope = tuning.get_exp_param('sq2servo_gain')
-        if not hasattr(slope, '__getitem__'): slope = [slope]*4
-        if len(slope) < 8:
-            slope = (zeros((8,len(slope))) + slope).ravel()
+            slope = tuning.get_exp_param('sq2_servo_gain')
+        if not hasattr(slope, '__getitem__'): slope = [slope]*max(self.cols)
         slope = slope[self.cols]
 
         # Analyze all SA curves for lock-points

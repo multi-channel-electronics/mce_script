@@ -3,7 +3,7 @@ import subprocess
 
 # this implementation is kind of lame...
 string_keys = ['array_id']
-float_keys = ['sa_offset_bias_ratio', 'sq2servo_gain', 'sq1servo_gain',
+float_keys = ['sa_offset_bias_ratio', 'sq2_servo_gain', 'sq1_servo_gain',
         'tes_bias_normal_time']
 int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
         'hardware_bac', 'hardware_rect', 'hardware_rc_data', 'sb0_select_clk',
