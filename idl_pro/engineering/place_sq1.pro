@@ -8,8 +8,16 @@
 function vphi_limits, sq1, col=col,all_cols=all_cols
 
 s = size(sq1.y)
-n_col = s[1]
-n_pt  = s[2]
+if s[0] eq 3 then begin
+   biasey = 1
+   n_col = s[1]
+   n_bias  = s[2]
+   n_pt = s[3]
+endif else begin
+   biasey = 0
+   n_col = s[1]
+   n_pt = s[2]
+endelse
 
 lo = n_pt / 4
 hi = n_pt - 1
@@ -21,11 +29,14 @@ if keyword_set(all_cols) then begin
     s_per = s_min
 
     for c=0,n_col-1 do begin
-        z = reform(sq1.y[c,lo:hi])
+        if biasey eq 0 then $
+           z = reform(sq1.y[c,lo:hi]) $
+        else $
+           z = reform(sq1.y[c,0,lo:hi])
         s_max[c] = max(z)
         s_min[c] = min(z)
         s_per[c] = vphi_period(z, fit_width=n_pt/8)
-        if s_per[c] ne -1 then s_per[c] = s_per[c] * (sq1.x[1]-sq1.x[0])
+        if s_per[c] ne -1 then s_per[c] = s_per[c] * (sq1.fb[1]-sq1.fb[0])
     endfor
     
 endif else begin
@@ -33,7 +44,7 @@ endif else begin
     s_max = max(z)
     s_min = min(z)
     s_per = vphi_period(z, fit_width=n_pt/8)
-    if s_per ne -1 then s_per = s_per * (sq1.x[1]-sq1.x[0])
+    if s_per ne -1 then s_per = s_per * (sq1.fb[1]-sq1.fb[0])
 
 endelse
 
@@ -62,7 +73,6 @@ pers = means
 pkpk = means
 
 for r = 0, n_row-1 do begin
-
     sq1file = strcompress(sq1base+'_row'+string(r)+sq1suffix,/remove_all)
 
     sq1 = read_bias_data(sq1file, npts=npts_sq1, rescale=0.001,runfile=sq1runfile)
@@ -93,7 +103,8 @@ pro place_sq1,sq2file,sq1_data,columns,all_cols=all_cols,plot_file=plot_file
 
 ; Load and analyze sq2 vphi
 
-sq2 = read_bias_data(sq2file, npts=npts_sq2, rescale=0.001)
+sq2 = read_bias_data(sq2file, rescale=0.001)
+npts_sq2 = n_elements(sq2.fb)
 mm2 = vphi_limits(sq2,/all_cols)
 
 s = 10
@@ -107,7 +118,7 @@ if keyword_set(plot_file) then begin
     linestyle=2
 endif
 
-x = sq2.x
+x = sq2.fb
 lo = x[0]/4
 hi = x[npts_sq2-1]
 
