@@ -78,7 +78,7 @@ fi
 # won't necessarily match the filename; but is better than nothing.
 # Also, put array ID code and data mode in 'user_word' field.
 
-mce_update_userword $rc
+update_userword $rc
 
 # Re-initialize the servo.  Can't hurt.
 if [ "$rc" == "s" ]; then

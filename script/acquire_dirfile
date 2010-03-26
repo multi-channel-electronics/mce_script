@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "Surgeon general's warning: MCE dirfiles can not be archived, merged, or loaded in moby."
+
+if [ "$#" == "0" ]; then
+   echo Usage:
+   echo " acquire_dirfile <n_frames> <filename>"
+   exit 1
+fi
+
+n_frames=$1
+filename=$2
+
+mce_run $filename $n_frames s --dirfile
+
