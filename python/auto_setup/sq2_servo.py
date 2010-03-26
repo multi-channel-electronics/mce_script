@@ -16,9 +16,9 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
     if not do_analysis:
         return None
 
-    sq = SQ2Servo(filename)
+    sq = SQ2Servo(servo_data['filename'], tuning=tuning)
     lock_points = sq.reduce(slope=slope)
-    sq.plot('sq2servo')
+    sq.plot()
 
     # Return dictionary of relevant results
     return {'fb': lock_points['lock_x'],
@@ -34,7 +34,7 @@ def acquire(tuning, rc, filename=None, fb=None,
 
     # File defaults
     if filename == None:
-        filename, acq_id = tuning.filename(rc=rc, action='ssa')
+        filename, acq_id = tuning.filename(rc=rc, action='sq2servo')
     else:
         try:
             acq_id = str(int(filename.split('_')[0]))
@@ -59,13 +59,13 @@ def acquire(tuning, rc, filename=None, fb=None,
         for k in ['start','count','step']:
             fb[k] = tuning.get_exp_param('sq2_servo_flux_%s'%k)
     if gain == None:
-        gain = tuning.get_exp_param('sq2servo_gain')[rci]
+        gain = tuning.get_exp_param('sq2_servo_gain')[rci*8]
     
     # Execute C servo program
     cmd = [os.path.join(tuning.bin_path, 'sq2servo'), filename,
            bias['start'], bias['step'], bias['count'],
            fb['start'], fb['step'], fb['count'],
-           rc, int(change_bias), gain]
+           rc, int(change_bias), gain, int(not change_bias)]
 
     status = tuning.run(cmd)
     if status:
@@ -86,7 +86,7 @@ class SQ2Servo:
     def __init__(self, filename=None, tuning=None):
         self.data = None
         self.analysis = None
-        self.tuning = None
+        self.tuning = tuning
         if filename != None:
             self.read_data(filename)
 
@@ -177,11 +177,9 @@ class SQ2Servo:
         self._check_analysis(existence=True)
         
         if slope == None:
-            slope = self.tuning.get_exp_param('sq2servo_gain')
-        if not hasattr(slope, '__getitem__'): slope = [slope]*4
-        if len(slope) < 8:
-            slope = (zeros((8,len(slope))) + slope).ravel()
-        slope = slope[self.cols]
+            slope = self.tuning.get_exp_param('sq2_servo_gain')
+        if not hasattr(slope, '__getitem__'): slope = [slope]*(max(self.cols)+1)
+        slope = array(slope)[self.cols]
 
         if any(slope != slope[0]):
             z = zeros(self.data_shape[:-1])
@@ -200,6 +198,10 @@ class SQ2Servo:
     def plot(self, plot_file=None):
         self._check_data()
         self._check_analysis()
+
+        if plot_file == None:
+            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
+                                         (self.data_origin['basename']))
 
         # Plot plot plot
         servo.plot(self.fb, self.data, self.data_shape[-3:-1], self.analysis,

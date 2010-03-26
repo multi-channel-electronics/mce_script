@@ -24,11 +24,15 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
         raise RuntimeError, ramp_data['error']
 
     sa = SARamp(ramp_data['filename'])
+    if sa.data_style == 'super-rectangle':
+        sa.reduce1()
+        sa = sa.subselect() # replace with best bias version
+
     lock_points = sa.reduce(tuning=tuning)
     sa.plot(tuning=tuning)
 
     # Return dictionary of relevant results
-    return {'sa_bias': lock_points['sa_bias'],
+    return {'sa_bias': sa.bias,
             'fb': lock_points['lock_x'],
             'target': lock_points['lock_y'],
             }
@@ -70,7 +74,7 @@ def acquire(tuning, rc, filename=None, do_bias=None):
                   }
 
 class SARamp:
-    def __init__(self, filename=None, reduce_rows=False):
+    def __init__(self, filename=None, reduce_rows=True):
         self.data = None
         self.analysis = None
         if filename != None:
@@ -98,14 +102,14 @@ class SARamp:
         self.data_shape = s
         self.rows = [-1]
 
-    def read_data(self, filename, reduce_rows=False):
+    def read_data(self, filename, reduce_rows=True):
         self.mcefile = MCEFile(filename)
         self.data = self.mcefile.Read(row_col=True).data
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
         self.data_style = 'rectangle'
         self.data_shape = self.data.shape
-        # Ravel.
+        # Ravel row/col dimension
         self.data.shape = (-1, self.data.shape[-1])
         # Record the rows and columns, roughly
         rf = self.mcefile.runfile
@@ -125,7 +129,7 @@ class SARamp:
             # If we weren't ramping the SA bias, we like to know what it was.
             fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
             self.bias_style = 'select'
-            self.bias = array(rf.Item('HEADER', 'RB sa bias', 'int'))[self.cols]
+            self.bias = array(rf.Item('HEADER', 'RB sa bias', type='int'))[self.cols]
 
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
@@ -137,7 +141,6 @@ class SARamp:
             self.data_shape = self.data.shape
             self.data_style = 'super-rectangle'
         else:
-            self.data_shape = self.data.shape
             self.data_style = 'rectangle'
         self.data = self.data.reshape(-1, n_fb)
         if reduce_rows:
@@ -166,12 +169,14 @@ class SARamp:
             output.append(sa)
         return output
 
-    def subselect(self, selector):
+    def subselect(self, selector=None):
         """
         Reduce the SA data by selecting certain curves from
         super-entries in each column.
         """
-        self._check_analysis(existence=True)
+        if selector == None:
+            self._check_analysis()
+            selector = self.analysis['y_span_select']
         sa = self.split()[0]
         sa.data.shape = sa.data_shape
         self.data.shape = self.data_shape
@@ -182,9 +187,9 @@ class SARamp:
         self.data.shape = (-1, self.data_shape[-1])
         return sa
 
-    def reduce(self, tuning=None):
+    def reduce(self, tuning=None, slope=None):
         self.reduce1()
-        self.reduce2(tuning=tuning)
+        self.reduce2(tuning=tuning, slope=slope)
         return self.analysis
 
     def reduce1(self):
@@ -208,8 +213,8 @@ class SARamp:
         # Convert to 1 slope per column
         if slope == None:
             slope = tuning.get_exp_param('sq2_servo_gain')
-        if not hasattr(slope, '__getitem__'): slope = [slope]*max(self.cols)
-        slope = slope[self.cols]
+        if not hasattr(slope, '__getitem__'): slope = [slope]*max(self.cols+1)
+        slope = array(slope)[self.cols]
 
         # Analyze all SA curves for lock-points
         n_fb = len(self.fb)
@@ -267,15 +272,20 @@ class SARamp:
             self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
         return self.analysis
 
-    def plot(self, tuning=None, plot_file=None, format='pdf'):
+    def plot(self, tuning=None, plot_file=None):
         self._check_data()
         self._check_analysis()
+
+        if self.data_style != 'rectangle':
+            raise RuntimeError, 'We cannot plot whole ramps, just the final selection.'
+        
         if plot_file == None:
-            plot_file = os.path.join(tuning.plot_dir, '%s.%s' % \
-                                         (self.data_origin['basename'], format))
+            plot_file = os.path.join(tuning.plot_dir, '%s' % \
+                                         (self.data_origin['basename']))
         # Plot plot plot
         servo.plot(self.fb, self.data, self.data_shape[-3:-1],
                    self.analysis, plot_file,
+                   shape=(4, 2),
                    title=self.data_origin['basename'],
                    titles=['Column %i - SA_bias=%6i' %(c,b) \
                                for c,b in zip(self.cols, self.bias)],

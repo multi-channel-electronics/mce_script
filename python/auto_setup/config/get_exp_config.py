@@ -86,7 +86,7 @@ def set_exp_param(file, key, value):
     if (status != 0):
         raise OSError("An error occurred while setting " + key)
 
-def get_exp_param(file, key):
+def get_exp_param(file, key, array=True):
     """Returns the value of one parameter of the experimental configuration.
 
     file: the name of the configuration file to read.
@@ -98,9 +98,9 @@ def get_exp_param(file, key):
     if key in string_keys:
         v = mas_param(file, key, 2)
     elif key in float_keys:
-        v = mas_param(file, key, 1)
+        v = numpy.array(mas_param(file, key, 1))
     elif key in int_keys:
-        v = mas_param(file, key, 0)
+        v = numpy.array(mas_param(file, key, 0))
     else:
         raise KeyError("unknown experimental parameter: " + key)
     
@@ -120,10 +120,10 @@ def get_exp_config(file):
         config[key] = mas_param(file, key, 2)
 
     for key in (float_keys):
-        config[key] = mas_param(file, key, 1)
+        config[key] = numpy.array(mas_param(file, key, 1))
 
     for key in (int_keys):
-        config[key] = mas_param(file, key, 0)
+        config[key] = numpy.array(mas_param(file, key, 0))
 
     return config;
 

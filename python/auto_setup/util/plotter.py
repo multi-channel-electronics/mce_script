@@ -48,7 +48,8 @@ class plotGridder:
         for k, v in zip(kwargs.keys(), kwargs.values()):
             if not k in keys:
                 raise ValueError, "keyword '%s' not valid" % k
-            setattr(self, k, v)
+            if v != None:
+                setattr(self, k, v)
             
         # Dimensions of target space
         nr, nc = shape
@@ -178,12 +179,12 @@ class plotGridder:
                 self._write_hpage()
             self.pointer = new_pointer
 
-        if self.pointer[-2:] == (0,0):
-            self._create_hpage()
-                
         row, col = self.to_rowcol(self.pointer)
         if row >= self.shape[0]:
             raise StopIteration
 
+        if self.pointer[-2:] == (0,0):
+            self._create_hpage()
+                
         # Increment
         return row, col, self._get_plot()

@@ -169,7 +169,7 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
 
     # Save SQ2 set point (SA feedback) and SQ2 feedback
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["target"])
-    tuning.set_exp_param_range("sq2_fn", rc_indices, sq2_data["fb"])
+    tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["fb"])
 
     # Why are these here?
     tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
@@ -375,7 +375,7 @@ def frametest_check(tuning, rcs, numrows, row, column):
 
 
 def auto_setup(rcs=None, check_bias=False, short=False, row=None,
-        column=None, numrows=33, acq_id=0, ramp_sa_bias=False, slope=1,
+        column=None, numrows=33, acq_id=0, ramp_sa_bias=None, slope=1,
         note=None, data_root=None, debug=False):
     """
 Run a complete auto setup.
@@ -385,6 +385,7 @@ functions to perform an entire auto setup procedure, exactly like the old
 IDL auto_setup_squids."""
 
     tuning = util.tuningData(data_root=data_root, debug=debug)
+    print 'Tuning ctime: %i' % tuning.the_time
 
     # set_directory creates directories and files where to store the tuning data
     # and plots.
@@ -399,6 +400,10 @@ IDL auto_setup_squids."""
     if (rcs == None):
         print "  Tuning all available RCs."
         rcs = tuning.rc_list()
+
+    # deafult parameters
+    if ramp_sa_bias == None:
+        ramp_sa_bias = bool(tuning.get_exp_param('sa_ramp_bias'))
 
     # initialse the auto setup
     tune_data = initialise(tuning, rcs, check_bias, short, numrows,

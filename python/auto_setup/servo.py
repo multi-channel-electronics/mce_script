@@ -111,6 +111,7 @@ def plot(x, y, y_rc, lock_points, plot_file,
                           col_labels=cl, rowcol_labels=rcl)
             
     for r, c, ax in pl:
+        if r >= nr or c >= nc: continue
         i = c + r*nc
         if set_points:
             ax.add(biggles.LineX(lock_points['lock_x'][i]*scale))

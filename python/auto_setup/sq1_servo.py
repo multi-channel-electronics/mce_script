@@ -21,9 +21,9 @@ def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
     if not ok:
         raise RuntimeError, servo_data['error']
 
-    sq = SQ1Servo(filename)
-    lock_points = sq.reduce(slope=slope)
-    sq.plot('sq2servo')
+    sq = SQ1Servo(servo_data['filename'], tuning=tuning)
+    lock_points = sq.reduce()
+    sq.plot()
 
     # Return dictionary of relevant results
     return {'fb': lock_points['lock_x'],
@@ -40,7 +40,7 @@ def acquire(tuning, rc, filename=None, fb=None,
 
     # File defaults
     if filename == None:
-        filename, acq_id = tuning.filename(rc=rc, action='ssa')
+        filename, acq_id = tuning.filename(rc=rc, action='sq1servo')
     else:
         try:
             acq_id = str(int(filename.split('_')[0]))
@@ -53,16 +53,17 @@ def acquire(tuning, rc, filename=None, fb=None,
         for k in ['start','count','step']:
             fb[k] = tuning.get_exp_param('sq1_servo_flux_%s'%k)
     if gain == None:
-        gain = tuning.get_exp_param('sq1servo_gain')[rci]
+        gain = tuning.get_exp_param('sq2_servo_gain')[rci*8]
     
     if super_servo:
         cmd = [tuning.bin_path+'sq1servo_all', '-p', 50]
     else:
-        cmd = [tuning.bin_path+'sq1servo', '-p', 50]
+        cmd = [tuning.bin_path+'sq1servo', 50]
 
+    # This syntax is for pre-2010 servo programs that only do one gain.
     cmd += [filename, 0,0,0,
             fb['start'], fb['step'], fb['count'],
-            rc, 0, tuning.get_exp_param("default_num_rows"),  gain, 1]
+            rc, 0, tuning.get_exp_param("default_num_rows"), gain, 1]
 
     status = tuning.run(cmd)
     if status:
@@ -77,7 +78,7 @@ def acquire(tuning, rc, filename=None, fb=None,
     tuning.register(acq_id, 'tune_servo', fullname, n_frames)
     
     return True, {'basename': acq_id,
-                  'filename':fullname }
+                  'filename': fullname }
 
 
 class SQ1Servo:
@@ -230,9 +231,13 @@ class SQ1Servo:
             self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
         return self.analysis
         
-    def plot(self, plot_file):
+    def plot(self, plot_file=None):
         self._check_data()
         self._check_analysis()
+
+        if plot_file == None:
+            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
+                                         (self.data_origin['basename']))
 
         # Plot plot plot
         servo.plot(self.fb, self.data, self.data_shape[-3:-1],
