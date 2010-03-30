@@ -566,7 +566,7 @@ class SmallMCEFile:
         data_in = self.ReadRaw(count=cc_count, start=cc_start)
 
         # Check data mode for processing instructions
-        dm_data = MCE_data_modes.get('%i'%self.data_mode)
+        dm_data = MCE_data_modes.get('%i'%data_mode)
         if dm_data == None:
             print 'Warning: unimplemented data mode %i, treating as 0.'%data_mode
             dm_data = MCE_data_modes['0']
@@ -680,7 +680,7 @@ class MCERunfile:
         data = self.data[block][key]
         if type=='float':
             f = [float(s) for s in data.split()]
-            if not array and len(f) == 0: return f[0]
+            if not array and len(f) <= 1: return f[0]
             return f
         if type=='int':
             f = [int(s) for s in data.split()]
