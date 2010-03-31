@@ -46,7 +46,7 @@ fi
 
 case $type in
     "iv")
-    files="$name $name.run $name.bias"
+    files="$name $name.run $name.bias $name.out"
     do_iv=0
     do_cur=0
     ;;

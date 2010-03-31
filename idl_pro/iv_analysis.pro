@@ -113,7 +113,7 @@ endif else begin
     use_jshuntfile = 1
 
                                 ; Different columns use different TES bias circuitry, and this resistance takes these differences into account.
-                                ; The sum of the 2 resistance values below for each column is stored in the file 'last_iv_det_data',
+                                ; The sum of the 2 resistance values below for each column is stored in the file <filename>.out
                                 ;	 which is appended to subsequent .run files.
                                 ; The first is the sum of the 6 resistors on the bias card in the TES bias circuit
                                 ; Rbias_arr(0) is the bias resistance for bias card 1 (bc1), Rbias_arr(1) for bc2, and Rbias_arr(2) for bc3
@@ -771,7 +771,8 @@ close,1
 file_chmod, outdir+'/tes_bias_recommended',/a_execute
 
 ; Generate a file that contains the detector data at the recommended biases
-openw,1, outdir+'/last_iv_det_data'
+output_file = filename+'.out'
+openw,1, output_file
 printf,1,'<IV>'
 printf,1, '<iv_file> '+filename
 printf,1, '<target_percent_Rn> '+string(per_Rn_bias*100,format='(i2)')
@@ -808,13 +809,13 @@ for c=0,n_columns-1 do begin
 endfor
 printf,1,'</IV>'
 close,1
-file_chmod, outdir+'/last_iv_det_data',/a_read
+file_chmod, output_file,/a_read
 device,/close
 
 if keyword_set(biasfile) then begin
    if not_cut gt ncut_lim then begin
       bias_script = outdir+'/tes_bias_recommended'
-      bias_data = outdir + '/last_iv_det_data'
+      bias_data = output_file
    endif else begin
       ; If IV curve fails, revert to some reasonable default values!
       bias_script = getenv('MAS_TEMPLATE') + '/tes_bias_fallback'
