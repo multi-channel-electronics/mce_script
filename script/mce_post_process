@@ -34,6 +34,8 @@ print "Starting at %s"% time.asctime()
 files = commands.getoutput("ls -tr %s/12*" % CACHE).split()
 for f in files:
 
+    use_slimfile = False
+    slimfile = None
     if f.endswith("_dat"):
         # slim_mce will compress *_dat to *_dat.slm, and move the hard
         # link in /data/archive_cache/ to /data/archive
@@ -41,7 +43,7 @@ for f in files:
 
         slimfile="%s.slm"%f
 
-        cmd1="export PATH=${PATH}:%s; slim_mce --force %s 2>&1" % (SLIMPATH, f)
+        cmd1="export PATH=${PATH}:%s; slim_mce --force --preserve %s 2>&1" % (SLIMPATH, f)
         stat,out = commands.getstatusoutput(cmd1)
         if stat==0 and os.path.exists(slimfile):
             print out
@@ -55,19 +57,23 @@ for f in files:
             os.remove(tmpPath)
             
             if stat == 0:
-                print "%s Moving   %s to archive"% (timestamp(), slimfile)
-                move2dir(slimfile, ARCHIVE)
+                # Use the slim file, remove the raw file
+                use_slimfile = True
+                os.remove(f)
             else:
-                print out
                 print "Failed to unslim!  Copying raw file to archive instead"
-                move2dir(f, ARCHIVE)
-
         else:
-            print out
-            print "Slim failed; skipping %s and its runfile"%f
+            print "Slim failed; raw data will be archived instead"
 
+    if use_slimfile:
+        print "%s Moving   %s to archive"% (timestamp(), slimfile)
+        move2dir(slimfile, ARCHIVE)
     else:
-        # Other files just get moved
+        if slimfile != None and os.path.exists(slimfile):
+            try:
+                os.remove(slimfile)
+            except OSError:
+                print 'Could not remove %s' % slimfile
         move2dir(f, ARCHIVE)
         print "Moved %s to archive"%f
 
