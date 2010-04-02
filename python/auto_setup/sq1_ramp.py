@@ -32,7 +32,7 @@ def acquire(tuning, rc, filename=None, check=False):
     if filename == None:
         action = 'sq1ramp'
         if check: action = 'sq1rampc'
-        filename, acq_id = tuning.get_filename(rc=rc, action=action)
+        filename, acq_id = tuning.filename(rc=rc, action=action)
     else:
         try:
             acq_id = str(int(filename.split('_')[0]))
@@ -46,10 +46,10 @@ def acquire(tuning, rc, filename=None, check=False):
         return False, {'error': 'command failed: %s' % str(cmd)}
 
     # Register this acquisition, taking nframes from runfile.
-    fullname = os.path.join(tuning.data_dir, filename)
-    rf = MCERunfile(fullname)
+    fullname = os.path.join(tuning.base_dir, filename)
+    rf = MCERunfile(fullname + '.run')
     n_frames = rf.Item('FRAMEACQ','DATA_FRAMECOUNT',type='int',array=False)
-    util.register(acq_id, 'tune_ramp', fullname, n_frames)
+    tuning.register(acq_id, 'tune_ramp', fullname, n_frames)
     
     return True, {'basename': acq_id,
                   'filename':fullname,
@@ -117,9 +117,10 @@ def lock_stats(data, target=0., range=None, slope=1.,
 
 
 class SQ1Ramp:
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, tuning=None):
         self.data = None
         self.analysis = None
+        self.tuning = tuning
         if filename != None:
             self.read_data(filename)
 
@@ -151,11 +152,11 @@ class SQ1Ramp:
         synth.data.shape = (-1, n_fb)
 
         if synth.data_style == 'rectangle':
-            synth.cols = array([hstack(s.cols) for s in args])
+            synth.cols = hstack([s.cols for s in args])
             synth.rows = args[0].rows.copy()
         else:
-            synth.cols = array([hstack(s.cols) for s in args])
-            synth.rows = array([hstack(s.rows) for s in args])
+            synth.cols = hstack([s.cols for s in args])
+            synth.rows = hstack([s.rows for s in args])
 
         # Check and copy...
         synth.fb = args[0].fb.copy()
@@ -246,7 +247,7 @@ class SQ1Ramp:
         self.analysis = result
         return self.analysis
 
-    def reduce2(self, slope=None):
+    def reduce2(self):
         """
         Measures slopes at lock points, creating analysis elements
                lock_{up,down}_{idx,x,sl,ok}
@@ -278,9 +279,9 @@ class SQ1Ramp:
             result['lock_%s_x'%word] = self.fb[result['lock_%s_idx'%word]]
         return result
 
-    def reduce(self, slope=None):
+    def reduce(self):
         self.reduce1()
-        self.reduce2(slope=slope)
+        self.reduce2()
         return self.analysis
 
     def plot(self, plot_file=None, dead_masks=None, format='png'):
@@ -288,9 +289,8 @@ class SQ1Ramp:
         self._check_analysis()
 
         if plot_file == None:
-            # fix me, get the plot filename...
-            _, basename = os.path.split(ramp_data['filename'])
-            plot_file = os.path.join(self.tuning.plot_dir, '%s_%%02i.%s' % (basename, format))
+            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
+                                         (self.data_origin['basename']))
 
         nr, nc = self.data_shape[-3:-1]
         if dead_masks != None:

@@ -93,6 +93,7 @@ class tuningData:
         if (log):
           log.write("Exit Status: " + str(s) + "\n")
           log.flush()
+        return s
 
     def rc_list(self):
         hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc");
@@ -178,7 +179,7 @@ class tuningData:
         return self.run(["mce_cmd", "-q", "-x"] + command.split())
 
     def register(self, ctime, type, filename, numpts, note=None):
-        cmd = ["acq_register", ctime, type, filename, numpts]
+        cmd = ["echo", "acq_register", ctime, type, filename, numpts]
         if (note):
             cmd.append(note)
         else:

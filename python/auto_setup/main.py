@@ -1,8 +1,8 @@
-# vi: ts=4:sw=4:et
 import util
 import series_array
 import sq2_servo
 import sq1_servo
+import sq1_ramp
 import frame_test
 
 import os
@@ -168,8 +168,8 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     sq2_data = sq2_servo.go(tuning, rc)
 
     # Save SQ2 set point (SA feedback) and SQ2 feedback
-    tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["target"])
-    tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["fb"])
+    tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["lock_y"])
+    tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["lock_x"])
 
     # Why are these here?
     tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
@@ -220,7 +220,10 @@ def do_sq1_servo(tuning, rc, rc_indices, numrows):
 
 
 def sq1_ramp_check(tuning, rcs, numrows, tune_data):
-    new_adc_arr = [ "" ] * 32
+    n_cols = 8 * len(rcs)
+    n_rows = tuning.get_exp_param('default_num_rows')
+
+    new_adc_arr = zeros((n_cols, n_rows))
     squid_p2p_arr = [ "" ] * 32
     squid_lockrange_arr = [ "" ] * 32
     squid_lockslopedn_arr = [ "" ] * 32
@@ -228,59 +231,60 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
     squid_multilock_arr = [ "" ] * 32
     squid_off_rec_arr = [ "" ] * 32
 
+    tuning.set_exp_param("data_mode", 0)
+    tuning.set_exp_param("servo_mode", 1)
+    tuning.set_exp_param("config_adc_offset_all", 0)
+    tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
+    tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
+
+    tuning.write_config()
+
+    samp_num = tuning.get_exp_param("default_sample_num")
+    array_width = tuning.get_exp_param("array_width")
+
+    # Acquire ramp for each RC
+    ramps = []
     for rc in rcs:
-        rc_indices = (rc - 1) * 8 + arange(8)
+        ok, info = sq1_ramp.acquire(tuning, rc)
+        if not ok:
+            raise RuntimeError, 'sq1ramp failed for rc%i (%s)' % \
+                (rc, info['error'])
+        ramps.append(sq1_ramp.SQ1Ramp(info['filename']))
 
-        print "ADC offsets of rc", rc
+    # Join into single data/analysis object
+    #... something is wrong here ...
+    new_name = '_'.join(info['basename'].split('_')[:-2])+'_sq1ramp'
+    ramps = sq1_ramp.SQ1Ramp.join(ramps, basename=new_name)
+    ramps.tuning = tuning
+    lock_points = ramps.reduce()
+    n_row, n_col = lock_points.data_shape[-3:-1]
 
-        tuning.set_exp_param("data_mode", 0)
-        tuning.set_exp_param("servo_mode", 1)
-        tuning.set_exp_param("servo_p", 0)
-        tuning.set_exp_param("servo_i", 0)
-        tuning.set_exp_param("servo_d", 0)
-        tuning.set_exp_param("config_adc_offset_all", 0)
-        tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
-        tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
+    # Save new ADC offsets
+    adc_col = tuning.get_exp_param('adc_offset_c')[ramps.cols].reshape(1,-1)
+    adc_adj = (lock_points['lock_y'] / samp_num). \
+        reshape(n_row, n_col).astype('int')
+    new_adc = adc_col + adc_adj
+    # Careful with index transposition here
+    cv, rv = ix_(ramps.cols, ramps.rows)
+    idx = (array_width * cv + rv).ravel()
+    adc = tuning.get_exp_param('adc_offset_cr')
+    adc[idx] = new_adc.transpose().ravel()
 
-        tuning.write_config()
+    tuning.set_exp_param('adc_offset_cr', adc)
+    tuning.set_exp_param('config_adc_offset_all', 1)
+    tuning.write_config()
 
-        rsq1_file_name, acq_id = tuning.filename(rc=rc, action="sq1ramp")
-
-        rsq1_data = ramp_sq1_fb_plot(tuning, rc=rc, numrows=numrows,
-                acq_id=acq_id)
-
-        if (rc == rcs[0]):
-            all_adc_offsets = empty([32, numrows], dtype="float")
-            all_squid_p2p = empty([32, numrows], dtype="float")
-            all_squid_lockrange = empty([32, numrows], dtype="float")
-            all_squid_lockslope = empty([32, numrows, 2], dtype="float")
-            all_squid_multilock = empty([32, numrows], dtype="float")
-
-        samp_num = tuning.get_exp_param("default_sample_num")
-        for j in range(8):
-            all_adc_offsets[(rc - 1) * 8 + j, ...] = \
-                    (rsq1_data["new_adc_offset"][j, ...] + 
-                            column_adc_offset[j + 8 * (rc - 1)]) / samp_num
-
-        array_width = tuning.get_exp_param("array_width")
-        for j in range(8):
-            for i in range(numrows):
-                tuning.set_exp_param_range("adc_offset_cr",
-                        ((rc - 1) * 8 + j) * array_width + i,
-                        all_adc_offsets[(rc - 1) * 8 + j, i])
-                new_adc_arr[(rc - 1) * 8 + j] += \
-                        " %i6" % (all_adc_offsets[(rc - 1) * 8 + j, i])
-
-        # Turn on adc_offset config for all columns
-        tuning.set_exp_param("config_adc_offset_all", 1)
-
-        tuning.write_config()
-
-        # load masks for labeling the ramp plots
-        mask_list = ["connection", "other"]
-        mask_files = [ os.environ["MAS_TEMPLATE"] + os.path.join("dead_lists",
+    # Produce plots
+    mask_list = ["squid1", "multilock", "jumper", "connection", "other"]
+    mask_files = [ os.environ["MAS_TEMPLATE"] + os.path.join("dead_lists",
             tuning.get_exp_param("array_id"), "dead_" + m + ".cfg") for m in
             mask_list ]
+    masks = [util.DeadMask(f, label=l) for f,l in zip(mask_files, mask_list)]
+    ramps.plot(dead_masks=masks)
+
+    # Return analysis stuff so it can be stored in .sqtune...
+
+    if 0:
         extra_lables = util.mask_labels(mask_files, mask_list, rc)
         rsq1c_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampc")
 
@@ -405,7 +409,7 @@ IDL auto_setup_squids."""
     if ramp_sa_bias == None:
         ramp_sa_bias = bool(tuning.get_exp_param('sa_ramp_bias'))
 
-    # initialse the auto setup
+    # initialise the auto setup
     tune_data = initialise(tuning, rcs, check_bias, short, numrows,
             ramp_sa_bias, note)
 
@@ -417,15 +421,15 @@ IDL auto_setup_squids."""
     for c in rcs:
         print "Processing rc%i" % c
         rc_indices = 8 * (c - 1) + arange(8)
-        if short == 0:
+        if short <= 0:
             sa_dict = do_sa_ramp(tuning, c, rc_indices, tune_data)
             s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data)
             if (s2_dict["status"] != 0):
                 return s2_dict["status"]
-
-        e = do_sq1_servo(tuning, c, rc_indices, numrows)
-        if (e != 0):
-            return e
+        if short <= 1:
+            e = do_sq1_servo(tuning, c, rc_indices, numrows)
+            if (e != 0):
+                return e
 
     # All that for some ADC offsets?
     column_adc_offset = tuning.get_exp_param("adc_offset_c")

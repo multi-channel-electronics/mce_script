@@ -20,10 +20,8 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
     lock_points = sq.reduce(slope=slope)
     sq.plot()
 
-    # Return dictionary of relevant results
-    return {'fb': lock_points['lock_x'],
-            'target': lock_points['lock_y'],
-            }
+    # Return analysis
+    return lock_points
 
 
 def acquire(tuning, rc, filename=None, fb=None,
@@ -68,7 +66,7 @@ def acquire(tuning, rc, filename=None, fb=None,
            rc, int(change_bias), gain, int(not change_bias)]
 
     status = tuning.run(cmd)
-    if status:
+    if status != 0:
         return False, {'error': 'command failed: %s' % str(cmd)}
 
     # Register this acquisition, taking nframes from runfile.

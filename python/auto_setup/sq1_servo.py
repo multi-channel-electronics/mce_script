@@ -15,6 +15,10 @@ def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
         for r in tuning.get_exp_param('sq2_rows'):
             f.write("%i\n" % r)
         f.close()
+        f = open(os.path.join(tuning.base_dir, "sq2fb.init"), "w")
+        for x in tuning.get_exp_param('sq2_fb'):
+            f.write("%i\n" % x)
+        f.close()
 
     ok, servo_data = acquire(tuning, rc, filename=filename, fb=fb,
                              gain=gain, super_servo=super_servo)
@@ -26,10 +30,8 @@ def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
     sq.plot()
 
     # Return dictionary of relevant results
-    return {'fb': lock_points['lock_x'],
-            'target': lock_points['lock_y'],
-            'super_servo': super_servo,
-            }
+    lock_points['super_servo'] = super_servo
+    return lock_points
 
 
 def acquire(tuning, rc, filename=None, fb=None,
@@ -58,7 +60,7 @@ def acquire(tuning, rc, filename=None, fb=None,
     if super_servo:
         cmd = [tuning.bin_path+'sq1servo_all', '-p', 50]
     else:
-        cmd = [tuning.bin_path+'sq1servo', 50]
+        cmd = [tuning.bin_path+'sq1servo']
 
     # This syntax is for pre-2010 servo programs that only do one gain.
     cmd += [filename, 0,0,0,
@@ -66,7 +68,7 @@ def acquire(tuning, rc, filename=None, fb=None,
             rc, 0, tuning.get_exp_param("default_num_rows"), gain, 1]
 
     status = tuning.run(cmd)
-    if status:
+    if status != 0:
         return False, {'error': 'command failed: %s' % str(cmd)}
 
     # Register this acquisition, taking nframes from runfile.
@@ -245,6 +247,5 @@ class SQ1Servo:
                    title=self.data_origin['basename'],
                    xlabel='SQ1 FB / 1000',
                    ylabel='SQ2 FB / 1000',
-                   set_points=True,
-                   upscale=False,
-                   tight_scale=True)
+                   set_points=True)
+

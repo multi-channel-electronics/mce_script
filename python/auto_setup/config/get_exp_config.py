@@ -65,7 +65,8 @@ def mas_param(file, key, type):
         else:
             return numpy.array([float(x) for x in v])
     else: # string
-        return value.strip()
+        #Remove white space and lead/trail quotes.
+        return value.strip()[1:-1]
 
 def set_exp_param(file, key, value):
     """Writes the value given to the specified parameter of the experimental
