@@ -44,9 +44,13 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set sa_ramp_bias_start '+str_flat(m.sa_ramp_bias_start)
     spawn,'mas_param -s '+filename+' set sa_ramp_bias_step '+str_flat(m.sa_ramp_bias_step)
     spawn,'mas_param -s '+filename+' set sa_ramp_bias_count '+str_flat(m.sa_ramp_bias_count)
+    spawn,'mas_param -s '+filename+' set sa_flux_quanta '+str_flat(m.sa_flux_quanta)
+    spawn,'mas_param -s '+filename+' set sq2_flux_quanta '+str_flat(m.sq2_flux_quanta)
     spawn,'mas_param -s '+filename+' set sq2_rows '+str_flat(m.sq2_rows)
     spawn,'mas_param -s '+filename+' set sq2servo_gain '+str_flat(m.sq2servo_gain)
     spawn,'mas_param -s '+filename+' set sq1servo_gain '+str_flat(m.sq1servo_gain)
+    spawn,'mas_param -s '+filename+' set sq2_servo_gain '+str_flat(m.sq2_servo_gain)
+    spawn,'mas_param -s '+filename+' set sq1_servo_gain '+str_flat(m.sq1_servo_gain)
     spawn,'mas_param -s '+filename+' set sq2_servo_flux_start '+str_flat(m.sq2_servo_flux_start)
     spawn,'mas_param -s '+filename+' set sq2_servo_flux_count '+str_flat(m.sq2_servo_flux_count)
     spawn,'mas_param -s '+filename+' set sq2_servo_flux_step '+str_flat(m.sq2_servo_flux_step)
@@ -57,6 +61,10 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set sq2_servo_bias_start '+str_flat(m.sq2_servo_bias_start)
     spawn,'mas_param -s '+filename+' set sq2_servo_bias_count '+str_flat(m.sq2_servo_bias_count)
     spawn,'mas_param -s '+filename+' set sq2_servo_bias_step '+str_flat(m.sq2_servo_bias_step)
+    spawn,'mas_param -s '+filename+' set sq1_servo_bias_ramp '+str_flat(m.sq1_servo_bias_ramp)
+    spawn,'mas_param -s '+filename+' set sq1_servo_bias_start '+str_flat(m.sq1_servo_bias_start)
+    spawn,'mas_param -s '+filename+' set sq1_servo_bias_count '+str_flat(m.sq1_servo_bias_count)
+    spawn,'mas_param -s '+filename+' set sq1_servo_bias_step '+str_flat(m.sq1_servo_bias_step)
     spawn,'mas_param -s '+filename+' set sq1_servo_all_rows '+str_flat(m.sq1_servo_all_rows)
     spawn,'mas_param -s '+filename+' set sq1ramp_plot_rows '+str_flat(m.sq1ramp_plot_rows)
     spawn,'mas_param -s '+filename+' set locktest_plot_row '+str_flat(m.locktest_plot_row)
@@ -73,8 +81,6 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set tes_bias_idle '+str_flat(m.tes_bias_idle)
     spawn,'mas_param -s '+filename+' set tes_bias_normal '+str_flat(m.tes_bias_normal)
     spawn,'mas_param -s '+filename+' set tes_bias_normal_time '+str_flat(m.tes_bias_normal_time)
-    spawn,'mas_param -s '+filename+' set sq2servo_safb_init '+str_flat(m.sq2servo_safb_init)
-    spawn,'mas_param -s '+filename+' set sq1servo_sq2fb_init '+str_flat(m.sq1servo_sq2fb_init)
     spawn,'mas_param -s '+filename+' set ramp_tes_start '+str_flat(m.ramp_tes_start)
     spawn,'mas_param -s '+filename+' set ramp_tes_step '+str_flat(m.ramp_tes_step)
     spawn,'mas_param -s '+filename+' set ramp_tes_count '+str_flat(m.ramp_tes_count)
@@ -160,9 +166,13 @@ pro load_exp_params,filename,m
         'sa_ramp_bias_start',mas_param_int(filename,'sa_ramp_bias_start'),  $
         'sa_ramp_bias_step',mas_param_int(filename,'sa_ramp_bias_step'),  $
         'sa_ramp_bias_count',mas_param_int(filename,'sa_ramp_bias_count'),  $
+        'sa_flux_quanta',mas_param_int(filename,'sa_flux_quanta'),  $
+        'sq2_flux_quanta',mas_param_int(filename,'sq2_flux_quanta'),  $
         'sq2_rows',mas_param_int(filename,'sq2_rows'),  $
         'sq2servo_gain',mas_param_float(filename,'sq2servo_gain'),  $
         'sq1servo_gain',mas_param_float(filename,'sq1servo_gain'),  $
+        'sq2_servo_gain',mas_param_float(filename,'sq2_servo_gain'),  $
+        'sq1_servo_gain',mas_param_float(filename,'sq1_servo_gain'),  $
         'sq2_servo_flux_start',mas_param_int(filename,'sq2_servo_flux_start'),  $
         'sq2_servo_flux_count',mas_param_int(filename,'sq2_servo_flux_count'),  $
         'sq2_servo_flux_step',mas_param_int(filename,'sq2_servo_flux_step'),  $
@@ -173,6 +183,10 @@ pro load_exp_params,filename,m
         'sq2_servo_bias_start',mas_param_int(filename,'sq2_servo_bias_start'),  $
         'sq2_servo_bias_count',mas_param_int(filename,'sq2_servo_bias_count'),  $
         'sq2_servo_bias_step',mas_param_int(filename,'sq2_servo_bias_step'),  $
+        'sq1_servo_bias_ramp',mas_param_int(filename,'sq1_servo_bias_ramp'),  $
+        'sq1_servo_bias_start',mas_param_int(filename,'sq1_servo_bias_start'),  $
+        'sq1_servo_bias_count',mas_param_int(filename,'sq1_servo_bias_count'),  $
+        'sq1_servo_bias_step',mas_param_int(filename,'sq1_servo_bias_step'),  $
         'sq1_servo_all_rows',mas_param_int(filename,'sq1_servo_all_rows'),  $
         'sq1ramp_plot_rows',mas_param_int(filename,'sq1ramp_plot_rows'),  $
         'locktest_plot_row',mas_param_int(filename,'locktest_plot_row'),  $
@@ -189,8 +203,6 @@ pro load_exp_params,filename,m
         'tes_bias_idle',mas_param_int(filename,'tes_bias_idle'),  $
         'tes_bias_normal',mas_param_int(filename,'tes_bias_normal'),  $
         'tes_bias_normal_time',mas_param_float(filename,'tes_bias_normal_time'),  $
-        'sq2servo_safb_init',mas_param_int(filename,'sq2servo_safb_init'),  $
-        'sq1servo_sq2fb_init',mas_param_int(filename,'sq1servo_sq2fb_init'),  $
         'ramp_tes_start',mas_param_int(filename,'ramp_tes_start'),  $
         'ramp_tes_step',mas_param_int(filename,'ramp_tes_step'),  $
         'ramp_tes_count',mas_param_int(filename,'ramp_tes_count'),  $
