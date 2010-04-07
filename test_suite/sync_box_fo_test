@@ -18,8 +18,8 @@ mce_cmd -x mce_reset
 mce_cmd -x dsp_reset
 
 mce_cmd -x wb cc select_clk 1
-mce_cmd -x wb use_sync 2
-mce_cmd -x wb use_dv 2
+mce_cmd -x wb cc use_sync 2
+mce_cmd -x wb cc use_dv 2
 
 echo "Collect 200 frames of data now, filename=$filename ...."
 mce_run $filename 200 2
