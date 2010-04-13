@@ -55,12 +55,8 @@ if not keyword_set(gain) then gain = 1./100
 
 if not keyword_set(use_bias_file) then begin
 
-    ; Servo arguments, sheesh
-    servo_args = $
-      file_name_sq1_servo + ' ' + $
-      string(sq1bias)+' 0 1 '+ $ ;
-      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' '+ $
-      string(rc)+' '+string(target)+' '+string(numrows)+' '+string(gain)+' 1 '
+    ; Servo arguments, ahhhhhhh.
+    servo_args = '-E1 -p 50 ' + string(rc) + ' ' + file_name_sq1_servo
     
     ; Choose servo program based on super_servo switch
     if keyword_set(super_servo) then $
@@ -68,8 +64,7 @@ if not keyword_set(use_bias_file) then begin
     else begin
        servo_cmd = 'sq1servo'
     endelse
-    servo_args = '-p 50 ' + servo_args
-    
+
     ; Go go go
     user_status = auto_setup_userword(rc)
     spawn,servo_cmd+' '+servo_args+' >> ' + base_folder + logfile,exit_status=status10
