@@ -1,0 +1,90 @@
+#!/bin/bash
+
+source $MAS_SCRIPT/mas_library.bash
+
+AUTO_LOG=$MAS_DATA/auto_log.txt
+LOGGER="tee -a $AUTO_LOG"
+
+SCRNAME="auto_raw_acq"
+ERRPREF="ERROR : $SCRNAME :"
+
+start_time=`date`
+start_ctime=`print_ctime`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+echo "ARGS  : $SCRNAME : $@" | $LOGGER
+
+#Process arguments
+if [ $# -lt 2 ]; then
+    echo "Usage:     $0 noise|mux long|short [log_id]"
+    echo $ERRPREF "wrong number of arguments" | $LOGGER
+    exit 1
+fi
+
+style=$1
+scale=$2
+note="$3"
+
+#Turn off muxing?
+case $style in
+    noise|mux)
+	;;
+    *)
+	echo "Bad style argument '$style'"
+	exit 1
+esac
+	
+#Column set?
+RCS="s"
+case $scale in
+    long)
+	COLS="0 1 2 3 4 5 6 7"
+	;;
+    short)
+	COLS="7"
+	;;
+    *)
+	echo "Bad scale argument '$scale'"
+	exit 1
+esac
+
+#Lower data_rate to speed up readout
+old_dr=`command_reply rb cc data_rate`
+mce_cmd -qx wb cc data_rate 10
+
+#Turn of mux/servo?
+if [ "$style" == "noise" ]; then
+    mce_cmd -q -X "wb rca servo_mode 1" -X "wb ac enbl_mux 0"
+fi
+
+for RC in $RCS; do
+    for COL in $COLS; do
+        # Guarantee new ctime for filename.
+	ct=`print_ctime`
+	while [ "$ct" == "$last_ct" ]; do
+	    sleep 0.25
+	    ct=`print_ctime`
+	done
+	last_ct=$ct
+	
+	#Guess filename...
+	filename=$MAS_DATA/${ct}_raw_${style}
+
+	#Acquire
+	update_userword $RC
+	acq_register $ct auto $filename 256 "$note"
+	mce_raw_acq_1col $RC $COL "" "$style" "" "" $ct
+    done
+done
+
+#Restore data rate 
+mce_cmd -qx wb cc data_rate $old_dr
+
+# After noise acqs, the MCE needs to be reconfigured.
+if [ "$style" == "noise" ]; then
+    echo "MCE configuration changed, run config script."
+fi
+
+delta_ctime=`print_elapsed $start_ctime`
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
+echo

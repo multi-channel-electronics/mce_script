@@ -3,13 +3,14 @@
 source $MAS_SCRIPT/mas_library.bash
 
 if [ "$#" -lt "1" ]; then
-    echo "Usage:   mce_raw_acq_1col <rc> <col> [ <samples> <suffix> <prefix> <runfile_flag> ]"
+    echo "Usage:   mce_raw_acq_1col <rc> <col> [ <samples> <suffix> <prefix> <runfile_flag> <ctime>]"
     echo "  rc             is 1,2,3, or 4"
     echo "  col            is 0,...,7"
     echo "  samples        number of 50 MHz samples to take (default is 65536)"
     echo "  suffix         will be appended to the filename"
     echo "  prefix         is a folder in \$MAS_DATA that already exists"
     echo "  runfile_flag   suppresses runfile creation when equal to \"no_runfile\""
+    echo "  ctime          use this ctime instead of using the current time"
     echo
     echo "  When a default sample count is not specified, num_rows_reported is "
     echo "  automatically set to 32 so that the output will fit into 256 frames"
@@ -38,29 +39,17 @@ if [ "$5" != "" ]; then
     prefix="$5"
 fi
 
-# Check firmware
-fw_rev=`command_reply rb rc$rc_cmd fw_rev |cut -d' ' -f1`
-case "$fw_rev" in
-    0x400000d | 0x400000e | 0x500000*)
-	;;
-    0x4010007 | 0x4020007 | 0x4030007)
-	echo "RC firmware $fw_rev does not support single column raw mode!"
-	exit 1
-	;;
-    *)
-	echo "RC firmware $fw_rev not recognized!  Are you sure it supports raw mode?"
-	;;
-esac
-
-ct=`print_ctime`
-filename=$MAS_DATA/${prefix}/${ct}_raw${suffix}
-runfilename=${filename}.run
-
 if [ "$6" == "no_runfile" ]; then
     do_runfile=0
 else
     do_runfile=1
 fi
+
+ct="$7"
+
+[ "$ct" == "" ] && ct=`print_ctime`
+filename=$MAS_DATA/${prefix}/${ct}_raw${suffix}
+runfilename=${filename}.run
 
 # Disable sync box
 use_sync=`command_reply rb cc use_sync`
