@@ -566,9 +566,9 @@ class SmallMCEFile:
         data_in = self.ReadRaw(count=cc_count, start=cc_start)
 
         # Check data mode for processing instructions
-        dm_data = MCE_data_modes.get('%i'%data_mode)
+        dm_data = MCE_data_modes.get('%i'%self.data_mode)
         if dm_data == None:
-            print 'Warning: unimplemented data mode %i, treating as 0.'%data_mode
+            print 'Warning: unimplemented data mode %i, treating as 0.'%self.data_mode
             dm_data = MCE_data_modes['0']
 
         # Handle data packing
