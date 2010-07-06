@@ -1,0 +1,743 @@
+#!/bin/tcsh 
+
+# Script: config_mce_auto_setup_template
+# Author: Elia Battistelli (EB), adapted by config_mce_template (authors: Mandana Amiri/Bryce Burger)
+#         to be able to supply different sa settings to different colums
+# Description: This script can be used to lock squids. As a procedure, you start with all
+#              settings set to default and then follow the steps to overwrite the default values
+#              by optimal points you pick from the plots generated along the way.
+#              At the end of this procedure, this file contains all the settings to lock the squids.
+#
+# Refer to the following two documents for more information:
+# [1] "Step-by-Step Procedure for Locking First-Stage Squids with DAS Scripts and MCE," Bryce Burger
+# [2] "Characterization and Locking Squids with the Multi-Channel Electronics," Mark Halpern, Mandana Amiri
+#
+# Revision History:
+# <date $Date: 2007/10/22 16:24:46 $> <initials $Author: preaction $>
+# $Log: config_mce_auto_setup_template,v $
+# Revision 1.8  2007/10/22 16:24:46  preaction
+# Scripts modified prior to first light observations with MBAC on 10-22-07.
+# MN & EB
+
+# set MAS Environment
+# source ~mce/mas_env.tcsh
+
+#MFH - new commands - don't implement in IDL!!
+set biasing_ac    = 0
+set full_sq2fb    = 0
+
+#Setting RC
+set RC1           = 0 #                                  #
+set RC2           = 0 #                                  #
+set RC3           = 0 #                                  #
+set RC4           = 0 #                                  #
+
+# data_mode should be set to 'error' (=0) for all steps
+#Setting data_mode
+set data_mode    = 0 #                                  # 0=error; 1=feedback (FSFB) ; 2=filtered data; 3=raw; 4=fb + error; 5=fb + flx_cnt
+
+# ---------------------------------------------
+# Data Rate Parameters
+# ---------------------------------------------
+# To calculate the frequency of data readout given the parameters specified below, use the following equation:
+# reported_dataframe_rate (Hz) = 1/( 20ns * row_len * num_rows * data_rate)
+# When row_len = 128, num_rows = 41 and data_rate = 48, then the reported_frame_rate is 198.4 Hz
+
+#Setting row_len
+set row_len      = 100 #                                #Num. of 50MHz clock pulses spent on each row
+
+#Setting num_rows
+set num_rows     = 33  #                                #Num. of rows to multiplex
+set num_rows_reported = 33  #  33                        #Num. of rows to read out in the data stream
+set readout_row_index = 0                               # set for all RC cards
+
+#Setting data_rate
+set data_rate    = 38  #                                #Num. of frame periods between each data frame.
+
+# ---------------------------------------------
+# Timing Parameters Associated With Sampling
+# ---------------------------------------------
+# For a flowchart description of meaning of these parameters, see MCE Command Description (www.phas.ubc.ca/~mce/mcedocs/) 
+
+#Setting sample_dly
+set sample_dly   = 90  #                                # Num. of 50MHz clock cycles to wait for a row switch to settle
+
+#Setting sample_num
+set sample_num	 = 10  #                                # Num. of 50MHz samples coadded for each row
+
+#Setting fb_dly
+set fb_dly       = 7   #                                #
+
+#Setting row_dly
+set row_dly      = 4   #                                #
+
+# ---------------------------------------------
+# Miscellaneous Parameters
+# ---------------------------------------------
+set fb_const     = 0                                    # RC parameter for servo_mode=1, (sq1fb)
+
+#Setting tes_bias
+set tes_bias_bc1 = 0  #                                 # BC1
+set tes_bias_bc2 = 0  #                                 # BC2
+set tes_bias_bc3 = 0  #                                 # BC3
+
+set fq0           = 0                                 # flux quanta
+set fq1           = 0                                 # flux_quanta
+set fq2           = 0                                 # flux quanta
+set fq3           = 0                                 # flux quanta
+set fq4           = 0                                 # flux quanta
+set fq5           = 0                                 # flux quanta
+set fq6           = 0                                 # flux quanta
+set fq7           = 0                                 # flux quanta
+
+set fq8           = 0                                 # flux quanta
+set fq9           = 0                                 # flux quanta
+set fq10          = 0                                 # flux quanta
+set fq11          = 0                                 # flux quanta
+set fq12          = 0                                 # flux quanta
+set fq13          = 0                                 # flux quanta
+set fq14          = 0                                 # flux quanta
+set fq15          = 0                                 # flux quanta
+
+set fq16          = 0                                 # flux quanta
+set fq17          = 0                                 # flux quanta
+set fq18          = 0                                 # flux quanta
+set fq19          = 0                                 # flux quanta
+set fq20          = 0                                 # flux quanta
+set fq21          = 0                                 # flux quanta
+set fq22          = 0                                 # flux quanta
+set fq23          = 0                                 # flux quanta
+
+set fq24          = 0                                 # flux quanta
+set fq25          = 0                                 # flux quanta
+set fq26          = 0                                 # flux quanta
+set fq27          = 0                                 # flux quanta
+set fq28          = 0                                 # flux quanta
+set fq29          = 0                                 # flux quanta
+set fq30          = 0                                 # flux quanta
+set fq31          = 0                                 # flux quanta
+
+# The MUX must be on for sq1servo, but does not affect data taken for sa or sq2 unless the sq1bias values are non-zero
+set enbl_mux     = 1   # 0=off; 1=on
+
+# Specify the sources for the clock, sync-pulses and DV-pulses
+set select_clk   = 0   # 0= on-board 25 MHz crystal clock, 1= external 25 MHz Manchester encoded clock
+set use_dv       = 0   # 0= as generated by MCE, 1= fibre DV input, 2= fibre Manchester input
+set use_sync     = 0   # 0= as generated by MCE, 1= fibre DV input, 2= fibre Manchester input
+
+# ---------------------------------------------
+# Locking Squids: 
+# Step 1: set the following parameters, run this script and then run ramp_sa_fb
+# ---------------------------------------------
+# servo_mode should be set to 'constant' (=1), until locking sq1's below
+#Setting servo_mode
+set servo_mode   = 1 #                                          # 0=invalid; 1=constant; 2=ramp; 3=lock; 
+
+# ---------------------------------------------
+# Locking Squids: 
+# Step 2: Set the following parameters, run this script and then run sq2servo:
+#         Choose sa_bias, offset, and adc_offset from plots generated by ramp_sa_fb and fill them in below.
+#         For adc_offset, read the output voltage for the point with maximum slope from the ramp_sa_fb plot.
+#         To run sq2servo, you need a starting point for safb and sq2bias to be specified as command line options. 
+#         For safb pick a point with maximum slope on sa plots that is midrange of 0 to 32k (DAC range)
+#         and is kind of valid for all 8 channels (sq2servo uses a common starting point for now).
+#         sq2bias has to be chosen with an intelligent guess. At UBC we use 20000. 
+#         (DO NOT set sq2bias and safb in this file YET!)
+# ---------------------------------------------
+
+#Setting SA bias RC1
+set sa_bias0       = 0 #                                   #
+set sa_bias1       = 0 #                                   #
+set sa_bias2       = 0 #                                   #
+set sa_bias3       = 0 #                                   #
+set sa_bias4       = 0 #                                   #
+set sa_bias5       = 0 #                                   #
+set sa_bias6       = 0 #                                   #
+set sa_bias7       = 0 #                                   #
+
+#Setting SA bias RC2
+set sa_bias8       = 0 #                                   #
+set sa_bias9       = 0 #                                   #
+set sa_bias10      = 0 #                                   #
+set sa_bias11      = 0 #                                   #
+set sa_bias12      = 0 #                                   #
+set sa_bias13      = 0 #                                   #
+set sa_bias14      = 0 #                                   #
+set sa_bias15      = 0 #                                   #
+
+#Setting SA bias RC3
+set sa_bias16      = 0 #                                   #
+set sa_bias17      = 0 #                                   #
+set sa_bias18      = 0 #                                   #
+set sa_bias19      = 0 #                                   #
+set sa_bias20      = 0 #                                   #
+set sa_bias21      = 0 #                                   #
+set sa_bias22      = 0 #                                   #
+set sa_bias23      = 0 #                                   #
+
+#Setting SA bias RC4
+set sa_bias24      = 0 #                                   #
+set sa_bias25      = 0 #                                   #
+set sa_bias26      = 0 #                                   #
+set sa_bias27      = 0 #                                   #
+set sa_bias28      = 0 #                                   #
+set sa_bias29      = 0 #                                   #
+set sa_bias30      = 0 #                                   #
+set sa_bias31      = 0 #                                   #
+
+#Setting SA offset RC1
+set sa_offset0     = 0 #                                   #
+set sa_offset1     = 0 #                                   #
+set sa_offset2     = 0 #                                   #
+set sa_offset3     = 0 #                                   #
+set sa_offset4     = 0 #                                   #
+set sa_offset5     = 0 #                                   #
+set sa_offset6     = 0 #                                   #
+set sa_offset7     = 0 #                                   #
+
+#Setting SA offset RC2
+set sa_offset8     = 0 #                                   #
+set sa_offset9     = 0 #                                   #
+set sa_offset10    = 0 #                                   #
+set sa_offset11    = 0 #                                   #
+set sa_offset12    = 0 #                                   #
+set sa_offset13    = 0 #                                   #
+set sa_offset14    = 0 #                                   #
+set sa_offset15    = 0 #                                   #
+
+#Setting SA offset RC3
+set sa_offset16    = 0 #                                   #
+set sa_offset17    = 0 #                                   #
+set sa_offset18    = 0 #                                   #
+set sa_offset19    = 0 #                                   #
+set sa_offset20    = 0 #                                   #
+set sa_offset21    = 0 #                                   #
+set sa_offset22    = 0 #                                   #
+set sa_offset23    = 0 #                                   #
+
+#Setting SA offset RC4
+set sa_offset24    = 0 #                                   #
+set sa_offset25    = 0 #                                   #
+set sa_offset26    = 0 #                                   #
+set sa_offset27    = 0 #                                   #
+set sa_offset28    = 0 #                                   #
+set sa_offset29    = 0 #                                   #
+set sa_offset30    = 0 #                                   #
+set sa_offset31    = 0 #                                   #
+
+#Setting adc_offset RC1
+set adc_offset0    = 0 #                                   # NOTE: You do not need to divide adc_offset down by sample_num, it is done automatically!
+set adc_offset1    = 0 #                                   #
+set adc_offset2    = 0 #                                   #
+set adc_offset3    = 0 #                                   #
+set adc_offset4    = 0 #                                   #
+set adc_offset5    = 0 #                                   #
+set adc_offset6    = 0 #                                   #
+set adc_offset7    = 0 #                                   #
+
+#Setting adc_offset RC2
+set adc_offset8    = 0 #                                   #
+set adc_offset9    = 0 #                                   #
+set adc_offset10   = 0 #                                   #
+set adc_offset11   = 0 #                                   #
+set adc_offset12   = 0 #                                   #
+set adc_offset13   = 0 #                                   #
+set adc_offset14   = 0 #                                   #
+set adc_offset15   = 0 #                                   #
+
+#Setting adc_offset RC3
+set adc_offset16   = 0 #                                   #
+set adc_offset17   = 0 #                                   #
+set adc_offset18   = 0 #                                   #
+set adc_offset19   = 0 #                                   #
+set adc_offset20   = 0 #                                   #
+set adc_offset21   = 0 #                                   #
+set adc_offset22   = 0 #                                   #
+set adc_offset23   = 0 #                                   #
+
+#Setting adc_offset RC4
+set adc_offset24   = 0 #                                   #
+set adc_offset25   = 0 #                                   #
+set adc_offset26   = 0 #                                   #
+set adc_offset27   = 0 #                                   #
+set adc_offset28   = 0 #                                   #
+set adc_offset29   = 0 #                                   #
+set adc_offset30   = 0 #                                   #
+set adc_offset31   = 0 #                                   #
+
+set adc_offset_divided = (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+@ adc_offset_divided[1] = ( $adc_offset0 / $sample_num)
+@ adc_offset_divided[2] = ( $adc_offset1 / $sample_num)
+@ adc_offset_divided[3] = ( $adc_offset2 / $sample_num)
+@ adc_offset_divided[4] = ( $adc_offset3 / $sample_num)
+@ adc_offset_divided[5] = ( $adc_offset4 / $sample_num)
+@ adc_offset_divided[6] = ( $adc_offset5 / $sample_num)
+@ adc_offset_divided[7] = ( $adc_offset6 / $sample_num)
+@ adc_offset_divided[8] = ( $adc_offset7 / $sample_num)
+@ adc_offset_divided[9] = ($adc_offset8 / $sample_num)
+@ adc_offset_divided[10] = ($adc_offset9 / $sample_num)
+@ adc_offset_divided[11] = ($adc_offset10 / $sample_num)
+@ adc_offset_divided[12] = ($adc_offset11 / $sample_num)
+@ adc_offset_divided[13] = ($adc_offset12 / $sample_num)
+@ adc_offset_divided[14] = ($adc_offset13 / $sample_num)
+@ adc_offset_divided[15] = ($adc_offset14 / $sample_num)
+@ adc_offset_divided[16] = ($adc_offset15 / $sample_num)
+@ adc_offset_divided[17] = ($adc_offset16 / $sample_num)
+@ adc_offset_divided[18] = ($adc_offset17 / $sample_num)
+@ adc_offset_divided[19] = ($adc_offset18 / $sample_num)
+@ adc_offset_divided[20] = ($adc_offset19 / $sample_num)
+@ adc_offset_divided[21] = ($adc_offset20 / $sample_num)
+@ adc_offset_divided[22] = ($adc_offset21 / $sample_num)
+@ adc_offset_divided[23] = ($adc_offset22 / $sample_num)
+@ adc_offset_divided[24] = ($adc_offset23 / $sample_num)
+@ adc_offset_divided[25] = ($adc_offset24 / $sample_num)
+@ adc_offset_divided[26] = ($adc_offset25 / $sample_num)
+@ adc_offset_divided[27] = ($adc_offset26 / $sample_num)
+@ adc_offset_divided[28] = ($adc_offset27 / $sample_num)
+@ adc_offset_divided[29] = ($adc_offset28 / $sample_num)
+@ adc_offset_divided[30] = ($adc_offset29 / $sample_num)
+@ adc_offset_divided[31] = ($adc_offset30 / $sample_num)
+@ adc_offset_divided[32] = ($adc_offset31 / $sample_num)
+
+# ---------------------------------------------
+# Locking Squids:
+# Step 3: Set the following parameters, run this script and run sq1servo
+#         Choose 8 sq2_bias per RC from plots generated by sq2servo
+#         and fill them in below (for bc3 flux_fb)
+#
+#         Choose 8 sa_fb per RC, and fill them in below (for bc1 flux_fb)
+#         Make an intelligent guess for sq1_bias. At UBC, we use 6000. 
+#         We look at different sq1_bias plots (generated by different sq1servo runs)
+#         and 6000 seem to turn the squids on.
+#         
+#         To run sq1servo, you need starting points for sq2fb and sq1bias. you need an sq1bias to start with. 
+#         The starting point for sq2fbs have to be specified in a file called sq2fb.init in das directory.
+#         sq1bias will be specified as a command-line option.
+#         (DO NOT set sq2fb and sq1bias values in this file YET!)
+# ---------------------------------------------
+
+#Setting sq2 bias RC1
+set sq2bias0      = 0 #                                  #
+set sq2bias1      = 0 #                                  #
+set sq2bias2      = 0 #                                  #
+set sq2bias3      = 0 #                                  #
+set sq2bias4      = 0 #                                  #
+set sq2bias5      = 0 #                                  #
+set sq2bias6      = 0 #                                  #
+set sq2bias7      = 0 #                                  #
+
+#Setting sq2 bias RC2
+set sq2bias8      = 0 #                                  #
+set sq2bias9      = 0 #                                  #
+set sq2bias10     = 0 #                                  #
+set sq2bias11     = 0 #                                  #
+set sq2bias12     = 0 #                                  #
+set sq2bias13     = 0 #                                  #
+set sq2bias14     = 0 #                                  #
+set sq2bias15     = 0 #                                  #
+
+#Setting sq2 bias RC3
+set sq2bias16     = 0 #                                  #
+set sq2bias17     = 0 #                                  #
+set sq2bias18     = 0 #                                  #
+set sq2bias19     = 0 #                                  #
+set sq2bias20     = 0 #                                  #
+set sq2bias21     = 0 #                                  #
+set sq2bias22     = 0 #                                  #
+set sq2bias23     = 0 #                                  #
+
+#Setting sq2 bias RC4
+set sq2bias24     = 0 #                                  #
+set sq2bias25     = 0 #                                  #
+set sq2bias26     = 0 #                                  #
+set sq2bias27     = 0 #                                  #
+set sq2bias28     = 0 #                                  #
+set sq2bias29     = 0 #                                  #
+set sq2bias30     = 0 #                                  #
+set sq2bias31     = 0 #                                  #
+
+#Setting sa fb RC1
+set safb0         = 0 #                                  #
+set safb1         = 0 #                                  #
+set safb2         = 0 #                                  #
+set safb3         = 0 #                                  #
+set safb4         = 0 #                                  #
+set safb5         = 0 #                                  #
+set safb6         = 0 #                                  #
+set safb7         = 0 #                                  #
+
+#Setting sa fb RC2
+set safb8         = 0 #                                  #
+set safb9         = 0 #                                  #
+set safb10        = 0 #                                  #
+set safb11        = 0 #                                  #
+set safb12        = 0 #                                  #
+set safb13        = 0 #                                  #
+set safb14        = 0 #                                  #
+set safb15        = 0 #                                  #
+
+#Setting sa fb RC3
+set safb16        = 0 #                                  #
+set safb17        = 0 #                                  #
+set safb18        = 0 #                                  #
+set safb19        = 0 #                                  #
+set safb20        = 0 #                                  #
+set safb21        = 0 #                                  #
+set safb22        = 0 #                                  #
+set safb23        = 0 #                                  #
+
+#Setting sa fb RC4
+set safb24        = 0 #                                  #
+set safb25        = 0 #                                  #
+set safb26        = 0 #                                  #
+set safb27        = 0 #                                  #
+set safb28        = 0 #                                  #
+set safb29        = 0 #                                  #
+set safb30        = 0 #                                  #
+set safb31        = 0 #                                  #
+
+# NOTE: the current sq1servo.c needs sq1bias to be set prior to running sq1servo!!
+#Setting sq1 bias
+set sq1bias0       = 0 #                                  #
+set sq1bias1       = 0 #                                  #
+set sq1bias2       = 0 #                                  #
+set sq1bias3       = 0 #                                  #
+set sq1bias4       = 0 #                                  #
+set sq1bias5       = 0 #                                  #
+set sq1bias6       = 0 #                                  #
+set sq1bias7       = 0 #                                  #
+set sq1bias8       = 0 #                                  #
+set sq1bias9       = 0 #                                  #
+set sq1bias10      = 0 #                                  #
+set sq1bias11      = 0 #                                  #
+set sq1bias12      = 0 #                                  #
+set sq1bias13      = 0 #                                  #
+set sq1bias14      = 0 #                                  #
+set sq1bias15      = 0 #                                  #
+set sq1bias16      = 0 #                                  #
+set sq1bias17      = 0 #                                  #
+set sq1bias18      = 0 #                                  #
+set sq1bias19      = 0 #                                  #
+set sq1bias20      = 0 #                                  #
+set sq1bias21      = 0 #                                  #
+set sq1bias22      = 0 #                                  #
+set sq1bias23      = 0 #                                  #
+set sq1bias24      = 0 #                                  #
+set sq1bias25      = 0 #                                  #
+set sq1bias26      = 0 #                                  #
+set sq1bias27      = 0 #                                  #
+set sq1bias28      = 0 #                                  #
+set sq1bias29      = 0 #                                  #
+set sq1bias30      = 0 #                                  #
+set sq1bias31      = 0 #                                  #
+set sq1bias32      = 0 #                                  #
+set sq1bias33      = 0 #                                  #
+set sq1bias34      = 0 #                                  #
+set sq1bias35      = 0 #                                  #
+set sq1bias36      = 0 #                                  #
+set sq1bias37      = 0 #                                  #
+set sq1bias38      = 0 #                                  #
+set sq1bias39      = 0 #                                  #
+set sq1bias40      = 0 #                                  #
+
+
+# ---------------------------------------------
+# Locking Squids:
+# Step4 : Set the following parameters, run this script to lock SQ1s
+#         Choose 8 sq2_fb per RC, and fill them in below (for bc2 flux_fb)
+#         Choose 41 sq1_bias, and fill them in below for ac on_bias
+# ---------------------------------------------
+
+#Setting sq2 fb RC1
+set sq2fb0        = 0 #                                  #
+set sq2fb1        = 0 #                                  #
+set sq2fb2        = 0 #                                  #
+set sq2fb3        = 0 #                                  #
+set sq2fb4        = 0 #                                  #
+set sq2fb5        = 0 #                                  #
+set sq2fb6        = 0 #                                  #
+set sq2fb7        = 0 #                                  #
+
+#Setting sq2 fb RC2
+set sq2fb8        = 0 #                                  #
+set sq2fb9        = 0 #                                  #
+set sq2fb10       = 0 #                                  #
+set sq2fb11       = 0 #                                  #
+set sq2fb12       = 0 #                                  #
+set sq2fb13       = 0 #                                  #
+set sq2fb14       = 0 #                                  #
+set sq2fb15       = 0 #                                  #
+
+#Setting sq2 fb RC3
+set sq2fb16       = 0 #                                  #
+set sq2fb17       = 0 #                                  #
+set sq2fb18       = 0 #                                  #
+set sq2fb19       = 0 #                                  #
+set sq2fb20       = 0 #                                  #
+set sq2fb21       = 0 #                                  #
+set sq2fb22       = 0 #                                  #
+set sq2fb23       = 0 #                                  #
+
+#Setting sq2 fb RC4
+set sq2fb24       = 0 #                                  #
+set sq2fb25       = 0 #                                  #
+set sq2fb26       = 0 #                                  #
+set sq2fb27       = 0 #                                  #
+set sq2fb28       = 0 #                                  #
+set sq2fb29       = 0 #                                  #
+set sq2fb30       = 0 #                                  #
+set sq2fb31       = 0 #                                  #
+
+# ---------------------------------------------
+#         Set servo_mode to 'lock' (=3) instead of 'constant' (=1) above
+#         Set p and i servo prarameters below. At UBC, we use p=0 and i=1
+# ---------------------------------------------
+
+#Setting pid
+set p            = 0 #                                  # P factor for PID controller
+set i            = 0 #                                  # I factor in PID controller
+set d            = 0 #                                  # D factor in PID controller (typically not used)
+
+#----------------------------------------------
+# Creating the script
+#----------------------------------------------
+# Issues a reset to mce, NOT ANYMORE!
+
+#----------------------------------------------
+# sys commands  
+#----------------------------------------------
+echo "wb sys row_len $row_len">$MAS_TEMP/config_mce.temp
+echo "wb sys num_rows $num_rows">>$MAS_TEMP/config_mce.temp
+
+#----------------------------------------------
+# Clock Card
+#----------------------------------------------
+# This echo begins overwriting the previous config_mce file
+echo "wb cc num_rows_reported $num_rows_reported">>$MAS_TEMP/config_mce.temp
+echo "wb cc data_rate $data_rate">>$MAS_TEMP/config_mce.temp
+echo "wb cc select_clk $select_clk">>$MAS_TEMP/config_mce.temp
+echo "wb cc use_dv $use_dv">>$MAS_TEMP/config_mce.temp
+echo "wb cc use_sync $use_sync">>$MAS_TEMP/config_mce.temp
+echo "wb cc ret_dat_s 1 1">>$MAS_TEMP/config_mce.temp
+
+#----------------------------------------------
+# Readout Card 1
+#----------------------------------------------
+if ($RC1) then
+  #note that pidz are set by pidz_dead_off script separately
+  # Disable flux-jumping 
+  echo "wb rc1 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 readout_row_index $readout_row_index">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 sample_dly $sample_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 sample_num $sample_num">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 fb_dly $fb_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 data_mode $data_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 sa_bias $sa_bias0 $sa_bias1 $sa_bias2 $sa_bias3 $sa_bias4 $sa_bias5 $sa_bias6 $sa_bias7">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 offset $sa_offset0 $sa_offset1 $sa_offset2 $sa_offset3 $sa_offset4 $sa_offset5 $sa_offset6 $sa_offset7">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0 $fq0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1 $fq1">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2 $fq2">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3 $fq3">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4 $fq4">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5 $fq5">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6 $fq6">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_quanta7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7 $fq7">>$MAS_TEMP/config_mce.temp
+endif
+
+#----------------------------------------------
+# Readout Card 2
+#----------------------------------------------
+
+if ($RC2) then
+  #note that pidz are set by pidz_dead_off script separately
+  # Disable flux-jumping 
+  echo "wb rc2 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 readout_row_index $readout_row_index">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 sample_dly $sample_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 sample_num $sample_num">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 fb_dly $fb_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 data_mode $data_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 sa_bias $sa_bias8 $sa_bias9 $sa_bias10 $sa_bias11 $sa_bias12 $sa_bias13 $sa_bias14 $sa_bias15">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 offset $sa_offset8 $sa_offset9 $sa_offset10 $sa_offset11 $sa_offset12 $sa_offset13 $sa_offset14 $sa_offset15">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta0 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8 $fq8">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta1 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9 $fq9">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta2 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10 $fq10">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta3 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11 $fq11">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta4 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12 $fq12">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta5 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13 $fq13">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta6 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14 $fq14">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_quanta7 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15 $fq15">>$MAS_TEMP/config_mce.temp
+endif
+#----------------------------------------------
+# Readout Card 3
+#----------------------------------------------
+if ($RC3) then
+  #note that pidz are set by pidz_dead_off script separately
+  # Disable flux-jumping 
+  echo "wb rc3 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 readout_row_index $readout_row_index">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 sample_dly $sample_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 sample_num $sample_num">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 fb_dly $fb_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 data_mode $data_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 sa_bias $sa_bias16 $sa_bias17 $sa_bias18 $sa_bias19 $sa_bias20 $sa_bias21 $sa_bias22 $sa_bias23">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 offset $sa_offset16 $sa_offset17 $sa_offset18 $sa_offset19 $sa_offset20 $sa_offset21 $sa_offset22 $sa_offset23">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta0 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16 $fq16">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta1 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17 $fq17">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta2 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18 $fq18">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta3 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19 $fq19">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta4 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20 $fq20">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta5 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21 $fq21">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta6 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22 $fq22">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_quanta7 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23 $fq23">>$MAS_TEMP/config_mce.temp
+endif
+#----------------------------------------------
+# Readout Card 4
+#----------------------------------------------
+  if ($RC4) then
+  #note that pidz are set by pidz_dead_off script separately
+  # Disable flux-jumping 
+  echo "wb rc4 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 readout_row_index $readout_row_index">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 sample_dly $sample_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 sample_num $sample_num">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 fb_dly $fb_dly">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const $fb_const">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode $servo_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 data_mode $data_mode">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 sa_bias $sa_bias24 $sa_bias25 $sa_bias26 $sa_bias27 $sa_bias28 $sa_bias29 $sa_bias30 $sa_bias31">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 offset $sa_offset24 $sa_offset25 $sa_offset26 $sa_offset27 $sa_offset28 $sa_offset29 $sa_offset30 $sa_offset31">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_quanta0 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24 $fq24">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_quanta1 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25 $fq25">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_quanta2 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26 $fq26">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_quanta3 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27 $fq27">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_quanta4 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28 $fq28">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_quanta5 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq29 $fq20">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_quanta6 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30 $fq30">>$MAS_TEMP/config_mce.temp
+echo "wb rc4 flx_quanta7 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31 $fq31">>$MAS_TEMP/config_mce.temp
+endif
+#----------------------------------------------
+# ALL 4 READOUT CARDS
+#----------------------------------------------
+@ n=0
+foreach card ($RC1 $RC2 $RC3 $RC4)
+  @ n++
+  if ( $card == 1 ) then
+    foreach ch (0 1 2 3 4 5 6 7)
+      @ ch_offset=($n - 1) * 8
+      @ ch_mapped=$ch + $ch_offset + 1
+      echo -n "wb rc$n adc_offset$ch">>$MAS_TEMP/config_mce.temp
+      repeat 41 echo -n " $adc_offset_divided[$ch_mapped]">>$MAS_TEMP/config_mce.temp
+      echo "">>$MAS_TEMP/config_mce.temp
+    end
+    pidz_dead_off $p $i $d $n>>$MAS_TEMP/config_mce.temp
+  endif
+end
+
+set today=`cat /data/cryo/current_data_name`
+source $MAS_DATA/config_mce_adc_offset_${today} >>$MAS_TEMP/config_mce.temp
+if ($status) then
+  echo "$0 failed: config_mce_adc_offset_${today} failed with code $status, config aborted..."
+  exit 2
+endif
+
+#----------------------------------------------
+# Address Card
+#----------------------------------------------
+echo "wb ac row_dly $row_dly">>$MAS_TEMP/config_mce.temp
+#echo "wb ac row_order 5 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 40 32 33 34 35 36 37 38 39">>$MAS_TEMP/config_mce.temp
+echo "wb ac row_order 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 40 32 33 34 35 36 37 38 39">>$MAS_TEMP/config_mce.temp
+echo "wb ac on_bias  $sq1bias0 $sq1bias1 $sq1bias2 $sq1bias3 $sq1bias4 $sq1bias5 $sq1bias6 $sq1bias7 $sq1bias8 $sq1bias9 $sq1bias10 $sq1bias11 $sq1bias12 $sq1bias13 $sq1bias14 $sq1bias15 $sq1bias16 $sq1bias17 $sq1bias18 $sq1bias19 $sq1bias20 $sq1bias21 $sq1bias22 $sq1bias23 $sq1bias24 $sq1bias25 $sq1bias26 $sq1bias27 $sq1bias28 $sq1bias29 $sq1bias30 $sq1bias31 $sq1bias32 $sq1bias33 $sq1bias34 $sq1bias35 $sq1bias36 $sq1bias37 $sq1bias38 $sq1bias39 $sq1bias40">>$MAS_TEMP/config_mce.temp
+echo "wb ac enbl_mux $enbl_mux">>$MAS_TEMP/config_mce.temp
+
+#----------------------------------------------
+# Bias Card 1 (flux_fb on BC1 sets sa_fb)
+#----------------------------------------------
+echo "wb bc1 flux_fb $safb0 $safb1 $safb2 $safb3 $safb4 $safb5 $safb6 $safb7 $safb8 $safb9 $safb10 $safb11 $safb12 $safb13 $safb14 $safb15 $safb16 $safb17 $safb18 $safb19 $safb20 $safb21 $safb22 $safb23 $safb24 $safb25 $safb26 $safb27 $safb28 $safb29 $safb30 $safb31">>$MAS_TEMP/config_mce.temp
+echo "wb bc1 bias $tes_bias_bc1">>$MAS_TEMP/config_mce.temp
+                                                                                                                             
+#----------------------------------------------
+# Bias Card 2 (flux_fb on BC2 sets sq2_fb)
+#----------------------------------------------
+##MFH - biasing AC!!
+
+if ($biasing_ac) then
+
+    echo "wb bac enbl_mux 2">>$MAS_TEMP/config_mce.temp
+    echo "wb bac row_order 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 40 32 33 34 35 36 37 38 39">>$MAS_TEMP/config_mce.temp
+
+    if ($full_sq2fb) then
+
+	# This section applies the full set of sq2 biases
+    
+	sq2_fb_set $RC1 $RC2 $RC3 $RC4 >>$MAS_TEMP/config_mce.temp
+
+    else
+	# This section duplicates the behaviour of bc2...
+    
+	set fb_array = ( $sq2fb0 $sq2fb1 $sq2fb2 $sq2fb3 $sq2fb4 $sq2fb5 $sq2fb6 $sq2fb7 $sq2fb8 $sq2fb9 $sq2fb10 $sq2fb11 $sq2fb12 $sq2fb13 $sq2fb14 $sq2fb15 $sq2fb16 $sq2fb17 $sq2fb18 $sq2fb19 $sq2fb20 $sq2fb21 $sq2fb22 $sq2fb23 $sq2fb24 $sq2fb25 $sq2fb26 $sq2fb27 $sq2fb28 $sq2fb29 $sq2fb30 $sq2fb31 )
+	foreach ch ( `seq 0 31` )
+	    echo -n "wb sq2 fb_col$ch ">>$MAS_TEMP/config_mce.temp
+	    set chx = 1
+	    @ chx = ( $ch + 1 )
+	    echo -n " $fb_array[$chx] " >>$MAS_TEMP/config_mce.temp
+	    repeat 40 echo -n " $fb_array[$chx]" >>$MAS_TEMP/config_mce.temp
+    #	repeat 41 echo -n " $fb_array[$chx]" >>$MAS_TEMP/config_mce.temp
+	    echo "" >>$MAS_TEMP/config_mce.temp
+	end
+
+    endif
+    
+else
+
+    echo "wb bc2 flux_fb $sq2fb0 $sq2fb1 $sq2fb2 $sq2fb3 $sq2fb4 $sq2fb5 $sq2fb6 $sq2fb7 $sq2fb8 $sq2fb9 $sq2fb10 $sq2fb11 $sq2fb12 $sq2fb13 $sq2fb14 $sq2fb15 $sq2fb16 $sq2fb17 $sq2fb18 $sq2fb19 $sq2fb20 $sq2fb21 $sq2fb22 $sq2fb23 $sq2fb24 $sq2fb25 $sq2fb26 $sq2fb27 $sq2fb28 $sq2fb29 $sq2fb30 $sq2fb31">>$MAS_TEMP/config_mce.temp
+    echo "wb bc2 bias $tes_bias_bc2">>$MAS_TEMP/config_mce.temp
+
+endif                                                                                                                             
+#----------------------------------------------
+# Bias Card 3 (flux_fb on BC3 sets sq2_bias)
+#----------------------------------------------
+echo "wb bc3 flux_fb $sq2bias0 $sq2bias1 $sq2bias2 $sq2bias3 $sq2bias4 $sq2bias5 $sq2bias6 $sq2bias7 $sq2bias8 $sq2bias9 $sq2bias10 $sq2bias11 $sq2bias12 $sq2bias13 $sq2bias14 $sq2bias15 $sq2bias16 $sq2bias17 $sq2bias18 $sq2bias19 $sq2bias20 $sq2bias21 $sq2bias22 $sq2bias23 $sq2bias24 $sq2bias25 $sq2bias26 $sq2bias27 $sq2bias28 $sq2bias29 $sq2bias30 $sq2bias31">>$MAS_TEMP/config_mce.temp
+echo "wb bc3 bias $tes_bias_bc3">>$MAS_TEMP/config_mce.temp
+
+#---------------------------------------------------------------
+# Flux Jumping
+#---------------------------------------------------------------
+# Flux jumps occur when the 1st stage fb reaches 3/4 of the positive or negative range of the 14-bit ADC
+# The flux qanta can correct the 1st stage fb by up to 6/4 of the half-range before is tirggers corrective counter-jump.  
+# To see maximum variation in this test without allowing a flux-jump to get near to the point where it will cause a counter-jump, I will used a flux quanta of 5/4 the half-range of the ADC.
+# [(2^14)/2]*5/4=10240
+# Enable/disable flux-jumping
+echo "Remember no sync box for now!"
+
+if ($RC1) then
+  echo "wb rc1 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc1 flx_lp_init 1">>$MAS_TEMP/config_mce.temp
+endif
+if ($RC2) then
+  echo "wb rc2 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc2 flx_lp_init 1">>$MAS_TEMP/config_mce.temp
+endif
+if ($RC3) then
+  echo "wb rc3 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc3 flx_lp_init 1">>$MAS_TEMP/config_mce.temp
+endif
+if ($RC4) then
+  echo "wb rc4 en_fb_jump 0">>$MAS_TEMP/config_mce.temp
+  echo "wb rc4 flx_lp_init 1">>$MAS_TEMP/config_mce.temp
+endif
+#---------------------------------------------------------------
+# Execute the config_mce.temp script file
+#---------------------------------------------------------------
+mce_cmd -q -f $MAS_TEMP/config_mce.temp
+set cmdstatus=$status
+if ($cmdstatus) then
+  echo "$0 failed: mce_cmd failed with error code $cmdstatus , config aborted..."
+  exit 6
+endif

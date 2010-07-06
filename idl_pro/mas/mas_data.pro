@@ -7,8 +7,7 @@ function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range_
                    structure_only=structure_only,data_mode=data_mode, $
                    frame_info=frame_info, header_data=header_data, $
                    data2=data2,no_split=no_split,no_rescale=no_rescale, $
-                   no_runfile=no_runfile,runfile_name=runfile_name, $
-                   no_rectangle=no_rectangle
+                   no_runfile=no_runfile,runfile_name=runfile_name
 
 ; Usage:
 ;   mas_data, filename
@@ -26,7 +25,7 @@ function mas_data, filename, COL=column, ROW=row, RC=rc,frame_range=frame_range_
 ;   data2          destination for lower bits of data in mixed data modes
 ;   no_runfile     do not attempt to process the runfile
 ;   runfile_name   use this runfile name instead of filename.run
-;   no_rectangle   do not unpack rectangle-mode data
+
 
 fn_name='mas_data.pro'
 
@@ -72,7 +71,6 @@ frame_info = create_struct( $
                             'n_frames',    0L, $ ; place holder
                             'n_columns',   8L*rc_count, $
                             'n_rows',      header(3), $
-                            'raw_data',    0, $
                             'data_mode',   0L, $
                             'frame_size',  0L, $ ; place holder
                             'data_size',   0L, $ ; place holder
@@ -178,14 +176,11 @@ start  = 0               ; Bit field positions and sizes
 count  = 32              
 start2 = 0
 count2 = 0
-unsigned = 0
-unsigned2 = 0
 
 if not keyword_set(no_split) then begin
     
     case data_mode of
         1: rescale = 1./2d^12
-        ; 3: pass
         4: begin
             start  = 14
             count  = 18
@@ -228,22 +223,6 @@ if not keyword_set(no_split) then begin
             count2 =  8
             rescale = 2d^1
         end
-        10: begin
-            start  =  7
-            count  = 25
-            start2 =  0 ; flux jump counter
-            count2 =  7
-            rescale = 2d^3
-        end
-        11: begin
-            start = 3
-            count = 7
-            unsigned = 1
-            start2 = 0
-            count2 = 3
-            unsigned2 = 1
-        end
-        ; 12: pass
         else:
     endcase
 
@@ -251,39 +230,14 @@ endif
 
 
 if count2 ne 0 then $
-  data2 = extract_bitfield(data, count=count2, start=start2, unsigned=unsigned)
+  data2 = extract_bitfield(data, count=count2, start=start2)
 
-data1 = extract_bitfield(data, count=count, start=start, unsigned=unsigned2)
+data1 = extract_bitfield(data, count=count, start=start)
 
 if not keyword_set(no_rescale) then begin
   data1 = data1 * rescale
   if count2 ne 0 then $
     data2 = data2 * rescale2
-endif
-
-; Reorganize raw mode data by column (output array is 2d)
-if data_mode eq 3 or data_mode eq 12 then begin
-    ; DM 3 has 8 columns of raw data and DM 12 has 1.
-    n_col = frame_info.rc_count
-    if data_mode eq 3 then $
-      n_col = n_col * 8
-    n_frame = frame_info.n_frames * frame_info.n_rows * frame_info.n_columns / n_col
-    frame_info.n_frames = n_frame
-    frame_info.n_rows = 1
-    frame_info.n_columns = n_col
-    
-    data1 = reform(data1, frame_info.n_columns, frame_info.n_frames)
-    frame_info.raw_data = 1
-endif
-
-if not keyword_set(no_rectangle) and not keyword_set(no_runfile) then begin
-    ; Confirm rectangle mode
-    nc = mas_runparam(rf, 'HEADER', 'RB cc num_cols_reported', error=err)
-    if err ge 0 then begin
-        if count2 ne 0 then $
-          data2 = unpack_rectangle(data2, rf)
-        return, unpack_rectangle(data1, rf)
-    endif
 endif
 
 return,data1

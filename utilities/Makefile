@@ -1,23 +1,19 @@
 CC=gcc
 
-CFLAGS+=-Wall -std=c99 -D_GNU_SOURCE
+CFLAGS+=-Wall
 
-TARGETS= eat_packets runfile_scan extract_frames catch_rampers ascii_frame
+TARGETS= eat_packets runfile_scan extract_frames
 
-DEPS = mce_header.h
-
-INSTALL_DIR=/usr/mce/bin
+INSTALL_DIR=..
 
 all: $(TARGETS)
 
 install: $(TARGETS)
 	cp $(TARGETS) $(INSTALL_DIR)
 
-eat_packets: eat_packets.o sequence.o mce_header.o $(DEPS) 
+eat_packets: eat_packets.o sequence.o
 
 extract_frames: extract_frames.o
-
-catch_rampers: catch_rampers.o
 
 runfile_scan: scan.c runfile.o runfile.h
 	$(CC) $(CFLAGS) scan.c runfile.o -o runfile_scan

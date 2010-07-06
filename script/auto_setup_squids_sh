@@ -1,9 +1,9 @@
 #!/bin/bash
 
+## source ~mce/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 
 short="$1"
-note="$3"
 
 if [ "$1" = "" ]; then
     short="0"
@@ -11,7 +11,7 @@ fi
 
 RC=",rcs=[$2]"
 
-if [ "$2" == "" ] || [ "$2" == "s" ] || [ "$2" == "S" ] || [ "$2" == "all" ]; then
+if [ "$2" = "" ]; then
     RC=""
 fi
 
@@ -25,8 +25,7 @@ SCRIPTS=$MAS_SCRIPT
 IDL_PRO=$MAS_IDL
 
 SETUP_TARGET=99 #return value that indicates completion
-#SETUP_IDL="auto_setup_squids,short=$short,/check_bias $RC"
-SETUP_IDL="auto_setup_squids,short=$short $RC"
+SETUP_IDL="auto_setup_squids,short=$short,/ramp_sa_bias $RC"
 
 start_time=`date`
 ctime=`print_ctime`
@@ -35,8 +34,20 @@ echo "START : $SCRNAME : $start_time" | $LOGGER
 echo "INFO  : $SCRNAME : ctime=$ctime" | $LOGGER
 echo "ARGS  : $SCRNAME : $@" | $LOGGER
 
-# Set observer log variable
-export MAS_LOGID="$note"
+# Check reset, and re-configure if detected
+#check_reset
+#if [ "$?" != "0" ]; then
+
+#    RECONFIG=$MAS_TEMPLATE/config_mce
+#    echo $ERRPREF "MCE reset detected! Running $RECONFIG" | $LOGGER
+#    $RECONFIG
+
+#    check_reset
+#    if [ "$?" != "0" ]; then
+#	echo $ERRPREF "$RECONFIG didn't help!" | $LOGGER
+#	exit 1
+#    fi
+#fi
 
 # Start auto_setup
 
@@ -57,5 +68,14 @@ if [ "$err" != "0" ]; then
    exit 1
 fi
 
+#check_reset
+#if [ "$?" != "0" ]; then
+#   echo $ERRPREF "check_reset returned positive" | $LOGGER
+#fi
+
+# Record keeping: PCI diagnostic and time elapsed
+
+# diag=`print_dsp_diagnostic`
+# echo "INFO  : $SCRNAME : $diag" | $LOGGER
 delta_ctime=`print_elapsed $ctime`
 echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER

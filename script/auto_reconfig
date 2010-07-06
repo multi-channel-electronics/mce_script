@@ -1,3 +1,0 @@
-#!/bin/bash
-
-simple_auto_wrapper $0 mce_reconfig

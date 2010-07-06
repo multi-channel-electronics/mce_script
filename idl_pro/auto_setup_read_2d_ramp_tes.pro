@@ -1,4 +1,4 @@
-function auto_setup_read_2d_ramp_tes, file_name
+function read_2d_ramp_tes, file_name
 
 openr,1,file_name
 line=''

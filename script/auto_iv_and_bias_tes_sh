@@ -3,11 +3,19 @@
 ## source ~mce/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 
+change_bias="$1"
+
 AUTO_LOG=$MAS_DATA/auto_log.txt
 LOGGER="tee -a $AUTO_LOG"
 
 SCRNAME="auto_iv_and_bias_tes_sh"
 ERRPREF="ERROR : $SCRNAME :"
+
+SCRIPTS=$MAS_SCRIPT
+IDL_PRO=$MAS_IDL
+ 
+IV_TARGET=49 #return value that indicates completion
+IV_IDL="auto_iv_and_bias_tes,change_bias="$1
 
 start_time=`date`
 start_ctime=`print_ctime`
@@ -15,24 +23,10 @@ start_ctime=`print_ctime`
 echo "START : $SCRNAME : $start_time" | $LOGGER
 echo "ARGS  : $SCRNAME : $@" | $LOGGER
 
-if [ "$#" != "2" ]; then
-    echo "Usage:     $SCRNAME <change_bias> <log_id>"
-    echo $ERRPREF "wrong number of arguments" | $LOGGER
-    exit 1
-fi
-
-# Set up log message for acq_register
-change_bias="$1"
-export MAS_LOGID="$2"
-
-IDL_PRO=$MAS_IDL
-IV_TARGET=49 #return value that indicates completion
-IV_IDL="auto_iv_and_bias_tes,change_bias=${change_bias}"
- 
 # Start auto_iv_and_bias
 
 cd $IDL_PRO
-idl -quiet <<EOF
+idl -quiet <<EOF	
 $IV_IDL
 EOF
 

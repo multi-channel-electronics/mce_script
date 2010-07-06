@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/bin/tcsh
+#
+# why do I use csh?
 #
 # The output of this file should be appended to the .run file
 # Use, e.g.
@@ -7,49 +9,47 @@
 #    frameacq_stamp 1 outfile 10000 | tee -a outfile.run
 #
 
-runfile_version=2
+set runfile_version=2
 
-if [ $# -ne 3 ]; then
-    echo "Invalid frameacq_stamp arguments!  The arguments were:"
-    echo "   $@"
-    echo "Usage:"
-    echo "         frameacq_stamp rc_num data_filename num_frames"
-    echo
-    exit 1
-fi
+if ($#argv != 3) then
+  echo "Invalid frameacq_stamp arguments!  The arguments were:"
+  echo "$argv"
+  echo "Usage:\n"
+  echo "         frameacq_stamp rc_num data_filename num_frames"
+  echo
+  exit 1
+endif
 
-rc="$1"
-if [ "$rc" == "s" ]; then
-    rc="1 2 3 4"
-fi
-data_filename="$2"
-data_framecount="$3"
+set rc="$argv[1]"
+if ( "$rc" == "s" ) then
+	set rc="1 2 3 4"
+endif
+set data_filename="$argv[2]"
+set data_framecount="$argv[3]"
 
-array_id=`cat /data/cryo/array_id`
-mas_version=`mce_cmd -v`
+# This doesn't work in d1!
+#set das_version=`dasversion | head -3 | tail -1 | awk '{print $3}' |sed 's/version=//' `
 
-ctime=`date +%s`
-hostname=`hostname`
+# This does...
+set data_format=BIN 
 
-fileseq_on=0
-fileseq_format=0
-fileseq_interval=0
+set fileseq_on=0
+set fileseq_format=0
+set fileseq_interval=0
 
 echo "<FRAMEACQ>"
 
 echo "  <RUNFILE_VERSION> $runfile_version"
-echo "  <MAS_VERSION> $mas_version"
-echo "  <ARRAY_ID> $array_id"
+echo "  <MAS_VERSION> n"
 echo "  <RC> $rc"
 echo "  <DATA_FILENAME> $data_filename"
 echo "  <DATA_FRAMECOUNT> $data_framecount"
-echo "  <CTIME> $ctime"
-echo "  <HOSTNAME> $hostname"
+echo "  <DATA_FORMAT> $data_format"
 
-if [ $fileseq_on -ne 0 ]; then
-    echo "  <FILESEQ_FORMAT> $fileseq_format"
-    echo "  <FILESEQ_INTERVAL> $fileseq_interval"
-fi
+if ($fileseq_on) then
+  echo "  <FILESEQ_FORMAT> $fileseq_format"
+  echo "  <FILESEQ_INTERVAL> $fileseq_interval"
+endif
 
 echo "</FRAMEACQ>"
 echo

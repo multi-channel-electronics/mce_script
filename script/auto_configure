@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Automatic restoration of system configuration
+#  - runs today's config file to bias the system to the last recorded config
+#  - runs bias_tess to drive dets normal then runs /data/cryo/tes_bias_recommended to bias the dets 
+
+## source /home/mce/mas_env.bash
+source $MAS_SCRIPT/mas_library.bash
+
+AUTO_LOG=$MAS_DATA/auto_log.txt
+LOGGER="tee -a $AUTO_LOG"
+
+SCRNAME="auto_configure"
+ERRPREF="ERROR : $SCRNAME :"
+
+start_time=`date`
+start_ctime=`print_ctime`
+
+echo "START : $SCRNAME : $start_time" | $LOGGER
+# echo "ARGS  : $SCRNAME : $@" | $LOGGER
+
+# Process arguments
+
+if [ "$#" != "0" ]; then
+    echo "Usage:     $SCRNAME"
+    echo $ERRPREF "wrong number of arguments" | $LOGGER
+    exit 1
+fi
+
+# Commands and arguments
+
+cur_data=`cat /data/cryo/current_data_name`
+CONFIG="/data/cryo/current_data/config_mce_auto_setup_$cur_data"
+CONFIG_TARGET=0
+
+warm_bias=65000
+sleep_time=0.1
+BIAS="bias_tess $warm_bias"
+BIAS_TARGET=0
+
+# Try to start in good health
+health_clear
+if [ "$?" != "0" ]; then
+    echo $ERRPREF "health_clear failed!  Check MCE/DAS." | $LOGGER
+    exit 1
+fi
+
+# Restore configuration
+$CONFIG
+err=$?
+if [ "$err" != "$CONFIG_TARGET" ]; then
+    echo $ERRPREF "'$CONFIG' returned error!" | $LOGGER
+    exit 1
+fi
+
+# Force detectors normal
+$BIAS
+err=$?
+if [ "$err" != "$BIAS_TARGET" ]; then
+    echo $ERRPREF "$BIAS failed with code $err." | $LOGGER
+fi
+sleep $sleep_time
+/data/cryo/tes_bias_recommended
+
+# Check health, for the record
+#check_reset
+#if [ "$?" != "0" ]; then
+#   echo $ERRPREF "check_reset returned positive" | $LOGGER
+#fi
+
+# Check for CC losing lock with sync box
+#clk=`command_reply rb cc select_clk`
+#if [ "$clk" != "00000001" ]; then
+#   echo $ERRPREF "select_clk is now $clk" | $LOGGER
+#fi
+
+delta_ctime=`print_elapsed $start_ctime`
+echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
+echo

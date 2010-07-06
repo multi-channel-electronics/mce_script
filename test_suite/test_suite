@@ -7,6 +7,7 @@
 #---------------------------------------------------------------
 # Constants
 #---------------------------------------------------------------
+source $MAS_ROOT/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 source $MAS_TEST_SUITE/test_suite_library.bash
 #source $MAS_TEST_SUITE/hw_auto_cc

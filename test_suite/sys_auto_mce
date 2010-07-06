@@ -1,94 +1,39 @@
 # MA: no error checking here as this is temporary subrack check
 source $MAS_SCRIPT/mas_library.bash
-TMP="$MAS_TEMP/mce_check.tmp"
-/bin/rm $TMP
-
-if [ "$#" -lt "3" ]; then
-  echo "Usage: $0 <subrack_type> <SN> <bac_present>"
-  echo "        <subrack_type> is MCE72 for 4-RC subrack and MCE60 for 2-RC subrack"
-  echo "        <SN>           is subrack serial number, e.g. csr-001"
-  echo "        <bac_present>  0 if bc2 present, 1 if bac present"
-  exit 1
-fi
+TMP="$MAS_TEMP/$0.tmp"
 
 today=`date`
-subrack_type=$1
-subrack_sn=$2
-bac=$3
-
-case $subrack_type in
- 
-  "MCE72") 
-    echo "Running $0 for MCE72 subrack $subrack_sn under MAS on $today"
-    no_col=32
-    ;;
-  "MCE60")
-    echo "Running $0 for MCE60 subrack $subrack_sn under MAS on $today"
-    no_col=16
-    ;;
-  * )
-    echo "Subrack type is not specified, Try again"
-    exit
-esac
-
-if [ $bac == "0" ]; then
-  card_list="ac bc1 bc2 bc3 rca cc"
-else
-  card_list="ac bc1 bac bc3 rca cc"
-fi
+echo "$0 run under MAS on $today"
 
 # LED Flashing Test or in fact wb test
 echo "watch the LEDs flash"
 for j in `seq 1 10`; do
-  for i in $card_list ; do 
-    #mce_cmd -q -x wb $i led 7
-    command_reply WB $i led 7
+  for i in ac bc1 bc2 bc3 rc1 rc2 cc ; do 
+    mce_cmd -q -x wb $i led 7
   done
 done
 
 # report subrack info
 for cmd in fw_rev fpga_temp card_temp card_id slot_id card_type; do
-  for i in $card_list ; do 
+  for i in ac bc1 bc2 bc3 rc1 rc2 cc ; do 
     a=`command_reply rb $i $cmd`
     echo "$i $cmd $a"
   done
   echo "**************************"
 done
-
 # report power status
 psc_status
 
-# set column data to column number, read back the data and compare results
-/bin/rm $MAS_DATA/.tmp.data*
-command_reply wb rca sample_num 1
-command_reply wb rca data_mode 1
-command_reply wb rca servo_mode 1 1 1 1 1 1 1 1
-
-istart=1
-iend=8
-for j in `rcs_list`; do
-  echo -n "wb $j fb_const ">>$TMP
-  for i in `seq $istart $iend`; do
-      echo -n " $i" >>$TMP
-  done
-  echo "">>$TMP
-  let istart+=8
-  let iend+=8
-done
-#echo "acq_config $MAS_DATA/.tmp.data rcs">>$TMP
-#echo "acq_go 1">>$TMP
+# take data and compare results
+/bin/rm $MAS_DATA/.tmp.data
+echo "wb rca sample_num 1">$TMP
+echo "wb rca data_mode 1">>$TMP
+echo "wb rc1 fb_const 1 2 3 4 5 6 7 8">>$TMP
+echo "wb rc2 fb_const 9 10 11 12 13 14 15 16">>$TMP
+echo "acq_config $MAS_DATA/.tmp.data rcs">>$TMP
+echo "acq_go 1">>$TMP
 mce_cmd -q -f $TMP
-
-# take 1 frame of data
-mce_run .tmp.data 1 s --no-locking
- 
-for column in `seq 1 $no_col`; do 
-  a=`ascii_frame 33 $no_col $MAS_DATA/.tmp.data 0 "%8i"|awk 'NF=='$no_col' {print $'$column'}'`
-  column_data=`echo $a|awk '{printf "%d ", $1}'`
-  if [ $column_data != $column ]; then
-    echo "Column data readback Test Failed! Column: $column reads: $colum_data"
-    exit 1
-  fi 
+for i in `seq 1 1`; do 
+  a=`~/ascii_frame 41 16 $MAS_DATA/.tmp.data 0 "%8i"|awk 'NF==16 {print $\$i}'`
+  #echo $a
 done
-echo "MCE information collected and simple data acquisition test Passed!"
-

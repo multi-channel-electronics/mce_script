@@ -21,8 +21,7 @@ endif
 ctime=1111111111;string(file_name,format='(i10)')
 
 if not keyword_set(nodasscript) then begin
-;	auto_setup_command,software='MAS','rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
-	auto_setup_command,'rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
+	auto_setup_command,software='MAS','rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
 	spawn,'ramp_tes_bias '+file_name+' '+strcompress(string(RC),/REMOVE_ALL)
 endif
 

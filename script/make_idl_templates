@@ -1,17 +1,4 @@
 #!/bin/bash
 
-this_array=`cat /data/cryo/array_id`
-
-if [ "$this_array" == "" ] || [ "$this_array" == "default" ]; then
-    expt=$MAS_TEMPLATE/experiment.cfg
-    array=$MAS_TEMPLATE/array.cfg
-else
-    expt=$MAS_TEMPLATE/experiment_${this_array}.cfg
-    array=$MAS_TEMPLATE/array_${this_array}.cfg
-fi
-
-gain_mask=$MAS_TEMPLATE/blank_mask.cfg
-
-mas_param -s $expt  idl_template exp_params > $MAS_IDL/load_exp_params.pro
-mas_param -s $array idl_template array_params  > $MAS_IDL/load_array_params.pro
-mas_param -s $gain_mask idl_template mask_params > $MAS_IDL/load_mask_params.pro
+mas_param -s $MAS_TEMPLATE/experiment.cfg  idl_template exp_params > $MAS_IDL/load_exp_params.pro
+# mas_param -s $MAS_TEMPLATE/auto-tune.cfg idl_template autotune_params  > $MAS_IDL/load_autotune_params.pro

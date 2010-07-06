@@ -1,7 +1,4 @@
 #!/bin/bash
-#
-# Acquires 'fast' data, meaning full or partial frames at elevated
-# frame_rates.
 
 source $MAS_SCRIPT/mas_library.bash
 
@@ -14,25 +11,22 @@ fi
 nf=$1
 rc=$2
 
-# Acquisition should not exceed 20kHz
-new_data_rate=1
+new_data_rate=4
 new_rows_rep=1
-if [ "$3" != "" ]; then
+if [ "$#" -gt "2" ]; then
     new_data_rate=$3
 fi
 
-if [ "$4" != "" ]; then
+if [ "$#" -gt "3" ]; then
     new_rows_rep=$4
 fi
 
 # Save current settings
 num_rows_rep_in=`command_reply rb cc num_rows_reported`
 data_rate_in=`command_reply rb cc data_rate`
-use_dv_in=`command_reply rb cc use_dv`
 
 mce_cmd -qx wb cc num_rows_reported $new_rows_rep
 mce_cmd -qx wb cc data_rate $new_data_rate
-mce_cmd -qx wb cc use_dv 0
 
 data_rate=`command_reply rb cc data_rate`
 num_rows=`command_reply rb cc num_rows`
@@ -49,4 +43,3 @@ mce_run $filename $nf $rc
 echo "Restoring original data_rate of $data_rate_in, and num_rows_reported of $num_rows_rep_in"
 mce_cmd -qx wb cc data_rate $data_rate_in
 mce_cmd -qx wb cc num_rows_reported $num_rows_rep_in
-mce_cmd -qx wb cc use_dv $use_dv_in
