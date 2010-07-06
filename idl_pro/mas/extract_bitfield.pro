@@ -19,17 +19,11 @@ endif
 
 ; We can now assume that count < 32 and count+start <= 32
 
-mask = ishft(1L,count)-1
-data_out = ishft(long(data), -start) AND MASK
+if keyword_set(unsigned) then $
+   data_out = ishft(ishft(data, 32-count-start), count-32) $
+else $
+   data_out = ishft(data, 32-count-start) / 2L^(32-count)
 
-if not keyword_set(unsigned) then begin
-    sign_bit = ishft(1L, count-1)
-    extension_bits = ishft( ishft(1L, 32-count) - 1, count )
-    neg = where(data_out AND sign_bit)
-    if neg[0] ne -1 then $
-      data_out[neg] = data_out[neg] OR extension_bits
-endif
-
-return,data_out
+return, data_out
 
 end

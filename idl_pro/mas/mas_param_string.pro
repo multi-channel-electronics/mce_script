@@ -4,5 +4,6 @@ function mas_param_string,filename,key
         print,'Failed to load parameter '+key
         return,0
     endif
-    return,r
+    ; Remove leading and trailing "s
+    return,strmid(r,1,strlen(r)-2)
 end

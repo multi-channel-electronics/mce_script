@@ -1,0 +1,109 @@
+#!/bin/bash
+#
+# Init file for the expresspost file distributor.
+#
+# Created by Adam Hincks, Princeton, October 2006
+# Modified for Ubuntu by Joe Fowler, Princeton, April 2008, using Ubuntu's
+# /etc/init.d/cron as my model.
+# Borrowed from Adam Hincks and Joe Fowler by Matthew Hasselfield.
+# 
+### BEGIN INIT INFO
+# Provides:          expresspost
+# Required-Start:    $syslog $time
+# Required-Stop:     $syslog $time
+# Default-Start:     2
+# Default-Stop:      S 0 1 6
+# Short-Description: automated file distributor
+# Description:       Distributes files from a server to clients.
+
+### END INIT INFO
+
+# source function library
+. /lib/lsb/init-functions
+
+PROG=expresspost
+RETVAL=0
+PROG_BIN=/usr/src/python/expresspost/expresspost.py
+LOCKFILE=/var/lock/$PROG
+PID_FILE=/var/run/$PROG.pid
+
+SOURCE=/data/cryo/
+ARRAY=`cat /data/cryo/array_id`
+DEST=act@lancelot:/data/mce_plots/${ARRAY}/
+SPEC=mceplots_archive
+
+# Make sure the binary exists
+test -f $PROG_BIN || exit 0
+
+start() {
+  log_begin_msg $"Starting $PROG: "
+  start-stop-daemon --start --pidfile $PID_FILE --name $PROG \
+      --startas $PROG_BIN -- --source-dir $SOURCE --dest-location $DEST --file-spec $SPEC \
+      --aggression 0
+  log_end_msg $?
+  RETVAL=$?
+  [ "$RETVAL" = 0 ] && touch $LOCKFILE
+  echo
+}
+
+stop() {
+  log_begin_msg $"Stopping $PROG: "
+  #start-stop-daemon --stop --pidfile $PID_FILE --name $PROG
+  start-stop-daemon --stop --pidfile $PID_FILE
+  log_end_msg $?
+  RETVAL=$?
+  [ "$RETVAL" = 0 ] && rm -f $LOCKFILE
+  echo
+}
+
+
+status() {
+    echo -n "Status of $PROG: "
+    if [ ! -r "$PID_FILE" ]; then
+        echo "$PROG is not running."
+        RETVAL=3
+    else
+        local pid=`pidofproc -p "$PID_FILE"`
+        if ps -p $pid > /dev/null 2>&1; then
+            echo "$PROG is running (pid=$pid)."
+            RETVAL=0
+        else
+            echo "$PROG is not running, but $PID_FILE exists."
+            RETVAL=1
+        fi
+    fi
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  start-local)
+	pwd
+    PROG_BIN=`pwd`/expresspost.py
+    start
+    ;;
+
+  stop-local)
+    PROG_BIN=`pwd`/expresspost.py
+    stop
+    ;;
+
+  restart)
+    stop
+    start
+    ;;
+  status)
+    status
+    RETVAL=$?
+    ;;
+  *)
+    echo $"Usage: $0 {start|stop|restart|status}"
+    RETVAL=1
+    ;;
+esac
+
+exit $RETVAL

@@ -9,7 +9,7 @@ common sq1_servo_var
 ;Close all open files. It helps avoid some errors although shouldn't be necessary:
 close,/all
 
-;Comunication:
+;Communication:
 print,''
 print,'###########################################################################'
 print,'#4b) The 2nd part of the forth step is to run a closed loop on the SQ1. We ramp the SQ1 fb #'

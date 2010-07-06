@@ -1,0 +1,5 @@
+#!/bin/bash
+
+FULLNAME=$0
+SHORTNAME=`echo $FULLNAME | sed 's/\/.*\///g'`
+simple_auto_wrapper $SHORTNAME mce_zero_bias --tes_after

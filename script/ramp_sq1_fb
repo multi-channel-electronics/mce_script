@@ -1,123 +1,136 @@
-#!/bin/csh 
-#
-# Revision history:
-# <date $Date: 2007/11/27 20:15:09 $>    - <initials $Author: mce $>
-# $Log: ramp_sq1_fb,v $
-# Revision 1.7  2007/11/27 20:15:09  mce
-# MA updated the <par_ramp> block of the runfile
+#!/bin/bash
 #
 
-## source ~mce/mas_env.tcsh
+source $MAS_SCRIPT/mas_library.bash
 
-if ($#argv < 2 ) then
-  echo "Usage: ramp_sq1_fb datafile n on_bias"
-  echo "where: datafile is the name of the file"
-  echo "       n        is the rc number"
-  echo "       on_bias  (optional) is the starting SQ1 bias for a bias sweep"
-  exit 1
-endif  
-set start_ctime=`date -u +%s` 
-set tempfile=$MAS_TEMP/ramp_sq1_fb.temp
-set datafile=$1
-set runfile=$datafile.run
-set n=$2
+if [ $# -lt 2 ]; then
+	echo "Usage: ramp_sq1_fb datafile n on_bias"
+	echo "where: datafile is the name of the file"
+	echo "       n        is the rc number"
+	echo "       on_bias  (optional) is the starting SQ1 bias for a bias sweep"
+	exit 1
+fi
 
-if ($#argv > 2) then
-  set on_bias=$3
-  set nested_loop=1
-  echo "sweep both SQ1 feedback and SQ1 bias"
-else 
-  set on_bias=0
-  set nested_loop=0
-endif  
-# SQ1_FB range is from -8000 to 8000 for recent revision of firmware
-@ start_s1fb=-204 * 40
+start_ctime=`print_ctime`
 
-if ( $nested_loop == 0 ) then
-  @ total_bias=1 
-  @ bias_step=0
-  @ start_bias=0
-else
-  @ total_bias=10
-  @ bias_step=500
-  @ start_bias=$on_bias
-endif
+datafile=$MAS_DATA/$1
+rc=$2
+n_col=8
 
-/bin/rm $tempfile
+case "$rc" in
+    1 | 2 | 3 | 4)
+        col_index=$(( $rc * 8 - 8 ))
+        col_count=8
+	;;
 
-###########################
-# now create runfile
-mce_status -f $MAS_DATA/$runfile
-if ($status) then
+    s | S)
+	col_index=0
+	col_count=32
+	;;
+
+    *)
+	echo "Invalid card specification '$rc' (must be one of 1,2,3,4 or s)"
+	exit 1
+esac
+    
+tempfile=$MAS_TEMP/`whoami`_ramp_sq1_fb.temp
+runfile=$datafile.run
+
+# Default sq1 bias
+on_bias=0
+ramp_bias=0
+
+if [ $# -gt 2 ]; then
+	on_bias=$3
+	ramp_bias=1
+fi
+
+# SQ1 feedback ramp parameters
+expt=$MAS_DATA/experiment.cfg
+feedback_start=`mas_param -s $expt get sq1_ramp_flux_start`
+feedback_step=`mas_param -s $expt get sq1_ramp_flux_step`
+feedback_count=`mas_param -s $expt get sq1_ramp_flux_count`
+# feedback_start=$(( -204 * 40 ))
+# feedback_step=40
+# feedback_count=400
+
+n_frames=$feedback_count
+
+if [ $ramp_bias -ne 0 ]; then
+	echo "Sweeping both SQ1 feedback and SQ1 bias"
+
+	#SQ1 bias ramp parameters
+	bias_count=10
+	bias_step=500
+	bias_start=$on_bias
+	
+	n_frames=$(( $feedback_count * $bias_count ))
+fi
+
+[ -e $tempfile ] && /bin/rm $tempfile
+
+# Create runfile
+
+mce_status -f $runfile
+if [ $? -ne 0 ]; then
   echo "FAILURE: ($script_name: mce_status failed)"
   exit 5
-endif
+fi
 
-echo "<par_ramp>" >>$MAS_DATA/$runfile
-if ( $nested_loop == 0 ) then
-  echo "  <loop_list> loop1">>$MAS_DATA/$runfile
-  echo "    <par_list> loop1">>$MAS_DATA/$runfile
-  echo "      <par_title loop1 par1> s1_fb">>$MAS_DATA/$runfile
-  echo "      <par_step loop1 par1> $start_s1fb 40 400">>$MAS_DATA/$runfile
+echo "<par_ramp>"  >> $runfile
+if [ $ramp_bias -eq 0 ]; then
+  echo "  <loop_list> loop1" >> $runfile
+  echo "    <par_list> loop1" >> $runfile
+  echo "      <par_title loop1 par1> s1_fb" >> $runfile
+  echo "      <par_step loop1 par1> $feedback_start $feedback_step $feedback_count" >> $runfile
 else
-  echo "  <loop_list> loop1 loop2">>$MAS_DATA/$runfile
-  echo "    <par_list loop1> par1">>$MAS_DATA/$runfile
-  echo "      <par_title loop1 par1> s1_bias">>$MAS_DATA/$runfile
-  echo "      <par_step loop1 par1> $start_bias $bias_step $total_bias">>$MAS_DATA/$runfile
-  echo "    <par_list loop2> par1">>$MAS_DATA/$runfile
-  echo "      <par_title loop2 par1> s1_fb">>$MAS_DATA/$runfile
-  echo "      <par_step loop2 par1> $start_s1fb 40 400">>$MAS_DATA/$runfile
-endif
-echo "</par_ramp>">>$MAS_DATA/$runfile
+  echo "  <loop_list> loop1 loop2" >> $runfile
+  echo "    <par_list loop1> par1" >> $runfile
+  echo "      <par_title loop1 par1> s1_bias" >> $runfile
+  echo "      <par_step loop1 par1> $bias_start $bias_step $bias_count" >> $runfile
+  echo "    <par_list loop2> par1" >> $runfile
+  echo "      <par_title loop2 par1> s1_fb" >> $runfile
+  echo "      <par_step loop2 par1> $feedback_start $feedback_step $feedback_count" >> $runfile
+fi
+echo "</par_ramp>" >> $runfile
 
-@ total_frames = $total_bias * 400
-frameacq_stamp $n $datafile $total_frames>>$MAS_DATA/$runfile
-if ($status) then
+frameacq_stamp $rc $datafile $n_frames >> $runfile
+if [ $? -ne 0 ]; then
   echo "FAILURE: ($script_name: frameacq_stamp failed)"
   exit 6
-endif
+fi
+
 ##########################
 
-echo "acq_path $MAS_DATA">>$tempfile
-echo "acq_config $datafile rc$n">>$tempfile
+if [ $ramp_bias -ne 0 ]; then
 
-set nbias=0
-while ($nbias < $total_bias)
-   @ j=$nbias * $bias_step
-   @ k= $start_bias + $j 
+    mce_ramp \
+	-M "acq_config $datafile rc$rc" \
+	-L $bias_count  -V $bias_start $bias_step \
+	-P "wb sq1 bias" 41 \
+	-L $feedback_count  -V $feedback_start $feedback_step \
+	-P "wra sq1 fb_const $col_index" $col_count \
+	-P "acq_go 1" 0 \
+	-M "`repeat_string 0 $col_count \"wra sq1 fb_const $col_index"`" \
+	-M "`repeat_string 0 41 \"wb sq1 bias\"`" \
+	>> $tempfile
+    
+else
+    
+    mce_ramp \
+	-M "acq_config $datafile rc$rc" \
+	-L $feedback_count  -V $feedback_start $feedback_step \
+	-P "wb rc$rc fb_const" 8 \
+	-P "acq_go 1" 0 \
+	-M "`repeat_string '0' 8 \"wb rc$rc fb_const\"`" \
+	>> $tempfile
 
-   if ( $nested_loop == 1) then
-      echo -n "wb ac on_bias">>$tempfile
-      repeat 41 echo -n " $k">>$tempfile
-      echo "">>$tempfile
-   endif   
-
-   set   total=400
-   set   loopNo=-204
-   
-   while ($total)
-      @ i=$loopNo * 40
-      echo "wb rc$n fb_const $i $i $i $i $i $i $i $i">>$tempfile
-      echo "acq_go 1">>$tempfile
-      @ total--
-      @ loopNo++
-   end
-   @ nbias++
-   
-end
-# reset values
-   if ( $nested_loop == 1) then
-     echo -n "wb ac on_bias">>$tempfile
-     repeat 41 echo -n " 0">>$tempfile
-   endif
-   echo "">>$tempfile
-   echo "wb rc$n fb_const 0 0 0 0 0 0 0 0">>$tempfile
+fi
 
 mce_cmd -q -f $tempfile
-if($status) then
+if [ $? -ne 0 ]; then
   echo "FAILURE: ($script_name: mce_cmd failed)"
   exit 4
-endif
-set end_ctime=`date -u +%s`
-@ elapsed=$end_ctime - $start_ctime
-echo "$0 elapsed time: $elapsed s"
+fi
+
+echo "$0 elapsed time: " `print_elapsed $start_ctime`

@@ -1,4 +1,0 @@
-#!/bin/csh
-
-echo "ADC offset file is currently empty."
-

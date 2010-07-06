@@ -1,28 +1,34 @@
-pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary,interactive=interactive,nodasscript=nodasscript,noheader=noheader, npts=npts
+pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary, $
+                               interactive=interactive,nodasscript=nodasscript,noheader=noheader, $
+                               npts=npts, acq_id=acq_id,poster=poster
 
-;if not keyword_set(numrows) then numrows=41
+;Init
+if not keyword_set(acq_id) then acq_id = 0
 
-stpt=1000
-if keyword_set(npts) then npts=npts else npts=200;1435406 ;npts=number of data points, 1 point = 0.0025s
+if keyword_set(npts) then npts=npts else npts=200
 numcol=8
-print,'DATA MODE IS HARD-CODED in FRAMTEST PLOT!!!!!'
-data_mode='4'	;'6'
+coloffset=(rc-1)*8
+
+data_mode='4'
 if data_mode eq '4' then bitpart=14 else bitpart=0
 
 rcdatamode=rc
 
 if rc eq 5 then begin 
-	numcol=32
-	rc='s'
-	rcdatamode='a'
-endif
+        numcol=32
+        coloffset=0
+        rc='s'
+        rcdatamode='a'
+endif 
 
 ctime=string(file_name,format='(i10)')
 
 if not keyword_set(nodasscript) then begin
 	auto_setup_command,'wb rc'+strcompress(string(rcdatamode),/REMOVE_ALL)+' data_mode '+data_mode
-	;spawn,'mce_cmd -q -x wb rc'+strcompress(string(RC),/REMOVE_ALL)+' data_mode '+data_mode
+        user_status = auto_setup_userword(rcdatamode)
 	spawn,'mce_run '+file_name+string(npts)+' '+string(rc),exit_status=status18
+        reg_status = auto_setup_register(acq_id, 'data', getenv('MAS_DATA')+file_name, npts)
+
 	if status18 ne 0 then begin
         	print,''
         	print,'###################################################################'
@@ -40,9 +46,6 @@ current_data='/data/cryo/' + date + '/'
 
 full_name = current_data + file_name
 plot_name = current_data+ 'analysis/' + file_name 
-
-;spawn,'ln full_name+' /data/mce_ctimes/'+strmid(file_name,11)
-;spawn,'ln full_name+'.run /data/mce_ctimes/'+strmid(file_name,11)+'.run'
 
 ;new_file_name=file_name
 ;openr, 1, full_name+'.name'
@@ -146,8 +149,6 @@ endelse
 
 pixel_flag_name=plot_name+'_pixel_flag.ps'
 plot_name = plot_name + '.ps'
-
-print, plot_name
 
 line=''
 ;repeat readf,1,line until strmid(line,4,9) eq "data_mode"
@@ -301,43 +302,31 @@ endfor
 xyouts, 6, 16, 'Stars have non-zero error aka. unlocked'
 xyouts, 6, 13, 'Diamonds have fb=0 aka. turned off on purpose in pidz_dead_off.', color=1
 device,/close
-openu, 1, dotrun
-line=''
-repeat readf,1,line until strmid(line,0,11) eq "</FRAMEACQ>"
-readf,1,line
-writeu,1,' '
-;readf,1,line
-writeu,1,'<PIXEL_FLAG>'
-;readf,1,line
-writeu,1,' '
-;readf,1,line
-;for i=0,numrows-1 do begin
-writeu,1,string(pixel_flag)
-;	readf,1,line
-;endfor
-writeu,1,' '
-;readf,1,line
-writeu,1,'</PIXEL_FLAG>'
-;readf,1,line
-writeu,1,' '
+
+openw, 1, dotrun, /append
+printf,1,'<LOCKTEST_FLAG>'
+for i=0,numcol-1 do begin
+    writeu,1,strcompress('<FLAGS_C'+string(i+coloffset)+'>',/remove_all)
+    writeu,1,strcompress(string(transpose(pixel_flag(i,*))))
+    printf,1,''
+endfor
+printf,1,'</LOCKTEST_FLAG>'
 close,1
 
-if file_search('/misc/mce_plots',/test_directory) eq '/misc/mce_plots' then begin
-        if file_search('/misc/mce_plots/'+ctime,/test_directory) ne '/misc/mce_plots/'+ctime $
-                then spawn, 'mkdir /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+plot_name+' /misc/mce_plots/'+ctime
-        spawn, 'cp -rf '+pixel_flag_name+' /misc/mce_plots/'+ctime
-        spawn, 'chgrp -R mceplots /misc/mce_plots/'+ctime
+if keyword_set(poster) then begin
+   f = strsplit(plot_name,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
+   f = strsplit(pixel_flag_name,'/',/extract)
+   auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
-
-
 
 if keyword_set(interactive) then spawn,'ggv '+plot_name+' &'
 
 print,' '
 print,'###########################################################################'
 print,' '
-print,'To view the the frame_test_plot curves check the file '+string(plot_name)
+print,'To view the the frame_test_plot curves check the file'
+print,string(plot_name)
 print,' '
 print,'###########################################################################'
 

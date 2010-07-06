@@ -1,0 +1,26 @@
+#!/bin/bash 
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$1" != "no_reset" ]; then
+    echo "Resetting MCE..."
+    mce_reset_clean
+    echo "Setting current_data directory..."
+    set_directory
+fi
+
+echo "Setting SA and SQ2 biases to default values to pre-warm the SA board."
+
+expt=$MAS_DATA/experiment.cfg
+sa_bias=`mas_param -s $expt get default_sa_bias`
+s2_bias=`mas_param -s $expt get default_sq2_bias`
+
+sa_reply=`command_reply wb sa bias $sa_bias`
+s2_reply=`command_reply wb sq2 bias $s2_bias`
+
+[ "$sa_reply" == "" ] && [ "$s2_reply" == "" ] || exit 1
+
+echo -n "SA biases:  "
+command_reply rb sa bias
+echo -n "SQ2 biases: "
+command_reply rb sq2 bias

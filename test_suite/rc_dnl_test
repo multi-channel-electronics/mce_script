@@ -1,0 +1,141 @@
+#!/usr/bin/python
+
+import sys
+import getopt
+import time
+
+from sys import *
+from numpy import *
+from pylab import *
+from mce_data import *
+from glob import glob
+from os import *
+#
+# This script calculates DNL based on a statistical method. During this test, 
+# a ramp is applied at the input of the preamp-chain of the Readout-Card. This 
+# ramp should be full-range to improve the accuracy of the reported DNL.
+# Then 10 datasets of 64k samples each are acquired. All the samples are counted
+# in n(k), then DNL is calculated as dnl(k) = n(k)/expected - 1, where expected 
+# is the expected count in each bin for an ideal (linear) ADC. 
+# Finally, a plot is generated and an overall DNL is reported as avg(abs(dnl(k)).
+# One has to note that the accuracy of this reported DNL is very much dependent 
+# on the quality of the input ramp.
+#
+
+num_files=10
+
+def Usage():
+  print """Usage:
+  %s [-a] [-r #] [-A RAMP_AMP] [-F RAMP_FREQ] CARD_ID
+where:
+  CARD_ID      the serial number of the readout card to test.
+  -a           acquire data (otherwise, assume data already exists in
+               $MAS_DATA/CARD_ID)
+  -r RC        readout card # (1,2,3,4) default=1; ignored if -a not specified
+  -A RAMP_AMP  peak-to-peak amplitude of the ramp, in mV (default 7.5 mVpp)
+  -F RAMP_FREQ frequency of the ramp, in kHz (default: 200 kHz)
+
+  A directory called CARD_ID_<ctime> will be created under $MAS_DATA.  All data
+  will be acquired to this directory.
+""" % (sys.argv[0])
+  sys.exit(2)
+
+try:
+  optlist, argv = getopt.getopt(sys.argv[1:], 'ar:A:F:')
+except getopt.GetoptError, err:
+  print str(err)
+  Usage()
+
+if (len(argv) < 1):
+  Usage()
+rc_num = argv[0]
+amp = 7.5
+freq = 200
+rc = 1
+
+acquire = False
+for o,a in optlist:
+  if o == '-a':
+    acquire = True
+  if o == '-r':
+    rc = int(a)
+  if o == 'A':
+    amp = double(a)
+  if o == 'F':
+    amp = double(a)
+
+if (acquire):
+  rc_dir = "%s_%i" % (rc_num, int(time.time()))
+else:
+  rc_dir = rc_num
+
+mas_data_dir = environ["MAS_DATA"]
+if (acquire):
+  print "\nExecuting: set_directory"
+  system("set_directory")
+
+  try:
+    mkdir(mas_data_dir + rc_dir)
+  except OSError:
+    print "The directory already exist.  Cowardly refusing to continue."
+    print "Delete the directory, if you really meant to store the data in"
+    print mas_data_dir + rc_dir
+    exit(1)
+
+  print "Created directory:",mas_data_dir + rc_dir
+
+  print "\nExecuting: mce_cmd -x mce_reset"
+  system("mce_cmd -x mce_reset")
+  print "\nExecuting: mce_reconfig"
+  system("mce_reconfig")
+  print "\nExecuting: mce_zero_bias"
+  system("mce_zero_bias")
+
+x=arange(-8191,8191)
+for ch in range(0,8):
+  ch_dir = "%s/ch%1i" % (rc_dir, ch)
+  if (acquire):
+    mkdir(mas_data_dir + ch_dir)
+    command = 'mce_raw_acq_1col %i %i "" "" %s ""' % (rc, ch, ch_dir)
+    print "\nExecuting: ", command
+    for it in range(0,num_files):
+      system(command)
+
+  print "\nComputing data for rc", rc, "channel", ch
+  files=glob(mas_data_dir + ch_dir + "/*_raw")
+
+  alldata = array([], dtype=int16)
+  n=zeros(16384, dtype=int32)
+  t = 0
+  for f in files[0:10000]:
+    data=MCEFile(f).Read(data_mode=12).data[0,:]
+    alldata = concatenate((alldata,data))
+    for d in data:
+      n[d + 8192] += 1
+      t += 1
+
+  t = t - n[0] - n[16383]
+
+  expected = double(t) / 16382
+  
+  m=mean(abs(n[1:16383]/expected -1))
+  stdev=std(n[1:16383]/expected - 1)
+  plot(x,n[1:16383]/expected - 1)
+  ymin,ymax=ylim()
+  xmin,xmax=xlim(x.min(),x.max())
+  xw=xmax-xmin
+  yw=ymax-ymin
+
+  text(0.1 * xw + xmin, 0.9  * yw + ymin, "%s/ch%i/*" % (rc_dir, ch))
+  text(0.1 * xw + xmin, 0.85  * yw + ymin, "Channel %i" % (ch))
+  text(0.7 * xw + xmin, 0.9 * yw + ymin, "mean abs=%.3f" % (m))
+  text(0.7 * xw + xmin, 0.85 * yw + ymin, "stdev=%.3f" % (stdev))
+  text(0.1 * xw + xmin, 0.05 * yw + ymin, "n=%i/%i" % (t,alldata.shape[0]))
+  text(0.1 * xw + xmin, 0.10 * yw + ymin, "Ramp: %.2f mVpp @ %i kHz" % (amp,freq))
+  xlabel("data value")
+  ylabel("LSB")
+
+  psname = "/%s_dnl_ch%1i.ps" % (rc_dir, ch)
+  print "Historgram written on", mas_data_dir + rc_dir + psname
+  savefig(mas_data_dir + rc_dir + psname)
+  show()
