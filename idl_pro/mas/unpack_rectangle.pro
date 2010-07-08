@@ -13,8 +13,11 @@ nc = ds[1]
 nr_cc = ds[2]
 nt_cc = ds[3]
 
-nr_rc = mas_runparam(rf, 'HEADER', 'RB rc1 num_rows_reported', /long)
-nc_rc = mas_runparam(rf, 'HEADER', 'RB rc1 num_cols_reported', /long)
+rf_RC_list = strsplit(mas_runparam(rf,'FRAMEACQ','RC'),/extract)
+rc = 'rc'+rf_RC_list[0]
+
+nr_rc = mas_runparam(rf, 'HEADER', 'RB '+rc+' num_rows_reported', /long)
+nc_rc = mas_runparam(rf, 'HEADER', 'RB '+rc+' num_cols_reported', /long)
 if nc_rc ne 8 then $
   print,'we can not handle num_cols_reported!=8'
 packing = nr_cc / nr_rc
