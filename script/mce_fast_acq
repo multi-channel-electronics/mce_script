@@ -40,9 +40,6 @@ row_len=`command_reply rb cc row_len`
 ct=`print_ctime`
 filename="fast_$ct"
 
-# Prepend tuning information to runfile
-acq_register $ct auto $MAS_DATA/$filename $nf ""
-
 mux_rate=$(( 50000000 / $num_rows / $row_len ))
 echo "MCE internal frame rate (mux rate) is $mux_rate"
 echo "Readout frame rate is $(( $mux_rate / $data_rate ))"
