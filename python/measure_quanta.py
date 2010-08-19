@@ -44,5 +44,16 @@ for sq in ramps:
 
     periods.extend(p * sq.d_fb)
 
-for i in range((len(periods)+7)/8):
-    print ', '.join(['%6i' % int(x) for x in periods[i*8:i*8+8]])
+n_rc = len(periods)/8
+if stage == 'sa_ramp':
+    s = 'sa_flux_quanta'
+else:
+    s = 'sq2_flux_quanta'
+s += ' = [\n'
+for i in range(n_rc):
+    s += '        '+','.join([' %5i' % int(x) for x in periods[i*8:i*8+8]])
+    if i == n_rc - 1:
+        s += ' ];'
+    else:
+        s += ',\n'
+print s

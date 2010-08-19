@@ -26,7 +26,7 @@ def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
     y_max, y_min = y[:,lo:hi].max(axis=1), y[:,lo:hi].min(axis=1)
     y_mid, y_amp = (y_max + y_min)/2, (y_max - y_min)/2
     yscale = y_amp * 0.05
-    print y.shape, yscale.shape, y_min.shape, y_max.shape, dy.shape
+
     # Find all ineligible points with opposite derivative
     other_edge = (dy*slope < 0) #* \
     z = \
@@ -65,6 +65,41 @@ def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
             'left_idx': i_left,
             'right_idx': i_right,
             }
+
+def period_correlation(y, width=None, normalize=True):
+    n, nx = y.shape
+    if width == None:
+        width = nx / 2
+    m = nx - width
+    corr = zeros((n, m))
+    for i in range(m):
+        corr[:,i] = sum((y[:,nx-width-i:nx-i] - y[:,-width:])**2, axis=1)
+    if normalize:
+        # at some point we have to cross the other slope
+        corr /= (y[:,-width:].std(axis=1)**2).reshape(-1,1)
+    return corr
+
+def period(y, width=None):
+    """
+    Determine periods of (V-phi) curves in y.
+    """
+    n0, n_x = y.shape
+    if width == None:
+        width = n_x / 2
+    p = zeros(n0)
+    corr = period_correlation(y, width=width)
+    for i, c in enumerate(corr):
+        # Each corr curve rises up from 0 to some maximum, then down
+        # to "0" again, and repeat (or not).
+        thresh = 3. # units are rms**2
+        dc = c - thresh
+        ups = ((dc[1:] > 0) * (dc[:-1] <= 0)).nonzero()[0]
+        dns = ((dc[1:] < 0) * (dc[:-1] >= 0)).nonzero()[0]
+        if len(ups) < 1 or len(dns) < 1:
+            continue
+        if len(ups) < 2: ups = [ups[0], len(c)]
+        p[i] = dns[0] + argmin(c[dns[0]:ups[1]])
+    return p
 
 def add_curves(ax, x, y, lp, i,
                set_points=True, lock_levels=True, intervals=True,

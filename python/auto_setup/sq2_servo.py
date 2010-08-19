@@ -136,8 +136,6 @@ class SQ2Servo:
 
         # Natural order
         if bias_ramp:
-            print \
-            self.data.shape, (len(self.rows), len(self.cols), n_bias, n_fb)
             self.data.shape = (len(self.rows), len(self.cols), n_bias, n_fb)
             self.data = self.data.transpose([2, 0, 1, 3])
             self.data_shape = self.data.shape

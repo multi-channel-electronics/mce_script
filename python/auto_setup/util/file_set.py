@@ -24,3 +24,5 @@ class FileSet(dict):
                 else:
                     print 'Unmatched tuning file, %s' % f
             
+    def stage_all(self, stage):
+        return [self[stage][k] for k in sorted(self[stage].keys())] 
