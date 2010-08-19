@@ -41,7 +41,7 @@ def acquire(tuning, rc, filename=None, fb=None,
 
     # Biasing semantics are complicated, fix me.
     if bias == None:
-      bias = tuning.get_exp_param('sq2_servo_bias_ramp')
+        bias = tuning.get_exp_param('sq2_servo_bias_ramp')
     change_bias = not (bias == False)
 
     if (bias == True):
@@ -80,18 +80,37 @@ def acquire(tuning, rc, filename=None, fb=None,
     return True, {'basename': acq_id,
                   'filename':fullname }
 
-class SQ2Servo:
+class SQ2Servo(util.RCData):
     def __init__(self, filename=None, tuning=None):
+        util.RCData.__init__(self)
         self.data = None
         self.analysis = None
         self.tuning = tuning
         if filename != None:
             self.read_data(filename)
 
+    @staticmethod
+    def join(args):
+        """
+        Arguments are SQ2Servo objects, loaded with data.
+        """
+        synth = SQ2Servo()
+        # Borrow most things from the first argument
+        synth.mcefile = None
+        synth.data_origin = dict(args[0].data_origin)
+        synth.fb = args[0].fb.copy()
+        synth.d_fb = args[0].d_fb
+        synth.bias_style = args[0].bias_style
+        synth.bias = args[0].bias.copy()
+
+        # Join data systematically
+        util.RCData.join(synth, args)
+        return synth
+
     def _check_data(self, simple=False):
         if self.data == None:
             raise RuntimeError, 'SQ2Servo needs data.'
-        if simple and self.data_style != 'rectangle':
+        if simple and self.gridded:
             raise RuntimeError, 'Simple SQ2Servo expected (use split?)'
 
     def _check_analysis(self, existence=False):
@@ -108,7 +127,7 @@ class SQ2Servo:
 
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
-        self.data_style = 'rectangle'
+        self.gridded = True
         self.data_shape = self.data.shape
         # Ravel.
         self.data.shape = (-1, self.data.shape[-1])
@@ -138,11 +157,7 @@ class SQ2Servo:
         if bias_ramp:
             self.data.shape = (len(self.rows), len(self.cols), n_bias, n_fb)
             self.data = self.data.transpose([2, 0, 1, 3])
-            self.data_shape = self.data.shape
-            self.data_style = 'super-rectangle'
-        else:
-            self.data_shape = self.data.shape
-            self.data_style = 'rectangle'
+        self.data_shape = self.data.shape
         self.data = self.data.reshape(-1, n_fb)
 
     def split(self):
@@ -150,19 +165,18 @@ class SQ2Servo:
         Split multi-bias data (from combined bias+fb ramp) into single
         objects per bias.  Returns a list of single bias servos.
         """
-        if self.data_style != 'super-rectangle':
+        if self.bias_style == 'select':
             return [self]
 
         n_bias, n_row, n_col, n_fb = self.data_shape
-        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'rf']
+        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb']
         output = []
         for i in range(n_bias):
-            sa = SARamp()
+            sa = SQ2Servo()
             for k in copy_keys:
                 exec('sa.%s = self.%s' %(k,k))
             sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
             sa.data_shape = self.data_shape[1:]
-            sa.data_style = 'rectangle'
             sa.bias_style = 'select'
             sa.bias = [self.bias[i] for c in self.cols]
             output.append(sa)

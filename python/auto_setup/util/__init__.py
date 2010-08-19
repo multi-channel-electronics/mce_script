@@ -6,4 +6,6 @@ from load_bias_file import load_bias_file
 from plotter import plotGridder
 from dead_mask import DeadMask
 from file_set import FileSet
+from rectangle import RCData
 
+from debug import interactive_errors

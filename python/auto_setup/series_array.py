@@ -24,7 +24,7 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
         raise RuntimeError, ramp_data['error']
 
     sa = SARamp(ramp_data['filename'])
-    if sa.data_style == 'super-rectangle':
+    if sa.bias_style == 'ramp':
         sa.reduce1()
         sa = sa.subselect() # replace with best bias version
 
@@ -73,17 +73,36 @@ def acquire(tuning, rc, filename=None, do_bias=None):
                   'do_bias': do_bias,
                   }
 
-class SARamp:
+class SARamp(util.RCData):
     def __init__(self, filename=None, reduce_rows=True):
+        util.RCData.__init__(self)
         self.data = None
         self.analysis = None
         if filename != None:
             self.read_data(filename, reduce_rows=reduce_rows)
 
+    @staticmethod
+    def join(args):
+        """
+        Arguments are SARamp objects, loaded with data.
+        """
+        synth = SARamp()
+        # Borrow most things from the first argument
+        synth.mcefile = None
+        synth.data_origin = dict(args[0].data_origin)
+        synth.fb = args[0].fb.copy()
+        synth.d_fb = args[0].d_fb
+        synth.bias_style = args[0].bias_style
+        synth.bias = args[0].bias.copy()
+
+        # Join data systematically
+        util.RCData.join(synth, args)
+        return synth
+
     def _check_data(self, simple=False):
         if self.data == None:
             raise RuntimeError, 'SARamp needs data.'
-        if simple and self.data_style != 'rectangle':
+        if simple and self.gridded:
             raise RuntimeError, 'Simple SARamp expected (use split?)'
 
     def _check_analysis(self, existence=False):
@@ -107,7 +126,7 @@ class SARamp:
         self.data = self.mcefile.Read(row_col=True).data
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
-        self.data_style = 'rectangle'
+        self.gridded = True
         self.data_shape = self.data.shape
         # Ravel row/col dimension
         self.data.shape = (-1, self.data.shape[-1])
@@ -139,9 +158,6 @@ class SARamp:
             self.data.shape = (len(self.rows), len(self.cols), n_bias, n_fb)
             self.data = self.data.transpose([2, 0, 1, 3])
             self.data_shape = self.data.shape
-            self.data_style = 'super-rectangle'
-        else:
-            self.data_style = 'rectangle'
         self.data = self.data.reshape(-1, n_fb)
         if reduce_rows:
             self.reduce_rows()
@@ -151,7 +167,7 @@ class SARamp:
         Split multi-bias data (from combined bias+fb ramp) into single
         objects per bias.  Returns a list of single bias ramps.
         """
-        if self.data_style != 'super-rectangle':
+        if self.bias_style == 'select':
             return [self]
 
         n_bias, n_row, n_col, n_fb = self.data_shape
@@ -160,10 +176,10 @@ class SARamp:
         for i in range(n_bias):
             sa = SARamp()
             for k in copy_keys:
-                exec('sa.%s = self.%s' %(k,k))
+                setattr(sa, k, getattr(self, k))
             sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
             sa.data_shape = self.data_shape[1:]
-            sa.data_style = 'rectangle'
+            sa.gridded = True
             sa.bias_style = 'select'
             sa.bias = [self.bias[i] for c in self.cols]
             output.append(sa)
@@ -178,6 +194,7 @@ class SARamp:
             self._check_analysis()
             selector = self.analysis['y_span_select']
         sa = self.split()[0]
+        sa.bias_style = 'select'
         sa.data.shape = sa.data_shape
         self.data.shape = self.data_shape
         for i, s in enumerate(selector):
@@ -200,7 +217,7 @@ class SARamp:
         self._check_analysis(existence=True)
         span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
         self.analysis['y_span'] = span
-        if self.data_style == 'super-rectangle':
+        if self.bias_style == 'ramp':
             # Identify bias index of largest response in each column
             select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=0)
             self.analysis['y_span_select'] = select
@@ -276,7 +293,7 @@ class SARamp:
         self._check_data()
         self._check_analysis()
 
-        if self.data_style != 'rectangle':
+        if self.bias_style != 'select':
             raise RuntimeError, 'We cannot plot whole ramps, just the final selection.'
         
         if plot_file == None:

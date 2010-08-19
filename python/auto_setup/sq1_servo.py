@@ -83,19 +83,37 @@ def acquire(tuning, rc, filename=None, fb=None,
                   'filename': fullname }
 
 
-class SQ1Servo:
+class SQ1Servo(util.RCData):
     def __init__(self, filename=None, tuning=None):
+        util.RCData.__init__(self, data_attrs=['data', 'error'])
         self.data = None
         self.analysis = None
         self.tuning = tuning
         if filename != None:
             self.read_data(filename)
 
+    @staticmethod
+    def join(args):
+        """
+        Arguments are SQ1Servo objects, loaded with data.
+        """
+        synth = SQ1Servo()
+        # Borrow most things from the first argument
+        synth.mcefile = None
+        synth.data_origin = dict(args[0].data_origin)
+        synth.fb = args[0].fb.copy()
+        synth.d_fb = args[0].d_fb
+        synth.bias_style = args[0].bias_style
+        synth.bias = args[0].bias.copy()
+
+        # Join data systematically
+        util.RCData.join(synth, args)
+        return synth
 
     def _check_data(self, simple=False):
         if self.data == None:
             raise RuntimeError, 'SQ1Servo needs data.'
-        if simple and self.data_style != 'rectangle':
+        if simple and self.gridded:
             raise RuntimeError, 'Simple SQ1Servo expected (use split?)'
 
     def _check_analysis(self, existence=False):
@@ -106,13 +124,17 @@ class SQ1Servo:
                 raise RuntimeError, 'SQ1Servo lacks desired analysis structure.'
 
     def _read_super(self, filename):
+        """
+        Helper for read_data that assembles array of data from all-row
+        sq1servo .bias files.
+        """
         data = []
         for n_row in range(64):
             f = '%s.r%02i.bias' % (filename, n_row)
             if not os.path.lexists(f):
                 break
             data.append(util.load_bias_file(f))
-        self.data_style = 'rectangle'
+        self.gridded = True
         self.error = array([a for a,_ in data])
         self.data = array([a for _,a in data])
         self.rows = array([i for i in range(n_row)])
@@ -121,21 +143,27 @@ class SQ1Servo:
             transpose([1,0,2]).reshape(-1, n_fb)
         self.error = self.error.reshape(n_row*n_col,n_bias,n_fb). \
             transpose([1,0,2]).reshape(-1, n_fb)
-        self.data_style += 'rectangle'
         self.data_shape = n_bias, n_row, n_col, n_fb
 
     def _read_single(self, filename):
+        """
+        Helper for read_data that loads a single-row sq1servo file.
+        """
         self.error, self.data = util.load_bias_file(filename+'.bias')
-        self.rows = array(self.rf.Item('servo_init', 'row.init', 'int'))[self.cols]
+        self.rows = array(self.rf.Item('servo_init', 'row.init', type='int'))[self.cols]
         n_row = 1
+        self.gridded = False
         n_bias, _, n_col, n_fb = self.data_shape
         self.data = self.data.reshape(n_row*n_col,n_bias,n_fb). \
             transpose([1,0,2]).reshape(-1, n_fb)
         self.error = self.error.reshape(n_row*n_col,n_bias,n_fb). \
             transpose([1,0,2]).reshape(-1, n_fb)
-        self.data_style += 'select'
 
     def read_data(self, filename):
+        """
+        Loads an sq1servo data set.  Can probably figure out if there is
+        multi-row data present and do The Right Thing.
+        """
         rf = MCERunfile(filename+'.run')
         self.rf = rf
         self.data_origin = {'filename': filename,
@@ -167,42 +195,28 @@ class SQ1Servo:
         print self.data_shape
         # Attempt load after counting bias/fb steps
         if len(glob.glob(filename+'.bias')):
-            self.data_style = ''
             self._read_single(filename)
         else:
-            self.data_style = 'super-'
             self._read_super(filename)
-
-    def subselect(self, selector):
-        if not self.data_style == 'select':
-            raise 'SQ2servo is already row-selected.'
-        n_row, n_col, n_fb = self.data_shape[-3:]
-        new_data = self.data.reshape(-1,n_row,n_col,n_fb)[:,0,:,:]
-        for i,s in enumerate(selector):
-            new_data[:,0,i,:] = self.data[:,s,i,:]
-        self.data = new_data.reshape(-1, n_fb)
-        self.data_shape = self.data_shape[:-3] + (1, n_col, n_fb)
-        self.rows = selector
-        self.data_style = 'select'
 
     def split(self):
         """
         Split multi-bias data (from combined bias+fb ramp) into single
         objects per bias.  Returns a list of single bias servos.
         """
-        if self.data_style != 'super-rectangle':
+        if self.bias_style == 'select':
             return [self]
 
         n_bias, n_row, n_col, n_fb = self.data_shape
-        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'rf']
+        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb']
         output = []
         for i in range(n_bias):
-            sa = SARamp()
+            sa = SQ1Servo()
             for k in copy_keys:
                 exec('sa.%s = self.%s' %(k,k))
             sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
             sa.data_shape = self.data_shape[1:]
-            sa.data_style = 'rectangle'
+            sa.gridded = self.gridded
             sa.bias_style = 'select'
             sa.bias = [self.bias[i] for c in self.cols]
             output.append(sa)

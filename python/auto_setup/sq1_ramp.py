@@ -116,8 +116,9 @@ def lock_stats(data, target=0., range=None, slope=1.,
 
 
 
-class SQ1Ramp:
+class SQ1Ramp(util.RCData):
     def __init__(self, filename=None, tuning=None):
+        util.RCData.__init__(self)
         self.data = None
         self.analysis = None
         self.tuning = tuning
@@ -125,42 +126,19 @@ class SQ1Ramp:
             self.read_data(filename)
 
     @staticmethod
-    def join(args, basename):
+    def join2(args):
         """
         Arguments are SQ1Ramp objects, loaded with data.
         """
         synth = SQ1Ramp()
+        # Borrow most things from the first argument
         synth.mcefile = None
-        # Check data shapes and styles for compatibility
-        base_shape = args[0].data_shape
-        base_style = args[0].data_style
-        for s in args[1:]:
-            if s.data_shape != base_shape:
-                raise ValueError, 'data shapes are not compatible'
-            if s.data_style != base_style:
-                raise ValueError, 'data shapes are not compatible'
-        # This is probably different readout cards, so stack in columns.
-        n_col, n_fb = base_shape[-2:]
-        synth.data_shape = base_shape[:-2] + (n_col * len(args), n_fb)
-        synth.data_style = base_style
-        synth.data_origin = {'basename': basename }
-        # Combine data
-        synth.data = zeros(synth.data_shape)
-        synth.data.shape = (-1, len(args)) + base_shape[-2:]
-        for i, s in enumerate(args):
-            synth.data[:,i,:,:] = s.data.reshape(-1, n_col, n_fb)
-        synth.data.shape = (-1, n_fb)
-
-        if synth.data_style == 'rectangle':
-            synth.cols = hstack([s.cols for s in args])
-            synth.rows = args[0].rows.copy()
-        else:
-            synth.cols = hstack([s.cols for s in args])
-            synth.rows = hstack([s.rows for s in args])
-
-        # Check and copy...
+        synth.data_origin = dict(args[0].data_origin)
         synth.fb = args[0].fb.copy()
         synth.d_fb = args[0].d_fb
+
+        # Join data systematically
+        util.RCData.join(synth, args)
         return synth
 
     def _check_data(self):
@@ -176,7 +154,8 @@ class SQ1Ramp:
         self.data = self.mcefile.Read(row_col=True).data
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
-        self.data_style = 'rectangle'
+#        self.data_style = 'rectangle'
+        self.gridded = True
         self.data_shape = self.data.shape
         # Ravel.
         self.data.shape = (-1, self.data.shape[-1])
