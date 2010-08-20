@@ -34,7 +34,7 @@ class tuningData:
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
 
         # Various filenames
-        self.log_file = "log.file"#os.path.join(self.data_dir, name+'.log')
+        self.log_file = os.path.join(self.data_dir, name+'.log')
         self.config_mce_file = os.path.join(self.base_dir,
                 "config_mce_auto_setup_" + self.current_data)
         self.note_file = os.path.join(self.data_dir, self.name + "_note")

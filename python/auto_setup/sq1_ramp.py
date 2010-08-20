@@ -126,7 +126,7 @@ class SQ1Ramp(util.RCData):
             self.read_data(filename)
 
     @staticmethod
-    def join2(args):
+    def join(args):
         """
         Arguments are SQ1Ramp objects, loaded with data.
         """
@@ -191,6 +191,10 @@ class SQ1Ramp(util.RCData):
         
         # Indices of extrema, by det.
         Tex = [x.nonzero()[0] for x in Thi+Tlo]
+        # No empty curves allowed
+        for i in range(len(Tex)):
+            if len(Tex[i]) == 0:
+                Tex[i] = [0, 1]
 
         if rule=='x_space':
             # Find widest region between extrema
@@ -205,6 +209,7 @@ class SQ1Ramp(util.RCData):
                 dz = [a[0] - b[0] for a, b in zip(z[1:],z[:-1])]
                 idx = argmax(dz)
                 lims.append((z[idx][1], z[idx+1][1]))
+
 
         # Compute suggested ADC offset based on these.
         adc_offset = array([(yy[a]+yy[b])/2 for (a,b),yy in zip(lims,y)])

@@ -254,10 +254,10 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
     # Join into single data/analysis object
     #... something is wrong here ...
     new_name = '_'.join(info['basename'].split('_')[:-2])+'_sq1ramp'
-    ramps = sq1_ramp.SQ1Ramp.join(ramps, basename=new_name)
+    ramps = sq1_ramp.SQ1Ramp.join(ramps)
     ramps.tuning = tuning
     lock_points = ramps.reduce()
-    n_row, n_col = lock_points.data_shape[-3:-1]
+    n_row, n_col = ramps.data_shape[-3:-1]
 
     # Save new ADC offsets
     adc_col = tuning.get_exp_param('adc_offset_c')[ramps.cols].reshape(1,-1)
@@ -279,6 +279,7 @@ def sq1_ramp_check(tuning, rcs, numrows, tune_data):
     mask_files = [ os.environ["MAS_TEMPLATE"] + os.path.join("dead_lists",
             tuning.get_exp_param("array_id"), "dead_" + m + ".cfg") for m in
             mask_list ]
+    mask_files = [m for m in mask_files if os.path.exists(m)]
     masks = [util.DeadMask(f, label=l) for f,l in zip(mask_files, mask_list)]
     ramps.plot(dead_masks=masks)
 

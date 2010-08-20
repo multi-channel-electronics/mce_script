@@ -63,7 +63,7 @@ def acquire(tuning, rc, filename=None, fb=None,
         cmd = [tuning.bin_path+'sq1servo']
 
     # This syntax is for pre-2010 servo programs that only do one gain.
-    cmd += [filename, 0,0,0,
+    cmd += ['-E0', filename, 0,0,0,
             fb['start'], fb['step'], fb['count'],
             rc, 0, tuning.get_exp_param("default_num_rows"), gain, 1]
 
@@ -150,7 +150,9 @@ class SQ1Servo(util.RCData):
         Helper for read_data that loads a single-row sq1servo file.
         """
         self.error, self.data = util.load_bias_file(filename+'.bias')
-        self.rows = array(self.rf.Item('servo_init', 'row.init', type='int'))[self.cols]
+        # Awkward indexing...
+        col_idx = self.cols - (amin(self.cols) / 8)*8
+        self.rows = array(self.rf.Item('servo_init', 'row.init', type='int'))[col_idx]
         n_row = 1
         self.gridded = False
         n_bias, _, n_col, n_fb = self.data_shape

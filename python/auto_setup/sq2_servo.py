@@ -60,7 +60,7 @@ def acquire(tuning, rc, filename=None, fb=None,
         gain = tuning.get_exp_param('sq2_servo_gain')[rci*8]
     
     # Execute C servo program
-    cmd = [os.path.join(tuning.bin_path, 'sq2servo'), filename,
+    cmd = [os.path.join(tuning.bin_path, 'sq2servo'), '-E0', filename,
            bias['start'], bias['step'], bias['count'],
            fb['start'], fb['step'], fb['count'],
            rc, int(change_bias), gain, int(not change_bias)]
