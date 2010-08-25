@@ -179,16 +179,31 @@ for chan=0,7 do begin
    else this_slope = slope
 		if this_slope lt 0 then begin
                 	min_point=min(sq1_v_phi(start:nfb-1,chan),ind_min)
-			ind_min=start+ind_min
-	                ind_pos_der=where(deriv_fb1(0:ind_min-margin,chan) gt 0)
-	                if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
-	                ind_max=max(ind_pos_der)
+		        ind_min=start+ind_min
+			;JAB 20100824 changes to more robustly select sq2_fb_set
+			;points when the SQ1s are underbiased and have flat regions.
+			;haven't tested this part yet...
+		        ;
+	                ;ind_pos_der=where(deriv_fb1(0:ind_min-margin,chan) gt 0)
+	                ;if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
+	                ;ind_max=max(ind_pos_der)
+	                ind_neg_der=where(deriv_fb1(0:ind_min-margin,chan) lt 10)
+	                if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
+	                ;starting from ind_min move up v-phi curve and find last continuous ind_neg_der
+	                ind_max=ind_neg_der(max(where(deriv(ind_neg_der) gt 1)))
                 endif else begin
                         max_point=max(sq1_v_phi(start:nfb-1,chan),ind_max)
                         ind_max=start+ind_max
-                        ind_neg_der=where(deriv_fb1(0:ind_max-margin,chan) lt 0)
-                        if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
-                        ind_min=max(ind_neg_der)
+                        ;JAB 20100824 changes to more robustly select sq2_fb_set
+                        ;points when the SQ1s are underbiased and have flat region
+                        ;tested this part...
+                        ;ind_neg_der=where(deriv_fb1(0:ind_max-margin,chan) lt 0) 
+                        ;if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
+                        ;ind_min=max(ind_neg_der)
+                        ind_pos_der=where(deriv_fb1(0:ind_max-margin,chan) gt 10)
+                        if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
+                        ;starting from ind_max move down v-phi curve and find last continuous ind_pos_der
+                        ind_min=ind_pos_der(max(where(deriv(ind_pos_der) gt 1)))
                 endelse
 
 		;remove comment here
@@ -250,5 +265,6 @@ if keyword_set(poster) then begin
    f = strsplit(plot_file,'/',/extract)
    auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
+
 
 end 
