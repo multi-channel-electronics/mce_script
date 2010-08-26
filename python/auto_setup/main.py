@@ -53,18 +53,15 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
     sq1_bias = tuning.get_exp_param("default_sq1_bias")
     sq1_bias_off = tuning.get_exp_param("default_sq1_bias_off")
 
-    # Turn flux-jumping off for tuning.
-    tuning.set_exp_param("flux_jumping", 0)
-
     # Load default values for biases
     tuning.set_exp_param("sa_bias", def_sa_bias)
     tuning.set_exp_param("sq2_bias", sq2_bias)
     tuning.set_exp_param("sq1_bias", zeros([len(sq1_bias)]))
     tuning.set_exp_param("sq1_bias_off", zeros([len(sq1_bias_off)]))
 
-    # Save experiment params, make config script, run it.
-    tuning.write_config()
-  
+    # data_mode and servo_mode and write.
+    prepare_mce(tuning, run_now=True)
+
     # if the ssa and sq2 biases were previously off the system waits for
     # thermalisation
 
@@ -74,6 +71,19 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
 
     return {"ramp_sa_bias": ramp_sa_bias, "sq1_bias": sq1_bias,
             "sq1_bias_off": sq1_bias_off, "sq2_bias": sq2_bias}
+
+def prepare_mce(tuning, run_now=True):
+    """
+    Perform the minimal MCE configuration necessary in order to
+    perform tuning ramps/servos.
+
+    Basically, just set the data_mode and disable the MCE servo.
+    """
+    tuning.set_exp_param("servo_mode", 1)     # fb_const
+    tuning.set_exp_param("flux_jumping", 0)   # safer
+    tuning.set_exp_param("data_mode", 0)      # error mode.
+    tuning.write_config(run_now=run_now)
+
 
 #  do_*
 #  
@@ -373,7 +383,7 @@ IDL auto_setup_squids."""
         return 98
 
     # sq1 ramp check
-    sq1 = do_sq1_ramp_check(tuning, rcs, tune_data)
+    sq1 = do_sq1_ramp(tuning, rcs, tune_data)
 
     # ramp tes bias and see open loop response?
     if (tuning.get_exp_param("sq1_ramp_tes_bias") == 1 and not short):
