@@ -148,6 +148,13 @@ class tuningData:
                 self.log.flush()
 
     def write_sqtune(self, filename=None, sq1_ramp=None, link=False):
+        def compose_col_row(label, data, format='%f'):
+            s = ''
+            for i, d in enumerate(data):
+                s += '<%s> ' % (label % i)
+                s += ' '.join([format % r for r in d]) + '\n'
+            return s
+
         if filename == None:
             filename = self.sqtune_file
         done = sq1_ramp != None
@@ -156,8 +163,14 @@ class tuningData:
         f.write("<SQ_tuning_completed> %i\n" % int(done))
         f.write("<SQ_tuning_date> %s\n" % self.current_data)
         f.write("<SQ_tuning_dir> %s\n" % self.name)
-        if done:
-            f.write('etc, etc\n')
+        if sq1_ramp != None:
+            for item in sq1_ramp.sqtune_report():
+                s = item['style']
+                if s == 'col_row':
+                    f.write(compose_col_row(item['label'], item['data'],
+                                            format=item['format']))
+                else:
+                    raise RuntimeError, 'unknown item style "%s"' % s
         f.write("</SQUID>\n")
         f.close()
         

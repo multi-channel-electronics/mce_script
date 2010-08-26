@@ -2,5 +2,22 @@
 
 import auto_setup as ast
 
-ast.util.interactive_errors()
-ast.auto_setup()
+from optparse import OptionParser
+
+o = OptionParser()
+o.add_option('--rc', action='append', default=[])
+o.add_option('-i', '--interactive', action='store_true')
+opts, args = o.parse_args()
+
+# Process...
+if opts.interactive:
+    ast.util.interactive_errors()
+# opts.rc should be integers or 's' for all.
+opts.rc = [x.lower() for x in opts.rc]
+if (len(opts.rc) == 0) or ('s' in opts.rc):
+    opts.rc = None
+else:
+    opts.rc = [int(x) for x in opts.rc]
+
+# Tune.
+ast.auto_setup(rcs=opts.rc)

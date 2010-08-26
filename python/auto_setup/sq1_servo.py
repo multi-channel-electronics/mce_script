@@ -194,7 +194,7 @@ class SQ1Servo(util.RCData):
 
         # Prime
         self.data_shape = (n_bias, 1, len(self.cols), n_fb)
-        print self.data_shape
+
         # Attempt load after counting bias/fb steps
         if len(glob.glob(filename+'.bias')):
             self._read_single(filename)

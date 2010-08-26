@@ -297,3 +297,32 @@ class SQ1Ramp(util.RCData):
                    scale_style='tight',
                    label_style='row_col',
                    )
+
+    def sqtune_report(self):
+        """
+        Return description of results for runfile block.
+        """
+        def get(key):
+            return self.analysis[key].reshape(self.data_shape[-3:-1]).transpose()
+        data = [
+            {'label': 'Col%i_squid_vphi_p2p',
+             'data': get('max_y') - get('min_y'),
+             'style': 'col_row', 'format': '%i', },
+            {'label': 'Col%i_squid_lockrange',
+             'data': get('right_idx') - get('left_idx'),
+             'style': 'col_row', 'format': '%i', },
+            {'label': 'Col%i_squid_lockslope_down',
+             'data': get('lock_dn_sl'),
+             'style': 'col_row', 'format': '%.3f', },
+            {'label': 'Col%i_squid_lockslope_up',
+             'data': get('lock_up_sl'),
+             'style': 'col_row', 'format': '%.3f', },
+#            {'label': 'Col%i_squid_multilock',
+#             'data': get(''),
+#             'style': 'col_row', 'format': '%i', },
+#            {'label': 'Col%i_squid_off_recommendation',
+#             'data': get(),
+#             'style': 'col_row', 'format': '%i', },
+            ]
+        return data
+

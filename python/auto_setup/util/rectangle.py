@@ -60,7 +60,7 @@ class RCData:
     def _synth_rect(self, items):
         offsets, rows, cols = [], [], []
         for i in items:
-            offsets.append(len(i.rows))
+            offsets.append(len(rows))
             rows += list(i.rows)
             cols += list(i.cols)
         self.rows, self.cols = rows, cols

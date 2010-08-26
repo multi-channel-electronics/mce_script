@@ -77,11 +77,12 @@ def set_exp_param(file, key, value):
 
     command = ["mas_param", "-s", file, "set", key]
 
-    if (hasattr(value, "__getitem__")):
-      command += [str(x) for x in value]
-    else:
-      command.append(str(value))
+    try:
+        iter(value)
+    except TypeError:
+        value = [value]
 
+    command += [str(x) for x in value]
     status = subprocess.call(command)
 
     if (status != 0):

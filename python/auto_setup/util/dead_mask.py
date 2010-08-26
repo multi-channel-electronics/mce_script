@@ -1,5 +1,7 @@
 from auto_setup.config import mas_param
+
 import numpy
+import os
 
 class DeadMask:
     def __init__(self, filename=None, label='', shape=None):
@@ -18,7 +20,7 @@ class DeadMask:
         nr = mas_param(filename, 'n_rows', 0)
         nc = mas_param(filename, 'n_cols', 0)
         d = mas_param(filename, 'mask', 0)
-        if nr==None or nc==None or data==None:
+        if nr==None or nc==None or d==None:
             raise RuntimeError, 'Invalid or missing dead_mask file "%s"' % filename
         self.data = d.reshape(nc, nr).transpose()
         self.shape = self.data.shape
@@ -48,3 +50,22 @@ class DeadMask:
         f.write(self.str())
         f.close()
         
+
+def get_all_dead_masks(tuning, union=False):
+    """
+    Discover and load all dead masks.  Returns list of DeadMask objects.
+    """
+    mask_list = ["squid1", "multilock", "jumper", "connection", "other"]
+    mask_files = [ os.environ["MAS_TEMPLATE"] + os.path.join("dead_lists",
+            tuning.get_exp_param("array_id"), "dead_" + m + ".cfg") for m in
+            mask_list ]
+    mask_files = [m for m in mask_files if os.path.exists(m)]
+    masks = [DeadMask(f, label=l) for f,l in zip(mask_files, mask_list)]
+    if union:
+        if len(masks) == 0:
+            return None
+        mask = DeadMask(shape=masks[0].shape, label='union')
+        mask.data = sum([m.data for m in masks]).astype('bool').astype('int')
+        return mask
+    return masks
+
