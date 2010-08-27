@@ -41,15 +41,40 @@ config_rc4=${config_rc[3]}
 echo "wb sys row_len $row_len" >> $mce_script
 echo "wb sys num_rows $num_rows" >> $mce_script
 
+if [ "$hardware_rect" == "0" ]; then
+    # Pre-v5 firmware
+    echo "wb cc num_rows_reported $num_rows_reported" >> $mce_script
+else
+    # v5 and later (rectangle mode)
+    echo "wb cc num_rows_reported $num_rows_reported" >> $mce_script
+    echo "wb cc num_cols_reported 8" >> $mce_script
+    echo "wb rca num_rows_reported $num_rows_reported" >> $mce_script
+    echo "wb rca num_cols_reported 8" >> $mce_script
+    echo "wb rca readout_row_index 0" >> $mce_script
+    echo "wb rca readout_col_index 0" >> $mce_script
+fi
+
 #----------------------------------------------
 # Clock Card
 #----------------------------------------------
-echo "wb cc num_rows_reported $num_rows_reported" >> $mce_script
 echo "wb cc data_rate $data_rate" >> $mce_script
 echo "wb cc select_clk $select_clk" >> $mce_script
 echo "wb cc use_dv $use_dv" >> $mce_script
 echo "wb cc use_sync $use_sync" >> $mce_script
 echo "wb cc ret_dat_s 1 1" >> $mce_script
+
+if [ "$hardware_rect" != "0" ]; then
+    # Assemble bits for choosing readout cards to report data
+    bit=0x20  # RC1
+    rc_bits=0
+    for i in `seq 0 3`; do
+	if [ "${hardware_rc_data[$i]}" != "0" ]; then
+	    rc_bits=$(( $rc_bits + $bit ))
+	fi
+	bit=$(( $bit / 2 ))
+    done
+    echo "wb cc rcs_to_report_data $rc_bits" >> $mce_script
+fi
 
 # Write cc user_word based on array_id - this shows up in frame data
 user_word=0
@@ -71,6 +96,7 @@ for rc in 1 2 3 4; do
 #    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
     echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
+    echo "wb rc$rc readout_col_index 0" >> $mce_script
     echo "wb rc$rc sample_dly   $sample_dly" >> $mce_script
     echo "wb rc$rc sample_num   $sample_num" >> $mce_script
     echo "wb rc$rc fb_dly       $fb_dly" >> $mce_script
@@ -136,11 +162,14 @@ done
 echo "wb ac row_dly   $row_dly" >> $mce_script
 echo "wb ac row_order ${row_order[@]}" >> $mce_script
 echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
+echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
 
 
 # Set the TES biases via the "tes bias" virtual address
-echo "wb tes bias ${tes_bias[@]}" >> $mce_script
+if [ "$tes_bias_do_reconfig" != "0" ]; then
+    echo "wb tes bias ${tes_bias[@]}" >> $mce_script
+fi
 
 #----------------------------------------------
 # Bias Cards - use functional mappings!
@@ -154,16 +183,19 @@ for rc in 1 2 3 4; do
     echo "wra sa  fb    $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"    >> $mce_script
     echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}" >> $mce_script
 
-    if [ "$hardware_bac" == "0" ]; then
-	# People still use bias cards?
-	echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
-    elif [ "$config_fast_sq2" == "0" ]; then
-	# People still expect bias card behaviour?
-	for a in `seq 0 7`; do
-	    c=$(( $ch_ofs + $a ))
-	    repeat_string "${sq2_fb[$c]}" 41 "wb bac fb_col$c" >> $mce_script
-	done
+    if [ "$config_fast_sq2" == "0" ]; then
+	if [ "$hardware_bac" == "0" ]; then
+            # People still use bias cards?
+	    echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
+	else
+	    # Emulate bias card with a BAC
+	    for a in `seq 0 7`; do
+		c=$(( $ch_ofs + $a ))
+		repeat_string "${sq2_fb[$c]}" 41 "wb bac fb_col$c" >> $mce_script
+	    done
+	fi
     else
+	# BAC and new bias cards support sq2 fb_col%
 	for a in `seq 0 7`; do
 	    row_ofs=$(( ($ch_ofs+$a) * 41 ))
 	    echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:41}" >> $mce_script
@@ -177,6 +209,14 @@ if [ "$hardware_bac" != "0" ]; then
     echo "wb bac enbl_mux 2" >> $mce_script
 fi
 
+# For new bias card in fast_sq2 mode, set enbl_mux for all columns
+if [ "$hardware_bac" == "0" ] && [ "$config_fast_sq2" == "1" ]; then
+    for rc in 1 2 3 4; do
+	[ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+	ch_ofs=$(( ($rc-1)*8 ))
+	echo "wra sq2 enbl_mux $ch_ofs `repeat_string 1 8`" >> $mce_script
+    done
+fi
 
 # Servo loop re-init
 
