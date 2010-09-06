@@ -435,7 +435,7 @@ for jj=0,n_elements(RCs)-1 do begin
               bias_start=exp_config.sq2_servo_bias_start[0], $
               bias_count=exp_config.sq2_servo_bias_count[0], $
               bias_step=exp_config.sq2_servo_bias_step[0], $
-              /lockamp,acq_id=acq_id,poster=poster,/no_analysis
+              acq_id=acq_id,poster=poster,/no_analysis
 
             print,'Exiting after sq2servo with bias ramp!'
             exit,status=98
@@ -447,7 +447,7 @@ for jj=0,n_elements(RCs)-1 do begin
               ramp_start=exp_config.sq2_servo_flux_start[0], $
               ramp_count=exp_config.sq2_servo_flux_count[0], $
               ramp_step=exp_config.sq2_servo_flux_step[0], $
-              /lockamp,acq_id=acq_id,poster=poster,quiet=quiet
+              acq_id=acq_id,poster=poster,quiet=quiet
 
         endelse
 
