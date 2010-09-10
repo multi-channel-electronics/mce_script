@@ -160,7 +160,7 @@ if keyword_set(check_bias) then begin
 		print,'# AND I WAIT A COUPLE OF MINUTES TO WARM UP THE SYSTEM! #'
 		print,'#########################################################'
 		print,''
-		wait,210
+		wait,150
 	endif
 endif
 
