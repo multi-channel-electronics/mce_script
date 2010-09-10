@@ -840,8 +840,7 @@ for jj=0,n_elements(RCs)-1 do begin
 
         rsq1_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1ramp',acq_id=acq_id)
 
-	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,interactive=interactive,numrows=numrows, $
-          rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id
+	auto_setup_ramp_sq1_fb_plot,rsq1_file_name,RC=rc,acq_id=acq_id
 	i10='Yes'
         if keyword_set(interactive) then begin
                 i10=dialog_message(['The auto_setup has found the the new',$
@@ -940,9 +939,8 @@ for jj=0,n_elements(RCs)-1 do begin
         extra_labels = auto_setup_mask_labels(mask_files, mask_list,rc_indices)
         rsq1c_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='sq1rampc',acq_id=acq_id)
 
-	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,interactive=interactive, $
-          numrows=numrows,rows=exp_config.sq1ramp_plot_rows,acq_id=acq_id,poster=poster, $
-          extra_labels=extra_labels
+	auto_setup_ramp_sq1_fb_plot,rsq1c_file_name,RC=rc,acq_id=acq_id, $
+                                    poster=poster, extra_labels=extra_labels
 
 	for j=0,7 do begin
 		all_squid_p2p((rc-1)*8+j,*) = squid_p2p(j,*)
@@ -1020,18 +1018,13 @@ if status17 ne 0 then begin
         exit,status=17
 endif
 
-; Permit row override, or else take it from config
-if n_elements(ROW) eq 0 then begin				;row used in the last frametest plot
-	ROW=exp_config.locktest_plot_row[0]
-	print,'Row = '+string(ROW)+' is used for frametest_plot by default!'
-endif
 
 if n_elements(RCs) lt 4 then begin
 	for jj=0,n_elements(RCs)-1 do begin
         	RC=RCs(jj)
                 lock_file_name = auto_setup_filename(directory=file_folder, rc=rc, action='lock',acq_id=acq_id)
 
-                auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
+                auto_setup_frametest_plot, COLUMN=column,RC=rc,lock_file_name,/BINARY, $
                   interactive=interactive,acq_id=acq_id,poster=poster
 
 		step10:
@@ -1039,7 +1032,7 @@ if n_elements(RCs) lt 4 then begin
 endif else begin
         lock_file_name = auto_setup_filename(directory=file_folder, rc='s', action='lock',acq_id=acq_id)
         RC=5
-        auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,lock_file_name,/BINARY, $
+        auto_setup_frametest_plot, COLUMN=column,RC=rc,lock_file_name,/BINARY, $
           interactive=interactive,acq_id=acq_id,poster=poster
 	step11:
 endelse

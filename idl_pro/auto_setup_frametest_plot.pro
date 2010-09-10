@@ -1,4 +1,4 @@
-pro auto_setup_frametest_plot, COLUMN=column, ROW=row,RC=rc,file_name,BINARY=binary, $
+pro auto_setup_frametest_plot, COLUMN=column, RC=rc,file_name,BINARY=binary, $
                                interactive=interactive,nodasscript=nodasscript,noheader=noheader, $
                                npts=npts, acq_id=acq_id,poster=poster
 
@@ -135,17 +135,10 @@ endif else begin
 ;print, col_name ; TEST
 endelse
 
-;if n_elements(row) eq 0 then begin
-  rmin=0
-  rmax=numrows-1
-;endif else begin
-;  rmin=row
-;  rmax=row
-  !p.multi=[0,1,2]
-  ;row_name =  'r'+ string(row, format='(i1)')
-  row_name ='';  strcompress('r'+ string(row),/REMOVE_ALL)
-;print, row_name ; TEST
-;endelse
+rmin=0
+rmax=numrows-1
+!p.multi=[0,1,2]
+row_name =''
 
 pixel_flag_name=plot_name+'_pixel_flag.ps'
 plot_name = plot_name + '.ps'

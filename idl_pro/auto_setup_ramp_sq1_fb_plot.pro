@@ -1,5 +1,5 @@
-pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,interactive=interactive,numrows=numrows,rows=rows, $
-                                 acq_id=acq_id,quiet=quiet,poster=poster,extra_labels=extra_labels
+pro auto_setup_ramp_sq1_fb_plot, file_name,RC=rc,rows=rows,acq_id=acq_id, $
+                                 quiet=quiet,poster=poster,extra_labels=extra_labels
 
 
 ;  Aug. 21, 2006 created by Elia Battistelli (EB) for the auto_setup program
@@ -84,6 +84,5 @@ if not keyword_set(quiet) then begin
 endif
 
 close, 3
-if keyword_set(interactive) then spawn, 'ggv '+plot_file+' &'
 fine:
 end
