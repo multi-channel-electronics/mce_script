@@ -50,7 +50,15 @@ done
 for cmd in fw_rev fpga_temp card_temp card_id slot_id card_type; do
   for i in $card_list ; do 
     a=`command_reply rb $i $cmd`
-    echo "$i $cmd $a"
+    if [ $cmd != "card_type" ]; then
+      echo "$i $cmd $a"
+    else
+      echo -n "$i $cmd"
+      for j in $a ; do
+        echo -n " `expr $j % 256` pcb_rev `expr $j / 256` "
+      done
+      echo ""
+    fi
   done
   echo "**************************"
 done
