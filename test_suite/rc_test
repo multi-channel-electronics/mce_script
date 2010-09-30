@@ -4,7 +4,6 @@ import getopt
 import time
 import os 
 import select
-import termios
 import tty
 
 from sys import *
@@ -16,16 +15,16 @@ from mce_data import *
 test_version = 1
 sdac_fixed_value = [0, 32768, 65535]
 sramp_start = 0
-sramp_end = 65536
+sramp_end = 65535
 ssquare_wave = [0, 65535]
 smid_value = 32768
 timeout = 0.0
 
-pdac_fixed_value = [0, 16384, 32767]
+pdac_fixed_value = [0, 8191, 16383]
 pramp_start = 0
-pramp_end = 16383
-psquare_wave = [0, 32767]
-pmid_value = 16383
+pramp_end = 16383 
+psquare_wave = [-8192, 8191]
+pmid_value = 0 
 
 ###########################################
 
@@ -77,6 +76,7 @@ m=mce()
 # DAC fixed-value test
 ##########################
 for j in range(0, 3):
+  print "Fix-value test: In this test 0, mid-range, and full-range values are loaded into DACS, probe the outputs to verify"
   print "Loading serial and parallel DACs %i to %i with %i (for serial) and %i (for parallel)" % (ch_start, ch_end-1, sdac_fixed_value[j],pdac_fixed_value[j])
   for i in range(ch_start, ch_end):
     m.write(card, 'sa_bias', [sdac_fixed_value[j]], offset=i)
@@ -87,27 +87,31 @@ for j in range(0, 3):
 ##########################
 # DAC ramp test
 ##########################
-#save_attrs = termios.tcgetattr(sys.stdin.fileno())
-#tty.setcbreak(sys.stdin.fileno())
-print "Starting a full-range Ramp on ch %i to %i " % (ch_start, ch_end-1)
+print " In this test, a ramp is generated on the ouput of all DACs, probe the outputs to verify"
+print "Starting a full-range Ramp on ch %i to %i serial DACS" % (ch_start, ch_end-1)
 try:
   while True:
-    for j in range (sramp_start, sramp_end, 1000):
+    for j in range (sramp_start, sramp_end, 100):
       a = []
       for i in range (ch_start, ch_end):
         a.append(j) 
       m.write(card, 'sa_bias', a)
       m.write(card, 'offset', a)
 
+except KeyboardInterrupt:
+  pass
+
+print "Starting a full-range Ramp on ch %i to %i Parallel DACS" % (ch_start, ch_end-1)
+try:
+  while True:
     for j in range(pramp_start, pramp_end, 1000): 
       b = []
       for i in range (ch_start, ch_end):
         b.append(j)
       m.write(card, 'fb_const', b)
-
+      m.write(card, 'flx_lp_init', '1')
 except KeyboardInterrupt:
   pass
-
 ##########################
 # DAC cross-talk test 
 ##########################
