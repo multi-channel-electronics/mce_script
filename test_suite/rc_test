@@ -20,9 +20,9 @@ ssquare_wave = [0, 65535]
 smid_value = 32768
 timeout = 0.0
 
-pdac_fixed_value = [0, 8191, 16383]
-pramp_start = 0
-pramp_end = 16383 
+pdac_fixed_value = [-8192, 0, 8191]
+pramp_start = -8192
+pramp_end = 8191
 psquare_wave = [-8192, 8191]
 pmid_value = 0 
 
@@ -78,6 +78,7 @@ m=mce()
 for j in range(0, 3):
   print "Fix-value test: In this test 0, mid-range, and full-range values are loaded into DACS, probe the outputs to verify"
   print "Loading serial and parallel DACs %i to %i with %i (for serial) and %i (for parallel)" % (ch_start, ch_end-1, sdac_fixed_value[j],pdac_fixed_value[j])
+  print "Note: full-range for serial DACs is 2.5V and for Parallel DACs is 1V"
   for i in range(ch_start, ch_end):
     m.write(card, 'sa_bias', [sdac_fixed_value[j]], offset=i)
     m.write(card, 'offset', [sdac_fixed_value[j]], offset=i)
@@ -88,7 +89,8 @@ for j in range(0, 3):
 # DAC ramp test
 ##########################
 print " In this test, a ramp is generated on the ouput of all DACs, probe the outputs to verify"
-print "Starting a full-range Ramp on ch %i to %i serial DACS" % (ch_start, ch_end-1)
+print "Starting a full-range Ramp on ch %i to %i serial and Parallel DACS" % (ch_start, ch_end-1)
+print "Note: full-range for serial DACs is 2.5V and for Parallel DACs is 1V"
 try:
   while True:
     for j in range (sramp_start, sramp_end, 100):
@@ -97,21 +99,22 @@ try:
         a.append(j) 
       m.write(card, 'sa_bias', a)
       m.write(card, 'offset', a)
+      m.write(card, 'fb_const', a)
 
 except KeyboardInterrupt:
   pass
 
-print "Starting a full-range Ramp on ch %i to %i Parallel DACS" % (ch_start, ch_end-1)
-try:
-  while True:
-    for j in range(pramp_start, pramp_end, 1000): 
-      b = []
-      for i in range (ch_start, ch_end):
-        b.append(j)
-      m.write(card, 'fb_const', b)
-      m.write(card, 'flx_lp_init', '1')
-except KeyboardInterrupt:
-  pass
+#print "Starting a full-range Ramp on ch %i to %i Parallel DACS" % (ch_start, ch_end-1)
+#try:
+#  while True:
+#    for j in range(pramp_start, pramp_end, 100): 
+#      b = []
+#      for i in range (ch_start, ch_end):
+#        b.append(j)
+#      m.write(card, 'fb_const', b)
+#
+#except KeyboardInterrupt:
+#  pass
 ##########################
 # DAC cross-talk test 
 ##########################
