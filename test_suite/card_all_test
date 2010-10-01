@@ -3,6 +3,7 @@ import sys
 import getopt
 import time
 import os 
+import io
 
 from sys import *
 from os import *
@@ -62,6 +63,7 @@ m=mce()
 fw_rev = m.read(card, 'fw_rev')
 card_id = m.read(card,'card_id')
 slot_id = m.read(card,'slot_id')
+card_type = m.read(card, 'card_type')
 fpga_temp = m.read(card, 'fpga_temp')
 card_temp = m.read(card, 'card_temp')
 
@@ -85,18 +87,23 @@ else:
 print "Unit Under Test  : ", card
 print "Serial Number    : ", card_snum 
 print "Firmware Revision: ", hex(fw_rev[0])
-print "card_id          : ", hex(card_id[0])
+print "card_id          : ", hex(card_id[0]) 
 print "slot_id          : ", slot_id
+print "card_type        : ", card_type
 print "fpga_temp        : ", fpga_temp[0], "C", ftemp_status
 print "card_temp        : ", card_temp[0], "C", ctemp_status
 print "results are in   : ", result_file
 
-#myfile = os.open(result_file, 'w')
-#print >>myfile, "Unit Under Test  : ", card
+#f = io.open(result_file, 'w')
+#s = str("Unit Under Test  : " +  str(card()
+#f.write(s)
+#f.write('Unit Under Test  : ' + str(card) )
+#print >>f, "Unit Under Test  : ", card
 #print >>myfile, "Serial Number    : ", card_snum 
 #print >>myfile, "Firmware Revision: ", hex(fw_rev[0])
 #print >>myfile, "card_id          : ", hex(card_id[0])
 #print >>myfile, "slot_id          : ", slot_id
+#print >>myfile, "card_type        : ", card_type
 #print >>myfile, "fpga_temp        : ", fpga_temp[0], "C", ftemp_status
 #print >>myfile, "card_temp        : ", card_temp[0], "C", ctemp_status
 #myfile.close()
