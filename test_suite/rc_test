@@ -20,7 +20,7 @@ ssquare_wave = [0, 65535]
 smid_value = 32768
 timeout = 0.0
 
-pdac_fixed_value = [-8192, 0, 8191]
+pdac_fixed_value = [-8192, -8191, -8190, -8188, -8184, -8176, -8160, 0, 8191]
 pramp_start = -8192
 pramp_end = 8191
 psquare_wave = [-8192, 8191]
@@ -75,13 +75,16 @@ m=mce()
 ##########################
 # DAC fixed-value test
 ##########################
-for j in range(0, 3):
-  print "Fix-value test: In this test 0, mid-range, and full-range values are loaded into DACS, probe the outputs to verify"
-  print "Loading serial and parallel DACs %i to %i with %i (for serial) and %i (for parallel)" % (ch_start, ch_end-1, sdac_fixed_value[j],pdac_fixed_value[j])
-  print "Note: full-range for serial DACs is 2.5V and for Parallel DACs is 1V"
+print "** Fix-value test: In this test 0, mid-range, and full-range values are loaded into DACS, probe the outputs to verify"
+print "** Note: full-range for serial DACs is 2.5V and for Parallel DACs is 1V"
+for j in range(0, len(pdac_fixed_value)):
+  if j< len(sdac_fixed_value) : 
+    print "Loading serial DACs %i to %i with %i " % (ch_start, ch_end-1, sdac_fixed_value[j])
+  print "Loading parallel DACS %i to %i with %i " % (ch_start, ch_end-1, pdac_fixed_value[j] + 8192)
   for i in range(ch_start, ch_end):
-    m.write(card, 'sa_bias', [sdac_fixed_value[j]], offset=i)
-    m.write(card, 'offset', [sdac_fixed_value[j]], offset=i)
+    if j< len(sdac_fixed_value) : 
+      m.write(card, 'sa_bias', [sdac_fixed_value[j]], offset=i)
+      m.write(card, 'offset', [sdac_fixed_value[j]], offset=i)
     m.write(card, 'fb_const', [pdac_fixed_value[j]], offset=i)
   raw_input("Press Enter to Continue")
   
