@@ -10,14 +10,14 @@ echo "*** Note: if you don't have 4 RC cards, then delete any instance of the no
 # LED Flashing Test or in fact wb test
 echo "watch the LEDs flash"
 for j in `seq 1 10`; do
-  for i in ac bc1 bc2 bc3 rc1 rc2 rc3 rc4 cc ; do 
+  for i in ac bc1 bac bc3 rc1 rc2 cc ; do 
     mce_cmd -q -x wb $i led 7
   done
 done
 
 # report subrack info
 for cmd in fw_rev fpga_temp card_temp card_id slot_id card_type; do
-  for i in ac bc1 bc2 bc3 rc1 rc2 rc3 rc4 cc ; do 
+  for i in ac bc1 bac bc3 rc1 rc2 cc ; do 
     a=`command_reply rb $i $cmd`
     echo "$i $cmd $a"
   done
@@ -32,8 +32,8 @@ echo "wb rca sample_num 1">$TMP
 echo "wb rca data_mode 1">>$TMP
 echo "wb rc1 fb_const 1 2 3 4 5 6 7 8">>$TMP
 echo "wb rc2 fb_const 9 10 11 12 13 14 15 16">>$TMP
-echo "wb rc3 fb_const 17 18 19 20 21 22 23 24">>$TMP
-echo "wb rc4 fb_const 25 26 27 28 29 30 31 32">>$TMP
+#echo "wb rc3 fb_const 17 18 19 20 21 22 23 24">>$TMP
+#echo "wb rc4 fb_const 25 26 27 28 29 30 31 32">>$TMP
 #echo "acq_config $MAS_DATA/.tmp.data rcs">>$TMP
 #echo "acq_go 1">>$TMP
 mce_cmd -q -f $TMP
@@ -41,8 +41,8 @@ mce_cmd -q -f $TMP
 # take 1 frame of data
 mce_run .tmp.data 1 s
  
-for column in `seq 1 32`; do 
-  a=`ascii_frame 41 32 $MAS_DATA/.tmp.data 0 "%8i"|awk 'NF==32 {print $'$column'}'`
+for column in `seq 1 16`; do 
+  a=`/usr/mce/mce_script/utilities/ascii_frame 41 32 $MAS_DATA/.tmp.data 0 "%8i"|awk 'NF==32 {print $'$column'}'`
   column_data=`echo $a|awk '{printf "%d ", $1}'`
   if [ $column_data != $column ]; then
     echo "Column data readback Test Failed!"
