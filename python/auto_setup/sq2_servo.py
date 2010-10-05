@@ -25,7 +25,7 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
 
 
 def acquire(tuning, rc, filename=None, fb=None,
-            bias=None, gain=None):
+            bias=None, gain=None, old_servo=False):
 
     # Convert to 0-based rc indices.
     rci = rc - 1
@@ -39,32 +39,35 @@ def acquire(tuning, rc, filename=None, fb=None,
         except ValueError:
             acq_id = str(time.time())
 
-    # Biasing semantics are complicated, fix me.
-    if bias == None:
-        bias = tuning.get_exp_param('sq2_servo_bias_ramp')
-    change_bias = not (bias == False)
+    if old_servo:
+        # Biasing semantics are complicated, fix me.
+        if bias == None:
+            bias = tuning.get_exp_param('sq2_servo_bias_ramp')
+        change_bias = not (bias == False)
 
-    if (bias == True):
-        bias = {}
-        for k in ['start','count','step']:
-            bias[k] = tuning.get_exp_param('sq2_servo_bias_%s'%k)
-    elif (bias == False):
-        bias = {'start': 0, 'count': 1, 'step': 0 }
+        if (bias == True):
+            bias = {}
+            for k in ['start','count','step']:
+                bias[k] = tuning.get_exp_param('sq2_servo_bias_%s'%k)
+        elif (bias == False):
+            bias = {'start': 0, 'count': 1, 'step': 0 }
 
-    # FB
-    if fb == None:
-        fb = {}
-        for k in ['start','count','step']:
-            fb[k] = tuning.get_exp_param('sq2_servo_flux_%s'%k)
-    if gain == None:
-        gain = tuning.get_exp_param('sq2_servo_gain')[rci*8]
+        # FB
+        if fb == None:
+            fb = {}
+            for k in ['start','count','step']:
+                fb[k] = tuning.get_exp_param('sq2_servo_flux_%s'%k)
+        if gain == None:
+            gain = tuning.get_exp_param('sq2_servo_gain')[rci*8]
     
-    # Execute C servo program
-    cmd = [os.path.join(tuning.bin_path, 'sq2servo'), '-E0', filename,
-           bias['start'], bias['step'], bias['count'],
-           fb['start'], fb['step'], fb['count'],
-           rc, int(change_bias), gain, int(not change_bias)]
-
+        # Execute C servo program
+        cmd = [os.path.join(tuning.bin_path, 'sq2servo'), '-E0', filename,
+               bias['start'], bias['step'], bias['count'],
+               fb['start'], fb['step'], fb['count'],
+               rc, int(change_bias), gain, int(not change_bias)]
+    else:
+        cmd = [os.path.join(tuning.bin_path, 'sq2servo'), '-E1', rc, filename]
+        
     status = tuning.run(cmd)
     if status != 0:
         return False, {'error': 'command failed: %s' % str(cmd)}
@@ -78,7 +81,7 @@ def acquire(tuning, rc, filename=None, fb=None,
     tuning.register(acq_id, 'tune_servo', fullname, n_frames)
     
     return True, {'basename': acq_id,
-                  'filename':fullname }
+                  'filename': fullname }
 
 class SQ2Servo(util.RCData):
     def __init__(self, filename=None, tuning=None):

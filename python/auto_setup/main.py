@@ -180,7 +180,7 @@ def do_sq1_servo(tuning, rc, rc_indices):
     # Sets the initial SQ2 fb (found in the previous step or set to mid-range)
     # for the SQ1 servo
     #sq2_fb_init = tuning.get_exp_param('sq2_fb')
-    sq2_fb_init = [8200] * len(rc_indices)
+    sq2_fb_init = [8200] * (max(rc_indices)+1)
     f = open(os.path.join(tuning.base_dir, "sq2fb.init"), "w")
     for x in sq2_fb_init:
         f.write("%i\n" % x)
@@ -194,11 +194,11 @@ def do_sq1_servo(tuning, rc, rc_indices):
     
     # Determine the SQ2 FB for each column, and if possible for each detector.
     if sq1_data['super_servo']:
-        n_row, n_col = sq1_data.data_shape[-3:-1]
+        n_row, n_col = sq1_data['data_shape'][-3:-1]
         fb_set = sq1_data['lock_y'].reshape(-1, n_col)
         # Get chosen row on each column
-        rows = tuning.get_exp_param('sq2_rows')[sq1_data.cols]
-        fb_column = array([ x[r] for x,r in zip(fb_set, row) ])
+        rows = tuning.get_exp_param('sq2_rows')[sq1_data['cols']]
+        fb_column = array([ fb_set[r,i] for i,r in enumerate(rows)])
     else:
         # Analysis gives us SQ2 FB for chosen row of each column.
         fb_column = sq1_data['lock_y']
