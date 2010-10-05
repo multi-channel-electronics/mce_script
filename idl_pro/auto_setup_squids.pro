@@ -1,3 +1,37 @@
+;;function sign,x,nozero=nozero
+;;  if x gt 0. then return,  1.
+;;  if x lt 0. then return, -1.
+;;  if keyword_set(nozero) then return, 1.
+;;  return, 0.
+;;end
+
+;; Rewrote sign function to handle array input
+;; Maybe the old function works for certain versions of idl, but not
+;; others?
+;; Colin Bischoff -- September 2, 2010
+function sign, x, nozero=nozero
+  ;; Result has the same shape as input (i.e. if x is a scalar, then
+  ;; result is a scalar; if x is an array, then result is an array)
+
+  ;; nozero keyword determines the behavior for input values that are
+  ;; identically zero. If it is not set, then the return value is zero
+  ;; for input value zero. If it is set, then the return value is one
+  ;; for input value zero.
+  if keyword_set(nozero) then begin
+     result = 0. * x + 1.
+  endif else begin
+     result = 0. * x
+  endelse
+
+  xgt0 = where(x gt 0, count)
+  if (count gt 0) then result[xgt0] = 1.
+
+  xlt0 = where(x lt 0, count)
+  if (count gt 0) then result[xlt0] = 1.
+
+  return, result
+end
+
 pro auto_setup_squids, COLUMN=column, ROW=row,RCs=rcs,interactive=interactive,text=text,numrows=numrows,note=note,ramp_sa_bias=ramp_sa_bias,check_bias=check_bias,short=short,quiet=quiet
 
 ; Aug. 21, 2006, created by Elia Battistelli (EB)
@@ -605,6 +639,7 @@ for jj=0,n_elements(RCs)-1 do begin
         ; Locking slope should be consistent with servo gains.
         sq1slope = -sign(exp_config.sq1servo_gain[rc-1],/nozero) / $
                    sign(exp_config.default_servo_i[(rc-1)*8:rc*8],/nozero)
+                   ;;sign(exp_config.default_servo_i[(rc-1)*8], /nozero)
 
         if exp_config.config_fast_sq2[0] or exp_config.sq1_servo_all_rows then begin
 
