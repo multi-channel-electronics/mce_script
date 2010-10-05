@@ -7,6 +7,8 @@
 #    frameacq_stamp 1 outfile 10000 | tee -a outfile.run
 #
 
+source $MAS_SCRIPT/mas_library.bash
+
 runfile_version=2
 
 if [ $# -ne 3 ]; then
@@ -20,7 +22,7 @@ fi
 
 rc="$1"
 if [ "$rc" == "s" ]; then
-    rc="1 2 3 4"
+    rc=`rcs_cards`
 fi
 data_filename="$2"
 data_framecount="$3"
