@@ -98,7 +98,13 @@ class tuningData:
     def rc_list(self):
         hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc");
         return [c + 1 for c in range(len(hardware_rc)) if hardware_rc[c] == 1]
-    
+
+    def column_list(self):
+        cols = []
+        for i in self.rc_list():
+            cols += [x+(i-1)*8 for x in range(8)]
+        return cols
+
     def filename(self, rc=None, action=None, ctime=None, absolute=False):
         if ctime == None:
             ctime = time.time()

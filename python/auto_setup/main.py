@@ -208,8 +208,8 @@ def do_sq1_servo(tuning, rc, rc_indices):
     # Save results
     tuning.set_exp_param_range('sq2_fb', rc_indices, fb_column)
     nr = tuning.get_exp_param('array_width')  # 41 probly
-    for j in rc_indices:
-        tuning.set_exp_param_range('sq2_fb_set', range(nr*j,nr*j+nr), fb_set)
+    for i,c in enumerate(rc_indices):
+        tuning.set_exp_param_range('sq2_fb_set', range(nr*c,nr*c+nr), fb_set[:,i])
 
     tuning.write_config()
     return 0
@@ -232,8 +232,8 @@ def do_sq1_ramp(tuning, rcs, tune_data):
     for rc in rcs:
         ok, info = sq1_ramp.acquire(tuning, rc)
         if not ok:
-            raise RuntimeError, 'sq1ramp failed for rc%i (%s)' % \
-                (rc, info['error'])
+            raise RuntimeError, 'sq1ramp failed for rc%s (%s)' % \
+                (str(rc), info['error'])
         ramps.append(sq1_ramp.SQ1Ramp(info['filename']))
 
     # Join into single data/analysis object
@@ -348,7 +348,10 @@ IDL auto_setup_squids."""
     # set rc list, if necessary
     if (rcs == None):
         print "  Tuning all available RCs."
-        rcs = tuning.rc_list()
+        # Cards in sequence.
+        #rcs = tuning.rc_list()
+        # All cards at once.
+        rcs = ['s']
 
     # deafult parameters
     if ramp_sa_bias == None:
@@ -363,8 +366,11 @@ IDL auto_setup_squids."""
     # Short 0: do everything.
     # Short 1: skip SA ramp and SQ2 servo
     for c in rcs:
-        print "Processing rc%i" % c
-        rc_indices = 8 * (c - 1) + arange(8)
+        print "Processing rc%s" % str(c)
+        if c == 's':
+            rc_indices = array(tuning.column_list())
+        else:
+            rc_indices = 8 * (int(c) - 1) + arange(8)
         if short <= 0:
             sa_dict = do_sa_ramp(tuning, c, rc_indices, tune_data)
             s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data)

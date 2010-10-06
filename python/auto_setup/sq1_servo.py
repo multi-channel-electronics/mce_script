@@ -39,9 +39,6 @@ def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
 def acquire(tuning, rc, filename=None, fb=None,
             gain=None, super_servo=False, old_servo=False):
 
-    # Convert to 0-based rc indices.
-    rci = rc - 1
-
     # File defaults
     if filename == None:
         filename, acq_id = tuning.filename(rc=rc, action='sq1servo')
@@ -58,8 +55,11 @@ def acquire(tuning, rc, filename=None, fb=None,
             for k in ['start','count','step']:
                 fb[k] = tuning.get_exp_param('sq1_servo_flux_%s'%k)
         if gain == None:
+            if rc == 's':
+                rci = 0
+            else:
+                rci = int(rc) - 1
             gain = tuning.get_exp_param('sq1_servo_gain')[rci*8]
-    
     
         if super_servo:
             cmd = [tuning.bin_path+'sq1servo_all', '-p', 50]

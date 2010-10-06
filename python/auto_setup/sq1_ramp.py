@@ -25,9 +25,6 @@ def go(tuning, rc, filename=None, slope=None, flags=None):
             }
 
 def acquire(tuning, rc, filename=None, check=False):
-    # Convert to 0-based rc indices.
-    rci = rc - 1
-
     # File defaults
     if filename == None:
         action = 'sq1ramp'
@@ -253,7 +250,7 @@ class SQ1Ramp(util.RCData):
             for i, (yy, t) in enumerate(zip(y, targets)):
                 rg = (len(yy)/4, len(yy))
                 o, d, s = lock_stats(yy, target=t, slope_points=scale/2, slope=sgn,
-                                     range=rg, flag=(i==509))
+                                     range=rg)
                 ok[i], idx[i], sl[i] = o, d, s
             idx[idx<abs_lims[0]] = abs_lims[0]
             idx[idx>abs_lims[1]] = abs_lims[1]

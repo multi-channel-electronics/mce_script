@@ -38,9 +38,6 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
             }
 
 def acquire(tuning, rc, filename=None, do_bias=None):
-    # Convert to 0-based rc indices.
-    rci = rc - 1
-
     # File defaults
     if filename == None:
         filename, acq_id = tuning.filename(rc=rc, action='ssa')
@@ -133,7 +130,7 @@ class SARamp(util.RCData):
         # Record the rows and columns, roughly
         rf = self.mcefile.runfile
         rcs = rf.Item('FRAMEACQ', 'RC', type='int')
-        self.cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
+        self.cols = array([i+(rc-1)*8 for rc in rcs for i in range(8)]).ravel()
         self.rows = array([i for i in arange(self.data_shape[0])])
 
         # Might easily include a bias ramp.
