@@ -33,5 +33,5 @@ echo "Converting to ascii"
 mce_bin2asc.py `ls *raw* |grep -v ".run"`
 cd ..
 echo "SCPing"
-scp -r $a gpd@hyper.phas.ubc.ca:~scuba2/public_html/sc2mce/system/psu/test_res/switching_noise/testing_data/UBC/$b/
+scp -q -r $a gpd@hyper.phas.ubc.ca:~scuba2/public_html/sc2mce/system/psu/test_res/switching_noise/testing_data/UBC/$b/
 echo "Done"
