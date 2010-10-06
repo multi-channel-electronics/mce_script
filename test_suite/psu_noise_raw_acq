@@ -5,25 +5,32 @@ cd $MAS_DATA
 mce_reconfig
 mce_zero_bias
 mce_cmd -qx wb ac enbl_mux 0 
+mce_cmd -x wb cc data_rate 6
 rcnum=$1
 chnum=$2
+filesnum=$3
 if [ "x$chnum" = "x" ] || [ $chnum -lt 0 ] || [ $chnum -gt 7 ]; then
 	chnum=0
 fi 
 if [ "x$rcnum" = "x" ] || [ $rcnum -lt 1 ] || [ $rcnum -gt 4 ]; then
 	rcnum=1
-fi 
+fi
+if [ "x$filesnum" = "x" ] || [ $filesnum -lt 0 ] || [ $filesnum -gt 1000 ]; then
+	echo "setting filesnum to 10"
+	filesnum=10
+fi
 a=`date +%H%M`
 b=`date +%Y%m%d`
-echo "rc = $rcnum, ch = $chnum, dest = $a"
+echo "rc = $rcnum, ch = $chnum, files = $filesnum, dest = $a"
 mkdir $a
-for i in `seq 1 10 `; do
-    mce_raw_acq_1col $rcnum $chnum "" "" $a ""
-    sleep 1
+for i in `seq 1 $filesnum `; do
+    ns=`date +%N`
+    mce_raw_acq_1col $rcnum $chnum "" $ns $a ""
+    #sleep 1
 done
 cd $a
 echo "Converting to ascii"
-mce_bin2asc.py `ls *raw`
+mce_bin2asc.py `ls *raw* |grep -v ".run"`
 cd ..
 echo "SCPing"
 scp -r $a gpd@hyper.phas.ubc.ca:~scuba2/public_html/sc2mce/system/psu/test_res/switching_noise/testing_data/UBC/$b/
