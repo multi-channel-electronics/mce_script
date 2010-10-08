@@ -82,6 +82,7 @@ n_frames=$(( ($n_samples + $num_cols_rep*$num_rows_rep - 1) / \
     ($num_rows_rep * $num_cols_rep) ))
 
 [ "$n_frames" == 0 ] && echo "Error: frame count is $n_frames" && exit 1
+[ $do_runfile -eq 1 -a -e $runfilename ] && echo "Error: $runfilename already exists" && exit 1
 
 # Select column and data mode, then delay
 mce_cmd -q \
@@ -90,7 +91,7 @@ mce_cmd -q \
     -X "sleep 100000"
 
 if [ "$do_runfile" == "1" ]; then
-    mce_status >> $runfilename
+    mce_status > $runfilename
     frameacq_stamp $rc $filename $n_frames >> $runfilename
 fi
 
