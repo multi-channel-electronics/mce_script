@@ -32,6 +32,6 @@ install:
 					name=`basename $$x`; \
 					( cd ${MAS_ROOT}/$$d && ln -sf $$target $$name ); \
 				done; \
-			fi\
+			fi; \
 		done; \
 	fi
