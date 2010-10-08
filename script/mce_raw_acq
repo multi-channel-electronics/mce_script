@@ -33,6 +33,7 @@ if [ "$5" == "no_runfile" ]; then
     do_runfile=0
 else
     do_runfile=1
+    [ -e $runfilename ] && echo "Error: $runfilename already exists" && exit 1
 fi
 
 rc_cmd=$rc
