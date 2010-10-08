@@ -66,6 +66,10 @@ slot_id = m.read(card,'slot_id')
 card_type = m.read(card, 'card_type')
 fpga_temp = m.read(card, 'fpga_temp')
 card_temp = m.read(card, 'card_temp')
+if card_type[0] / 256 > 0: 
+  card_rev = chr(card_type[0]/256 + 64)
+else:
+  card_rev = 0
 
 if card == "cc":
   print "****** Check to make sure the green LED on cc switched status and is working! ******"
@@ -89,7 +93,8 @@ print "Serial Number    : ", card_snum
 print "Firmware Revision: ", hex(fw_rev[0])
 print "card_id          : ", hex(card_id[0]) 
 print "slot_id          : ", slot_id
-print "card_type        : ", card_type
+print "Card Type        : ", card_type[0]%256
+print "Card Reevision   : ", card_rev
 print "fpga_temp        : ", fpga_temp[0], "C", ftemp_status
 print "card_temp        : ", card_temp[0], "C", ctemp_status
 print "results are in   : ", result_file
