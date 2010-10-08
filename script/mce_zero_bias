@@ -2,7 +2,7 @@
 
 source $MAS_SCRIPT/mas_library.bash
 
-expt=$MAS_DATA/experiment.cfg
+expt=$($MAS_CONFIG --experiment-file)
 
 # This first command prints the bias levels and also checks that MCE
 # is responding

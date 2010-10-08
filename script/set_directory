@@ -5,10 +5,10 @@ if [ "$MAS_ROOT" == "" ]; then
     exit 1
 fi
 
-# data_root is the first argument to this function, or "/data/cryo" if
+# data_root is the first argument to this function, or "${MAS_DATA_ROOT}" if
 # no arguments are given.
 
-data_root=${1:-"/data/cryo"}
+data_root=${1:-"${MAS_DATA_ROOT}"}
 
 # All our new files should be group rw
 umask 002
@@ -49,11 +49,11 @@ fi
 case "$array_id" in
     default)
         exp_cfg=experiment.cfg
-	arr_cfg=array.cfg
+        arr_cfg=array.cfg
 	;;
     *)
         exp_cfg=experiment_${array_id}.cfg
-	arr_cfg=array_${array_id}.cfg
+        arr_cfg=array_${array_id}.cfg
 esac
 
 # Populate the new data folder.

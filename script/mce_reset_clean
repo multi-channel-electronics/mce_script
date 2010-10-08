@@ -16,7 +16,7 @@ function check_card_life {
     return 0
 }	
 
-expt=$MAS_DATA/experiment.cfg
+expt=$($MAS_CONFIG --experiment-file)
 rc_flags=( `mas_param -s $expt get hardware_rc` )
 bac_flag=`mas_param -s $expt get hardware_bac`
 if [ "$?" != "0" ]; then

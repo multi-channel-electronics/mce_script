@@ -147,7 +147,7 @@ end_bias=0	#4000
 
 data_pause_us=10    # 100000, normally, step period in microseconds 
 ct=`print_ctime`
-dt=`cat /data/cryo/current_data_name`
+dt=`cat ${MAS_DATA_ROOT}/current_data_name`
 
 data_root=$1
 datafile=$MAS_DATA/$data_root
@@ -157,21 +157,21 @@ runfile=$datafile.run
 biasfile=$datafile.bias
 logfile=$datafile.log
 
-echo "Driving detectors normal before I-V curve acquisition using ramp_tes_bias script." #>> /data/cryo/script_log.txt #
-bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> /data/cryo/script_log.txt #
+echo "Driving detectors normal before I-V curve acquisition using ramp_tes_bias script." #>> ${MAS_DATA_ROOT}/script_log.txt #
+bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> ${MAS_DATA_ROOT}/script_log.txt #
 sleep $normal_time
 
 bias_tess 0
 sleep $normal_time
-bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> /data/cryo/script_log.txt #
+bias_tess $bias_normal1 $bias_normal2 $bias_normal3  #>> ${MAS_DATA_ROOT}/script_log.txt #
 sleep $normal_time
 
-echo "waiting $initial_wait sec for temperature to stabilize" #>> /data/cryo/script_log.txt #
+echo "waiting $initial_wait sec for temperature to stabilize" #>> ${MAS_DATA_ROOT}/script_log.txt #
 bias_tess $start_bias
-echo "Will wait $data_pause_us usec between each data point." #>> /data/cryo/script_log.txt #
+echo "Will wait $data_pause_us usec between each data point." #>> ${MAS_DATA_ROOT}/script_log.txt #
 sleep $initial_wait
 
-cat /data/cryo/last_squid_tune >> $runfile
+cat ${MAS_DATA_ROOT}/last_squid_tune >> $runfile
 #Generate .run file
 mce_status >> $runfile
 
@@ -191,12 +191,12 @@ fi
 [ -e $biasfile ] && rm $biasfile
 
 echo "<tes_bias>" >> $biasfile
-echo "Acquiring I-V curve into data file $datafile" #>> /data/cryo/script_log.txt #
+echo "Acquiring I-V curve into data file $datafile" #>> ${MAS_DATA_ROOT}/script_log.txt #
 
-#touch /data/cryo/${dt}/$datafile
-#ln /data/cryo/${dt}/$datafile /data/mce_ctimes/$datafile
-#ln /data/cryo/${dt}/$runfile /data/mce_ctimes/$runfile
-#ln /data/cryo/${dt}/$biasfile /data/mce_ctimes/$biasfile
+#touch ${MAS_DATA_ROOT}/${dt}/$datafile
+#ln ${MAS_DATA_ROOT}/${dt}/$datafile /data/mce_ctimes/$datafile
+#ln ${MAS_DATA_ROOT}/${dt}/$runfile /data/mce_ctimes/$runfile
+#ln ${MAS_DATA_ROOT}/${dt}/$biasfile /data/mce_ctimes/$biasfile
 
 #echo "executing ramp"
 for i in `seq 0 $(( $total_bias - 1 ))`; do
@@ -215,7 +215,7 @@ for i in `seq 0 $(( $total_bias - 1 ))`; do
     fi
 done
 
-my_data=/data/cryo
+my_data=${MAS_DATA_ROOT}
 
 echo "Completed I-V acquisition!"
 echo "Driving detectors normal, then setting detector bias to $end_bias"

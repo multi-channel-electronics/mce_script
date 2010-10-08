@@ -78,8 +78,8 @@ fi
 
 # Write cc user_word based on array_id - this shows up in frame data
 user_word=0
-if [ -e "/data/cryo/array_id" ]; then
-    array_id=`cat /data/cryo/array_id`
+if [ -e "${MAS_DATA_ROOT}/array_id" ]; then
+    array_id=`cat ${MAS_DATA_ROOT}/array_id`
     user_word=`awk "($$1 == \"$array_id\") {print $$2}" $MAS_TEMPLATE/array_list`
     [ "$user_word" == "" ] && user_word=0
 fi

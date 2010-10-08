@@ -26,7 +26,7 @@ n_frames=$1
 note="$2"
 
 # Loop over all bias lines in the system
-n_bias=`mas_param -s $MAS_DATA/experiment.cfg get bias_line_card | wc -w`
+n_bias=`mas_param -s $($MAS_CONFIG -experiment-file) get bias_line_card | wc -w`
 for bias in `seq 1 $n_bias`; do
     ACQ="bias_step_acq $bias s $n_frames"
     ACQ_TARGET=0

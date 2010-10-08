@@ -46,7 +46,7 @@ if [ $# -gt 2 ]; then
 fi
 
 # TES bias ramp parameters (misleading called 'feedback')
-expt=$MAS_DATA/experiment.cfg
+expt=$($MAS_CONFIG --experiment-file)
 feedback_start=`mas_param -s $expt get sq1_ramp_tes_bias_start`
 feedback_step=`mas_param -s $expt get sq1_ramp_tes_bias_step`
 feedback_count=`mas_param -s $expt get sq1_ramp_tes_bias_count`

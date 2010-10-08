@@ -6,7 +6,7 @@ source $MAS_SCRIPT/mas_library.bash
 
 echo "Setting SA and SQ2 biases to default values to pre-warm the SA board."
 
-expt=$MAS_DATA/experiment.cfg
+expt=$($MAS_CONFIG --experiment-file)
 sa_bias=`mas_param -s $expt get default_sa_bias`
 s2_bias=`mas_param -s $expt get default_sq2_bias`
 

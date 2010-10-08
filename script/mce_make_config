@@ -7,7 +7,7 @@
 
 # First argument can override the experiment config file.
 
-expt="${MAS_DATA}/experiment.cfg"
+expt=$($MAS_CONFIG --experiment-file)
 
 if [ "$1" != "" ]; then
     expt="$1"
@@ -18,7 +18,7 @@ fi
 if [ "$2" != "" ]; then
     outfile="$2"
 else
-    today=`cat /data/cryo/current_data_name`
+    today=`cat ${MAS_DATA_ROOT}/current_data_name`
     outfile=$MAS_DATA/config_mce_auto_setup_${today}
     if [ -e "$outfile" ]; then
 	rm $outfile

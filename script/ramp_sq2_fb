@@ -39,7 +39,7 @@ tempfile=$MAS_TEMP/`whoami`_ramp_sq2_fb.temp
 runfile=$datafile.run
 
 # SQ1 feedback ramp parameters
-#expt=$MAS_DATA/experiment.cfg
+#expt=$($MAS_CONFIG --experiment-file)
 #feedback_start=`mas_param -s $expt get sq1_ramp_flux_start`
 #feedback_step=`mas_param -s $expt get sq1_ramp_flux_step`
 #feedback_count=`mas_param -s $expt get sq1_ramp_flux_count`

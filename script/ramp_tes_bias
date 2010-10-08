@@ -30,7 +30,7 @@ if [ "$#" -lt "2" ]; then
 fi
 
 # Set default bias step and normalizing parameters
-expt_file=$MAS_DATA/experiment.cfg
+expt_file=$($MAS_CONFIG --experiment-file)
 total_bias=`mas_param -s $expt_file get ramp_tes_count`
 bias_step=`mas_param -s $expt_file get ramp_tes_step`
 start_bias=`mas_param -s $expt_file get ramp_tes_start`
@@ -56,7 +56,7 @@ if [ "$#" -gt "7" ]; then
 fi
 
 ct=`print_ctime`
-dt=`cat /data/cryo/current_data_name`
+dt=`cat ${MAS_DATA_ROOT}/current_data_name`
 
 data_root=$1
 n=$2
@@ -139,7 +139,7 @@ done >> $script
 
 mce_cmd -qf $script
 
-my_data=/data/cryo
+my_data=${MAS_DATA_ROOT}
 
 echo "Completed I-V acquisition!"
 

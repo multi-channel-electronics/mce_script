@@ -24,9 +24,9 @@
 # note      under-used.  Passing "no_db" here suppresses db registration...
 #
 
-ARRAY_ID=`cat /data/cryo/array_id`
-LAST_TUNE=/data/cryo/last_squid_tune
-LAST_IV=/data/cryo/last_iv_det_data
+ARRAY_ID=`cat ${MAS_DATA_ROOT}/array_id`
+LAST_TUNE=${MAS_DATA_ROOT}/last_squid_tune
+LAST_IV=${MAS_DATA_ROOT}/last_iv_det_data
 CTIMES=/data/mce_ctimes
 
 # The record script must exist or it is not called...

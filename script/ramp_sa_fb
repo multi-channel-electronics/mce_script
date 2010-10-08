@@ -65,7 +65,7 @@ script_name=$0
 
 # Load parameters
 
-expcfg="$MAS_DATA/experiment.cfg"
+expcfg="$($MAS_CONFIG --experiment-file)"
 
 # The cable offset to SA bias ratio
 cable_offset_sa_bias_ratio=`mas_param -s $expcfg get sa_offset_bias_ratio`

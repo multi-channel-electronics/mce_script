@@ -27,7 +27,7 @@ fi
 data_filename="$2"
 data_framecount="$3"
 
-array_id=`cat /data/cryo/array_id`
+array_id=`cat ${MAS_DATA_ROOT}/array_id`
 mas_version=`mce_cmd -v`
 
 ctime=`date +%s`

@@ -41,8 +41,8 @@ fi
 # The card and parameter to step can, in principal be extracted from
 # mce_status -g output.  For now, we get them from experiment.cfg.  Card id's
 # will be 7,8,9 for bc1,2,3.  "bias" param is 33.
-card_list=( `mas_param -s $MAS_DATA/experiment.cfg get bias_line_card` )
-para_list=( `mas_param -s $MAS_DATA/experiment.cfg get bias_line_para` )
+card_list=( `mas_param -s $($MAS_CONFIG --experiment-file) get bias_line_card` )
+para_list=( `mas_param -s $($MAS_CONFIG --experiment-file) get bias_line_para` )
 bias_card=${card_list[$line]}
 bias_para=${para_list[$line]}
 
