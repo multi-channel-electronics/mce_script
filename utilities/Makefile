@@ -6,6 +6,8 @@ TARGETS= eat_packets runfile_scan extract_frames catch_rampers ascii_frame
 
 DEPS = mce_header.h
 
+MAS_CONFIG ?= /usr/mce/bin/mas_config
+MAS_BIN ?= $(shell $(MAS_CONFIG) --bin-dir)
 INSTALL_DIR=${MAS_BIN}
 
 all: $(TARGETS)
