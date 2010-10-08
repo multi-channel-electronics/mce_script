@@ -27,7 +27,7 @@ runfile_scan: scan.c runfile.o runfile.h
 runfile.o: runfile.c runfile.h
 
 tidy:
-	-rm *~ *.o
+	rm -f *~ *.o
 
 clean: tidy
-	-rm $(TARGETS)
+	rm -f $(TARGETS)

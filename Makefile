@@ -5,7 +5,7 @@ SUBDIRS=utilities
 # by the install rule below
 SUBDIRS_INSTALL=python script template test_suite
 
-all:
+all clean:
 	for d in $(SUBDIRS); do ( cd $$d && make $@ ); done
 
 install:
