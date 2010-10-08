@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ${MAS_SCRIPT}mas_library.bash
+source ${MAS_SCRIPT}/mas_library.bash
 
 function check_card_life {
     results=`mce_cmd -qpx rb $1 num_rows`

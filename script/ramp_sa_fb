@@ -39,7 +39,7 @@ function runfile_loop_structure {
 # START OF MAIN ROUTINE
 #
 
-source ${MAS_SCRIPT}mas_library.bash
+source ${MAS_SCRIPT}/mas_library.bash
 
 if [ $# -lt 3 ]; then 
   echo "----------------" >&2
