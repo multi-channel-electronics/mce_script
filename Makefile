@@ -9,18 +9,21 @@ all:
 	for d in $(SUBDIRS); do ( cd $$d && make $@ ); done
 
 install:
-	if test -z "${MAS_ROOT}"; then \
+	@if test -z "${MAS_ROOT}"; then \
 		echo "Set MAS_ROOT before running make install"; false; \
 	else \
 		install -d ${MAS_ROOT}; \
 		for d in $(SUBDIRS); do ( cd $$d && make $@ ); done; \
 		dirlist=`find $(SUBDIRS_INSTALL) -name .svn -prune -printf '' -o \
 						\( -type d -print \)`; \
+		grep -v '^#' dne > ${MAS_ROOT}/DO.NOT.EDIT; \
 		for d in $$dirlist; do \
+			echo "Installing $$d -> ${MAS_ROOT}/$$d"; \
 			install -d ${MAS_ROOT}/$$d; \
+			grep -v '^#' dne > ${MAS_ROOT}/$$d/DO.NOT.EDIT; \
 			filelist=`find $$d -maxdepth 1 -type f`; \
 			if test ! -z "$$filelist"; then \
-				install $$filelist ${MAS_ROOT}/$$d; \
+				cp $$filelist ${MAS_ROOT}/$$d; \
 			fi; \
 			linklist=`find $$d -maxdepth 1 -type l`; \
 			if test ! -z "$$linklist"; then \
