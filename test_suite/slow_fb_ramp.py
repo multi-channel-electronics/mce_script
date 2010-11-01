@@ -37,7 +37,7 @@ class super_mce(mce):
         else:
             self.write('rca', 'data_mode', [mode])
 
-    def init_flx(self):
+    def init_flux(self):
         self.write('rca', 'flx_lp_init', [1])
 
     def flux_quanta(self, n):
@@ -47,6 +47,23 @@ class super_mce(mce):
         if mode == None:
             return self.read('rca', 'en_fb_jump')[0]
         self.write('rca', 'en_fb_jump', [mode])
+
+    def dt(self):
+        nr, dr, rl = [self.read('cc', k)[0] for k in 
+                      ['num_rows', 'data_rate', 'row_len']]
+        return 50.e6 / nr / dr / rl
+
+def spectrum(data, dt=1., rebin=False):
+    """
+    Returns frequency and transform vectors.
+    """
+    y = abs(fft(data, axis=-1))
+    f = 1./dt * arange(y.shape[-1]) / y.shape[-1]
+    if rebin:
+        from utils.logbin import logbin
+        return logbin(f, y)
+    return f, y
+
 
 if __name__ == '__main__':
     # Get MCE
@@ -84,7 +101,7 @@ if __name__ == '__main__':
     m.data_mode(1)
     m.servo_mode(3)
 
-    m.init_flx()
+    m.init_flux()
     d3 = m.read_row(100) / 4096
     chan = d3[:,8]
     print chan
