@@ -91,7 +91,8 @@ echo "wb cc user_word $user_word" >> $mce_script
 #----------------------------------------------
 for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
-    
+    [ "${hardware_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+
     ch_ofs=$(( ($rc-1)*8 ))
 #    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
@@ -147,6 +148,11 @@ for rc in 1 2 3 4; do
 	    repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script
 	fi
     done
+
+    # Readout filter
+    if [ "$config_filter" == "1" ]; then
+	echo "wb rca fltr_coeff ${filter_params[@]}" >> $mce_script
+    fi
 
     echo "wb rc$rc en_fb_jump $flux_jumping" >> $mce_script
 
