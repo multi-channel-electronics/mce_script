@@ -30,3 +30,16 @@ def logbin(f, y, bins=400):
     new_y = sqrt(new_y[nf!=0]/nf[nf!=0])
     return new_f, new_y
 
+
+def spectrum(data, dt=1., rebin=False, axis=0):
+    """
+    Returns frequency and transform vectors.
+    """
+    nt = data.shape[axis]
+    y = abs(fft.fft(data, axis=axis))
+    f = 1./dt * arange(nt)/nt
+    if rebin:
+        if y.ndim > 1:
+            raise ValueError, 'Can only rebin 1d transforms.'
+        return logbin(f[:nt/2], y[:nt/2])
+    return f, y

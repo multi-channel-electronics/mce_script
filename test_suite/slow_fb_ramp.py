@@ -51,19 +51,7 @@ class super_mce(mce):
     def dt(self):
         nr, dr, rl = [self.read('cc', k)[0] for k in 
                       ['num_rows', 'data_rate', 'row_len']]
-        return 50.e6 / nr / dr / rl
-
-def spectrum(data, dt=1., rebin=False):
-    """
-    Returns frequency and transform vectors.
-    """
-    y = abs(fft(data, axis=-1))
-    f = 1./dt * arange(y.shape[-1]) / y.shape[-1]
-    if rebin:
-        from utils.logbin import logbin
-        return logbin(f, y)
-    return f, y
-
+        return float(nr * dr * rl) / 5e7
 
 if __name__ == '__main__':
     # Get MCE
