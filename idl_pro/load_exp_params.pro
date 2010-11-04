@@ -87,6 +87,7 @@ pro save_exp_params,m,filename
     spawn,'mas_param -s '+filename+' set iv_data_mode '+str_flat(m.iv_data_mode)
     spawn,'mas_param -s '+filename+' set bias_line_card '+str_flat(m.bias_line_card)
     spawn,'mas_param -s '+filename+' set bias_line_para '+str_flat(m.bias_line_para)
+    spawn,'mas_param -s '+filename+' set tune_id "'+str_flat(m.tune_id)+'"'
     spawn,'mas_param -s '+filename+' set config_rc '+str_flat(m.config_rc)
     spawn,'mas_param -s '+filename+' set config_sync '+str_flat(m.config_sync)
     spawn,'mas_param -s '+filename+' set config_fast_sq2 '+str_flat(m.config_fast_sq2)
@@ -206,6 +207,7 @@ pro load_exp_params,filename,m
         'iv_data_mode',mas_param_int(filename,'iv_data_mode'),  $
         'bias_line_card',mas_param_int(filename,'bias_line_card'),  $
         'bias_line_para',mas_param_int(filename,'bias_line_para'),  $
+        'tune_id',mas_param_string(filename,'tune_id'),  $
         'config_rc',mas_param_int(filename,'config_rc'),  $
         'config_sync',mas_param_int(filename,'config_sync'),  $
         'config_fast_sq2',mas_param_int(filename,'config_fast_sq2'),  $

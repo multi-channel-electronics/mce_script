@@ -55,14 +55,19 @@ if not keyword_set(gain) then gain = 1./100
 
 if not keyword_set(use_bias_file) then begin
 
-    ; Servo arguments, ahhhhhhh.
-    servo_args = '-E1 -p 50 ' + string(rc) + ' ' + file_name_sq1_servo
+    ; Servo arguments, sheesh
+    servo_args = $
+      file_name_sq1_servo + ' ' + $
+      string(sq1bias)+' 0 1 '+ $ ;
+      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' '+ $
+      string(rc)+' '+string(target)+' '+string(numrows)+' '+string(gain)+' 1 '
     
     ; Choose servo program based on super_servo switch
     if keyword_set(super_servo) then $
        servo_cmd = 'sq1servo_all' $
     else begin
        servo_cmd = 'sq1servo'
+       servo_args = '-p 50 ' + servo_args
     endelse
 
     ; Go go go
@@ -175,32 +180,62 @@ for chan=0,7 do begin
 		if this_slope lt 0 then begin
                 	min_point=min(sq1_v_phi(start:nfb-1,chan),ind_min)
 			ind_min=start+ind_min
-	                ind_pos_der=where(deriv_fb1(0:ind_min-margin,chan) gt 0)
-	                if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
-	                ind_max=max(ind_pos_der)
+			;JAB 20100824 changes to more robustly select sq2_fb_set
+			;points when the SQ1s are underbiased and have flat regions.
+			;haven't tested this part yet...
+		        ;
+	                ;ind_pos_der=where(deriv_fb1(0:ind_min-margin,chan) gt 0)
+	                ;if n_elements(ind_pos_der) eq 1 then ind_pos_der=1
+	                ;ind_max=max(ind_pos_der)
+	                ind_neg_der=where(deriv_fb1(0:ind_min-margin,chan) lt 10)
+	                if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
+	                ;starting from ind_min move up v-phi curve and find last continuous ind_neg_der
+	                ind_max=ind_neg_der(max(where(deriv(ind_neg_der) gt 1)))
                 endif else begin
                         max_point=max(sq1_v_phi(start:nfb-1,chan),ind_max)
                         ind_max=start+ind_max
+                        ;JAB 20100824 changes to more robustly select sq2_fb_set
+                        ;points when the SQ1s are underbiased and have flat region
+                        ;tested this part...
+                        if (n_elements(ind_pos_der) lt 4) || (n_elements(where(deriv(ind_pos_der) gt 1)) lt 2) then begin
                         ind_neg_der=where(deriv_fb1(0:ind_max-margin,chan) lt 0)
                         if n_elements(ind_neg_der) eq 1 then ind_neg_der=1
                         ind_min=max(ind_neg_der)
+                        endif else begin
+                          ;starting from ind_max move down v-phi curve and find last continuous ind_pos_der
+                          list=where(deriv(ind_pos_der) gt 1)
+                          ind_min=ind_pos_der(max(list))
+                        endelse
                 endelse
+
+                ;; OLD CODE BLOCK FOR SQ2FBSET SELECTION
+                ;; UPDATED JAB 20100906
+                ;; COMMENTED OUT FROM HERE...
 
 		;remove comment here
 		;ind_half_point=round((ind_min+ind_max)/2)
 		
-;		;comment from here
-		midpoint=round((sq1_v_phi(ind_min,chan)+sq1_v_phi(ind_max,chan))/2.)
-		vphi=sq1_v_phi(min([ind_min,ind_max]):max([ind_min,ind_max]),chan)
-		ind_half_point=where(abs(vphi-midpoint) eq min(abs(vphi-midpoint)))
-		ind_half_point=min([ind_min,ind_max])+ind_half_point
+		;comment from here
+		;midpoint=round((sq1_v_phi(ind_min,chan)+sq1_v_phi(ind_max,chan))/2.)
+		;vphi=sq1_v_phi(min([ind_min,ind_max]):max([ind_min,ind_max]),chan)
+		;ind_half_point=where(abs(vphi-midpoint) eq min(abs(vphi-midpoint)))
+		;ind_half_point=min([ind_min,ind_max])+ind_half_point
 		;print,ind_half_point
-		ind_half_point=ind_half_point(0)
-;		;to here
+		;ind_half_point=ind_half_point(0)
+		;to here
 ;stop
 
-		target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
-		fb_half_point_ch_by_ch(chan)=round(1000.*input_sweep(ind_half_point))
+		;target_half_point_ch_by_ch(chan)=round(fb1(ind_half_point,chan))
+		;fb_half_point_ch_by_ch(chan)=round(1000.*input_sweep(ind_half_point))
+
+                ;; TO HERE.
+                
+                ;; JAB 20100906, NEW METHOD... INTERPOLATE INSTEAD OF DISCRETELY CHOOSING SQ1_TARGET & SQ1_FEEDBACK
+                midpoint=round((sq1_v_phi(ind_min,chan)+sq1_v_phi(ind_max,chan))/2.)
+                target_half_point_ch_by_ch(chan)=midpoint
+                vphi=sq1_v_phi(min([ind_min,ind_max]):max([ind_min,ind_max]),chan)
+                sweep=1000.*input_sweep(min([ind_min,ind_max]):max([ind_min,ind_max]))
+                fb_half_point_ch_by_ch(chan)=round(interpol(sweep,vphi,midpoint))
 
                 print,format='(i4, i10, i21, i12)',chan, lock_rows(chan+(rc-1)*8), $
                   target_half_point_ch_by_ch(chan), fb_half_point_ch_by_ch(chan)
@@ -245,5 +280,6 @@ if keyword_set(poster) then begin
    f = strsplit(plot_file,'/',/extract)
    auto_post_plot,poster,filename=f[n_elements(f)-1]
 endif
+
 
 end 

@@ -58,8 +58,20 @@ endif
 
 ;Run the servo program
 user_status = auto_setup_userword(rc)
-spawn_str = 'sq2servo -E1 -p 20 '+string(rc)+' '+file_name_sq2_servo + $
+if keyword_set(bias_count) then begin
+    ; Ramp the SQ2 bias as well as the SQ2 FB
+    spawn_str = 'sq2servo '+file_name_sq2_servo+' '+ $
+      string(bias_start)+' '+string(bias_step)+' '+string(bias_count)+' '+ $
+      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+      string(rc)+' '+string(target)+' '+string(gain)+' 0'+ $
             ' >> /data/cryo/current_data/'+logfile
+endif else begin
+    ; Ramp the SQ2 FB without changing the SQ2 biases.
+    spawn_str = 'sq2servo '+file_name_sq2_servo+' '+string(sq2bias)+' 0 1 ' + $
+      string(ramp_start)+' '+string(ramp_step)+' '+string(ramp_count)+' ' + $
+      string(rc)+' '+string(target)+' '+string(gain)+' 1'+ $
+      ' >> /data/cryo/current_data/'+logfile
+endelse
 spawn,spawn_str,exit_status=status7
 
 if status7 ne 0 then begin

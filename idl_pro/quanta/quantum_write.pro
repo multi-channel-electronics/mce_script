@@ -1,4 +1,4 @@
-pro quantum_write,quanta,outfile,expected=expected
+pro quantum_write,d,outfile,expected=expected
 
   openw,lun,/get_lun,outfile
  

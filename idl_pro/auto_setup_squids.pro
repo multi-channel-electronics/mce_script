@@ -435,7 +435,7 @@ for jj=0,n_elements(RCs)-1 do begin
               bias_start=exp_config.sq2_servo_bias_start[0], $
               bias_count=exp_config.sq2_servo_bias_count[0], $
               bias_step=exp_config.sq2_servo_bias_step[0], $
-              /lockamp,acq_id=acq_id,poster=poster,/no_analysis
+              acq_id=acq_id,poster=poster,/no_analysis
 
             print,'Exiting after sq2servo with bias ramp!'
             exit,status=98
@@ -447,7 +447,7 @@ for jj=0,n_elements(RCs)-1 do begin
               ramp_start=exp_config.sq2_servo_flux_start[0], $
               ramp_count=exp_config.sq2_servo_flux_count[0], $
               ramp_step=exp_config.sq2_servo_flux_step[0], $
-              /lockamp,acq_id=acq_id,poster=poster,quiet=quiet
+              acq_id=acq_id,poster=poster,quiet=quiet
 
         endelse
 
@@ -468,13 +468,6 @@ for jj=0,n_elements(RCs)-1 do begin
 		endif
 	endif
 	
-        ; Correct set points for flux quantum
-        for j=0,n_elements(RC_indices)-1 do begin
-           q = exp_config.sa_flux_quanta[RC_indices[j]]
-           if q ne 0 then $
-              sq2_target[j] = (sq2_target[j] mod q + q) mod q
-        endfor
-
         exp_config.sa_fb(RC_indices) = sq2_target
         exp_config.sq1_bias = sq1_bias
         exp_config.sq1_bias_off = sq1_bias_off
@@ -688,14 +681,6 @@ for jj=0,n_elements(RCs)-1 do begin
 			endif
 		endif
             endfor	
-
-            ; Correct set points for flux quantum
-            for j=0,n_elements(RC_indices)-1 do begin
-               q = exp_config.sq2_flux_quanta[RC_indices[j]]
-               if q ne 0 then $
-                  SQ2_feedback_full_array[*,j] = $
-                  (SQ2_feedback_full_array[*,j] mod q + q) mod q
-            endfor
 
             ; Save all sq2fb points
             for j=0,n_elements(RC_indices)-1 do begin
