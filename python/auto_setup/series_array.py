@@ -29,8 +29,9 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
         sa = sa.subselect() # replace with best bias version
 
     lock_points = sa.reduce(tuning=tuning)
-    sa.plot(tuning=tuning)
-
+    plot_out = sa.plot(tuning=tuning)
+    tuning.register_plots(*plot_out['plot_files'])
+    
     # Return dictionary of relevant results
     return {'sa_bias': sa.bias,
             'fb': lock_points['lock_x'],
@@ -297,12 +298,13 @@ class SARamp(util.RCData):
             plot_file = os.path.join(tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
         # Plot plot plot
-        servo.plot(self.fb, self.data, self.data_shape[-3:-1],
-                   self.analysis, plot_file,
-                   shape=(4, 2),
-                   title=self.data_origin['basename'],
-                   titles=['Column %i - SA_bias=%6i' %(c,b) \
-                               for c,b in zip(self.cols, self.bias)],
-                   xlabel='SA FB / 1000',
-                   ylabel='AD Units / 1000')
+        return servo.plot(
+            self.fb, self.data, self.data_shape[-3:-1],
+            self.analysis, plot_file,
+            shape=(4, 2),
+            title=self.data_origin['basename'],
+            titles=['Column %i - SA_bias=%6i' %(c,b) \
+                    for c,b in zip(self.cols, self.bias)],
+            xlabel='SA FB / 1000',
+            ylabel='AD Units / 1000')
 

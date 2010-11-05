@@ -325,7 +325,7 @@ def frametest_check(tuning, rcs, row, column):
 
 def auto_setup(rcs=None, check_bias=False, short=False, row=None,
         column=None, numrows=33, acq_id=0, ramp_sa_bias=None, slope=1,
-        note=None, data_root=None, debug=False):
+        note=None, reg_note=None, data_root=None, debug=False):
     """
 Run a complete auto setup.
 
@@ -333,7 +333,7 @@ This metafunction runs, in turn, each of acquisition, tuning, and reporting
 functions to perform an entire auto setup procedure, exactly like the old
 IDL auto_setup_squids."""
 
-    tuning = util.tuningData(data_root=data_root, debug=debug)
+    tuning = util.tuningData(data_root=data_root, reg_note=reg_note, debug=debug)
     print 'Tuning ctime: %i' % tuning.the_time
 
     # set_directory creates directories and files where to store the tuning data
@@ -341,9 +341,11 @@ IDL auto_setup_squids."""
     if (not short):
         tuning.run(["set_directory", tuning.data_root], no_log=True)
 
-
     # Create data and analysis directories
     tuning.make_dirs()
+
+    # Register plots for offload
+    tuning.register_plots(init=True)
 
     # set rc list, if necessary
     if (rcs == None):

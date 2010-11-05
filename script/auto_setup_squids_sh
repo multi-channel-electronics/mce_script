@@ -40,22 +40,28 @@ export MAS_LOGID="$note"
 
 # Start auto_setup
 
-cd $IDL_PRO
-idl -quiet <<EOF	
+PYTHON_TUNING=( `mas_param get python_tuning` )
+if [ "${PYTHON_TUNING[0]}" == "1" ]; then
+    NOTEARGS=
+    [ "$note" != "" ] && NOTEARGS="--reg-note \"${note}\""
+    auto_setup --shortness $short $NOTEARGS
+    err=$?
+    if [ "$err" != "0" ]; then
+	echo $ERRPREF "'auto_setup' returned error! [$err]" | $LOGGER
+	exit 1
+    fi
+else
+    cd $IDL_PRO
+    idl -quiet <<EOF	
 ${SETUP_IDL}
 EOF
-
-err=$?
-if [ "$err" != "$SETUP_TARGET" ]; then
-    echo $ERRPREF "'$SETUP_IDL' returned error! [$err]" | $LOGGER
-    exit 1
+    err=$?
+    if [ "$err" != "$SETUP_TARGET" ]; then
+	echo $ERRPREF "'$SETUP_IDL' returned error! [$err]" | $LOGGER
+	exit 1
+    fi
 fi
 
-err=$?
-if [ "$err" != "0" ]; then
-   echo $ERRPREF "Archiving to $ZIP_DEST failed [$err]" | $LOGGER
-   exit 1
-fi
 
 delta_ctime=`print_elapsed $ctime`
 echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER

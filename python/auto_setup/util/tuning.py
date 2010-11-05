@@ -6,7 +6,8 @@ class tuningData:
     """
     Generic, static data useful to all methods.
     """
-    def __init__(self, name=None, exp_file=None, data_root=None, debug=False):
+    def __init__(self, name=None, exp_file=None, data_root=None, debug=False,
+                 reg_note=None):
 
         # Binary file locations
         self.bin_path = '/usr/mce/bin/'
@@ -32,6 +33,9 @@ class tuningData:
         self.base_dir = os.path.join(self.data_root, self.current_data)
         self.data_dir = os.path.join(self.base_dir, name)
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
+
+        # Note associated with all acquisitions
+        self.reg_note = reg_note
 
         # Various filenames
         self.log_file = os.path.join(self.data_dir, name+'.log')
@@ -108,7 +112,7 @@ class tuningData:
     def filename(self, rc=None, action=None, ctime=None, absolute=False):
         if ctime == None:
             ctime = time.time()
-        acq_id = str(ctime)
+        acq_id = str(int(ctime))
         s = acq_id
         if rc != None:
             s += '_RC%s' % (str(rc))
@@ -198,10 +202,18 @@ class tuningData:
         return self.run(["mce_cmd", "-q", "-x"] + command.split())
 
     def register(self, ctime, type, filename, numpts, note=None):
-        cmd = ["echo", "acq_register", ctime, type, filename, numpts]
-        if (note):
-            cmd.append(note)
-        else:
-            cmd.append("")
-
+        if note == None:
+            note = self.reg_note
+        if note == None:
+            note = ''
+        cmd = ["acq_register", ctime, type, filename, numpts, note]
         return self.run(cmd)
+
+    def register_plots(self, *args, **kwargs):
+        if kwargs.get('init', False):
+            from plot_reg import plot_registrar
+            self.plot_reg = plot_registrar(self.base_dir+'/analysis', self.name)
+        if self.plot_reg == None:
+            return
+        for a in args:
+            self.plot_reg.add(os.path.split(a)[1])

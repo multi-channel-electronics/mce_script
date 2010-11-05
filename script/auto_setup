@@ -7,6 +7,8 @@ from optparse import OptionParser
 o = OptionParser()
 o.add_option('--rc', action='append', default=[])
 o.add_option('-i', '--interactive', action='store_true')
+o.add_option('-s', '--shortness', default=0, type='int')
+o.add_option('--reg-note', default=None)
 opts, args = o.parse_args()
 
 # Process...
@@ -20,4 +22,4 @@ else:
     opts.rc = [int(x) for x in opts.rc]
 
 # Tune.
-ast.auto_setup(rcs=opts.rc)
+ast.auto_setup(rcs=opts.rc, short=opts.shortness, reg_note=opts.reg_note)

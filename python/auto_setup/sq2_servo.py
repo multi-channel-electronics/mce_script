@@ -18,7 +18,8 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
 
     sq = SQ2Servo(servo_data['filename'], tuning=tuning)
     lock_points = sq.reduce(slope=slope)
-    sq.plot()
+    plot_out = sq.plot()
+    tuning.register_plots(*plot_out['plot_files'])
 
     # Return analysis
     return lock_points
@@ -218,9 +219,10 @@ class SQ2Servo(util.RCData):
                                          (self.data_origin['basename']))
 
         # Plot plot plot
-        servo.plot(self.fb, self.data, self.data_shape[-3:-1], self.analysis,
-                   plot_file,
-                   title=self.data_origin['basename'],
-                   titles=['Column %i' %c for c in self.cols],
-                   xlabel='SQ2 FB / 1000',
-                   ylabel='SA FB / 1000')
+        return servo.plot(
+            self.fb, self.data, self.data_shape[-3:-1], self.analysis,
+            plot_file,
+            title=self.data_origin['basename'],
+            titles=['Column %i' %c for c in self.cols],
+            xlabel='SQ2 FB / 1000',
+            ylabel='SA FB / 1000')

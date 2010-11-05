@@ -32,7 +32,7 @@ CTIMES=/data/mce_ctimes
 # The record script must exist or it is not called...
 # RECORD=/usr/bin/my_db_registration_program
 
-if [ $# -lt 5 ]; then
+if [ $# -lt 4 ]; then
 	echo "Usage:"
 	echo "           $0 ctime type name numpts note"
 	echo
