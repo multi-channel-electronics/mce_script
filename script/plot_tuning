@@ -1,0 +1,66 @@
+#!/usr/bin/python
+
+import os
+import auto_setup as ast
+from optparse import OptionParser
+
+usage = """
+%prog [options] tuning_directory [output_directory]
+
+If output_directory is ommitted, ./ is used.
+"""
+
+o = OptionParser(usage=usage)
+o.add_option('-i','--interactive',action='store_true',default=False)
+opts, args = o.parse_args()
+
+if len(args) > 2 or len(args) <= 0:
+    o.error('Pass 1 or 2 arguments.')
+
+odir = './'
+if len(args) == 2:
+    odir = args[1]
+
+source_dir = args[0]
+basename = source_dir.strip('/').split('/')[-1]
+# Try '/home/data/act/2010/startup/1269227063/'
+
+if opts.interactive:
+    ast.util.interactive_errors()
+
+if not os.path.exists(odir):
+    os.makedirs(odir)
+
+ops = ['sa_ramp', 'sq2_servo', 'sq1_servo', 'sq1_ramp']
+
+# Group files
+tf = ast.util.FileSet(source_dir)
+
+if 'sa_ramp' in ops:
+    # Load SA ramp
+    ss = [ ast.SARamp(x) for x in tf.stage_all('sa_ramp') ]
+    s1 = ast.SARamp.join(ss)
+    s1.reduce1()
+    s2 = s1.subselect()
+    s2.reduce(slope=1.)
+    s2.plot(plot_file='%s/%s_sa_ramp' % (odir, basename))
+
+if 'sq2_servo' in ops:
+    ss = [ ast.SQ2Servo(x) for x in tf.stage_all('sq2_servo') ]
+    s = ast.SQ2Servo.join(ss).split()[0]
+    s.reduce(slope=1.)
+    s.plot(plot_file='%s/%s_sq2_servo' % (odir, basename))
+
+if 'sq1_servo' in ops:
+    ss = [ ast.SQ1Servo(x) for x in tf.stage_all('sq1_servo') ]
+    s = ast.SQ1Servo.join(ss).split()[0]
+    s.reduce(slope=1.)
+    s.plot(plot_file='%s/%s_sq1_servo' % (odir, basename))
+
+if 'sq1_ramp' in ops:
+    # Load SQ1 ramp
+    ss = [ ast.SQ1Ramp(x) for x in tf.stage_all('sq1_ramp') ]
+    s = ast.SQ1Ramp.join(ss)
+    s.reduce()
+    s.plot(plot_file='%s/%s_sq1_ramp' % (odir, basename))
+
