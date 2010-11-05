@@ -2,14 +2,10 @@
 
 create_start=`print_ctime`
 
-# The variable mce_script is the output location
-if [ "$mce_script" == "" ]; then
-	echo "$0 expects \$mce_script to be defined."
-	exit 1
-fi
+mce_script="/tmp/`whoami`_config_mce.scr"
 
 # Remove existing script
-[ -e "$mce_script" ] && rm "$mce_script"
+[ -e "$mce_script" ] && rm -f "$mce_script"
 
 # Choose sync box parameters:
 if [ "$config_sync" != "0" ]; then
