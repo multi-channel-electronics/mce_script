@@ -20,6 +20,162 @@ def _div_up(x, y):
     return (x + y - 1) / y
 
 
+class pageIndexer:
+    """
+    Spread a grid of a certain size over several pages of a smaller size,
+    preserving row and column structure.
+    """
+    def __init__(self, page_shape, world_shape):
+        self.page_shape = page_shape
+        self.world_shape = world_shape
+        self.world_pages = [_div_up(world_shape[0], page_shape[0]),
+                            _div_up(world_shape[1], page_shape[1])]
+        # slowwww
+        self.indices = sorted([(self.index(r, c),(r,c)) \
+                                   for r in range(world_shape[0]) \
+                                   for c in range(world_shape[1])])
+
+    def index(self, r, c):
+        # return page number and page row, col
+        dr, dc = self.page_shape
+        nr, nc = self.world_shape
+        page_r, page_c = (r/dr), (c/dc)
+        page = page_r * self.world_pages[1] + page_c
+        return (page, r%dr, c%dc)
+
+    def __iter__(self):
+        self.index = 0
+        return self
+
+    def next(self):
+        if self.index >= len(self.indices):
+            raise StopIteration
+        self.index += 1
+        return self.indices[self.index-1]
+
+
+class plotPager:
+    """
+    Generic organizer for grouping objects (e.g. plots) onto pages
+    in a systematic way.
+    """
+    props = [
+        ('shape', (4,4)),
+        ('page_shape', (4,4)),
+        ]
+
+    def __init__(self, **kwargs):
+        """
+        page_shape
+        shape
+        """
+        for k, v in self.props:
+            v = kwargs.get(k, v)
+            setattr(self, k, v)
+        self.pi = pageIndexer(self.page_shape, self.shape)
+        self.reset()
+
+    def __del__(self):
+        self.write_page()
+
+    def reset(self):
+        self.canvas = None
+        self.last_page = None
+        self.iter = None
+
+    # Iterator returns world row, column and a plot object
+    def __iter__(self):
+        self.iter = self.pi.__iter__()
+        self.last_page = None
+        self.canvas = None
+        return self
+
+    def next(self):
+        (p, pr, pc), (r, c) = self.iter.next()
+        if p != self.last_page and self.canvas != None:
+            self.write_page()
+        self.last_page = p
+        return r, c, self.get_container(p, pr, pc)
+
+    # Methods for inheritance
+    def write_page(self):
+        pass
+
+    def get_page(self, page):
+        pass
+
+    def get_container(self, page, prow, pcol):
+        pass
+
+class bigglesPager(plotPager):
+    props = [
+        ('img_size', (600, 450)),
+        ('filename', None),
+        ]
+    def __init__(self, *args, **kwargs):
+        self.props = plotPager.props + self.props
+        plotPager.__init__(self, *args, **kwargs)
+    def get_page(self, page):
+        pr, pc = self.page_shape
+        filename = self.filename % page
+        plot = biggles.Table(pr, pc)
+        for i in range(pc):
+            for j in range(pr):
+                plot[j,i] = biggles.FramedPlot()
+        self.canvas = {
+            'filename': filename,
+            'plot': plot,
+            }
+    
+    def get_container(self, page, prow, pcol):
+        if self.canvas == None:
+            self.get_page(page)
+        return self.canvas['plot'][prow,pcol]
+
+    def write_page(self):
+        c = self.canvas
+        if c == None:
+            return None
+        pr, pc = self.page_shape
+        for i in range(pr):
+            for j in range(pc):
+                p = c['plot'][i,j]
+                if p.empty():
+                    p.add(biggles.Curve([0],[0]))
+        c['plot'].write_img(self.img_size[0], self.img_size[1],
+                            c['filename'])
+        self.canvas = None
+        return c['filename']
+
+
+class stackedPager(bigglesPager):
+    def get_page(self, page):
+        pr, pc = self.page_shape
+        filename = self.filename % page
+        plot = biggles.Table(1, pc)
+        for i in range(pc):
+            plot[0,i] = biggles.FramedArray(pr,1)
+        self.canvas = {
+            'filename': filename,
+            'plot': plot,
+            }
+    
+    def get_container(self, page, prow, pcol):
+        if self.canvas == None:
+            self.get_page(page)
+        return self.canvas['plot'][0,pcol][prow,0]
+
+    def write_page(self):
+        c = self.canvas
+        if c == None:
+            return None
+        pr, pc = self.page_shape
+        c['plot'].write_img(self.img_size[0], self.img_size[1],
+                            c['filename'])
+        self.canvas = None
+        return c['filename']
+
+
 class plotGridder:
     """
     Schemer for arranging curves for sets of rows and columns onto
