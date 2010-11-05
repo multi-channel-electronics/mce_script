@@ -16,7 +16,7 @@ ARCHIVE=/data/archive_cache
 RECORD=/usr/bin/act_record_mce_data_acq
 
 SCRIPT="acq_register"
-if [ $# -lt 5 ]; then
+if [ $# -lt 4 ]; then
 	echo "Usage:"
 	echo "           $0 ctime type name numpts note"
 	echo

@@ -160,8 +160,12 @@ class Zipper:
 	for s in sources:
             z = '%s.gz' % s
             if os.path.lexists(s):
-                targets.append(s)
-                zips.append(z)
+                if s.endswith('.png'):
+                    # Don't compress pngs
+                    zips.append(s)
+                else:
+                    targets.append(s)
+                    zips.append(z)
             elif os.path.lexists(z):
                 zips.append(z)
         if len(targets) > 0:

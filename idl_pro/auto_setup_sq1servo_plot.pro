@@ -74,9 +74,9 @@ if not keyword_set(use_bias_file) then begin
     
     ; Choose servo program based on super_servo switch
     if keyword_set(super_servo) then $
-      servo_cmd = 'sq1servo_all' $
+      servo_cmd = 'sq1servo_all -E0 -p20 ' $
     else $
-      servo_cmd = 'sq1servo'
+      servo_cmd = 'sq1servo -E0 -p20 '
     
     ; Go go go
     user_status = auto_setup_userword(rc)
