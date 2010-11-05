@@ -260,7 +260,8 @@ def do_sq1_ramp(tuning, rcs, tune_data):
 
     # Produce plots
     masks = util.get_all_dead_masks(tuning)
-    ramps.plot(dead_masks=masks)
+    plot_out = ramps.plot(dead_masks=masks)
+    tuning.register_plots(*plot_out['plot_files'])
 
     # Return analysis stuff so it can be stored in .sqtune...
     return ramps

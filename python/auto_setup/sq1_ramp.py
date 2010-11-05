@@ -282,18 +282,19 @@ class SQ1Ramp(util.RCData):
         else:
             insets = None
         # Plot plot plot
-        servo.plot(self.fb, self.data, (nr, nc),
-                   self.analysis, plot_file,
-                   shape=(8,4),
-                   img_size=(900, 800),
-                   insets=insets,
-                   title=self.data_origin['basename'],
-                   slopes=True, set_points=False, intervals=False,
-                   xlabel='SQ1 FB / 1000',
-                   ylabel='AD Units / 1000',
-                   scale_style='tight',
-                   label_style='row_col',
-                   )
+        return servo.plot(
+            self.fb, self.data, (nr, nc),
+            self.analysis, plot_file,
+            shape=(8,4),
+            img_size=(900, 800),
+            insets=insets,
+            title=self.data_origin['basename'],
+            slopes=True, set_points=False, intervals=False,
+            xlabel='SQ1 FB / 1000',
+            ylabel='AD Units / 1000',
+            scale_style='tight',
+            label_style='row_col',
+            )
 
     def sqtune_report(self):
         """
