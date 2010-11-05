@@ -203,7 +203,7 @@ def do_sq1_servo(tuning, rc, rc_indices):
         # Analysis gives us SQ2 FB for chosen row of each column.
         fb_column = sq1_data['lock_y']
         n_row = tuning.get_exp_param("default_num_rows")
-        fb_set = array([fb_column]*n_row).transpose()
+        fb_set = array([fb_column]*int(n_row)).transpose()
         
     # Save results
     tuning.set_exp_param_range('sq2_fb', rc_indices, fb_column)

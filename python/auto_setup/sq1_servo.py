@@ -48,6 +48,11 @@ def acquire(tuning, rc, filename=None, fb=None,
         except ValueError:
             acq_id = str(time.time())
 
+    if super_servo:
+        cmd = [tuning.bin_path+'sq1servo_all', '-p', 50]
+    else:
+        cmd = [tuning.bin_path+'sq1servo']
+
     if old_servo:
         # FB
         if fb == None:
@@ -61,17 +66,12 @@ def acquire(tuning, rc, filename=None, fb=None,
                 rci = int(rc) - 1
             gain = tuning.get_exp_param('sq1_servo_gain')[rci*8]
     
-        if super_servo:
-            cmd = [tuning.bin_path+'sq1servo_all', '-p', 50]
-        else:
-            cmd = [tuning.bin_path+'sq1servo']
-
         # This syntax is for pre-2010 servo programs that only do one gain.
         cmd += ['-E0', filename, 0,0,0,
                 fb['start'], fb['step'], fb['count'],
                 rc, 0, tuning.get_exp_param("default_num_rows"), gain, 1]
     else:
-        cmd = [tuning.bin_path+'sq1servo_all', '-p', 50, '-E1', rc, filename]
+        cmd += ['-p', 50, '-E1', rc, filename]
 
     status = tuning.run(cmd)
     if status != 0:
