@@ -17,7 +17,7 @@ class FileSet(dict):
             self[name] = {}
             stage_files = glob('%s/*%s' % (folder, tag))
             for f in stage_files:
-                for rc in ['RC1', 'RC2', 'RC3', 'RC4']:
+                for rc in ['RC1', 'RC2', 'RC3', 'RC4', 'RCs', 'RCS']:
                     if rc in f:
                         self[name][rc] = f
                         break
