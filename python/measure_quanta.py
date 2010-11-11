@@ -29,7 +29,7 @@ periods = []
 for sq in ramps:
     
     if stage == 'sa_ramp':
-        if sq.data_style != 'rectangle':
+        if sq.bias_style == 'ramp':
             sq.reduce1()
             sq = sq.subselect()
         lead = 0
