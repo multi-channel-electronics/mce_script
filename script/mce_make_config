@@ -38,16 +38,16 @@ touch $outfile
 echo "#!/bin/bash" >> $outfile
 
 # Start with header
-cat ${MAS_TEMPLATE}/config_header.bash >> $outfile
+cat ${MAS_SCRIPT}/bits/config_header.bash >> $outfile
 
 # Write MCE variables
 mas_param -s $expt bash >> $outfile
 
 # Create the output MCE script
-cat ${MAS_TEMPLATE}/config_create.bash >> $outfile
+cat ${MAS_SCRIPT}/bits/config_create.bash >> $outfile
 
 # Run the output MCE script
-cat ${MAS_TEMPLATE}/config_run.bash >> $outfile
+cat ${MAS_SCRIPT}/bits/config_run.bash >> $outfile
 
 # Make the script executable
 chmod a+x $outfile
