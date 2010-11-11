@@ -2,20 +2,28 @@ import auto_setup as aset
 from pylab import *
 
 from optparse import OptionParser
-o = OptionParser()
+
+o = OptionParser(usage="""
+               %prog [options] tuning_dir stage
+
+where tuning_dir is the folder containg the tuning data and stage is
+one of sa_ramp or sq2_servo.""")
+
 opts, args = o.parse_args()
+if len(args) != 2:
+    o.error('Provide exactly two arguments.')
 
 dir = args[0]
 stage = args[1]
 
-
 fs = aset.util.FileSet(dir)
-
 files = fs.stage_all(stage)
 if stage == 'sa_ramp':
     ramps = [aset.series_array.SARamp(f) for f in files]
 elif stage == 'sq2_servo':
     ramps = [aset.sq2_servo.SQ2Servo(f) for f in files]
+else:
+    print 'Unsupported stage argument "%s".' % stage
 
 periods = []
 for sq in ramps:
