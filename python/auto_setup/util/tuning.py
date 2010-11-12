@@ -100,7 +100,9 @@ class tuningData:
         return s
 
     def rc_list(self):
-        hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc");
+        # Since the all-card tuning relies on RCS data acquisition, get the RC list
+        # from hardware_rc_data, which determines RCS acq membership.
+        hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc_data");
         return [c + 1 for c in range(len(hardware_rc)) if hardware_rc[c] == 1]
 
     def column_list(self):
