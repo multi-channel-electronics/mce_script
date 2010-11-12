@@ -68,7 +68,7 @@ def acquire(tuning, rc, filename=None, fb=None,
                fb['start'], fb['step'], fb['count'],
                rc, int(change_bias), gain, int(not change_bias)]
     else:
-        cmd = [os.path.join(tuning.bin_path, 'sq2servo'), '-E1', rc, filename]
+        cmd = [os.path.join(tuning.bin_path, 'sq2servo'), '-p', 50, '-E1', rc, filename]
         
     status = tuning.run(cmd)
     if status != 0:

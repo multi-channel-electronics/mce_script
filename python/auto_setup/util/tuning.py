@@ -147,7 +147,7 @@ class tuningData:
                 return -1
   
         if (status > 0):
-          raise ValueError("Executing " + self.config_mce_file + "failed.")
+          raise ValueError("Executing " + self.config_mce_file + " failed.")
 
         return 0
 

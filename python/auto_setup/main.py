@@ -125,7 +125,7 @@ def do_sa_ramp(tuning, rc, rc_indices, tune_data):
 
     # Update ADC offsets and SA feedback based on SA analysis.
     tuning.set_exp_param_range("adc_offset_c", rc_indices, sa_dict["target"])
-    tuning.set_exp_param_range("sa_bias", rc_indices, sa_dict["sa_bias"])
+    tuning.set_exp_param_range("sa_fb", rc_indices, sa_dict["fb"])
     # Maybe the bias and SA offset, too.
     if tune_data["ramp_sa_bias"]:
         tuning.set_exp_param_range("sa_bias", rc_indices, sa_dict["sa_bias"])
