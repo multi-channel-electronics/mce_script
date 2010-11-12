@@ -87,7 +87,8 @@ echo "wb cc user_word $user_word" >> $mce_script
 #----------------------------------------------
 for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
-    
+    [ "${hardware_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+
     ch_ofs=$(( ($rc-1)*8 ))
 #    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
     
@@ -144,6 +145,11 @@ for rc in 1 2 3 4; do
 	fi
     done
 
+    # Readout filter
+    if [ "$config_filter" == "1" ]; then
+	echo "wb rca fltr_coeff ${filter_params[@]}" >> $mce_script
+    fi
+
     echo "wb rc$rc en_fb_jump $flux_jumping" >> $mce_script
 
 
@@ -179,16 +185,19 @@ for rc in 1 2 3 4; do
     echo "wra sa  fb    $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"    >> $mce_script
     echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}" >> $mce_script
 
-    if [ "$hardware_bac" == "0" ]; then
-	# People still use bias cards?
-	echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
-    elif [ "$config_fast_sq2" == "0" ]; then
-	# People still expect bias card behaviour?
-	for a in `seq 0 7`; do
-	    c=$(( $ch_ofs + $a ))
-	    repeat_string "${sq2_fb[$c]}" 41 "wb bac fb_col$c" >> $mce_script
-	done
+    if [ "$config_fast_sq2" == "0" ]; then
+	if [ "$hardware_bac" == "0" ]; then
+            # People still use bias cards?
+	    echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
+	else
+	    # Emulate bias card with a BAC
+	    for a in `seq 0 7`; do
+		c=$(( $ch_ofs + $a ))
+		repeat_string "${sq2_fb[$c]}" 41 "wb bac fb_col$c" >> $mce_script
+	    done
+	fi
     else
+	# BAC and new bias cards support sq2 fb_col%
 	for a in `seq 0 7`; do
 	    row_ofs=$(( ($ch_ofs+$a) * 41 ))
 	    echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:41}" >> $mce_script
@@ -202,6 +211,14 @@ if [ "$hardware_bac" != "0" ]; then
     echo "wb bac enbl_mux 2" >> $mce_script
 fi
 
+# For new bias card in fast_sq2 mode, set enbl_mux for all columns
+if [ "$hardware_bac" == "0" ] && [ "$config_fast_sq2" == "1" ]; then
+    for rc in 1 2 3 4; do
+	[ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+	ch_ofs=$(( ($rc-1)*8 ))
+	echo "wra sq2 enbl_mux $ch_ofs `repeat_string 1 8`" >> $mce_script
+    done
+fi
 
 # Servo loop re-init
 
