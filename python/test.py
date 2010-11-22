@@ -1,20 +1,40 @@
-from mce_data import *
-from mce_runfile import *
+import auto_setup as ast
+ast.util.interactive_errors()
 
-#filename='/home/mhasse/Desktop/MBAC-May-Coldrun/fast_1211064182'
-filename='/data/cryo/current_data/z07'
-rf = MCERunfile(filename+'.run')
-print rf.Item('HEADER','RB rc2 num_rows', type='int')
-print rf.Item2d('HEADER', 'RB bc%i bias', type='int', first=1)
-print rf.Item2dRC('HEADER', 'RB rc%i adc_offset%%i', type='int')
+# Point to tuning data
+source_folder = '/home/data/act/2010/startup/1269227063/'
+basename = source_folder.strip('/').split('/')[-1]
 
-filename='/data/cryo/current_data/test_0811'
-d = SmallMCEFile(filename=filename, runfile=False)
-b = d.Read(fields='all', row_col=True, data_mode=4)
-print len(b.data['fb'][0][1])
-b = d.Read(data_mode=2)
-print len(b.data[2])
+ops = ['sq1_servo']
 
-dd = d.Read(raw_frames=True)
-print dd[:,1]
-print dd.shape
+# Group files
+tf = ast.util.FileSet(source_folder)
+
+if 'sa_ramp' in ops:
+    # Load SA ramp
+    ss = [ ast.SARamp(x) for x in tf.stage_all('sa_ramp') ]
+    s = ast.SARamp.join(ss)
+    s.reduce1()
+    s2 = s.subselect()
+    s2.reduce(slope=1.)
+    s2.plot(plot_file='plots/sa_ramp')
+
+if 'sq2_servo' in ops:
+    ss = [ ast.SQ2Servo(x) for x in tf.stage_all('sq2_servo') ]
+    s = ast.SQ2Servo.join(ss).split()[0]
+    s.reduce(slope=1.)
+    s.plot(plot_file='plots/sq2_servo')
+
+if 'sq1_servo' in ops:
+    ss = [ ast.SQ1Servo(x) for x in tf.stage_all('sq1_servo') ]
+    s = ast.SQ1Servo.join(ss).split()[0]
+    s.reduce(slope=1.)
+    s.plot(plot_file='plots/sq1_servo')
+
+if 'sq1_ramp' in ops:
+    # Load SQ1 ramp
+    ss = [ ast.SQ1Ramp(x) for x in tf.stage_all('sq1_ramp_check') ]
+#    s1 = ast.SQ1Ramp.join(ss, basename)
+    s = ast.SQ1Ramp.join2(ss)
+    s.reduce()
+    s.plot(plot_file='plots/sq1_ramp')

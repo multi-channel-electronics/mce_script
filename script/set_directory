@@ -5,11 +5,21 @@ if [ "$MAS_ROOT" == "" ]; then
     exit 1
 fi
 
+# data_root is the first argument to this function, or "/data/cryo" if
+# no arguments are given.
+
+data_root=${1:-"/data/cryo"}
+
 # All our new files should be group rw
 umask 002
 
+# Attempt to cd to data_root
+if ! cd ${data_root}; then
+  echo "Error: Cannot cd to ${data_root}"
+  exit 1
+fi
+
 today=`date +%Y%m%d`
-cd /data/cryo # $MAS_DATA is broken.
 if [ ! -e $today ]; then
     mkdir $today
     chmod g+s $today
@@ -17,12 +27,12 @@ fi
 
 # Create current_data link and put today's date into current_data_name
 
-link_name=/data/cryo/current_data
-date_file=/data/cryo/current_data_name
+link_name=${data_root}/current_data
+date_file=${data_root}/current_data_name
 if [ -e $link_name ]; then
     /bin/rm $link_name
 fi
-ln -s /data/cryo/$today  $link_name
+ln -s ${data_root}/$today  $link_name
 
 if [ -e $date_file ]; then
     /bin/rm $date_file
@@ -31,9 +41,9 @@ echo $today > $date_file
 
 
 # Determine array name and names of config files
-array_id=`cat /data/cryo/array_id`
+array_id=`cat ${data_root}/array_id`
 if [ "$array_id" == "" ]; then
-    echo "No array ID found in /data/cryo/array_id!"
+    echo "No array ID found in ${data_root}/array_id!"
     array_id="default"
 fi
 case "$array_id" in

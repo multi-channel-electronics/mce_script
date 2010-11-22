@@ -38,21 +38,19 @@ if [ "$5" != "" ]; then
     prefix="$5"
 fi
 
-# temporarily commented out for speed by JAB 20091221
-#
 # Check firmware
-#fw_rev=`command_reply rb rc$rc_cmd fw_rev |cut -d' ' -f1`
-#case "$fw_rev" in
-#    0x400000d | 0x400000e | 0x5000001 | 0x5000002)
-#	;;
-#    0x4010007 | 0x4020007 | 0x4030007)
-#	echo "RC firmware $fw_rev does not support single column raw mode!"
-#	exit 1
-#	;;
-#    *)
-#	echo "RC firmware $fw_rev not recognized!  Are you sure it supports raw mode?"
-#	;;
-#esac
+fw_rev=`command_reply rb rc$rc_cmd fw_rev |cut -d' ' -f1`
+case "$fw_rev" in
+    0x400000d | 0x400000e | 0x5000001)
+	;;
+    0x4010007 | 0x4020007 | 0x4030007)
+	echo "RC firmware $fw_rev does not support single column raw mode!"
+	exit 1
+	;;
+    *)
+	echo "RC firmware $fw_rev not recognized!  Are you sure it supports raw mode?"
+	;;
+esac
 
 ct=`print_ctime`
 filename=$MAS_DATA/${prefix}/${ct}_raw${suffix}
@@ -96,7 +94,7 @@ if [ "$do_runfile" == "1" ]; then
     frameacq_stamp $rc $filename $n_frames >> $runfilename
 fi
 
-#echo "Acquiring raw data to $filename ..."
+echo "Acquiring raw data to $filename ..."
 mce_cmd -q \
     -X "acq_config $filename rc$rc" \
     -X "wb rc$rc_cmd captr_raw 1" \

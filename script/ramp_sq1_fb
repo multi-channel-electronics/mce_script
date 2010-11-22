@@ -25,7 +25,7 @@ case "$rc" in
 
     s | S)
 	col_index=0
-	col_count=16
+	col_count=`command_reply rb sq1 fb_const | wc -w`
 	;;
 
     *)
@@ -101,7 +101,7 @@ if [ $? -ne 0 ]; then
 fi
 
 ##########################
-
+echo $col_index x $col_count
 if [ $ramp_bias -ne 0 ]; then
 
     mce_ramp \
@@ -111,7 +111,7 @@ if [ $ramp_bias -ne 0 ]; then
 	-L $feedback_count  -V $feedback_start $feedback_step \
 	-P "wra sq1 fb_const $col_index" $col_count \
 	-P "acq_go 1" 0 \
-	-M "`repeat_string 0 $col_count \"wra sq1 fb_const $col_index"`" \
+	-M "`repeat_string 0 $col_count \"wra sq1 fb_const $col_index\"`" \
 	-M "`repeat_string 0 41 \"wb sq1 bias\"`" \
 	>> $tempfile
     
@@ -120,9 +120,9 @@ else
     mce_ramp \
 	-M "acq_config $datafile rc$rc" \
 	-L $feedback_count  -V $feedback_start $feedback_step \
-	-P "wb rc$rc fb_const" 8 \
+	-P "wra sq1 fb_const $col_index" $col_count \
 	-P "acq_go 1" 0 \
-	-M "`repeat_string '0' 8 \"wb rc$rc fb_const\"`" \
+	-M "`repeat_string '0' $col_count \"wra sq1 fb_const $col_index\"`" \
 	>> $tempfile
 
 fi

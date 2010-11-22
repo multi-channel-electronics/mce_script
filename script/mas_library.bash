@@ -65,6 +65,18 @@ function command_reply {
 }
 
 
+# RUNFILE ASSIST
+
+function rcs_cards {
+    cards=`command_reply "rb cc rcs_to_report_data"`
+    for rc in 1 2 3 4 ; do
+	[ "$(( $cards >> $(( 6 - $rc )) & 1 ))" == "1" ] && echo -n " $rc"
+    done
+    echo
+}
+  
+
+
 # HEALTH CHECKS - return 0 if system appears healthy
 
 function check_reset {
