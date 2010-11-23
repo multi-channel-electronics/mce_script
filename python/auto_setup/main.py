@@ -93,47 +93,71 @@ def prepare_mce(tuning, run_now=True):
 #  the data analyzed.  The results of the analysis are then used to
 #  update the experiment.cfg file and MCE with new set/lock points.
 
-def do_sa_ramp(tuning, rc, rc_indices, tune_data):
-    def_sa_bias = tuning.get_exp_param("default_sa_bias")
-
+def prepare_sa_ramp(tuning, cols=None):
+    """
+    Prepare the MCE to run the SA ramp.
+    """
+    # Get columns relevant to this tuning
+    if cols == None:
+        cols = array(tuning.column_list())
+    
+    # Disable servo and set data_mode to error only.
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
 
+    # Set the ADC_offsets to 0
     tuning.set_exp_param("config_adc_offset_all", 0)
-    tuning.set_exp_param_range("adc_offset_c", rc_indices,
-            zeros(len(rc_indices), dtype="int"))
+    tuning.set_exp_param_range("adc_offset_c", cols, cols*0)
 
-    tuning.set_exp_param_range("sq2_bias", rc_indices, zeros(len(rc_indices),
-        dtype="int"))
-    tuning.set_exp_param("sq1_bias", zeros([len(tune_data["sq1_bias"])]))
-    tuning.set_exp_param("sq1_bias_off",
-        zeros([len(tune_data["sq1_bias_off"])]))
+    # Set SQ2 and SQ1 biases to 0
+    tuning.set_exp_param_range("sq2_bias", cols, cols*0)
+    n_sq1 = len(tuning.get_exp_param('sq1_bias'))
+    tuning.set_exp_param("sq1_bias", zeros(n_sq1))
+    tuning.set_exp_param("sq1_bias_off", zeros(n_sq1))
 
+    # Set the SA bias and offset to the default values
     offset_ratio = tuning.get_exp_param("sa_offset_bias_ratio")
-    if (not tune_data["ramp_sa_bias"]):
-        # Instead of ramping the SA bias, just use the default values, and ramp
-        # the SA fb to confirm that the v-phi's look good.
-        tuning.set_exp_param_range("sa_bias", rc_indices,
-                def_sa_bias[rc_indices])
+    def_sa_bias = tuning.get_exp_param("default_sa_bias")
+    def_sa_offset = (def_sa_bias * offset_ratio).astype('int')
+    tuning.set_exp_param_range("sa_bias", cols, def_sa_bias[cols])
+    tuning.set_exp_param_range("sa_offset", cols, def_sa_offset[cols])
 
-        tuning.set_exp_param_range("sa_offset", rc_indices,
-                (offset_ratio * def_sa_bias[rc_indices]).astype('int'))
-
-    # Update settings, acquire and analyze the ramp.
+    # Update settings.
     tuning.write_config()
-    sa_dict = series_array.go(tuning, rc, do_bias=tune_data["ramp_sa_bias"])
 
-    # Update ADC offsets and SA feedback based on SA analysis.
-    tuning.set_exp_param_range("adc_offset_c", rc_indices, sa_dict["target"])
-    tuning.set_exp_param_range("sa_fb", rc_indices, sa_dict["fb"])
+def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
+    rc_indices = tuning.column_list()
+    ok, ramp_data = series_array.acquire(tuning, rc,
+                                         do_bias=ramp_sa_bias)
+    if not ok:
+        raise RuntimeError, ramp_data['error']
+
+    sa = series_array.SARamp(ramp_data['filename'])
+    if sa.bias_style == 'ramp':
+        sa.reduce1()
+        sa = sa.subselect() # replace with best bias version
+
+    lock_points = sa.reduce(tuning=tuning)
+    
+    # Set-point results for feedback and ADC_offset
+    fb, target = lock_points['lock_x'], lock_points['lock_y']
+    tuning.set_exp_param_range("adc_offset_c", rc_indices, target)
+    tuning.set_exp_param_range("sa_fb", rc_indices, fb)
+
     # Maybe the bias and SA offset, too.
-    if tune_data["ramp_sa_bias"]:
-        tuning.set_exp_param_range("sa_bias", rc_indices, sa_dict["sa_bias"])
+    if ramp_sa_bias:
+        offset_ratio = tuning.get_exp_param('sa_offset_bias_ratio')
+        tuning.set_exp_param_range("sa_bias", rc_indices, sa.bias)
         tuning.set_exp_param_range("sa_offset", rc_indices,
-                (offset_ratio * sa_dict["sa_bias"]).astype('int'))
+                                   (offset_ratio * sa.bias).astype('int'))
 
     tuning.write_config()
-    return {"status": 0, "column_adc_offset": sa_dict["target"]}
+
+    # Plot final curve only.
+    plot_out = sa.plot(tuning=tuning)
+    tuning.register_plots(*plot_out['plot_files'])
+
+    return {"status": 0, "column_adc_offset": target}
 
 
 def do_sq2_servo(tuning, rc, rc_indices, tune_data):
@@ -215,7 +239,7 @@ def do_sq1_servo(tuning, rc, rc_indices):
     return 0
 
 
-def do_sq1_ramp(tuning, rcs, tune_data):
+def do_sq1_ramp(tuning, rcs, tune_data, init=True):
 
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
@@ -224,6 +248,7 @@ def do_sq1_ramp(tuning, rcs, tune_data):
     tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
     tuning.write_config()
 
+    # Don't correct for sample_num!
     samp_num = tuning.get_exp_param("default_sample_num")
     array_width = tuning.get_exp_param("array_width")
 
@@ -245,16 +270,18 @@ def do_sq1_ramp(tuning, rcs, tune_data):
 
     # Save new ADC offsets
     adc_col = tuning.get_exp_param('adc_offset_c')[ramps.cols].reshape(1,-1)
-    adc_adj = (lock_points['lock_y'] / samp_num). \
+    adc_adj = (lock_points['lock_y']). \
         reshape(n_row, n_col).astype('int')
     new_adc = adc_col + adc_adj
+
     # Careful with index transposition here
     cv, rv = ix_(ramps.cols, ramps.rows)
     idx = (array_width * cv + rv).ravel()
     adc = tuning.get_exp_param('adc_offset_cr')
     adc[idx] = new_adc.transpose().ravel()
 
-    tuning.set_exp_param('adc_offset_cr', adc)
+    # Note that adc_offset_cr needs to be corrected for samp_num
+    tuning.set_exp_param('adc_offset_cr', adc/samp_num)
     tuning.set_exp_param('config_adc_offset_all', 1)
     tuning.write_config()
 
@@ -355,7 +382,7 @@ IDL auto_setup_squids."""
         # All cards at once.
         rcs = ['s']
 
-    # deafult parameters
+    # default parameters
     if ramp_sa_bias == None:
         ramp_sa_bias = bool(tuning.get_exp_param('sa_ramp_bias'))
 
@@ -374,7 +401,9 @@ IDL auto_setup_squids."""
         else:
             rc_indices = 8 * (int(c) - 1) + arange(8)
         if short <= 0:
-            sa_dict = do_sa_ramp(tuning, c, rc_indices, tune_data)
+            prepare_sa_ramp(tuning, cols=rc_indices)
+            sa_dict = do_sa_ramp(tuning, c, rc_indices,
+                                 ramp_sa_bias=ramp_sa_bias)
             s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data)
             if (s2_dict["status"] != 0):
                 return s2_dict["status"]
