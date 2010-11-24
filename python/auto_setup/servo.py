@@ -141,6 +141,18 @@ def plot(x, y, y_rc, lock_points, plot_file,
     elif label_style == 'row_col':
         rcl = True
 
+    if slopes == True:
+        def get(key, param):
+            return lock_points.get('lock_%s%s' % (key,param), None)
+        slopes = []
+        for d in ['', 'up_', 'dn_']:
+            m, x0, y0 = [get(d, p) for p in ['slope', 'x', 'y']]
+            if m != None:
+                if y0 == None:
+                    # Use default y-target if separate up/dn aren't there.
+                    y0 = get('', 'y')
+                slopes.append(zip(m, x0, y0))
+                
     pl = util.plotGridder(y_rc, plot_file, title=title, xlabel=xlabel, ylabel=ylabel,
                           target_shape=shape, img_size=img_size,
                           col_labels=cl, rowcol_labels=rcl)
@@ -155,10 +167,9 @@ def plot(x, y, y_rc, lock_points, plot_file,
         if intervals:
             ax.add(biggles.LineX(lock_points['left_x'][i]*scale,type='dashed'))
             ax.add(biggles.LineX(lock_points['right_x'][i]*scale,type='dashed'))
-        if slopes:
-            for d in ['up', 'dn']:
-                m,x0,y0 = [lock_points['lock_%s'%(e)][i]
-                           for e in ['%s_sl'%d,'%s_x'%d,'y']]
+        if slopes != False:
+            for s in slopes:
+                m, x0, y0 = s[i]
                 ax.add(biggles.Slope(m, (x0*scale,y0*scale),type='dashed'))
         if insets != None:
             ax.add(biggles.PlotLabel(0., 0., insets[i],

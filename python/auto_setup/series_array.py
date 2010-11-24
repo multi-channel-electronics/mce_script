@@ -71,6 +71,45 @@ def acquire(tuning, rc, filename=None, do_bias=None):
                   'do_bias': do_bias,
                   }
 
+
+def get_set_point(y, dy=None, scale=5, slope=1.):
+    if dy == None:
+        dy = y[1:] - y[:1]
+    if len(dy) != len(y):
+        y = y[:len(dy)]
+    n = len(y)
+
+    # Find position of an SA minimum.  Search range depends on desired
+    # locking slope because we will eventually need to find an SA max.
+    if (slope > 0):
+        min_start = scale * 4
+        min_stop = n * 5 / 8
+    else:
+        min_start = n * 3 / 8
+        min_stop = n - scale * 4
+    ind_min = y[min_start:min_stop].argmin() + min_start
+
+    # Now track to the side, waiting for the slope to change.
+    if (slope > 0):
+        start = ind_min + scale * 2
+        stop = n
+        step = 1
+    else:
+        start = ind_min - 2 * scale
+        stop = -1
+        step = -1
+          
+    idx = arange(start,stop,step)
+    slope_change = (dy * slope < 0)[idx].nonzero()[0]
+    if len(slope_change)==0:
+        ind_max = stop - step
+    else:
+        ind_max = idx[slope_change.min()]
+
+    # Return left and right sides of target range
+    return min(ind_max, ind_min), max(ind_max, ind_min)
+
+
 class SARamp(util.RCData):
     def __init__(self, filename=None, reduce_rows=True):
         util.RCData.__init__(self)
@@ -239,42 +278,15 @@ class SARamp(util.RCData):
         dy = y[:,1:] - y[:,:-1]
         y = y[:,:-1]
 
-        lock_idx, left_idx, right_idx = [], [], []
+        lock_idx = []
         for i, (yy, ddy) in enumerate(zip(y, dy)):
             s = slope[i % self.data_shape[-2]]
-            # Find position of an SA minimum.  Search range depends on desired
-            # locking slope because we will eventually need to find an SA max.
-            if (s > 0):
-                min_start = scale * 4
-                min_stop = n_fb * 5 / 8
-            else:
-                min_start = n_fb * 3 / 8
-                min_stop = n_fb - scale * 4
-
-            ind_min = yy[min_start:min_stop].argmin() + min_start
-
-            # Now track to the side, waiting for the slope to change.
-            if (s > 0):
-                start = ind_min + scale * 2
-                stop = len(ddy)
-                step = 1
-            else:
-                start = ind_min - 2 * scale
-                stop = -1
-                step = -1
-          
-            idx = arange(start,stop,step)
-            slope_change = (ddy * s < 0)[idx].nonzero()[0]
-            if len(slope_change)==0:
-                ind_max = stop - step
-            else:
-                ind_max = idx[slope_change.min()]
-
+            lo, hi = get_set_point(yy, ddy, scale=scale, slope=s)
             # Lock on half-way point between minimum and maximum
-            lock_idx.append((ind_min+ind_max)/2)
-            left_idx.append(min(ind_max,ind_min))
-            right_idx.append(max(ind_max,ind_min))
+            lock_idx.append((lo, hi, (lo+hi)/2))
 
+        # Store
+        left_idx, right_idx, lock_idx = array(lock_idx).transpose()
         lock_y = array([int(yy[i]) for i,yy in zip(lock_idx, y)])
         for x in ['lock_idx', 'left_idx', 'right_idx']:
             self.analysis[x] = eval('array(%s)' % (x))
@@ -282,6 +294,19 @@ class SARamp(util.RCData):
                 'lock_y': lock_y,
                 'slope': slope,
                 })
+
+        # Measure set-point slope (gain)
+        lock_slope = []
+        for i, ddy in enumerate(dy):
+            l, c, r = left_idx[i], lock_idx[i], right_idx[i]
+            idx = arange(max(l, c-scale), min(r, c+scale))
+            lock_slope.append(ddy[idx].mean())
+        d_fb = self.fb[1] - self.fb[0]
+        self.analysis['lock_slope'] = lock_slope / d_fb
+
+        # For plotting...
+        self.analysis['lock_slope'] = lock_slope / d_fb
+
         # Add feedback keys
         for k in ['lock', 'left', 'right']:
             self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
@@ -302,6 +327,7 @@ class SARamp(util.RCData):
             self.fb, self.data, self.data_shape[-3:-1],
             self.analysis, plot_file,
             shape=(4, 2),
+            slopes=True,
             title=self.data_origin['basename'],
             titles=['Column %i - SA_bias=%6i' %(c,b) \
                     for c,b in zip(self.cols, self.bias)],

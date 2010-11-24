@@ -20,8 +20,8 @@ def go(tuning, rc, filename=None, slope=None, flags=None):
     n_col = s.data_shape[1]
     return {'new_adc_offset': a['lock_y'].reshape(-1,n_col),
             'squid_p2p': (a['max_y'] - a['min_y']).reshape(-1,n_col),
-            'squid lockslope': vstack((a['lock_dn_sl'],
-                                       a['lock_up_sl'])).reshape(2,-1,n_col),
+            'squid lockslope': vstack((a['lock_dn_slope'],
+                                       a['lock_up_slope'])).reshape(2,-1,n_col),
             }
 
 def acquire(tuning, rc, filename=None, check=False):
@@ -255,7 +255,7 @@ class SQ1Ramp(util.RCData):
             idx[idx<abs_lims[0]] = abs_lims[0]
             idx[idx>abs_lims[1]] = abs_lims[1]
             result['lock_%s_idx'%word] = idx + x_offset
-            result['lock_%s_sl'%word] = sl / self.d_fb
+            result['lock_%s_slope'%word] = sl / self.d_fb
             result['lock_%s_ok'%word] = ok.astype('int')
             result['lock_%s_x'%word] = self.fb[result['lock_%s_idx'%word]]
         return result
@@ -309,10 +309,10 @@ class SQ1Ramp(util.RCData):
              'data': get('right_idx') - get('left_idx'),
              'style': 'col_row', 'format': '%i', },
             {'label': 'Col%i_squid_lockslope_down',
-             'data': get('lock_dn_sl'),
+             'data': get('lock_dn_slope'),
              'style': 'col_row', 'format': '%.3f', },
             {'label': 'Col%i_squid_lockslope_up',
-             'data': get('lock_up_sl'),
+             'data': get('lock_up_slope'),
              'style': 'col_row', 'format': '%.3f', },
 #            {'label': 'Col%i_squid_multilock',
 #             'data': get(''),
