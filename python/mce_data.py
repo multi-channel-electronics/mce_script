@@ -406,7 +406,7 @@ class SmallMCEFile:
             ho = self.header['_header_size']
             return a[:,ho:ho+self.size_ro*self.n_rc]
 
-    def _NameChannels(self):
+    def _NameChannels(self, row_col=False):
         """
         Determine MCE rows and columns of channels that are read out
         in this data file.  Return as list of (row, col) tuples.  For
@@ -430,20 +430,29 @@ class SmallMCEFile:
 
         row_index = [ self._rfMCEParam('rc%i'%(r+1), 'readout_row_index') \
                           for r in rcs ]
-        col_index = [ self._rfMCEParam('rc%i'%(r+1), 'readout_col_index') \
+        col_index = [ r*MCE_COL + self._rfMCEParam('rc%i'%(r+1), 'readout_col_index') \
                           for r in rcs ]
         for i in range(len(rcs)):
             if row_index[i] == None: row_index[i] = 0
             if col_index[i] == None: col_index[i] = 0
 
-        # Assemble the final list by looping in the right order
-        names = []
-        for row in range(self.n_rows):
-            for rc in range(self.n_rc):
-                r = row + row_index[rc]
-                for col in range(self.n_cols):
-                    c = rc*MCE_COL + col + col_index[rc]
-                    names.append((r, c))
+
+        if row_col:
+            # Use the row-indexing provided by the first RC.
+            rows = [i+row_index[0] for i in range(self.n_rows)]
+            # Columns can be non-contiguous
+            cols = [col_index[rc]+c for rc in range(self.n_rc)
+                    for c in range(self.n_cols) ]
+            return (rows, cols)
+        else:
+            # Assemble the final list by looping in the right order
+            names = []
+            for row in range(self.n_rows):
+                for rc in range(self.n_rc):
+                    r = row + row_index[rc]
+                    for col in range(self.n_cols):
+                        c = rc*MCE_COL + col + col_index[rc]
+                        names.append((r, c))
         return names
                     
     def _ExtractRect(self, data_in):
@@ -617,10 +626,7 @@ class SmallMCEFile:
             else:
                 data_out.data = new_data
 
-        if not row_col:
-            # In non-row_col mode, we provide names for all the channels:
-            data_out.channels = self._NameChannels()
-
+        data_out.channels = self._NameChannels(row_col=row_col)
         return data_out
 
 # Let's just hope that your MCEFile is a Small One.
