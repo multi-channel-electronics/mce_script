@@ -1,6 +1,12 @@
 # List of array names and associated integers for userword
 default         1
-keck0		19198893
+
+# K0 cryostat with older MCE crate
+keck0           19198893
+
+# K3 MCE crate, used with K0 at Harvard fall 2010
+keck0b          19233832
+
 ADR             17510458
 spider          19216111
-keck		18654456
+keck            18654456
