@@ -296,15 +296,9 @@ class SARamp(util.RCData):
                 })
 
         # Measure set-point slope (gain)
-        lock_slope = []
-        for i, ddy in enumerate(dy):
-            l, c, r = left_idx[i], lock_idx[i], right_idx[i]
-            idx = arange(max(l, c-scale), min(r, c+scale))
-            lock_slope.append(ddy[idx].mean())
+        lock_slope = servo.get_slopes(y, lock_idx, n_points=max(scale, 5),
+                                      min_index=left_idx, max_index=right_idx)
         d_fb = self.fb[1] - self.fb[0]
-        self.analysis['lock_slope'] = lock_slope / d_fb
-
-        # For plotting...
         self.analysis['lock_slope'] = lock_slope / d_fb
 
         # Add feedback keys

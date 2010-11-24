@@ -58,13 +58,38 @@ def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
         lock_idx = (i_left + i_right)/2
     lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
     lock_idx += x_offset
+
+    # Compute lock slopes
+    lock_slope = get_slopes(y, lock_idx, min_index=i_left, max_index=i_right)
     
     return {'lock_idx': lock_idx,
             'lock_y': lock_y,
+            'lock_slope': lock_slope,
             'slope': slope,
             'left_idx': i_left,
             'right_idx': i_right,
             }
+
+
+def get_slopes(data, index, n_points=5, min_index=None, max_index=None):
+    """
+    Fit straight line to data (a 2-d array) in vicinity of index (a
+    1-d array).  Return slopes (a 1-d array).
+    """
+    if min_index == None:
+        min_index = zeros(data.shape[0])
+    if max_index == None:
+        max_index = [d.shape[-1] for d in data]
+    
+    slopes = []
+    for d, i, lo, hi in zip(data, index, min_index, max_index):
+        sl_idx = arange(max(lo, i-n_points/2),
+                        min(hi, i+(n_points+1)/2))
+        if len(sl_idx) < 2:
+            slopes.append(0)
+        else:
+            slopes.append(polyfit(sl_idx-i, d[sl_idx], 1)[0])
+    return array(slopes)
 
 def period_correlation(y, width=None, normalize=True):
     n, nx = y.shape

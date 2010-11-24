@@ -208,6 +208,8 @@ class SQ2Servo(util.RCData):
         # Add feedback keys
         for k in ['lock', 'left', 'right']:
             self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
+        d_fb = self.fb[1] - self.fb[0]
+        self.analysis['lock_slope'] /= d_fb
         return self.analysis
         
     def plot(self, plot_file=None):
@@ -222,6 +224,7 @@ class SQ2Servo(util.RCData):
         return servo.plot(
             self.fb, self.data, self.data_shape[-3:-1], self.analysis,
             plot_file,
+            slopes=True,
             title=self.data_origin['basename'],
             titles=['Column %i' %c for c in self.cols],
             xlabel='SQ2 FB / 1000',
