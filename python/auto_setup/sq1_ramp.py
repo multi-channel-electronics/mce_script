@@ -251,6 +251,8 @@ class SQ1Ramp(util.RCData):
                 rg = (len(yy)/4, len(yy))
                 o, d, s = lock_stats(yy, target=t, slope_points=scale/2, slope=sgn,
                                      range=rg)
+                if d > len(yy): d = len(yy)
+                if d < 0: d = 0
                 ok[i], idx[i], sl[i] = o, d, s
             idx[idx<abs_lims[0]] = abs_lims[0]
             idx[idx>abs_lims[1]] = abs_lims[1]
