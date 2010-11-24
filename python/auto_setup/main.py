@@ -226,24 +226,28 @@ def do_sq1_servo(tuning, rc, rc_indices):
 
     sq1_data = sq1_servo.go(tuning, rc)
     
+    # Load existing FB choices
+    fb_nr = tuning.get_exp_param('array_width') # number of rows in sq2_fb_set
+    fb_col = tuning.get_exp_param('sq2_fb')
+    fb_set = tuning.get_exp_param('sq2_fb_set').reshape(-1, fb_nr).transpose() # r,c
+    
     # Determine the SQ2 FB for each column, and if possible for each detector.
+    cols = sq1_data['cols']
     if sq1_data['super_servo']:
         n_row, n_col = sq1_data['data_shape'][-3:-1]
-        fb_set = sq1_data['lock_y'].reshape(-1, n_col)
+        fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col)
         # Get chosen row on each column
-        rows = tuning.get_exp_param('sq2_rows')[sq1_data['cols']]
-        fb_column = array([ fb_set[r,i] for i,r in enumerate(rows)])
+        rows = tuning.get_exp_param('sq2_rows')[cols]
+        fb_col[cols] = array([ fb_set[r,c] for r,c in zip(rows, cols) ])
     else:
         # Analysis gives us SQ2 FB for chosen row of each column.
-        fb_column = sq1_data['lock_y']
+        fb_col[cols] = sq1_data['lock_y']
         n_row = tuning.get_exp_param("default_num_rows")
-        fb_set = array([fb_column]*int(n_row)).transpose()
+        fb_set[:,cols] = sq1_data['lock_y']
         
     # Save results
-    tuning.set_exp_param_range('sq2_fb', rc_indices, fb_column)
-    nr = tuning.get_exp_param('array_width')  # 41 probly
-    for i,c in enumerate(rc_indices):
-        tuning.set_exp_param_range('sq2_fb_set', range(nr*c,nr*c+nr), fb_set[:,i])
+    tuning.set_exp_param('sq2_fb', fb_col)
+    tuning.set_exp_param('sq2_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
     return 0
