@@ -24,10 +24,10 @@ for i in `seq 0 $(( ${#adc_offset_c[@]} - 1))` ; do
 	adc_offset_divided[$i]=$(( ${adc_offset_c[$i]} / $sample_num ))
 done
 
-# Allow some flexibility in hardware_fast_bc2 vs. hardware_bac
-hardware_bac=${hardware_bac-0}
-hardware_fast_bc2=${hardware_fast_bc2-0}
-[ "$hardware_bac" == 1 ] && hardware_fast_bc2=0
+# Allow some flexibility in hardware_fast_sq2 vs. hardware_bac
+if [ "$hardware_fast_sq2" == "" ]; then
+    hardware_fast_sq2=${hardware_bac}
+fi
 
 #----------------------------------------------
 # sys commands  
@@ -175,6 +175,24 @@ fi
 # Bias Cards - use functional mappings!
 #----------------------------------------------
 
+# Set enbl_mux before writing per-column values, since DACs need to be
+# kicked once after enbl_mux is turned off.
+
+# For biasing address card, set the correct mux_mode and row_order
+if [ "$hardware_fast_sq2" == "1" ]; then
+    echo "wb bac row_order ${row_order[@]}" >> $mce_script
+    echo "wb bac enbl_mux 2" >> $mce_script
+fi
+
+# For new bias card in fast_sq2 mode, set enbl_mux for all columns
+if [ "$hardware_fast_sq2" == "2" ]; then
+    for rc in 1 2 3 4; do
+	[ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+	ch_ofs=$(( ($rc-1)*8 ))
+	echo "wra sq2 enbl_mux $ch_ofs `repeat_string $config_fast_sq2 8`" >> $mce_script
+    done
+fi
+
 #Still only write the relevant columns depending on readout card configuration
 for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
@@ -184,15 +202,15 @@ for rc in 1 2 3 4; do
     echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}" >> $mce_script
 
     if [ "$config_fast_sq2" == "0" ]; then
-	if [ "$hardware_bac" == "0" ]; then
-            # People still use bias cards?
-	    echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
-	else
+	if [ "$hardware_fast_sq2" == "1" ]; then
 	    # Emulate bias card with a BAC
 	    for a in `seq 0 7`; do
 		c=$(( $ch_ofs + $a ))
 		repeat_string "${sq2_fb[$c]}" 41 "wb bac fb_col$c" >> $mce_script
 	    done
+	else
+            # People still use bias cards?
+	    echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
 	fi
     else
 	# BAC and new bias card firmware support sq2 fb_col%
@@ -202,21 +220,6 @@ for rc in 1 2 3 4; do
 	done
     fi
 done
-
-# For biasing address card, set the correct mux_mode and row_order
-if [ "$hardware_bac" != "0" ]; then
-    echo "wb bac row_order ${row_order[@]}" >> $mce_script
-    echo "wb bac enbl_mux 2" >> $mce_script
-fi
-
-# For new bias card in fast_sq2 mode, set enbl_mux for all columns
-if [ "$hardware_fast_bc2" == "1" ]; then
-    for rc in 1 2 3 4; do
-	[ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
-	ch_ofs=$(( ($rc-1)*8 ))
-	echo "wra sq2 enbl_mux $ch_ofs `repeat_string $config_fast_sq2 8`" >> $mce_script
-    done
-fi
 
 # Servo loop re-init
 
