@@ -24,12 +24,10 @@ for i in `seq 0 $(( ${#adc_offset_c[@]} - 1))` ; do
 	adc_offset_divided[$i]=$(( ${adc_offset_c[$i]} / $sample_num ))
 done
 
-# For readability, translate config_rc[0-3] to config_rc1-4
-
-config_rc1=${config_rc[0]}
-config_rc2=${config_rc[1]}
-config_rc3=${config_rc[2]}
-config_rc4=${config_rc[3]}
+# Allow some flexibility in hardware_fast_bc2 vs. hardware_bac
+hardware_bac=${hardware_bac-0}
+hardware_fast_bc2=${hardware_fast_bc2-0}
+[ "$hardware_bac" == 1 ] && hardware_fast_bc2=0
 
 #----------------------------------------------
 # sys commands  
@@ -197,7 +195,7 @@ for rc in 1 2 3 4; do
 	    done
 	fi
     else
-	# BAC and new bias cards support sq2 fb_col%
+	# BAC and new bias card firmware support sq2 fb_col%
 	for a in `seq 0 7`; do
 	    row_ofs=$(( ($ch_ofs+$a) * 41 ))
 	    echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:41}" >> $mce_script
@@ -212,11 +210,11 @@ if [ "$hardware_bac" != "0" ]; then
 fi
 
 # For new bias card in fast_sq2 mode, set enbl_mux for all columns
-if [ "$hardware_bac" == "0" ] && [ "$config_fast_sq2" == "1" ]; then
+if [ "$hardware_fast_bc2" == "1" ]; then
     for rc in 1 2 3 4; do
 	[ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
 	ch_ofs=$(( ($rc-1)*8 ))
-	echo "wra sq2 enbl_mux $ch_ofs `repeat_string 1 8`" >> $mce_script
+	echo "wra sq2 enbl_mux $ch_ofs `repeat_string $config_fast_sq2 8`" >> $mce_script
     done
 fi
 
