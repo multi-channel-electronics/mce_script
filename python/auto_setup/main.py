@@ -191,12 +191,26 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["lock_y"])
     tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["lock_x"])
 
-    # Why are these here?
-    tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
-    tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
-
     tuning.write_config()
     return {"status": 0}
+
+
+def prepare_sq1_servo(tuning):
+    # Standard
+    tuning.set_exp_param("data_mode", 0)
+    tuning.set_exp_param("servo_mode", 1)
+
+    # Enable SQ1 bias
+    sq1_bias = tuning.get_exp_param("default_sq1_bias")
+    sq1_bias_off = tuning.get_exp_param("default_sq1_bias_off")
+    tuning.set_exp_param("sq1_bias", sq1_bias)
+    tuning.set_exp_param("sq1_bias_off", sq1_bias_off)
+
+    # Set the ADC_offsets to their per-column values
+    tuning.set_exp_param("config_adc_offset_all", 0)
+
+    # Commit
+    tuning.write_config()
 
 
 def do_sq1_servo(tuning, rc, rc_indices):
@@ -209,10 +223,6 @@ def do_sq1_servo(tuning, rc, rc_indices):
     for x in sq2_fb_init:
         f.write("%i\n" % x)
     f.close()
-
-    tuning.set_exp_param("data_mode", 0)
-    tuning.set_exp_param("servo_mode", 1)
-    tuning.write_config()
 
     sq1_data = sq1_servo.go(tuning, rc)
     
@@ -350,9 +360,10 @@ def frametest_check(tuning, rcs, row, column):
                 binary=1, acq_id=acq_id)
 
 
-def auto_setup(rcs=None, check_bias=False, short=False, row=None,
-        column=None, numrows=33, acq_id=0, ramp_sa_bias=None, slope=1,
-        note=None, reg_note=None, data_root=None, debug=False):
+def auto_setup(rcs=None, check_bias=False, short=False, ramp_sa_bias=None,
+               note=None, reg_note=None, data_root=None,
+               first_stage=None, last_stage=None,
+               debug=False):
     """
 Run a complete auto setup.
 
@@ -392,52 +403,72 @@ IDL auto_setup_squids."""
     if (tune_data == None):
         return 1
 
-    # Short 0: do everything.
-    # Short 1: skip SA ramp and SQ2 servo
+    stages = ['sa_ramp',
+              'sq2_servo',
+              'sq1_servo',
+              'sq1_ramp',
+              'sq1_ramp_tes',
+              'operate']
+    
+    # ramp tes bias and see open loop response?
+    if tuning.get_exp_param("sq1_ramp_tes_bias") == 0 or short != 0:
+        stages.remove('sq1_ramp_tes')
+        
+    if first_stage == None:
+        if short == 1:
+            first_stage = 'sq1_servo'
+        if short == 2:
+            first_stage = 'sq1_ramp'
+    if first_stage == None:
+        first_stage = stages[0]
+    if last_stage == None:
+        if (tuning.get_exp_param("stop_after_sq1_servo") == 1):
+            last_stage = 'sq1_servo'
+    if last_stage == None:
+        last_stage = stages[-1]
+
+    s0, s1 = stages.index(first_stage), stages.index(last_stage)
+    stages = stages[s0:s1+1]
+    
     for c in rcs:
         print "Processing rc%s" % str(c)
         if c == 's':
             rc_indices = array(tuning.column_list())
         else:
             rc_indices = 8 * (int(c) - 1) + arange(8)
-        if short <= 0:
+        if 'sa_ramp' in stages:
             prepare_sa_ramp(tuning, cols=rc_indices)
             sa_dict = do_sa_ramp(tuning, c, rc_indices,
                                  ramp_sa_bias=ramp_sa_bias)
+        if 'sq2_servo' in stages:
             s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data)
             if (s2_dict["status"] != 0):
                 return s2_dict["status"]
-        if short <= 1:
+        if 'sq1_servo' in stages:
+            prepare_sq1_servo(tuning)
             e = do_sq1_servo(tuning, c, rc_indices)
             if (e != 0):
                 return e
 
-    # All that for some ADC offsets?
-    column_adc_offset = tuning.get_exp_param("adc_offset_c")
+    if 'sq1_ramp' in stages:
+        # sq1 ramp check
+        sq1 = do_sq1_ramp(tuning, rcs, tune_data)
+        tuning.write_sqtune(sq1_ramp=sq1)
 
-    if (tuning.get_exp_param("stop_after_sq1_servo") == 1):
-        print "stop_after_sq1servo is set, stopping."
-        return 98
+    if 'sq1_ramp_tes' in stages:
+        # ramp tes bias and see open loop response?
+        print 'sq1_ramp_tes to-be-implemented...'
+        #rtb_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampb")
+        #ramp_sq1_bias_plot(rtb_file_name, rc=rc, acq_id=acq_id)
 
-    # sq1 ramp check
-    sq1 = do_sq1_ramp(tuning, rcs, tune_data)
+    if 'frametest' in stages:
+        # lock check
+        print 'frametest_check to-be-implemented...'
+        #frametest_check(tuning, rcs, row, column)
 
-    # ramp tes bias and see open loop response?
-    if (tuning.get_exp_param("sq1_ramp_tes_bias") == 1 and not short):
-        print 'ramp_sq1_tes to-be-implemented...'
-    #    rtb_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampb")
-    #    ramp_sq1_bias_plot(rtb_file_name, rc=rc,
-    #                       acq_id=acq_id)
-
-
-    # lock check
-    print 'frametest_check to-be-implemented...'
-    #frametest_check(tuning, rcs, row, column)
-
-    # Enable servo
-    operate(tuning)
-
-    tuning.write_sqtune(sq1_ramp=sq1)
+    if 'operate' in stages:
+        # Enable servo
+        operate(tuning)
 
     # Copy experiment.cfg and config script between main data dir and tuning dir.
     shutil.copy2(tuning.config_mce_file, os.path.join(tuning.data_dir,
