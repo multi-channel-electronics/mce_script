@@ -66,6 +66,11 @@ runfile=$datafile.run
 biasfile=$datafile.bias
 logfile=$datafile.log
 
+if [ -e "$datafile" ]; then
+    echo "Target data file $datafile exists, aborting."
+    exit 1
+fi
+
 if [ "$normal_time" != "0" ]; then
     echo "Driving detectors normal (bias = $bias_normal)"
     bias_tess $bias_normal
