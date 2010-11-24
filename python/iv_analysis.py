@@ -156,7 +156,7 @@ o.add_option('--verbosity', default=2, type='int')
 o.add_option('--rf-file', default=None)
 o.add_option('--array', default=None)
 o.add_option('--array-file', default=None)
-o.add_option('--fix-rshunt-bug', default=0, type='int')
+o.add_option('--with-rshunt-bug', default=0, type='int')
 opts, args = o.parse_args()
 
 if len(args) != 1:
@@ -192,8 +192,10 @@ ar_par = loadArrayParams(filename=opts.array_file, array_name=opts.array)
 # Adjust...
 ar_par['Rbias_arr'] += ar_par['Rbias_cable']  # Include cable
 ar_par['Rfb'] += 50.                          # Include 50 ohms from RC
-ar_par['jshuntfile'] = os.getenv('MAS_SCRIPT')+'/srdp_data/'+ar_par['array']+ \
-    '/johnson_res.dat.C%02i'
+
+if ar_par['use_srdp_Rshunt']:
+    ar_par['jshuntfile'] = os.getenv('MAS_SCRIPT')+'/srdp_data/'+ar_par['array']+ \
+                           '/johnson_res.dat.C%02i'
 
 data_mode = filedata.runfile.Item('HEADER','RB rc1 data_mode',type='int',array=False)
 filtgain = MCE_params['filter_gains'][data_mode]
@@ -201,9 +203,11 @@ period = MCE_params['periods'][data_mode]
 
 # Load, unwrap, rescale data to SQ1 FB DAC units.
 data = filedata.Read(row_col=True).data
+data_cols = array(filedata._NameChannels(row_col=True)[1])
+
 unwrap(data, period)
 unwrap(data, period/2)
-data *= ar_par['fb_normalize'].reshape(1,-1,1) / filtgain
+data *= ar_par['fb_normalize'][data_cols].reshape(1,-1,1) / filtgain
 
 # The size of the problem
 n_row, n_col, n_pts = data.shape
@@ -215,10 +219,11 @@ if raw_bias.shape[0] != n_pts:
 
 # Read shunt data
 Rshunt = zeros((n_row, n_col))
-for c in range(n_col):
-    sd = read_ascii(ar_par['jshuntfile']%c, comment_chars=['#'])
-    rows, Rs = sd[0].astype('int'), sd[1]
-    Rshunt[rows, c] = Rs
+if ar_par['use_srdp_Rshunt']:
+    for c in range(n_col):
+        sd = read_ascii(ar_par['jshuntfile']%c, comment_chars=['#'])
+        rows, Rs = sd[0].astype('int'), sd[1]
+        Rshunt[rows, c] = Rs
 
 shunts_ok = (ar_par['good_shunt_range'][0] < Rshunt) * \
     (Rshunt < ar_par['good_shunt_range'][1])
@@ -279,7 +284,7 @@ ok_rc = zip(*iv_data.ok.nonzero())
 
 # Useful numbers
 M_ratio, Rfb = ar_par['M_ratio'], ar_par['Rfb']
-Rbias = ar_par['Rbias_arr'][ar_par['bias_lines']]  # per-column
+Rbias = ar_par['Rbias_arr'][ar_par['bias_lines'][data_cols]]  # per-column
             
 # Remove offset from feedback data and convert to TES current (uA)
 di_dfb = (1./50) / (1/Rfb+1/50.) / (-M_ratio*Rfb)
@@ -297,14 +302,20 @@ for r, c in ok_rc:
 
 perRn = R / iv_data.R_norm.reshape(n_row,n_col,1)
 for r, c in ok_rc:
-    i0 = (perRn[r,c,:iv_data.super_idx0[r,c]] > 0.5).nonzero()[0].max()
+    norm_region = (perRn[r,c,:iv_data.super_idx0[r,c]] > 0.5).nonzero()[0]
+    if norm_region.shape[-1] == 0:
+        continue
+    i0 = norm_region.max()
     iv_data.psat[r,c] = v_tes[r,c,i0] * i_tes[r,c,i0]
 
 # Evaluate set points at target bias
 def get_setpoints(perRn, idx, target):
     setpoints = zeros(perRn.shape[:2], dtype='int')
     for r, c in ok_rc:
-        setpoints[r,c] = (perRn[r,c,:idx[r,c]] > target).nonzero()[0].max()
+        upper_region = (perRn[r,c,:idx[r,c]] > target).nonzero()[0]
+        if upper_region.shape[-1] == 0:
+            continue
+        setpoints[r,c] = upper_region.max()
     return setpoints
 
 # Bias choice; lo, choice, hi
@@ -319,7 +330,7 @@ setpoints_dac = raw_bias[setpoints]
 
 # Choose a bias for each bias line.
 n_lines = ar_par['n_bias_lines']
-bias_lines = ar_par['bias_lines'] % n_lines
+bias_lines = ar_par['bias_lines'][data_cols] % n_lines
 bias_points_dac = zeros(n_lines, dtype='float')
 for line in range(n_lines):
     select = (bias_lines==line).reshape(1, n_col) * iv_data.ok
@@ -339,33 +350,36 @@ set_data = adict(
     (n_row, n_col))
 
 for r,c in ok_rc:
-    i = (raw_bias <= bias_points_dac[bias_lines[c]]).nonzero()[0][0]
-    set_data.index[r,c] = i
-    set_data.perRn[r,c] = perRn[r,c,i]
-    set_data.v_tes[r,c] = v_tes[r,c,i]
-    set_data.i_tes[r,c] = i_tes[r,c,i]
+    i = (raw_bias <= bias_points_dac[bias_lines[c]]).nonzero()[0]
+    if len(i) == 0: continue
+    set_data.index[r,c] = i[0]
+    set_data.perRn[r,c] = perRn[r,c,i[0]]
+    set_data.v_tes[r,c] = v_tes[r,c,i[0]]
+    set_data.i_tes[r,c] = i_tes[r,c,i[0]]
 
 set_data.p_tes = set_data.v_tes*set_data.i_tes
 
 # Responsivity in DAC units
 dfb_ddac = MCE_params['fbV_per_DAC']
 
-if opts.fix_rshunt_bug:
-    Rshunt_eff = Rshunt
-else:
-    # Bug inherited from IDL version; default behaviour.
+if opts.with_rshunt_bug:
+    # Simulate bug in IDL version
     Rshunt_eff = Rshunt[:,n_col-1:]
+else:
+    Rshunt_eff = Rshunt
 
 set_data.resp = -di_dfb*dfb_ddac * 1e-6*set_data.v_tes * \
     (1 - Rshunt_eff/set_data.perRn/iv_data.R_norm)
 set_data.resp[~iv_data.ok] = 0.
 
 # Cutting, cutting.
-p, r = set_data.p_tes[ok_rc], set_data.perRn[ok_rc]
+
+ok = iv_data.ok
+p, r = set_data.p_tes[ok], set_data.perRn[ok]
 p0,p1 = ar_par['psat_cut']
 r0,r1 = ar_par['per_Rn_cut']
 
-set_data.keep_rec[ok_rc] = (p0<p)*(p<p1)*(r0<r)*(r<r1)
+set_data.keep_rec[ok] = (p0<p)*(p<p1)*(r0<r)*(r<r1)
 
 #
 # Report
@@ -377,8 +391,8 @@ if opts.verbosity >= 2:
         print 'Column %2i = %4i' % (c, iv_data.ok[:,c].sum())
 
 if opts.verbosity >= 1:
-    if opts.fix_rshunt_bug:
-        print 'Rshunt bug was corrected in this analysis.'
+    if opts.with_rshunt_bug:
+        print 'Rshunt bug is in!.'
         print
     print 'Recommended biases for target of %10.4f Rn' % ar_par['per_Rn_bias']
     for l in range(n_lines):
