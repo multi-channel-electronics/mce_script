@@ -23,6 +23,9 @@ class FileSet(dict):
                         break
                 else:
                     print 'Unmatched tuning file, %s' % f
-            
+            cfg_file = '%s/experiment.cfg' % folder
+            if os.path.exists(cfg_file):
+                self['cfg_file'] = cfg_file
+                
     def stage_all(self, stage):
         return [self[stage][k] for k in sorted(self[stage].keys())] 

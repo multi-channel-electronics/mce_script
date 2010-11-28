@@ -23,13 +23,13 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
     if not ok:
         raise RuntimeError, ramp_data['error']
 
-    sa = SARamp(ramp_data['filename'])
+    sa = SARamp(ramp_data['filename'], tuning=tuning)
     if sa.bias_style == 'ramp':
         sa.reduce1()
         sa = sa.subselect() # replace with best bias version
 
-    lock_points = sa.reduce(tuning=tuning)
-    plot_out = sa.plot(tuning=tuning)
+    lock_points = sa.reduce()
+    plot_out = sa.plot()
     tuning.register_plots(*plot_out['plot_files'])
     
     # Return dictionary of relevant results
@@ -111,10 +111,11 @@ def get_set_point(y, dy=None, scale=5, slope=1.):
 
 
 class SARamp(util.RCData):
-    def __init__(self, filename=None, reduce_rows=True):
+    def __init__(self, filename=None, reduce_rows=True, tuning=None):
         util.RCData.__init__(self)
         self.data = None
         self.analysis = None
+        self.tuning = tuning
         if filename != None:
             self.read_data(filename, reduce_rows=reduce_rows)
 
@@ -126,6 +127,7 @@ class SARamp(util.RCData):
         synth = SARamp()
         # Borrow most things from the first argument
         synth.mcefile = None
+        synth.tuning = args[0].tuning
         synth.data_origin = dict(args[0].data_origin)
         synth.fb = args[0].fb.copy()
         synth.d_fb = args[0].d_fb
@@ -208,10 +210,10 @@ class SARamp(util.RCData):
             return [self]
 
         n_bias, n_row, n_col, n_fb = self.data_shape
-        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'mcefile']
+        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'tuning', 'mcefile']
         output = []
         for i in range(n_bias):
-            sa = SARamp()
+            sa = SARamp(tuning=self.tuning)
             for k in copy_keys:
                 setattr(sa, k, getattr(self, k))
             sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
@@ -241,9 +243,9 @@ class SARamp(util.RCData):
         self.data.shape = (-1, self.data_shape[-1])
         return sa
 
-    def reduce(self, tuning=None, slope=None):
+    def reduce(self, slope=None):
         self.reduce1()
-        self.reduce2(tuning=tuning, slope=slope)
+        self.reduce2(slope=slope)
         return self.analysis
 
     def reduce1(self):
@@ -260,15 +262,15 @@ class SARamp(util.RCData):
             self.analysis['y_span_select'] = select
         return self.analysis
     
-    def reduce2(self, tuning=None, slope=None):
+    def reduce2(self, slope=None):
         self._check_data()
         self._check_analysis(existence=True)
 
         # Convert to 1 slope per column
         if slope == None:
-            slope = tuning.get_exp_param('sq2_servo_gain')
-        if not hasattr(slope, '__getitem__'): slope = [slope]*max(self.cols+1)
-        slope = array(slope)[self.cols]
+            slope = -sign(self.tuning.get_exp_param('sq2_servo_gain')[self.cols])
+        if not hasattr(slope, '__getitem__'):
+            slope = array([slope]*len(self.cols))
 
         # Analyze all SA curves for lock-points
         n_fb = len(self.fb)
@@ -306,7 +308,7 @@ class SARamp(util.RCData):
             self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
         return self.analysis
 
-    def plot(self, tuning=None, plot_file=None):
+    def plot(self, plot_file=None):
         self._check_data()
         self._check_analysis()
 
@@ -314,7 +316,7 @@ class SARamp(util.RCData):
             raise RuntimeError, 'We cannot plot whole ramps, just the final selection.'
         
         if plot_file == None:
-            plot_file = os.path.join(tuning.plot_dir, '%s' % \
+            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
         # Plot plot plot
         return servo.plot(

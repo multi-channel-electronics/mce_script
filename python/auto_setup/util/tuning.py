@@ -26,8 +26,9 @@ class tuningData:
 
         # current data directory -- we get this from the "current_data" symlink,
         # which may or may not point to an absolute path
-        self.current_data = os.path.basename(
-                os.readlink(os.path.join(self.data_root, "current_data")))
+        self.current_data = os.path.join(self.data_root, "current_data")
+        if os.path.exists(self.current_data):
+            self.current_data = os.path.basename(os.readlink(self.current_data))
 
         # Data directories
         self.base_dir = os.path.join(self.data_root, self.current_data)
