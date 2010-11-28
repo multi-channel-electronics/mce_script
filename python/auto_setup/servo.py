@@ -10,59 +10,60 @@ def smooth(x, scale):
     y.shape = s[:-1] + (y.shape[-1],)
     return y
 
-def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
-    # Smooth, differentiate, and truncate to same length
-    if scale > 0:
-        y = smooth(data, scale)
-    x_offset = (scale+1)/2      # Later we will compensate
-    dy = y[:,1:] - y[:,:-1]
-    y = y[:,:-1]
+def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
+                    start=None, stop=None, extremality=0.9):
+    # By default, we characterize the extrema ignoring the beginning
+    # of the curve, since the servo may still be settling.
+    if start == None:
+        start = y.shape[1]/8
+    if stop == None:
+        stop = y.shape[1]
 
-    # Find first extremum in second half.
-    lo = y.shape[1] / 2
-    hi = y.shape[1]
+    y1, y0 = y[:,start:stop].max(axis=1), y[:,start:stop].min(axis=1)
+    mids = ((y1+y0)/2).reshape(-1,1)
+    amps = ((y1-y0)/2).reshape(-1,1)
 
-    # Measure y-extent
-    y_max, y_min = y[:,lo:hi].max(axis=1), y[:,lo:hi].min(axis=1)
-    y_mid, y_amp = (y_max + y_min)/2, (y_max - y_min)/2
-    yscale = y_amp * 0.05
+    # Copy data, rescaled to +-1 and corrected for slope.
+    slope = sign(array(slope)).reshape(-1,1)
+    y2 = slope * (y.astype('float') - mids) / amps
 
-    # Find all ineligible points with opposite derivative
-    other_edge = (dy*slope < 0) #* \
-    z = \
-        (y_max.reshape(-1,1) - y > yscale.reshape(-1,1)) * \
-        (y - y_min.reshape(-1,1) > yscale.reshape(-1,1))
+    # For each curve, identify a pair of adjacent extrema
+    ranges = []
+    for yy in y2:
+        # Find high points
+        right_idx = (yy>=extremality).nonzero()[0]
+        # Find low points left of right-most high point:
+        left_idx = (yy[:right_idx[-1]]<=-extremality).nonzero()[0]
+        if len(left_idx) == 0:
+            left_idx = 0
+        else:
+            left_idx = left_idx[-1]
+        # Use high point just to the right of chosen low-point
+        right_idx = min(right_idx[right_idx>=left_idx])
+        ranges.append((left_idx, right_idx))
+    i_left, i_right = array(ranges).transpose()
 
-    # Find a rising or falling region
-    if slope < 0:
-        i_right = y[:,lo:hi].argmin(axis=1) + lo
-    else:
-        i_right = y[:,lo:hi].argmax(axis=1) + lo
-
-    # Find right-most such point that is to the left of i_right
-    i_left = i_right*0
-    for i, (p, r) in enumerate(zip(other_edge, i_right)):
-        if any(p[scale:r-scale/2]):
-            i_left[i] = p[:r-scale/2].nonzero()[0][-1]
-    
     # Lock mid-way in y or x?
-    if lock_amp:
-        target = array([yy[a] + yy[b] for yy,a,b in zip(y, i_left, i_right)]) / 2
-        lock_idx = []
-        for a,b,tt,yy in zip(i_left, i_right, target, y):
-            zz = (slope*(yy[a:b]-tt)>=0).nonzero()[0]
-            if len(zz) == 0: zz = [(b-a)/2]
-            lock_idx.append(zz[0]+a)
-        lock_idx = array(lock_idx).astype('int')
-    else:
+    if lock_amp:  # y
+        target = array([yy[a] + yy[b] for yy,a,b in \
+                            zip(y, i_left, i_right)]) / 2
+        lock_idx = array([a + argmin(abs(yy[a:b+1]-t)) for \
+                          a,b,t,yy in zip(i_left, i_right, target, y)]) \
+                          .astype('int')
+        # Compute lock slopes and sub-sample the locking X-values.
+        lock_slope, dx = get_slopes(y-target.reshape(-1,1),
+                                    lock_idx, intercept='x', n_points=scale,
+                                    min_index=i_left, max_index=i_right)
+        lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
+    else:  # x
         lock_idx = (i_left + i_right)/2
-    lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
-    lock_idx += x_offset
+        lock_slope, lock_y = get_slopes(y, lock_idx, intercept='y',
+                                        n_points=scale,
+                                        min_index=i_left, max_index=i_right)
+        dx = zeros(y.shape[0])
 
-    # Compute lock slopes
-    lock_slope = get_slopes(y, lock_idx, min_index=i_left, max_index=i_right)
-    
     return {'lock_idx': lock_idx,
+            'lock_didx': dx,
             'lock_y': lock_y,
             'lock_slope': lock_slope,
             'slope': slope,
@@ -71,7 +72,8 @@ def get_lock_points(data, scale=0, yscale=None, lock_amp=False, slope=1.):
             }
 
 
-def get_slopes(data, index, n_points=5, min_index=None, max_index=None):
+def get_slopes(data, index, n_points=5, min_index=None, max_index=None,
+               intercept=None):
     """
     Fit straight line to data (a 2-d array) in vicinity of index (a
     1-d array).  Return slopes (a 1-d array).
@@ -81,15 +83,25 @@ def get_slopes(data, index, n_points=5, min_index=None, max_index=None):
     if max_index == None:
         max_index = [d.shape[-1] for d in data]
     
-    slopes = []
+    fits = []
     for d, i, lo, hi in zip(data, index, min_index, max_index):
         sl_idx = arange(max(lo, i-n_points/2),
                         min(hi, i+(n_points+1)/2))
         if len(sl_idx) < 2:
-            slopes.append(0)
+            fits.append([0.,0.])
         else:
-            slopes.append(polyfit(sl_idx-i, d[sl_idx], 1)[0])
-    return array(slopes)
+            fits.append(polyfit(sl_idx-i, d[sl_idx], 1))
+    fits = array(fits).transpose()
+    if intercept == None:
+        return fits[0]  # slope only
+    if intercept == 'y':
+        return fits[0], fits[1]
+    if intercept == 'x':
+        x0 = - fits[1] / fits[0]
+        x0[fits[0]==0] = 0.
+        return fits[0], x0
+    raise ValueError, 'Invalid intercept request "%s"' % intercept
+
 
 def period_correlation(y, width=None, normalize=True):
     n, nx = y.shape

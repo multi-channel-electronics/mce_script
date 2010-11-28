@@ -107,6 +107,7 @@ class SQ1Servo(util.RCData):
         synth = SQ1Servo()
         # Borrow most things from the first argument
         synth.mcefile = None
+        synth.tuning = args[0].tuning
         synth.data_origin = dict(args[0].data_origin)
         synth.fb = args[0].fb.copy()
         synth.d_fb = args[0].d_fb
@@ -217,7 +218,7 @@ class SQ1Servo(util.RCData):
             return [self]
 
         n_bias, n_row, n_col, n_fb = self.data_shape
-        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb']
+        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'tuning']
         output = []
         for i in range(n_bias):
             sa = SQ1Servo()
@@ -231,17 +232,19 @@ class SQ1Servo(util.RCData):
             output.append(sa)
         return output
 
-    def reduce(self, slope=1.):
+    def reduce(self, slope=None, lock_amp=True):
         self._check_data()
         self._check_analysis(existence=True)
         
         if slope == None:
-            slope = self.tuning.get_exp_param('sq2servo_gain')
-        if not hasattr(slope, '__getitem__'): slope = [slope]*4
-        if len(slope) < 8:
-            slope = (zeros((8,len(slope))) + slope).ravel()
-        slope = slope[self.cols]
+            # Dodge possiblity that params are different lengths...
+            s1 = self.tuning.get_exp_param('default_servo_i')[self.cols]
+            s2 = self.tuning.get_exp_param('sq1_servo_gain')[self.cols]
+            slope = -sign(s1*s2)
+        if not hasattr(slope, '__getitem__'):
+            slope = array([slope]*len(self.cols))
 
+        # Make slope either a scalar, or 1 value per curve.
         if any(slope != slope[0]):
             z = zeros(self.data_shape[:-1])
             z[:,:,:] = slope.reshape(1,-1,1)
@@ -249,12 +252,19 @@ class SQ1Servo(util.RCData):
         else:
             slope = slope[0]
         n_fb = len(self.fb)
-        self.analysis = servo.get_lock_points(self.data, scale=n_fb/40, yscale=4000, lock_amp=True, slope=slope)
-
+        an = servo.get_lock_points(self.data, scale=n_fb/40,
+                                   lock_amp=lock_amp, slope=slope)
         # Add feedback keys
         for k in ['lock', 'left', 'right']:
-            self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
-        return self.analysis
+            an[k+'_x'] = self.fb[an[k+'_idx']]
+
+        # Tweak feedback values and rescale slopes
+        d_fb = self.fb[1] - self.fb[0]
+        an['lock_x'] += (d_fb * an['lock_didx']).astype('int')
+        an['lock_slope'] /= d_fb
+
+        self.analysis = an
+        return an
         
     def plot(self, plot_file=None):
         self._check_data()
@@ -268,6 +278,7 @@ class SQ1Servo(util.RCData):
         return servo.plot(
             self.fb, self.data, self.data_shape[-3:-1],
             self.analysis, plot_file,
+            slopes=True,
             title=self.data_origin['basename'],
             xlabel='SQ1 FB / 1000',
             ylabel='SQ2 FB / 1000',
