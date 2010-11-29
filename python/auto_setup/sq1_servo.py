@@ -180,7 +180,7 @@ class SQ1Servo(util.RCData):
                             'basename': filename.split('/')[-1]}
         # Record the columns
         rcs = rf.Item('FRAMEACQ', 'RC', type='int')
-        self.cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
+        self.cols = array([i+(rc-1)*8 for rc in rcs for i in range(8)])
 
         # Fix me: runfile always indicates bias was ramped, even though it usually wasn't
         bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', \

@@ -139,7 +139,7 @@ class SQ2Servo(util.RCData):
         self.data.shape = (-1, self.data.shape[-1])
         # Record the rows and columns, roughly
         rcs = rf.Item('FRAMEACQ', 'RC', type='int')
-        self.cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
+        self.cols = array([i+(rc-1)*8 for rc in rcs for i in range(8)]).ravel()
         self.rows = array([-1])
 
         # Fix me: runfile always indicates bias was ramped, even though it usually wasn't
