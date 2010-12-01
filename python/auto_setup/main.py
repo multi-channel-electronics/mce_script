@@ -126,18 +126,17 @@ def prepare_sa_ramp(tuning, cols=None):
     tuning.write_config()
 
 def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
-    rc_indices = tuning.column_list()
     ok, ramp_data = series_array.acquire(tuning, rc,
                                          do_bias=ramp_sa_bias)
     if not ok:
         raise RuntimeError, ramp_data['error']
 
-    sa = series_array.SARamp(ramp_data['filename'])
+    sa = series_array.SARamp(ramp_data['filename'], tuning=tuning)
     if sa.bias_style == 'ramp':
         sa.reduce1()
         sa = sa.subselect() # replace with best bias version
 
-    lock_points = sa.reduce(tuning=tuning)
+    lock_points = sa.reduce()
     
     # Set-point results for feedback and ADC_offset
     fb, target = lock_points['lock_x'], lock_points['lock_y']
@@ -154,7 +153,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
     tuning.write_config()
 
     # Plot final curve only.
-    plot_out = sa.plot(tuning=tuning)
+    plot_out = sa.plot()
     tuning.register_plots(*plot_out['plot_files'])
 
     return {"status": 0, "column_adc_offset": target}

@@ -213,7 +213,7 @@ class SARamp(util.RCData):
         copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'tuning', 'mcefile']
         output = []
         for i in range(n_bias):
-            sa = SARamp(tuning=self.tuning)
+            sa = SARamp()
             for k in copy_keys:
                 setattr(sa, k, getattr(self, k))
             sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
@@ -268,10 +268,10 @@ class SARamp(util.RCData):
 
         # Convert to 1 slope per column
         if slope == None:
-            slope = -sign(self.tuning.get_exp_param('sq2_servo_gain')[self.cols])
+            slope = sign(self.tuning.get_exp_param('sq2_servo_gain')[self.cols])
         if not hasattr(slope, '__getitem__'):
             slope = array([slope]*len(self.cols))
-
+        
         # Analyze all SA curves for lock-points
         n_fb = len(self.fb)
         scale = max([8 * n_fb / 400, 1])

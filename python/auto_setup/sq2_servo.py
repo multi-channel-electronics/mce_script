@@ -202,7 +202,7 @@ class SQ2Servo(util.RCData):
         # Make slope either a scalar, or 1 value per curve.
         if any(slope != slope[0]):
             z = zeros(self.data_shape[:-1])
-            z[:,:,:] = slope.reshape(1,-1,1)
+            z[:,:,:] = slope.reshape(1,1,-1)
             slope = z
         else:
             slope = slope[0]
