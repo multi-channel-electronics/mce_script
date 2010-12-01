@@ -59,9 +59,9 @@ class BitField(object):
             right = 32 - self.count
             left = right - self.start
             if left != 0:
-                data = data * 2**left
+                data = numpy.array(data).astype('int32') * 2**left
             if right != 0:
-                data = data / 2**right
+                data = numpy.array(data).astype('int32') / 2**right
         else:
             # For unsigned fields, bit operations should be used
             data = (data >> self.start) & ((1 << self.count)-1)
