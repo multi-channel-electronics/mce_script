@@ -67,7 +67,9 @@ def loadArrayParams(filename=None, array_name=None):
     params = {'array': array_name,
               'source_file': filename}
     schema = [
-        ('float', True,  ['Rfb', 'M_ratio', 'default_Rshunt', 'per_Rn_bias']),
+        ('float', True,  ['Rfb', 'M_ratio', 'default_Rshunt', 'per_Rn_bias',
+                          'bias_DAC_volts', 'bias_DAC_bits',
+                          'fb_DAC_volts', 'fb_DAC_bits']),
         ('int',   True,  ['ncut_lim', 'use_srdp_Rshunt', 'n_bias_lines', 'bias_step']),
         ('float', False, ['fb_normalize', 'per_Rn_cut', 'psat_cut', 'good_shunt_range',
                           'Rbias_arr', 'Rbias_cable']),
@@ -136,10 +138,8 @@ def analyze_IV_curve(bias, fb, deriv_thresh=5e-6):
 
 # Some basic MCE data
 MCE_params = {
-    'fbV_per_DAC': 1./2**14,
-    'biasV_per_DAC': 5./2**16.,
     'periods': {1: 2**19, 9: 2**24, 10: 2**28},
-    'filtered': {1: 0, 9: 0, 10: 1},
+    'filtered': {1: 0, 9: 1, 10: 1},
     'filter_gains': {1: 1., 9: 1216., 10: 1216.}
     }
 
@@ -197,6 +197,10 @@ if ar_par['use_srdp_Rshunt']:
     ar_par['jshuntfile'] = os.getenv('MAS_SCRIPT')+'/srdp_data/'+ar_par['array']+ \
                            '/johnson_res.dat.C%02i'
 
+# DAC <-> V conversions
+dfb_ddac = ar_par['fb_DAC_volts'] / 2**ar_par['fb_DAC_bits']
+dbias_ddac = ar_par['bias_DAC_volts'] / 2**ar_par['bias_DAC_bits']
+
 data_mode = filedata.runfile.Item('HEADER','RB rc1 data_mode',type='int',array=False)
 filtgain = MCE_params['filter_gains'][data_mode]
 period = MCE_params['periods'][data_mode]
@@ -233,9 +237,9 @@ Rshunt[~shunts_ok] = ar_par['default_Rshunt']
 if ar_par['array'] == 'AR3':
     Rshunt[(col >= 24)*~shunts_ok] = 0.0007
 
-# To volts (5 V / 2^16)  and  (1 V / 2^14)
-bias = raw_bias * MCE_params['biasV_per_DAC']
-fb = data * MCE_params['fbV_per_DAC']
+# To volts
+bias = raw_bias * dbias_ddac
+fb = data * dfb_ddac
 
 supercon_index = zeros((n_row, n_col), dtype='int')
 transend_index = zeros((n_row, n_col), dtype='int')
@@ -359,9 +363,7 @@ for r,c in ok_rc:
 
 set_data.p_tes = set_data.v_tes*set_data.i_tes
 
-# Responsivity in DAC units
-dfb_ddac = MCE_params['fbV_per_DAC']
-
+# Responsivity
 if opts.with_rshunt_bug:
     # Simulate bug in IDL version
     Rshunt_eff = Rshunt[:,n_col-1:]
