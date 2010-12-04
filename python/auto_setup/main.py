@@ -325,12 +325,10 @@ def operate(tuning):
 
     # Disable dog-housed column biases
     columns_off = tuning.get_exp_param("columns_off")
-    bad_columns = [c for c in range(len(columns_off)) if columns_off[c] != 0]
+    bad_columns = columns_off.nonzero()[0]
     if len(bad_columns) > 0:
-        tuning.set_exp_param_range("sa_bias", bad_columns,
-                zeros(len(bad_columns)))
-        tuning.set_exp_param_range("sq2_bias", bad_columns,
-                zeros(len(bad_columns)))
+        tuning.set_exp_param_range("sa_bias", bad_columns, 0)
+        tuning.set_exp_param_range("sq2_bias", bad_columns, 0)
 
     # Compile dead detector mask
     print "Assembling dead detector mask."
