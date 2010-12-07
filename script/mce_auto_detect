@@ -1,0 +1,2 @@
+#!/bin/bash
+mce_jam -u -v -f8000000 -aread_idcode $MAS_TEMPLATE/read_idcode.jam|grep EP
