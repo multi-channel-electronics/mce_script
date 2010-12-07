@@ -1,0 +1,55 @@
+#!/bin/bash
+# The following code is copied from Bryce Burger's sof2jam script
+
+if [ "$#" -lt "2" ]; then
+    echo "Usage:   $0 <device> <jamfilename> "
+    echo "  device         FPGA, EPC16, or EPCS64 "
+    echo "  jamfile        filename, needs to be located in $MCE_JAM_DIR"
+    exit 1
+fi
+
+DEVICE=$1
+JAM_DIR=$MCE_JAM_DIR
+JAM_FILE=$2
+START_TIME=`date +%s`
+echo " MCE firmware revisions prior to firmware update:"
+mce_status -s |grep fw_rev
+
+if [[ $DEVICE == "EPC16" ]]; then
+  mce_jam -u -f800000 -aprogram -dDO_VERIFY=0 $JAM_DIR/$JAM_FILE
+elif [[ $DEVICE == "EPCS64" ]]; then
+  mce_jam -u -f8000000 -aconfigure $JAM_DIR/$JAM_FILE
+  mce_jam -u -f100000 -aprogram -dDO_VERIFY=0 $JAM_DIR/$JAM_FILE
+elif [[ $DEVICE == "FPGA" ]]; then
+  mce_jam -u -f8000000 -aconfigure $JAM_DIR/$JAM_FILE
+else
+  echo "  Error: device=$DEVICE is not a valid device. Use FPGA or EPC16 or EPCS64 to specify the device"
+fi
+
+echo " Configuration complete."
+
+if [[ $DEVICE != "FPGA"  ]]; then
+  echo "  Triggering Clock Card reconfiguration, which reconfigures all other cards too.."
+  mce_cmd -q -x rs cc config_fac 1
+  sleep 15
+fi
+
+echo "  Reset PCI card and MCE.."
+`mce_cmd -q -x dsp_reset`
+sleep 2
+`mce_cmd -q -x mce_reset`
+sleep 2
+
+echo "  Firmware revisions after firmware update:"
+mce_status -s | grep fw_rev
+#---------------------------------------------------------------
+echo " Script complete."
+#---------------------------------------------------------------
+END_TIME=`date +%s`
+EXE_TIME=`expr $END_TIME - $START_TIME`
+#echo "  Start time     = $START_TIME s"
+#echo "  End time       = $END_TIME s"
+echo "  Execution time = $EXE_TIME seconds"
+
+exit 0
+
