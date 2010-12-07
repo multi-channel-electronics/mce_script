@@ -23,6 +23,7 @@ export MAS_DATA=/data/cryo/current_data/
 
 export MAS_TEMPLATE=${MAS_ROOT}/template/
 export MAS_SCRIPT=${MAS_ROOT}/script/
+export MCE_JAM_DIR=${MAS_ROOT}/firmware/
 export MAS_TEST_SUITE=${MAS_ROOT}/test_suite/
 export MAS_IDL=${MAS_ROOT}/idl_pro/
 export MAS_PYTHON=${MAS_ROOT}/python/
