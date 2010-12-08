@@ -19,9 +19,10 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
     if stop == None:
         stop = y.shape[1]
 
-    y1, y0 = y[:,start:stop].max(axis=1), y[:,start:stop].min(axis=1)
-    mids = (float(y1+y0)/2).reshape(-1,1)
-    amps = (float(y1-y0)/2).reshape(-1,1)
+    y1, y0 = y[:,start:stop].max(axis=1).astype('float'), \
+        y[:,start:stop].min(axis=1).astype('float')
+    mids = ((y1+y0)/2).reshape(-1,1)
+    amps = ((y1-y0)/2).reshape(-1,1)
     amps[amps==0] = 1.
 
     # Copy data, rescaled to +-1 and corrected for slope.
