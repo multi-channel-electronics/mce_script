@@ -20,8 +20,9 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
         stop = y.shape[1]
 
     y1, y0 = y[:,start:stop].max(axis=1), y[:,start:stop].min(axis=1)
-    mids = ((y1+y0)/2).reshape(-1,1)
-    amps = ((y1-y0)/2).reshape(-1,1)
+    mids = (float(y1+y0)/2).reshape(-1,1)
+    amps = (float(y1-y0)/2).reshape(-1,1)
+    amps[amps==0] = 1.
 
     # Copy data, rescaled to +-1 and corrected for slope.
     slope = sign(array(slope)).reshape(-1,1)
@@ -32,6 +33,8 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
     for yy in y2:
         # Find high points
         right_idx = (yy>=extremality).nonzero()[0]
+        if len(right_idx) == 0:  # probably a flat-liner?
+            right_idx = array([len(yy)-1])
         # Find low points left of right-most high point:
         left_idx = (yy[:right_idx[-1]]<=-extremality).nonzero()[0]
         if len(left_idx) == 0:
