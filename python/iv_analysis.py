@@ -297,8 +297,6 @@ for c in range(n_col):
     for r in range(n_row):
         det = analyze_IV_curve(bias, fb[r,c])
         iv_data.add_item((r, c), det)
-#        if det['ok']:
-#            iv_data.add_item((r,c),det)
 ok_rc = zip(*iv_data.ok.nonzero())
 
 # Remove offset from feedback data and convert to TES current (uA)
