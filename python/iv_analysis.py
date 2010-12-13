@@ -3,6 +3,8 @@ from numpy import *
 from mce_data import MCEFile
 import subprocess as sp
 
+from auto_setup.util import interactive_errors
+
 class cfgFile:
     def __init__(self, filename):
         self.filename = filename
@@ -68,8 +70,8 @@ def loadArrayParams(filename=None, array_name=None):
               'source_file': filename}
     schema = [
         ('float', True,  ['Rfb', 'M_ratio', 'default_Rshunt', 'per_Rn_bias',
-                          'bias_DAC_volts', 'bias_DAC_bits',
-                          'fb_DAC_volts', 'fb_DAC_bits']),
+                          'fb_DAC_amps', 'bias_DAC_bits',
+                          'bias_DAC_volts', 'fb_DAC_bits']),
         ('int',   True,  ['ncut_lim', 'use_srdp_Rshunt', 'n_bias_lines', 'bias_step']),
         ('float', False, ['fb_normalize', 'per_Rn_cut', 'psat_cut', 'good_shunt_range',
                           'Rbias_arr', 'Rbias_cable']),
@@ -157,7 +159,11 @@ o.add_option('--rf-file', default=None)
 o.add_option('--array', default=None)
 o.add_option('--array-file', default=None)
 o.add_option('--with-rshunt-bug', default=0, type='int')
+o.add_option('-i','--interactive', action='store_true')
 opts, args = o.parse_args()
+
+if opts.interactive:
+    interactive_errors(True)
 
 if len(args) != 1:
     o.error('Give exactly 1 IV filename.')
@@ -197,11 +203,20 @@ if ar_par['use_srdp_Rshunt']:
     ar_par['jshuntfile'] = os.getenv('MAS_SCRIPT')+'/srdp_data/'+ar_par['array']+ \
                            '/johnson_res.dat.C%02i'
 
-# DAC <-> V conversions
-dfb_ddac = ar_par['fb_DAC_volts'] / 2**ar_par['fb_DAC_bits']
+            
+# DAC to Voltage conversions.
+## FB is a current DAC, so effective output voltage depends on
+## bridge resistance (R33 ~ 50 ohms) and R_fb.
+r = 49.9  #R33
+Rfb = ar_par['Rfb']
+fb_DAC_volts = ar_par['fb_DAC_amps'] * Rfb * r / (r + Rfb)
+dfb_ddac = fb_DAC_volts / 2**ar_par['fb_DAC_bits']
+
+## bias is voltage DAC
 dbias_ddac = ar_par['bias_DAC_volts'] / 2**ar_par['bias_DAC_bits']
 
-data_mode = filedata.runfile.Item('HEADER','RB rc1 data_mode',type='int',array=False)
+data_mode = filedata.runfile.Item('HEADER','RB rc1 data_mode',
+                                  type='int',array=False)
 filtgain = MCE_params['filter_gains'][data_mode]
 period = MCE_params['periods'][data_mode]
 
@@ -286,15 +301,12 @@ for c in range(n_col):
 #            iv_data.add_item((r,c),det)
 ok_rc = zip(*iv_data.ok.nonzero())
 
-# Useful numbers
-M_ratio, Rfb = ar_par['M_ratio'], ar_par['Rfb']
-Rbias = ar_par['Rbias_arr'][ar_par['bias_lines'][data_cols]]  # per-column
-            
 # Remove offset from feedback data and convert to TES current (uA)
-di_dfb = (1./50) / (1/Rfb+1/50.) / (-M_ratio*Rfb)
+di_dfb = 1 / (-ar_par['M_ratio']*Rfb)
 i_tes = 1e6 * di_dfb * (fb - iv_data.norm_offset.reshape(n_row, n_col, 1))
 
 # Compute v_tes (uV) from bias voltage and i_tes
+Rbias = ar_par['Rbias_arr'][ar_par['bias_lines'][data_cols]]  # per-column
 v_tes = 1e6 * Rshunt.reshape(n_row, n_col,1)* \
     (bias.reshape(1,1,-1)/Rbias.reshape(1,-1,1) - i_tes*1e-6)
 
