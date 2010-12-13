@@ -1,2 +1,38 @@
 #!/bin/bash
-mce_jam -u -v -f8000000 -aread_idcode $MAS_TEMPLATE/read_idcode.jam|grep EP
+
+source $MAS_SCRIPT/mas_library.bash
+
+function is_present {
+    # Attempt to change LED status to confirm presence of working card
+    card=$1
+    led1=`command_reply rb $card $LED 1`
+    [ "$?" != "0" ] && return 1
+    command_reply wb $card $LED 0x7
+    led2=`command_reply rb $card $LED 1`
+    OK=$(( $led1 ^ $led2 ))
+    test "$OK" -ne "0"
+}
+
+CARD_ID=0x93
+CARD_TYPE=0x94
+SLOT_ID=0x95
+LED=0x99
+
+echo "mce_scan version 1"
+echo "card_scan"
+echo "# card    card_id card_type   slot_id"
+for i in `seq 1 10`; do
+    is_present $i || continue
+    printf "%7i " $i
+    for k in $CARD_ID $CARD_TYPE $SLOT_ID; do
+	a=`command_reply rb $i $k 1`
+	printf "%9i " $a
+    done
+    echo
+done
+
+echo "jtag_scan"
+echo "# id device"
+mce_jam -u -v -f8000000 -aread_idcode $MAS_TEMPLATE/read_idcode.jam | \
+    grep EP | sed 's/.*Device\ #/\ \ /g; s/\ *|\ */\ /g; s/\ *Altera.*//g' | \
+    sed 's/^\(\ [0-9]\ \)/\ \1/g'
