@@ -20,13 +20,26 @@ LED=0x99
 
 echo "mce_scan version 1"
 echo "card_scan"
-echo "# card    card_id card_type   slot_id"
+echo "#   card  card_id    card_type  pcb_rev    slot_id"
 for i in `seq 1 10`; do
     is_present $i || continue
     printf "%7i " $i
     for k in $CARD_ID $CARD_TYPE $SLOT_ID; do
 	a=`command_reply rb $i $k 1`
-	printf "%9i " $a
+        case  "$k" in 
+        $CARD_ID) 
+          printf "%#9x " $a
+        ;;
+        $CARD_TYPE)
+          for j in $a ; do
+            printf "%9i " `expr $j % 256` #card_type
+            printf "%9i " `expr $j / 256` #pcb_rev
+          done
+        ;;
+        $SLOT_ID)
+          printf "%9i " $a
+        ;;
+        esac
     done
     echo
 done
