@@ -10,6 +10,7 @@ function is_present {
     command_reply wb $card $LED 0x7
     led2=`command_reply rb $card $LED 1`
     OK=$(( $led1 ^ $led2 ))
+    command_reply wb $card $LED 0x7
     test "$OK" -ne "0"
 }
 
@@ -25,6 +26,7 @@ for i in `seq 1 10`; do
     is_present $i || continue
     printf "%7i " $i
     for k in $CARD_ID $CARD_TYPE $SLOT_ID; do
+        # $i = 1 corresponds to psc, 2 to cc, 3 to rc2, 4 to rc1, 4 to rc1, 4 to rc1, 4 to rc1, etc
 	a=`command_reply rb $i $k 1`
         case  "$k" in 
         $CARD_ID) 
