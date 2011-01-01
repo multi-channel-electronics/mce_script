@@ -186,11 +186,8 @@ sleep 1
 mce_cmd -qx wb rca readout_row_index $row
 
 sleep 1
-fast_filename=$dir'/fast_rc1_row'$row
-mce_run $fast_filename 155000 1 
-sleep 1
-fast_filename=$dir'/fast_rc2_row'$row
-mce_run $fast_filename 155000 2
+fast_filename=$dir'/fast_row'$row
+mce_run $fast_filename 155000 s 
 
 sleep 1
 #mce_reconfig                                   # get back to normal state to freeze the servo
