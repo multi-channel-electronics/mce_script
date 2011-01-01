@@ -1,0 +1,343 @@
+#!/bin/bash
+#
+# This is the script to take superfast (400kHz) noise data through the transition on BICEP2.
+#
+# must define the channel subset to sample below (in terms of row and col)
+#
+# JAB 20090715 noise_superfast_1tile original
+# JAB 20091001 noise_superfast mod for BICEP2
+# JAB 20101227 noise_superfast_script... scriptified for fewer mce_cmd's, fewer upsets, don't use dsp_reset
+
+source $MAS_SCRIPT/mas_library.bash
+
+if [ "$#" -lt "1" ]; then
+    echo "Usage:   noise_superfast_script dir [tune_dir]"
+    exit 1
+fi
+
+dir=$1
+if [ "$#" -lt "2" ]; then
+    echo "using last tuning for acq"
+    tune_dir='/data/cryo/current_data/'
+else
+    tune_dir=$2
+    echo "using tuning "$tune_dir
+fi
+
+####################################################################
+# initial set up, and archiving config and script stuff
+####################################################################
+
+echo "you are using noise_superfast_script ... good luck (you'll need it)"
+cp $MAS_SCRIPT/noise_superfast_script $MAS_DATA/$dir/noise_superfast_script
+cp $MAS_DATA/experiment.cfg $MAS_DATA/$dir/experiment.cfg
+configname=`ls $tune_dir/*config_mce*`
+echo $configname
+cp $configname $MAS_DATA/$dir/`echo $configname | sed 's/\/.*\///g'`
+
+# Don't fiddle with tes bias when using mce_reconfig in 'really_freeze_servo.py'
+# this stuff will need to be addressed if using a specific config/tune_dir
+# if not, then do anyway
+if [ "$#" -lt "2" ]; then
+    mas_param set tes_bias_do_reconfig 0
+    mas_param set config_sync 0
+    mas_param set sq1_bias_off 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    mce_make_config
+    mce_reconfig
+else
+    # pesky sync box
+    mce_cmd -q \
+	-X "wb cc select_clk 0" \
+	-X "wb cc use_dv 0" \
+        -X "wb cc use_sync 0"
+
+    # test for tes bias reconfig
+    test=`grep tes_bias_do_reconfig $configname`
+    if [ ${test[@]:21:1} -eq 1 ]; then
+       echo "bad news bears, tes_bias_do_reconfig=1... fix or use other tuning"
+       exit 1
+    fi
+    unset test
+
+    # test for sq1 bias off, not sure if really_freeze_servo handles this better now
+    test=`grep sq1_bias_off $configname`
+    if [ ${test[@]:23:1} -ne 0 ]; then
+       echo "bad news bears, sq1_off_bias != 0 ... fix or use other tuning, unless really_freeze_servo doesn't care"
+       exit 1
+    fi
+    unset test
+
+fi                    
+
+####################################################################
+# this section has the details for some one-time set ups
+####################################################################
+
+# set up the superfast_acq script stuff
+row_len=62          #98 gives 250kHz, 62 gives 400kHz
+ccnumrows=32                       
+ccnumcols=1
+datarate=$(( $ccnumrows * $ccnumcols ))
+nsamp=3000000
+samplenum=`command_reply rb rc1 sample_num`
+sampledly=$(( $row_len-$samplenum )) 
+sampleuse=$(( $nsamp/$ccnumrows/$ccnumcols ))
+sampint=( `echo $sampleuse | awk '{printf "%.0f",$1}' `)
+
+# set up for the fb_const sqrwave
+para=31              #where rc1/rc2 fb_const are physically mapped per mce_status -g
+card1=3              #where rc1 fb_const is physically mapped per mce_status -g
+card2=4              #where rc2 fb_const is physically mapped per mce_status -g
+period=50
+stepsize=10          #10 is good, keep it linear
+
+# define fast (15kHz) settings and create the fast set up script
+fast_datamode=1
+fast_ccnumrows=1
+fast_rcnumrows=1
+fast_datarate=1
+
+fast_script=$MAS_TEMP/fast.scr
+rm $fast_script
+echo "wb rca data_mode "$fast_datamode >> $fast_script
+echo "wb cc num_rows_reported "$fast_ccnumrows >> $fast_script
+echo "wb rca num_rows_reported "$fast_rcnumrows >> $fast_script
+echo "wb cc data_rate "$fast_datarate >> $fast_script
+
+# get the default values set up by mce_reconfig
+def_rowlen=`command_reply rb sys row_len`
+def_sampdly=`command_reply rb rca sample_dly`
+def_numrows=`command_reply rb sys num_rows`
+def_rcnumcolsrep=`command_reply rb rca num_cols_reported`
+def_ccnumcolsrep=`command_reply rb cc num_cols_reported`
+def_colindex=`command_reply rb rca readout_col_index`
+
+####################################################################
+# start from high bias and step down, assumes detectors have
+# already been biased into the transition
+####################################################################
+
+#for tbias in 4000 2500 2000 1500 0
+for (( tbias=5000; tbias>=2000; tbias=$tbias-200 ))
+do
+
+echo "tes_bias="$tbias
+
+dir=$1'/bias'$tbias'/'
+mkdir '/data/cryo/current_data/'$1/'bias'$tbias'/'
+
+bias_tess $tbias
+
+sleep 30
+
+###################################################################
+# 400Hz standard noise for all channels at the bias
+####################################################################
+
+echo "taking 400Hz noise for all channels at tes_bias="$tbias
+
+mce_reset_clean
+sleep 1
+#mce_reconfig
+$configname
+sleep 1
+
+mce_run $dir'/all' 10000 s 
+
+####################################################################
+# define the channels to sample here.
+# loop slowly over the rows, so the servo_freeze only needs to be 
+# performed once per row.
+####################################################################
+
+#for (( row=0; row<=33; row=$row+1 ))            #do all the rows
+#for row in 8 9 24 25                            #for all darks
+for row in 5 10 15 20 25 30                             #for some lights
+do
+
+## light pixels all tiles Run8.0
+case "$row" in
+     5 ) coluse=( 0 2 4 6 8 12 15 ) ;;
+     #8 ) coluse=( 0 8 ) ;; #for darks
+     #9 ) coluse=( 0 8 ) ;; #for darks
+     10 ) coluse=( 0 3 5 7 8 9 11 13 ) ;;
+     15 ) coluse=( 0 1 2 4 6 7 10 12 15 ) ;;
+     20 ) coluse=( 0 1 3 9 10 11 13 15 ) ;;
+     #24 ) coluse=( 15 ) ;;
+     25 ) coluse=( 0 2 4 5 6 8 10 12 ) ;; #for lights
+     30 ) coluse=( 0 1 3 5 7 9 11 13 ) ;;
+esac
+
+####################################################################
+# take 15kHz data for direct comparison, closed loop, unfiltered feedback
+####################################################################
+
+echo "taking 15kHz data for row"$row
+
+#mce_reconfig   
+$configname 
+
+# this is a standard set of operations, use the fast (15kHz) script, 
+# but write the new readout_row_index
+
+sleep 1
+mce_cmd -iqf $fast_script
+sleep 1
+mce_cmd -qx wb rca readout_row_index $row
+
+sleep 1
+fast_filename=$dir'/fast_rc1_row'$row
+mce_run $fast_filename 155000 1 
+sleep 1
+fast_filename=$dir'/fast_rc2_row'$row
+mce_run $fast_filename 155000 2
+
+sleep 1
+#mce_reconfig                                   # get back to normal state to freeze the servo
+$configname
+                                                                                                       
+####################################################################
+# freeze the servo on a single row, go open loop, take error data (mode=0)
+#
+# from here on start writing mce_cmd writes to a script for all cols
+# in the row of interest, then after accumulating run the script
+####################################################################                                    
+sleep 1
+
+~/python_tools/really_freeze_servo.py -r $row --o        #JAB 20091001 really_freeze_servo.py moved to ~/python_tools/ 
+
+sleep 2
+
+fb_val=(`mce_cmd -qrx rb sq1 fb_const`)
+echo "fb_const="${fb_val[@]}
+
+script=$MAS_TEMP/noise_superfast.scr
+rm $script
+                          
+####################################################################
+# loop quickly over the cols
+# accumulate a single mce_cmd script for all cols in the row.
+# set a few scripting things outside the loop
+#################################################################### 
+
+echo "wb rca readout_row_index 0" >> $script               #open-loop, this should always be 0
+echo "wb rca num_rows_reported 1" >> $script               #this is the same for both fast & superfast  
+
+echo "looping over columns, generating noise_superfast.scr"
+
+for col in ${coluse[@]}
+do
+
+echo 'col='$col
+
+if [ $col -lt 8 ]; then
+    rc=1
+    card=$card1        # set up for the fb_const sqrwave
+else
+    rc=2
+    card=$card2        # set up for the fb_const sqrwave
+fi
+
+####################################################################
+# take super-fast noise timestreams at 400kHz, sampling channel of interest
+####################################################################
+
+filename=$MAS_DATA/$dir'/superfast_row'$row'_col'$col
+
+#superfast_acq $col 0 12000000 $filename                    #replaced this with script commands below
+
+echo "wb sys row_len "$row_len >> $script                   
+echo "wb rca sample_dly "$sampledly >> $script              
+echo "wb sys num_rows 2" >> $script
+#echo "wb rca num_rows_reported 1" >> $script               #this is the same for both superfast and fast, set once above
+echo "wb rca num_cols_reported 1" >> $script
+echo "wb cc num_rows_reported "$ccnumrows >> $script
+echo "wb cc num_cols_reported "$ccnumcols >> $script
+echo "wb cc data_rate "$datarate >> $script
+#echo "wb rca readout_row_index 0" >> $script                #always look at row 0 in frozen servo mode, set once above
+echo "wb rca readout_col_index "$col >> $script
+
+echo "sleep 10" >> $script                                  # mce_cmd sleep <microseconds>
+#mce_run $filename $sampint $rc                             # can't do this in script mode
+
+echo "wb rca flx_lp_init 1" >> $script
+echo "sleep 10" >> $script
+#mce_status >> ${filename}.run
+#frameacq_stamp $rc ${filename} $sampint >> ${filename}.run
+#acq_register "" "data" $filename $sampint ""
+echo "acq_config "$filename" rc"$rc >> $script
+echo "acq_go "$sampint >> $script
+
+# kindly return mce to default state
+echo "wb sys row_len "$def_rowlen >> $script
+echo "wb rca sample_dly "$def_sampdly >> $script
+echo "wb sys num_rows "$def_numrows >> $script
+echo "wb rca num_cols_reported "$def_rcnumcolsrep >> $script
+echo "wb cc num_cols_reported "$def_ccnumcolsrep >> $script
+echo "wb rca readout_col_index "$def_colindex >> $script
+#echo "wb rca flx_lp_init 1" >> $script                   #done below, should be fine
+
+####################################################################
+# acquire the open-loop gain of the system for calibration. 
+# do for each channel individually.
+####################################################################
+
+index=$((5+$col))
+extn=$MAS_DATA/$dir'/calib_row'$row'_col'$col
+min=$((${fb_val[$index]}-$stepsize))
+max=$((${fb_val[$index]}+$stepsize))
+step=$(($max - $min))
+
+# set up for fast (15kHz) acquisition, stay in data_mode 0
+
+echo "wb cc num_rows_reported "$fast_ccnumrows >> $script
+#echo "wb rca num_rows_reported "$fast_rcnumrows >> $script             #same for both superfast and fast, do once above
+echo "wb cc data_rate "$fast_datarate >> $script
+
+# fb1const_sqrwave $min $max 50 $rc              #replaced by script below
+
+# set up fb const square wave
+echo "wb cc internal_cmd_mode 0" >> $script
+echo "wb cc ramp_min_val "$min >> $script
+echo "wb cc ramp_max_val "$max >> $script
+echo "wb cc ramp_step_period "$period >> $script
+echo "wb cc ramp_step_size "$step >> $script
+echo "wb cc ramp_card_addr "$card >> $script
+echo "wb cc ramp_param_id "$para >> $script
+echo "wb cc ramp_step_data_num 16" >> $script
+echo "sleep 10" >> $script
+echo "wb cc internal_cmd_mode 2" >> $script 
+
+echo "sleep 10" >> $script
+#mce_run $extn 10000 $rc 
+
+echo "wb rca flx_lp_init 1" >> $script
+echo "sleep 10" >> $script
+#mce_status >> ${extn}.run
+#frameacq_stamp $rc ${extn} 10000 >> ${extn}.run
+#acq_register "" "data" $extn 10000 ""
+echo "acq_config "$extn" rc"$rc >> $script
+echo "acq_go 10000" >> $script
+
+echo "sleep 10" >> $script
+
+echo "wb cc internal_cmd_mode 0" >> $script                      #turn off the sqr wave on fb_const
+echo "wb sq1 fb_const "${fb_val[@]:5} >> $script                  #return to the servo_freeze values
+
+####################################################################
+
+done
+
+echo "running noise_superfast.scr"
+
+# time to execute the script accumulated for the row
+mce_cmd -iqf $script           # -i means don't exit if some command fails
+
+echo "done with noise_superfast.scr"
+
+cp $script $MAS_DATA/$dir"/noise_superfast.scr.row"$row
+
+done
+done
+
+mce_reconfig                   #end with the current_data configuration
