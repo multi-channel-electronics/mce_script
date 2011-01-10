@@ -24,8 +24,8 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
     on_bias = False
     if (check_bias):
         for c in rcs:
-            exit_status = tuning.run(["check_zero", "rc%i" % (c), "sa_bias"])
-            if (exit > 8):
+            exit_status = tuning.run(["check_zero", "rc%s" % str(c), "sa_bias"])
+            if (exit_status > 8):
                 print "check_zero failed with code", exit_status
             on_bias += exit_status
 
@@ -333,7 +333,7 @@ def operate(tuning):
     # Compile dead detector mask
     print "Assembling dead detector mask."
     mask = util.get_all_dead_masks(tuning, union=True)
-    tuning.set_exp_param("dead_detectors", mask)
+    tuning.set_exp_param("dead_detectors", mask.data.transpose().reshape(-1))
 
     # Write to MCE
     tuning.write_config(run_now=True)
