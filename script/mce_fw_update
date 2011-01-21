@@ -3,8 +3,12 @@
 
 if [ "$#" -lt "2" ]; then
     echo "Usage:   $0 <device> <jamfilename> "
-    echo "  device         FPGA, EPC16, or EPCS64 "
-    echo "  jamfile        filename, needs to be located in $MCE_JAM_DIR"
+    echo "  device        FPGA, EPC16, or EPCS64 "
+    echo "                     - FPGA for temporary firmware (sof)"
+    echo "                     - EPC16 for permanent firmware on any card other than RC Rev. E (pof)"
+    echo "                     - EPCS64 for permanent firmware on RC Rev. E (jic)"
+    echo "  jamfilename   filename"
+    echo "                     - file needs to be located in \$MCE_JAM_DIR"
     exit 1
 fi
 
