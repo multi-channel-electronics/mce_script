@@ -23,8 +23,13 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
     # check whether the SSA and SQ2 biases have already been set
     on_bias = False
     if (check_bias):
-        for c in rcs:
-            exit_status = tuning.run(["check_zero", "rc%s" % str(c), "sa_bias"])
+        if str(rcs[0]) == "s":
+            check_rcs = tuning.rc_list();
+        else:
+            check_rcs = rcs;
+		
+        for c in check_rcs:
+            exit_status = tuning.run(["check_zero", "rc%i" % (c), "sa_bias"])
             if (exit_status > 8):
                 print "check_zero failed with code", exit_status
             on_bias += exit_status
@@ -189,6 +194,13 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     # Save SQ2 set point (SA feedback) and SQ2 feedback
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["lock_y"])
     tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["lock_x"])
+
+    # For SQ2 fast-switching, write the big FB array
+    tu_nr = tuning.get_exp_param('default_num_rows') # number of rows
+    fb_nr = tuning.get_exp_param('array_width') # number of rows in sq2_fb_set
+    fb_set = tuning.get_exp_param('sq2_fb_set').reshape(-1, fb_nr).transpose()
+    fb_set[:tu_nr,rc_indices] = sq2_data['lock_x']
+    tuning.set_exp_param('sq2_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
     return {"status": 0}
