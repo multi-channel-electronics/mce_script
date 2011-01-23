@@ -67,6 +67,12 @@ class RCData:
         return offsets
 
     def _synth_rect_gridded(self, items):
+        """
+        Prepare to map a set of gridded items into a larger grid.
+
+        For each item, determine the row and column offset at which
+        the item data will need to be copied.
+        """
         offsets = [(0,0)]
         rows = [i for i in items[0].rows]
         cols = [i for i in items[0].cols]
@@ -103,6 +109,12 @@ class RCData:
         self.data_shape = shape_s + (1, nd, nt)
 
     def _synth_data_gridded(self, items, offsets, attr):
+        """
+        Synthesize a bunch of gridded data into a larger grid.
+
+        Use offsets to determine where to drop in the data (from
+        _synth_rect_gridded).
+        """
         # Check data shapes (just trust data_shape...)
         d = getattr(items[0], attr)
         dtype, shape_s = d.dtype, tuple(items[0].data_shape[:-3])

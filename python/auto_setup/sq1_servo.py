@@ -100,23 +100,24 @@ class SQ1Servo(util.RCData):
             self.read_data(filename)
 
     @staticmethod
-    def join(args):
+    def join(args, target=None):
         """
         Arguments are SQ1Servo objects, loaded with data.
         """
-        synth = SQ1Servo()
+        if target == None:
+            target = SQ1Servo()
         # Borrow most things from the first argument
-        synth.mcefile = None
-        synth.tuning = args[0].tuning
-        synth.data_origin = dict(args[0].data_origin)
-        synth.fb = args[0].fb.copy()
-        synth.d_fb = args[0].d_fb
-        synth.bias_style = args[0].bias_style
-        synth.bias = args[0].bias.copy()
+        target.mcefile = None
+        target.tuning = args[0].tuning
+        target.data_origin = dict(args[0].data_origin)
+        target.fb = args[0].fb.copy()
+        target.d_fb = args[0].d_fb
+        target.bias_style = args[0].bias_style
+        target.bias = args[0].bias.copy()
 
         # Join data systematically
-        util.RCData.join(synth, args)
-        return synth
+        util.RCData.join(target, args)
+        return target
 
     def _check_data(self, simple=False):
         if self.data == None:

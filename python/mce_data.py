@@ -218,12 +218,19 @@ class SmallMCEFile:
         self.header = None            # Becomes dict of first frame header
         self.runfile = None           # Becomes MCERunfile for this data.
 
-    def _rfMCEParam(self, card, param, array=False):
+    def _rfMCEParam(self, card, param, array=False, check_sys=True):
         """
         Look up MCE 'card, param' value in runfile.
         """
-        return self.runfile.Item('HEADER', 'RB %s %s'%(card,param), type='int', \
+        data = self.runfile.Item('HEADER', 'RB %s %s'%(card,param), type='int', \
                                  array=array)
+        if data == None and check_sys:
+            # On SCUBA2, some things are stored in sys only.  Blech.
+            data = self.runfile.Item('HEADER', 'RB sys %s'%(param),
+                                     type='int', array=array)
+            if data != None:
+                data = data[0]
+        return data
 
     def _GetRCAItem(self, param):
         """

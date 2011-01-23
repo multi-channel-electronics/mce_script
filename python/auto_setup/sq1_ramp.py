@@ -151,7 +151,6 @@ class SQ1Ramp(util.RCData):
         self.data = self.mcefile.Read(row_col=True).data
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
-#        self.data_style = 'rectangle'
         self.gridded = True
         self.data_shape = self.data.shape
         # Ravel.
