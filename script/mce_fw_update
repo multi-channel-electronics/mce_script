@@ -3,12 +3,11 @@
 
 if [ "$#" -lt "2" ]; then
     echo "Usage:   $0 <device> <jamfilename> "
-    echo "  device        FPGA, EPC16, or EPCS64 "
-    echo "                     - FPGA for temporary firmware (sof)"
-    echo "                     - EPC16 for permanent firmware on any card other than RC Rev. E (pof)"
-    echo "                     - EPCS64 for permanent firmware on RC Rev. E (jic)"
-    echo "  jamfilename   filename"
-    echo "                     - file needs to be located in \$MCE_JAM_DIR"
+    echo "  device        one of:"
+    echo "          FPGA:   for temporary firmware (sof)"
+    echo "          EPC16:  for permanent firmware on any card other than RC Rev. E (pof)"
+    echo "          EPCS64: for permanent firmware on RC Rev. E (jic)"
+    echo "  jamfilename   either an absolute pathname, or a file in \$MCE_JAM_DIR"
     exit 1
 fi
 
@@ -16,16 +15,27 @@ DEVICE=$1
 JAM_DIR=$MCE_JAM_DIR
 JAM_FILE=$2
 START_TIME=`date +%s`
+
+if ! echo $JAM_FILE | grep -q '^/'; then
+  JAM_FILE=$JAM_DIR/$JAM_FILE
+fi
+
+if [ ! -r $JAM_FILE ]; then
+  echo "Error: cannot read $JAM_FILE"
+  echo
+  exit 1
+fi
+
 echo " MCE firmware revisions prior to firmware update:"
 mce_status -s |grep fw_rev
 
 if [[ $DEVICE == "EPC16" ]]; then
-  mce_jam -u -f800000 -aprogram -dDO_VERIFY=0 $JAM_DIR/$JAM_FILE
+  mce_jam -u -f800000 -aprogram -dDO_VERIFY=0 $JAM_FILE
 elif [[ $DEVICE == "EPCS64" ]]; then
-  mce_jam -u -f8000000 -aconfigure $JAM_DIR/$JAM_FILE
-  mce_jam -u -f100000 -aprogram -dDO_VERIFY=0 $JAM_DIR/$JAM_FILE
+  mce_jam -u -f8000000 -aconfigure $JAM_FILE
+  mce_jam -u -f100000 -aprogram -dDO_VERIFY=0 $JAM_FILE
 elif [[ $DEVICE == "FPGA" ]]; then
-  mce_jam -u -f8000000 -aconfigure $JAM_DIR/$JAM_FILE
+  mce_jam -u -f8000000 -aconfigure $JAM_FILE
 else
   echo "  Error: device=$DEVICE is not a valid device. Use FPGA or EPC16 or EPCS64 to specify the device"
 fi

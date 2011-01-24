@@ -10,6 +10,7 @@ o.add_option('-i', '--interactive', action='store_true')
 o.add_option('-s', '--shortness', default=0, type='int')
 o.add_option('--first-stage', default=None)
 o.add_option('--last-stage', default=None)
+o.add_option('--no-check-bias', default=None)
 o.add_option('--reg-note', default=None)
 opts, args = o.parse_args()
 
@@ -23,6 +24,12 @@ if (len(opts.rc) == 0) or ('s' in opts.rc):
 else:
     opts.rc = [int(x) for x in opts.rc]
 
+if (opts.no_check_bias):
+    check_bias=False
+else:
+    check_bias=True
+
 # Tune.
 ast.auto_setup(rcs=opts.rc, short=opts.shortness, reg_note=opts.reg_note,
-               first_stage=opts.first_stage, last_stage=opts.last_stage)
+               first_stage=opts.first_stage, last_stage=opts.last_stage,
+               check_bias=check_bias)

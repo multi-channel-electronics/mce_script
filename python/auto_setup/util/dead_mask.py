@@ -51,14 +51,25 @@ class DeadMask:
         f.close()
         
 
-def get_all_dead_masks(tuning, union=False):
+def get_all_dead_masks(tuning, union=False, frail=False):
     """
     Discover and load all dead masks.  Returns list of DeadMask objects.
     """
-    mask_list = ["squid1", "multilock", "jumper", "connection", "other"]
+
+    if (frail):
+        prefix="frail_"
+    else:
+        prefix="dead_"
+
+    mask_list = tuning.get_exp_param(prefix + "mask_list", missing_ok=True);
+    if (mask_list == None):
+        mask_list = ["squid1", "multilock", "jumper", "connection", "tes_short",
+                "other"]
+
     mask_files = [ os.environ["MAS_TEMPLATE"] + os.path.join("dead_lists",
-            tuning.get_exp_param("array_id"), "dead_" + m + ".cfg") for m in
+            tuning.get_exp_param("array_id"), prefix + m + ".cfg") for m in
             mask_list ]
+
     mask_files = [m for m in mask_files if os.path.exists(m)]
     masks = [DeadMask(f, label=l) for f,l in zip(mask_files, mask_list)]
     if union:

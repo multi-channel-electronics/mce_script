@@ -2,7 +2,7 @@ import numpy
 import subprocess
 
 # this implementation is kind of lame...
-string_keys = ['array_id']
+string_keys = ['array_id', 'dead_mask_list', 'frail_mask_list']
 float_keys = ['sa_offset_bias_ratio', 'sq2_servo_gain', 'sq1_servo_gain',
         'tes_bias_normal_time']
 int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
@@ -29,14 +29,15 @@ int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
         'ramp_tes_count', 'ramp_tes_final_bias', 'ramp_tes_initial_pause',
         'ramp_tes_period_us', 'iv_data_mode', 'bias_line_card',
         'bias_line_para', 'config_rc', 'config_sync', 'config_fast_sq2',
-        'config_dead_tes', 'data_rate', 'row_len', 'num_rows',
-        'num_rows_reported', 'readout_row_index', 'sample_dly', 'sample_num',
-        'fb_dly', 'row_dly', 'data_mode', 'flux_jumping', 'servo_mode',
-        'servo_p', 'servo_i', 'servo_d', 'dead_detectors', 'tes_bias',
-        'row_order', 'config_flux_quanta_all', 'flux_quanta', 'flux_quanta_all',
-        'fb_const', 'sq1_bias', 'sq1_bias_off', 'sq2_bias', 'sq2_fb',
-        'sq2_fb_set', 'sa_bias', 'sa_fb', 'sa_offset', 'config_adc_offset_all',
-        'adc_offset_c', 'adc_offset_cr'] 
+        'config_dead_tes', 'config_frail_tes', 'data_rate', 'row_len',
+        'num_rows', 'num_rows_reported', 'readout_row_index', 'sample_dly',
+        'sample_num', 'fb_dly', 'row_dly', 'data_mode', 'flux_jumping',
+        'servo_mode', 'servo_p', 'servo_i', 'servo_d', 'dead_detectors',
+        'tes_bias', 'row_order', 'config_flux_quanta_all', 'flux_quanta',
+        'flux_quanta_all', 'fb_const', 'sq1_bias', 'sq1_bias_off', 'sq2_bias',
+        'sq2_fb', 'sq2_fb_set', 'sa_bias', 'sa_fb', 'sa_offset',
+        'config_adc_offset_all', 'adc_offset_c', 'adc_offset_cr',
+        'frail_servo_p', 'frail_servo_d', 'frail_servo_i', 'frail_detectors'] 
 
 def mas_param(file, key, type):
     try:
@@ -64,9 +65,13 @@ def mas_param(file, key, type):
             return float(v[0])
         else:
             return numpy.array([float(x) for x in v])
-    else: # string
-        #Remove white space and lead/trail quotes.
-        return value.strip()[1:-1]
+    else: # scalar or vector string
+        v = value.split()
+        if (len(v) == 1):
+            #Remove white space and lead/trail quotes.
+            return value.strip()[1:-1]
+        else:
+            return [s.strip()[1:-1] for s in v]
 
 def set_exp_param(file, key, value):
     """Writes the value given to the specified parameter of the experimental
@@ -88,7 +93,7 @@ def set_exp_param(file, key, value):
     if (status != 0):
         raise OSError("An error occurred while setting " + key)
 
-def get_exp_param(file, key, array=True):
+def get_exp_param(file, key, array=True, missing_ok=False):
     """Returns the value of one parameter of the experimental configuration.
 
     file: the name of the configuration file to read.
@@ -106,7 +111,7 @@ def get_exp_param(file, key, array=True):
     else:
         raise KeyError("unknown experimental parameter: " + key)
     
-    if (v == None):
+    if (not missing_ok and v == None):
         raise KeyError("key [ " + key + " ] missing from " + file)
 
     return v
@@ -133,4 +138,3 @@ def set_exp_param_range(file, key, range, value):
     a = get_exp_param(file, key)
     a[range] = value
     set_exp_param(file, key, a)
-

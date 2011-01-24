@@ -101,7 +101,7 @@ for rc in 1 2 3 4; do
     echo "wb rc$rc sa_bias      ${sa_bias[@]:$ch_ofs:8}" >> $mce_script
     echo "wb rc$rc offset       ${sa_offset[@]:$ch_ofs:8}" >> $mce_script
 
-    # Servo parameters, including dead detector turn-offs
+    # Servo parameters, including dead and frail detector turn-offs
     for c in `seq 0 7`; do
 	chan=$(( $c + $ch_ofs ))
 	dead_ofs=$(( ($c + $ch_ofs)*$array_width ))
@@ -109,6 +109,16 @@ for rc in 1 2 3 4; do
 	p_terms=( `repeat_string ${servo_p[$chan]} $array_width` )
 	i_terms=( `repeat_string ${servo_i[$chan]} $array_width` )
 	d_terms=( `repeat_string ${servo_d[$chan]} $array_width` )
+
+        if [ "$config_frail_tes" == "0" ]; then
+            for r in `seq 0 $(( $array_width - 1 ))`; do
+                if [ "${frail_detectors[$(( $dead_ofs + $r ))]}" != "0" ]; then
+                    p_terms[$r]=$frail_servo_p
+                    i_terms[$r]=$frail_servo_i
+                    d_terms[$r]=$frail_servo_d
+                fi
+            done
+        fi
 
 	if [ "$config_dead_tes" == "0" ]; then
 	    for r in `seq 0 $(( $array_width - 1 ))`; do
