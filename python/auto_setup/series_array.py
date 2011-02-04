@@ -160,6 +160,31 @@ class SARamp(util.RCData):
         self.data_shape = s
         self.rows = [-1]
 
+    def from_array(self, data, shape=None, fb=None, origin='array'):
+        """
+        Load SA data from an array, for testing or whatever.
+        """
+        self.data_shape = data.shape
+        self.data_origin = {'filename': origin,
+                            'basename': origin }
+        while len(self.data_shape) < 3:
+            self.data_shape = (1,) + self.data_shape
+        self.data = data.reshape(-1, data.shape[-1])
+        n_row, n_col = self.data_shape[-3:-1]
+        self.gridded = True
+        self.cols = array([i for i in range(n_col)])
+        self.rows = array([i for i in range(n_row)])
+        if fb == None:
+            fb = arange(self.data.shape[-1])
+        self.fb = fb
+        self.d_fb = fb[1] - fb[0]
+        if len(self.data_shape) > 3:
+            self.bias_style = 'ramp'
+            self.bias = 0 # ?
+        else:
+            self.bias_style = 'select'
+            self.bias = [0 for i in range(n_col)]
+
     def read_data(self, filename, reduce_rows=True):
         self.mcefile = MCEFile(filename)
         self.data = self.mcefile.Read(row_col=True).data
@@ -272,40 +297,23 @@ class SARamp(util.RCData):
         if not hasattr(slope, '__getitem__'):
             slope = array([slope]*len(self.cols))
         
-        # Analyze all SA curves for lock-points
+        # Smooth SA data; use kernel with odd width or the lag is non-integral.
         n_fb = len(self.fb)
-        scale = max([8 * n_fb / 400, 1])
-        y = servo.smooth(self.data, scale)
-        x_offset = scale/2
-        dy = y[:,1:] - y[:,:-1]
-        y = y[:,:-1]
+        scale = max([8 * n_fb / 800, 0])
+        y = servo.smooth(self.data, scale*2+1)
 
-        lock_idx = []
-        for i, (yy, ddy) in enumerate(zip(y, dy)):
-            s = slope[i % self.data_shape[-2]]
-            lo, hi = get_set_point(yy, ddy, scale=scale, slope=s)
-            # Lock on half-way point between minimum and maximum
-            lock_idx.append((lo, hi, (lo+hi)/2))
+        # Analyze all SA curves for lock-points
+        an = servo.get_lock_points(y, start=0, slope=slope)
 
-        # Store
-        left_idx, right_idx, lock_idx = array(lock_idx).transpose()
-        lock_y = array([int(yy[i]) for i,yy in zip(lock_idx, y)])
-        for x in ['lock_idx', 'left_idx', 'right_idx']:
-            self.analysis[x] = eval('array(%s)' % (x))
-        self.analysis.update({
-                'lock_y': lock_y,
-                'slope': slope,
-                })
-
-        # Measure set-point slope (gain)
-        lock_slope = servo.get_slopes(y, lock_idx, n_points=max(scale, 5),
-                                      min_index=left_idx, max_index=right_idx)
-        d_fb = self.fb[1] - self.fb[0]
-        self.analysis['lock_slope'] = lock_slope / d_fb
-
-        # Add feedback keys
+        # Add feedback keys, with shift to counteract smoothing
         for k in ['lock', 'left', 'right']:
-            self.analysis[k+'_x'] = self.fb[self.analysis[k+'_idx']]
+            an[k+'_x'] = self.fb[an[k+'_idx']].astype('float') + scale
+
+        # Sub-sample feedback values and rescale slopes based on d_fb
+        an['lock_x'] += float(self.d_fb) * an['lock_didx']
+        an['lock_slope'] /= self.d_fb
+
+        self.analysis.update(an)
         return self.analysis
 
     def plot(self, plot_file=None):
