@@ -31,20 +31,27 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
 
     # For each curve, identify a pair of adjacent extrema
     ranges = []
+    oks = []
     for yy in y2:
         # Find high points
+        ok = True
         right_idx = (yy>=extremality).nonzero()[0]
         if len(right_idx) == 0:  # probably a flat-liner?
             right_idx = array([len(yy)-1])
+            ok = False
         # Find low points left of right-most high point:
         left_idx = (yy[:right_idx[-1]]<=-extremality).nonzero()[0]
-        if len(left_idx) == 0:
-            left_idx = 0
-        else:
+        if len(left_idx) > 0:
+            # Great, take right-most low point and then the next high point.
             left_idx = left_idx[-1]
-        # Use high point just to the right of chosen low-point
-        right_idx = min(right_idx[right_idx>=left_idx])
+            right_idx = min(right_idx[right_idx>=left_idx])
+        else:
+            # This is a bad curve, so we're just trying to cope somehow
+            ok = False
+            left_idx = right_idx[-1]
+            right_idx = (yy<=-extremality).nonzero()[0][0]
         ranges.append((left_idx, right_idx))
+        oks.append(ok)
     i_left, i_right = array(ranges).transpose()
 
     # Lock mid-way in y or x?
@@ -73,6 +80,7 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
             'slope': slope,
             'left_idx': i_left,
             'right_idx': i_right,
+            'ok': array(oks)
             }
 
 
