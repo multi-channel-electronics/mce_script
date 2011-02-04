@@ -307,9 +307,9 @@ class SARamp(util.RCData):
 
         # Add feedback keys, with shift to counteract smoothing
         for k in ['lock', 'left', 'right']:
-            an[k+'_x'] = self.fb[an[k+'_idx']].astype('float') + scale
+            an[k+'_x'] = self.fb[an[k+'_idx'] + scale]
 
-        # Sub-sample feedback values and rescale slopes based on d_fb
+        # Sub-sample to nearest integer feedback, rescale slopes based on d_fb
         an['lock_x'] += float(self.d_fb) * an['lock_didx']
         an['lock_slope'] /= self.d_fb
 
