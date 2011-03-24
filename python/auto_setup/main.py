@@ -145,7 +145,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
     
     # Set-point results for feedback and ADC_offset
     fb, target = lock_points['lock_x'], lock_points['lock_y']
-    tuning.set_exp_param_range("adc_offset_c", rc_indices, target)
+    tuning.set_exp_param_range("adc_offset_c", rc_indices, target.astype('int'))
     tuning.set_exp_param_range("sa_fb", rc_indices, fb)
 
     # Maybe the bias and SA offset, too.
