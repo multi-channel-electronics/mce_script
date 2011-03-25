@@ -7,8 +7,11 @@ o = OptionParser(usage="""
                %prog [options] tuning_dir stage
 
 where tuning_dir is the folder containg the tuning data and stage is
-one of sa_ramp or sq2_servo.""")
-
+one of sa_ramp, sq2_servo, or sq1_ramp.""")
+o.add_option('-m','--median',action='store_true',default=False,
+             dest='do_median',help='replace zeros with column median')
+o.add_option('--span',type=float,default=1.5,
+             help='minimum number of phi0 one can expect to find in the data.')
 opts, args = o.parse_args()
 if len(args) != 2:
     o.error('Provide exactly two arguments.')
@@ -41,19 +44,19 @@ if stage == 'sa_ramp':
 else:
     lead = 10  # skip the pre-servo
 
-# Use only a bit near a zero crossing
-sq.data = sq.data[:,lead:]
-sgn = sign(sq.data - sq.data.mean(axis=1).reshape(-1,1))
-idx = array([(s != s[0]).nonzero()[0][0] for s in sgn])
+data = sq.data[:,lead:]
 
-# Do not let idx exceed 1/4 of width
-n = sq.data.shape[1]
-idx = [ min(i, n/4) for i in idx ]
-wid = sq.data.shape[1] - max(idx)
-data = array([d[i:i+wid] for d,i in zip(sq.data, idx)]).astype('float')
+# Set the scan width so that there is at least another phi0 available
+n = data.shape[1]
+n_phi0 = int(n / opts.span)
+width = n - n_phi0            #
+width = max(width, n/8)       # at least n/8!
+width = min(width, n_phi0*2)  # at most 2*phi0 
 
-q = aset.servo.period_correlation(data, width=n/8)
-p = aset.servo.period(data, width=n/8)
+print 'Keeping %i of %i points' % (n, sq.data.shape[-1])
+print 'Traveling segment of length %i' % width
+
+p = aset.servo.period(sq.data, width=width)
 
 periods = p * sq.d_fb
 
@@ -79,6 +82,11 @@ elif out_format == 'array':
         print 'I do not know how to reduce this multi-bias data...'
         sys.exit(1)
     periods.shape = (n_row, n_col)
+    if opts.do_median:
+        # replace any zeros with the column median
+        for c in range(0,n_col):
+            periods[periods[:,c]==0,c] = \
+                int(round(median(periods[periods[:,c]>0,c])))
     # Danger time
     pad = ','.join(['0' for x in range(41-n_row)])
     

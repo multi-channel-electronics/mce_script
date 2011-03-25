@@ -10,6 +10,88 @@ def smooth(x, scale):
     y.shape = s[:-1] + (y.shape[-1],)
     return y
 
+def get_curve_regions(y, extremality=0.8,
+                      pairs=False,
+                      extrema=False,
+                      extremum=0,
+                      slopes=False,
+                      slope=0):
+    """
+    Analyzes the 1-d array y into ranges that are identified either as
+    "hi", "lo", or in transition.
+    
+    Returns a list of indices into y.  These indices indicate the
+    start positions of each group of hi, hi-to-lo, lo, and lo-to-hi
+    regions in the curve.
+
+    The number of indices returned is always a multiple of 4.  The
+    first index is always 0, and is the starting index of a "hi"
+    group.
+
+    When indices are repeated it indicates an empty region; so a curve
+    that starts with a lo spanning 0:100 will return indices
+       [0,0,0,100,...]
+
+    When the pairs=True, the indices are converted into pairs suitable
+    for range indexing.  I.e.  [0,10,45,70] would be transformed to
+       [(0,10),(10,45),(45,70),(70,len(y))]
+
+    Particular regions can be selected by passing any one of:
+      extrema=True    return only the hi and lo regions.
+      extremum=+-1    return only the hi or lo regions, depending on sign
+      slopes=True     return only the transition regions.
+      slope=+-1       return only the rising or falling transition regions.
+    Setting one of these keywords sets pairs=True implicitly.
+    """
+    y1, y0 = y.max(), y.min()
+    y0, dy = 0.5*(y1+y0), 0.5*(y1-y0)
+    if dy == 0:
+        dy = 1
+    y = (y - y0)/dy  # Now in [-1,+1]
+    # Identify samples in extreme regions.
+    n = len(y)
+    hi = hstack(((y >  extremality).nonzero()[0], n))
+    lo = hstack(((y < -extremality).nonzero()[0], n))
+
+    # Reduce the list to starts and stops
+    idx = 0
+    transitions = []
+    while idx < n:
+        transitions.append(idx)
+        if hi[0] == idx:
+            idx = hi[hi<lo[0]][-1]+1
+            hi = hi[hi>=lo[0]]
+        transitions.append(idx)
+        if lo[0] <= hi[0]:
+            idx = lo[0]
+        transitions.append(idx)
+        if lo[0] == idx:
+            idx = min(n,lo[lo<=hi[0]][-1]+1)
+            lo = lo[lo>=hi[0]]
+        transitions.append(idx)
+        if hi[0] <= lo[0]:
+            idx = hi[0]
+
+    def pairify():
+        return zip(transitions, transitions[1:]+[len(y)])
+    
+    if extrema:
+        return pairify()[::2]
+    if slopes:
+        return pairify()[1::2]
+    if slope < 0:
+        return pairify()[1::4]
+    if slope > 0:
+        return pairify()[3::4]
+    if extremum > 0:
+        return pairify()[0::4]
+    if extremum < 0:
+        return pairify()[2::4]
+    if pairs:
+        return pairify()
+    return transitions
+
+
 def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
                     start=None, stop=None, extremality=0.9):
     # By default, we characterize the extrema ignoring the beginning
@@ -30,6 +112,7 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
     y2 = slope * (y.astype('float') - mids) / amps
 
     # For each curve, identify a pair of adjacent extrema
+    #! This should be rewritten to use get_curve_regions.
     ranges = []
     oks = []
     for yy in y2:
@@ -125,29 +208,38 @@ def period_correlation(y, width=None, normalize=True):
         corr[:,i] = sum((y[:,nx-width-i:nx-i] - y[:,-width:])**2, axis=1)
     if normalize:
         # at some point we have to cross the other slope
-        corr /= (y[:,-width:].std(axis=1)**2).reshape(-1,1)
+        #corr /= (y[:,-width:].std(axis=1)**2).reshape(-1,1) # OLD
+        corr /= amin(corr[:,width:],axis=1).reshape(-1,1)
     return corr
 
 def period(y, width=None):
     """
-    Determine periods of (V-phi) curves in y.
+    Determine periods of (V-phi) curves in y (a 2-d array).
+
+    This algorithm will work best when width is ~phi0/2.  The curves
+    in y should contain at least (phi0 + width).
+
+    Expect failures when running with small 'width' on curves that
+    have bad composition multi-lock features.
     """
     n0, n_x = y.shape
     if width == None:
-        width = n_x / 2
+        width = n_x / 8
     p = zeros(n0)
-    corr = period_correlation(y, width=width)
+    # Get the correlations, and locate their second minimum
+    corr = period_correlation(y, width=width, normalize=False)
     for i, c in enumerate(corr):
-        # Each corr curve rises up from 0 to some maximum, then down
-        # to "0" again, and repeat (or not).
-        thresh = 3. # units are rms**2
-        dc = c - thresh
-        ups = ((dc[1:] > 0) * (dc[:-1] <= 0)).nonzero()[0]
-        dns = ((dc[1:] < 0) * (dc[:-1] >= 0)).nonzero()[0]
-        if len(ups) < 1 or len(dns) < 1:
+        for tol in [0.1, 0.2, 0.3, 0.4]:  #allow for noisier curves
+            tr = get_curve_regions(c, tol, extremum=-1)
+            # Exit the loop if we get a good lock on the first minimum
+            if len(tr) > 1 and tr[1][0] != tr[1][1]:
+                break
+        else:
+            # Couldn't find the auto-corr's next minimum, give up
+            p[i] = 0
             continue
-        if len(ups) < 2: ups = [ups[0], len(c)]
-        p[i] = dns[0] + argmin(c[dns[0]:ups[1]])
+        i0,i1 = tr[1]
+        p[i] = i0 + argmin(c[i0:i1])
     return p
 
 def add_curves(ax, x, y, lp, i,
