@@ -2,6 +2,7 @@
 
 import auto_setup as ast
 
+import subprocess
 from optparse import OptionParser
 
 o = OptionParser(usage="""
@@ -32,12 +33,16 @@ o.add_option('-s', '--shortness', default=0, type='int', help=
                  "--first-stage [sa_bias, sq1_servo, sq1_ramp]")
 o.add_option('--no-check-bias', action='store_true', default=False, help=
              "disable checking of SA and SQ2 bias")
+o.add_option('--set-directory', default=1, type='int',
+             help='pass 1 or 0 depending on whether you want to run '
+             'set_directory before tuning')
 o.add_option('--reg-note', default=None)
 opts, args = o.parse_args()
 
 # Process...
 if opts.interactive:
     ast.util.interactive_errors()
+
 # opts.rc should be integers or 's' for all.
 opts.rc = [x.lower() for x in opts.rc]
 if (len(opts.rc) == 0) or ('s' in opts.rc):
@@ -46,6 +51,12 @@ else:
     opts.rc = [int(x) for x in opts.rc]
 
 check_bias = not opts.no_check_bias
+
+# set_directory?
+if opts.set_directory:
+    if subprocess.call(['set_directory']) != 0:
+        print "set_directory failed!"
+        sys.exit(1)
 
 # Tune.
 ast.auto_setup(rcs=opts.rc, short=opts.shortness, reg_note=opts.reg_note,

@@ -6,7 +6,6 @@ import sq1_ramp
 import frame_test
 
 import os
-import subprocess
 import time
 import shutil
 from numpy import *
@@ -390,11 +389,6 @@ IDL auto_setup_squids."""
 
     tuning = util.tuningData(data_root=data_root, reg_note=reg_note, debug=debug)
     print 'Tuning ctime: %i' % tuning.the_time
-
-    # set_directory creates directories and files where to store the tuning data
-    # and plots.
-    if (not short):
-        tuning.run(["set_directory", tuning.data_root], no_log=True)
 
     # Create data and analysis directories
     tuning.make_dirs()
