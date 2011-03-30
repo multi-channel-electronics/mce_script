@@ -255,7 +255,7 @@ class SARamp(util.RCData):
 
         # Convert to 1 slope per column
         if slope == None:
-            slope = sign(self.tuning.get_exp_param('sq2_servo_gain')[self.cols])
+            slope = -sign(self.tuning.get_exp_param('sq2_servo_gain')[self.cols])
         if not hasattr(slope, '__getitem__'):
             slope = array([slope]*len(self.cols))
         
