@@ -15,6 +15,7 @@ int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
         'columns_off', 'stop_after_sq1_servo', 'sa_flux_quanta', 'sa_ramp_bias',
         'sa_ramp_flux_start', 'sa_ramp_flux_count', 'sa_ramp_flux_step',
         'sa_ramp_bias_start', 'sa_ramp_bias_step', 'sa_ramp_bias_count',
+        'sq2_flux_quanta',
         'sq2_rows', 'sq2_servo_flux_start', 'sq2_servo_flux_count',
         'sq2_servo_flux_step', 'sq1_servo_flux_start', 'sq1_servo_flux_count',
         'sq1_servo_flux_step', 'sq2_servo_bias_ramp', 'sq2_servo_bias_start',
@@ -39,7 +40,7 @@ int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
         'config_adc_offset_all', 'adc_offset_c', 'adc_offset_cr',
         'frail_servo_p', 'frail_servo_d', 'frail_servo_i', 'frail_detectors'] 
 
-def mas_param(file, key, type):
+def mas_param(file, key, type, raw=False):
     try:
         p = subprocess.Popen(["mas_param", "-s", file, "get", key],
                 stdout=subprocess.PIPE);
@@ -52,6 +53,9 @@ def mas_param(file, key, type):
 
     if (status):
         return None
+
+    if raw:
+        return value.strip()
 
     if (type == 0): # scalar or vector int
         v = value.split()
@@ -138,3 +142,91 @@ def set_exp_param_range(file, key, range, value):
     a = get_exp_param(file, key)
     a[range] = value
     set_exp_param(file, key, a)
+
+
+#
+# Dynamic system -- determine cfg file parameters and types at
+#  runtime.
+#
+
+def get_param_descriptions(file):
+    """
+    Parse the configuration file description obtained from 'mas_param
+    info'.  Return a list of parameter names (in order encountered),
+    and a dictionary mapping the names to a property description.
+    """
+    try:
+        p = subprocess.Popen(["mas_param", "-s", file, "info"],
+                stdout=subprocess.PIPE);
+        value = p.communicate()[0]
+        status = p.wait();
+    except OSError, (errno, strerror):
+        print "Failed to get parameter info table from mas_param\n" \
+            "[Errno {0}] {1}".format(errno, strerror)
+        return None
+    params = []
+    info = {}
+    for line in value.split('\n'):
+        w = map(str.strip, line.split(':'))
+        if len(w) == 0 or len(w[0]) == 0 or w[0][0] == '#':
+            continue
+        if len(w) != 4:
+            raise RuntimeError, "Failed to parse mas_param info line %s" % line
+        name, dtype, arrayness, size = w[0], w[1], w[2]=='array', int(w[3])
+        params.append(name)
+        info[name] = {'type': dtype,
+                      'is_array': arrayness,
+                      'length': size}
+    return params, info
+
+class exptFile:
+    casts = {'integer': int,
+             'float': float,
+             'string': lambda x: str(x[1:-1])}
+
+    def __init__(self, filename=None, read=True):
+        self.data = {}
+        self.filename = filename
+        if self.filename != None:
+            self.read(refresh_info=True)
+
+    def read_param(self, name):
+        val = mas_param(self.filename, name, 0, raw=True)
+        desc = self.info[name]
+        cast = self.casts[desc['type']]
+        if desc['is_array']:
+            val = numpy.array(map(cast, val.split()))
+        else:
+            val = cast(val)
+        self.data[name] = val
+        return val
+
+    def read(self, refresh_info=False):
+        if refresh_info:
+            self.names, self.info = get_param_descriptions(self.filename)
+        self.data = {}
+        for n in self.names:
+            self.read_param(n)
+
+    def get_param(self, name, missing_ok=False):
+        if missing_ok and not name in self.data:
+            return None
+        return self.data[name]
+    
+    def set_param(self, name, data, index=None):
+        if index == None:
+            self.data[name] = data
+        else:
+            self.data[name][index] = data
+        set_exp_param(self.filename, name, data)
+
+    def write(self):
+        for k, v in iter(self.data):
+            self.write_param(k,v)
+
+
+if __name__ == '__main__':
+    # Unit test...
+    fn = '/data/cryo/current_data/experiment.cfg'
+    cfg = exptFile(fn)
+    print cfg.get_param('dead_mask_list')
