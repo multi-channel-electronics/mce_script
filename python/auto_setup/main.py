@@ -145,7 +145,10 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
     # Set-point results for feedback and ADC_offset
     fb, target = lock_points['lock_x'], lock_points['lock_y']
     tuning.set_exp_param_range("adc_offset_c", rc_indices, target.astype('int'))
-    tuning.set_exp_param_range("sa_fb", rc_indices, fb)
+
+    # Remove flux quantum to bring SA FB into DAC range.
+    q = tuning.get_exp_param("sa_flux_quanta")[rc_indices]
+    tuning.set_exp_param_range("sa_fb", rc_indices, fb % q)
 
     # Maybe the bias and SA offset, too.
     if ramp_sa_bias:
@@ -243,19 +246,20 @@ def do_sq1_servo(tuning, rc, rc_indices):
     
     # Determine the SQ2 FB for each column, and if possible for each detector.
     cols = sq1_data['cols']
+    phi0 = tuning.get_exp_param('sq2_flux_quanta')[cols]
     if sq1_data['super_servo']:
         n_row, n_col = sq1_data['data_shape'][-3:-1]
-        fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col)
+        fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col) % phi0
         # Get chosen row on each column
         rows = tuning.get_exp_param('sq2_rows')[cols]
-        fb_col[cols] = array([ fb_set[r,c] for r,c in zip(rows, cols) ])
+        fb_col[cols] = array([ fb_set[r,c] for r,c in zip(rows, cols) ]) % phi0
     else:
         # Analysis gives us SQ2 FB for chosen row of each column.
-        fb_col[cols] = sq1_data['lock_y']
+        fb_col[cols] = sq1_data['lock_y'] % phi0
         n_row = tuning.get_exp_param("default_num_rows")
-        fb_set[:,cols] = sq1_data['lock_y']
+        fb_set[:,cols] = sq1_data['lock_y'] % phi0
         
-    # Save results
+    # Save results, but remove flux quantum
     tuning.set_exp_param('sq2_fb', fb_col)
     tuning.set_exp_param('sq2_fb_set', fb_set.transpose().ravel())
 
@@ -263,11 +267,10 @@ def do_sq1_servo(tuning, rc, rc_indices):
     return 0
 
 
-def do_sq1_ramp(tuning, rcs, tune_data, init=True):
-
+def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
-    tuning.set_exp_param("config_adc_offset_all", 0)
+    tuning.set_exp_param("config_adc_offset_all", int(ramp_check))
     tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
     tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
     tuning.write_config()
@@ -279,7 +282,7 @@ def do_sq1_ramp(tuning, rcs, tune_data, init=True):
     # Acquire ramp for each RC
     ramps = []
     for rc in rcs:
-        ok, info = sq1_ramp.acquire(tuning, rc)
+        ok, info = sq1_ramp.acquire(tuning, rc, check=ramp_check)
         if not ok:
             raise RuntimeError, 'sq1ramp failed for rc%s (%s)' % \
                 (str(rc), info['error'])
@@ -304,10 +307,12 @@ def do_sq1_ramp(tuning, rcs, tune_data, init=True):
     adc = tuning.get_exp_param('adc_offset_cr')
     adc[idx] = new_adc.transpose().ravel()
 
-    # Note that adc_offset_cr needs to be corrected for samp_num
-    tuning.set_exp_param('adc_offset_cr', adc/samp_num)
-    tuning.set_exp_param('config_adc_offset_all', 1)
-    tuning.write_config()
+    # Sometimes we don't actually want to change anything
+    if not ramp_check:
+        # Note that adc_offset_cr needs to be corrected for samp_num
+        tuning.set_exp_param('adc_offset_cr', adc/samp_num)
+        tuning.set_exp_param('config_adc_offset_all', 1)
+        tuning.write_config()
 
     # Produce plots
     masks = util.get_all_dead_masks(tuning)
@@ -418,6 +423,7 @@ IDL auto_setup_squids."""
               'sq2_servo',
               'sq1_servo',
               'sq1_ramp',
+              'sq1_ramp_check',
               'sq1_ramp_tes',
               'operate']
     
@@ -462,8 +468,13 @@ IDL auto_setup_squids."""
                 return e
 
     if 'sq1_ramp' in stages:
-        # sq1 ramp check
+        # sq1 ramp
         sq1 = do_sq1_ramp(tuning, rcs, tune_data)
+        tuning.write_sqtune(sq1_ramp=sq1)
+
+    if 'sq1_ramp_check' in stages:
+        # sq1 ramp check
+        sq1 = do_sq1_ramp(tuning, rcs, tune_data, ramp_check=True)
         tuning.write_sqtune(sq1_ramp=sq1)
 
     if 'sq1_ramp_tes' in stages:
