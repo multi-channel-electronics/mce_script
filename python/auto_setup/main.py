@@ -349,11 +349,13 @@ def operate(tuning):
     # Compile dead detector mask
     print "Assembling dead detector mask."
     mask = util.get_all_dead_masks(tuning, union=True)
-    tuning.set_exp_param("dead_detectors", mask.data.transpose().reshape(-1))
+    if mask != None:
+      tuning.set_exp_param("dead_detectors", mask.data.transpose().reshape(-1))
 
     print "Assembling frail detector mask."
     mask = util.get_all_dead_masks(tuning, union=True, frail=True)
-    tuning.set_exp_param("frail_detectors", mask.data.transpose().reshape(-1))
+    if mask != None:
+      tuning.set_exp_param("frail_detectors", mask.data.transpose().reshape(-1))
 
     # Write to MCE
     tuning.write_config(run_now=True)
