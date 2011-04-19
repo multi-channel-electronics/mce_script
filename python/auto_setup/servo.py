@@ -132,7 +132,8 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
             # This is a bad curve, so we're just trying to cope somehow
             ok = False
             left_idx = right_idx[-1]
-            right_idx = (yy<=-extremality).nonzero()[0][0]
+            # Take nearest low-point, or 0 if there isn't one.
+            right_idx = hstack(((yy<=-extremality).nonzero()[0],0))[0]
         ranges.append((left_idx, right_idx))
         oks.append(ok)
     i_left, i_right = array(ranges).transpose()
