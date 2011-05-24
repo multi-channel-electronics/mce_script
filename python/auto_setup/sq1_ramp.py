@@ -157,7 +157,7 @@ class SQ1Ramp(util.RCData):
         self.data.shape = (-1, self.data.shape[-1])
         # Record the rows and columns, roughly
         rcs = self.mcefile.runfile.Item('FRAMEACQ', 'RC', type='int')
-        self.cols = array([i+(rc-1)*8 for i in range(8) for rc in rcs]).ravel()
+        self.cols = array([i+(rc-1)*8 for rc in rcs for i in range(8)]).ravel()
         self.rows = array([i for i in arange(self.data_shape[0])])
         # Feedback vector.
         rf = self.mcefile.runfile
