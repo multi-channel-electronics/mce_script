@@ -1,0 +1,291 @@
+#!/usr/bin/python
+
+USAGE_MSG="""
+ %prog [options...] command
+
+ Valid commands are:
+     setup   configure internal ramping (without starting the ramp)
+     start   start internal ramping (without changing any ramp parameters)
+     stop    stop internal ramping
+     go      perform 'setup' and 'start' actions.
+
+ The setup (or go) actions will typically be accompanied by a description of:
+     - the target register for the ramp
+     - the range of values over which to ramp
+     - the speed at which to update the ramp values.
+
+
+ Target Register:
+
+  The target register can be specified through either the --stage=... or
+  --target=card,param options.  It is usually necessary to also specify the
+  width of the register (16 or 32 for bias cards; 8 for readout cards).  When
+  using --target, provide both a card and parameter id; e.g.:
+
+     --target rc2 sa_bias --count 8
+
+  Shortcuts have been provided for common virtual cards, e.g.
+
+     --stage sq2_bias --count 16
+
+
+ Ramp Values:
+
+  The range of ramp values is specified by providing the minimum
+  value, maximum value, and step size.  E.g. to ramp over values
+  (10,30,50) you would provide argument
+
+     --range 10 50 20
+
+
+ Update Frequency:
+
+  The ramp value is updated on the ARZ, so the update period must be a
+  multiple of the multiplexing frame period.  To specify this multiple
+  directly, use:
+     --step-frames <n>
+
+  If you would rather specify a period in seconds, or a frequency in
+  Hz, and have this program figure do the math for you, use:
+     --step-period <t>      (in seconds)
+     --step-frequency <f>   (in Hz)
+"""
+
+import subprocess as sp
+import re
+import sys,os
+
+try:
+    from mce import mce
+except ImportError:
+    print 'Could not load mce module; mce commanding will be disabled.'
+
+def abort_msg(text, error=20):
+    sys.stderr.write('Error: %s\n' % text)
+    sys.exit(error)
+
+class physicalMap:
+    def __init__(self, card_name, param_name, param_id, card_ids):
+        self.card, self.param, self.p_id, self.c_ids = \
+            card_name, param_name, param_id, card_ids
+    @classmethod
+    def decode(cls, line):
+        #'physical   rca        num_rows             0x31  2 cards: 0x03 0x04'
+        w = line.split()
+        card, param, p_id = w[1],w[2],int(w[3],0)
+        c_ids = [int(x,0) for x in w[6:]]
+        return cls(card, param, p_id, c_ids)
+
+class virtualMap:
+    def __init__(self, card_name, param_name, maps):
+        self.card, self.param, self.maps = \
+            card_name, param_name, maps
+    @classmethod
+    def decode(cls, line):
+        #'virtual  sq1   fb_const  maps: [(0,8)->('rc1 fb_const'+ 0)] [(8,8)->('rc2 fb_const'+ 0)]'
+        w = line.split()
+        card, param = w[1], w[2]
+        # Recreate an equivalent mapping statement :P
+        maps_line = ' '.join(w[4:])
+        # Extract each string between square brackets; [...] [...]
+        map_strs = re.findall('(?:\[)([^\[\]]*)(?:\])', maps_line)
+        maps = []
+        for ms in map_strs:
+            # Pull out the start, length, param address, and offset:
+            m = re.match( r'(?:\()([0-9]+)(?:,)([0-9]+)(?:\)->\(\')(.*)(?:\'\+\ +)(.*)(?:\))',
+                          ms).groups()
+            c, p = m[2].split()
+            maps.append((int(m[0],0), int(m[1],0), c, p, int(m[3],0)))
+        return cls(card, param, maps)
+
+class configAnalysis:
+    """
+    Decode output of mce_status -g.
+    """
+    def __init__(self, load=True):
+        self.phys = []
+        self.virt = []
+        if load:
+            self.load()
+
+    def load(self, command=None, lines=None):
+        if command == None:
+            command = ['/usr/mce/bin/mce_status','-g']
+        if lines == None:
+            p = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
+            lines, errs = p.communicate()
+            lines = lines.split('\n')
+        # Decode the lines
+        for l in lines:
+            w = l.split()
+            if len(w) == 0 or w[0][0] == '#': continue
+            if w[0] == 'physical':
+                self.phys.append(physicalMap.decode(l))
+            elif w[0] == 'virtual':
+                self.virt.append(virtualMap.decode(l))
+        # That will do
+        return lines
+
+    def get_ramp_params(self, card, param, start=0, count=None, _recursion=0):
+        if _recursion > 10:
+            return False, 'maximum recursion depth exceeded!'
+        # First search physical cards:
+        for p in self.phys:
+            if p.card == card and p.param == param:
+                if len(p.c_ids) > 1:
+                    return False, 'physical parameter "%s %s" is broadcast to multiple cards.'%\
+                        (card,param)
+                # Good candidate, but check the index limits.
+                if start != 0:
+                    return False, 'parameter matched but starting index is offset by %i' % start
+                # Great; return card, parameter,  ID.
+                return True, (p.c_ids[0], p.p_id, count)
+        # Next search virtual candidates
+        for v in self.virt:
+            if v.card == card and v.param == param:
+                # See if any of the maps work.
+                results = []
+                if len(v.maps) > 1 and count == None:
+                    return False, 'must specify parameter count for mapped non-trivial virtual map'
+                for m in v.maps:
+                    _start, _count, c, p, offset = m
+                    if count != None and count > _count:
+                        continue
+                    # Recurse until we hit a physical parameter.
+                    results.append( self.get_ramp_params(c, p, _start-start, _count,
+                                                         _recursion=_recursion+1) )
+                if len(results) == 0:
+                    return False, 'no match found while traversing virtual map; '\
+                        'try restricting your parameter to a single readout card.'
+                ok = [(r,r1) for r,r1 in results if r]
+                if len(ok) > 1:
+                    return False, 'multiple results, restrict your search to a single readout card.'
+                if len(ok) == 1:
+                    return ok[0]
+                return False, 'no matches found'
+        # That's all we got
+        return False, 'not found'
+            
+# Help the user find standard stages easily.
+stage_map = {
+    'sa_fb': ('sa', 'fb'),
+    'sa_bias': ('sa', 'bias'),
+    'sq2_fb': ('sq2', 'fb'),
+    'sq2_bias': ('sq2', 'bias'),
+    'sq1_fb': ('sq1', 'fb_const'),
+    'sq1_bias': ('ac', 'on_bias'),
+    'tes_bias': ('tes', 'bias'),
+}
+
+
+if __name__ == '__main__':
+    from optparse import OptionParser
+    o = OptionParser(usage=USAGE_MSG)
+    o.add_option('--target',default=None,nargs=2)
+    o.add_option('--stage',default=None)
+    o.add_option('--count',default=None,type='int')
+    o.add_option('--offset',default=0,type='int')
+    o.add_option('--rc',default=None)
+    o.add_option('--range',default=None,type='int',nargs=3,
+                 help='give start value, maximum value, and step size')
+    o.add_option('--step-frames',type='int',default=None)
+    o.add_option('--step-period',type='float',default=None)
+    o.add_option('--step-frequency',type='float',default=None)
+    opts, args = o.parse_args()
+
+    # Post-process some options...
+    if opts.rc != None:
+        if opts.rc == 's':
+            opts.offset = 0
+            opts.count = None
+        else:
+            opts.offset = (int(opts.rc)-1)*8
+            opts.count = 8
+
+    # Assemble some stuff to do
+    actions = []
+    for a in args:
+        if a == 'go':
+            actions += ['stop', 'setup', 'start']
+        else:
+            actions += [a]
+
+    if len(actions) == 0:
+        abort_msg('Provide an action. (Use option -h for detailed help.)')
+
+    # Check and process arguments
+    if 'setup' in actions:
+        if opts.stage != None:
+            card, id = stage_map[opts.stage]
+        elif opts.target != None:
+            card, id = opts.target
+        else:
+            abort_msg('Provide either --target or --stage to specify target.')
+
+    # We will probably need an MCE.
+    m = mce()
+
+    # Handle command
+    for action in actions:
+        if action == 'stop':
+            print 'Disabling internal ramp.'
+            m.write('cc', 'internal_cmd_mode', [0])
+        elif action == 'setup':
+            print 'Determining ramp parameters.'
+            # Determine the card and parameter ID
+            ca = configAnalysis(load=False)
+            lines = ca.load()
+            ok, results = ca.get_ramp_params(card, id, opts.offset, opts.count)
+            if not ok:
+                print results
+            else:
+                if opts.count == None: opts.count = -1
+                c_id, p_id, target_count = results
+                if target_count == None:
+                    abort_msg('This register requires that you provide a target --count.')
+                else:
+                    print ' Mapped (%s,%s)[%i,%i] to card %#02x, param %#02x, count %i' % \
+                        (card,id,opts.offset,opts.count,c_id,p_id,target_count)
+            # Determine timing stuff?
+            timing_info = int(opts.step_frames!=None) + int(opts.step_period!=None) +  \
+                int(opts.step_frequency!=None)
+            if timing_info != 1:
+                o.error('Provide exactly one option to set the update period.')
+            data_rate = m.read('cc', 'data_rate')
+            num_rows = m.read('cc', 'num_rows')[0]
+            row_len = m.read('cc', 'row_len')[0]
+            f_frame = 5e7 / (num_rows * row_len)
+            if opts.step_frames == None:
+                if opts.step_frequency == None:
+                    opts.step_frequency = 1./opts.step_period
+                opts.step_frames = int(round(f_frame / opts.step_frequency))
+            # Is this obviously wrong?
+            if opts.step_frames <= 0:
+                abort_msg('Step period is less than 0 frames, aborting.')
+            if opts.range == None:
+                abort_msg('Provide a description of the ramp range using --range.')
+            # Inform...
+            n_steps = (opts.range[1] - opts.range[0]) / opts.range[2] + 1
+            print ' Ramp will step every %i frames.' % opts.step_frames
+            print ' Ramp repeat rate will be %f Hz.' % (f_frame / opts.step_frames / n_steps)
+
+            # Set it up.
+            print 'Writing ramp configuration to MCE.'
+            ## disable internal commanding
+            m.write('cc', 'internal_cmd_mode', [0])
+            ## set target register and data length
+            m.write('cc', 'ramp_card_addr', [c_id])
+            m.write('cc', 'ramp_param_id', [p_id])
+            m.write('cc', 'ramp_step_data_num', [target_count])
+            ## set parameter range
+            m.write('cc', 'ramp_min_val', [opts.range[0]])
+            m.write('cc', 'ramp_max_val', [opts.range[1]])
+            m.write('cc', 'ramp_step_size', [opts.range[2]])
+            ## set update interval
+            m.write('cc', 'ramp_step_period', [opts.step_frames])
+        elif action == 'start':
+            print 'Starting internal ramp.'
+            m.write('cc', 'internal_cmd_mode', [2])
+        else:
+            abort_msg('I do not understand command "%s", aborting.' % action)
+
