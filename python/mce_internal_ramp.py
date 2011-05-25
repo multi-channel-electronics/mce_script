@@ -9,6 +9,10 @@ try:
 except ImportError:
     print 'Could not load mce module; mce commanding will be disabled.'
 
+def abort_msg(text, error=20):
+    sys.stderr.write('Error: %s\n' % text)
+    sys.exit(error)
+
 class physicalMap:
     def __init__(self, card_name, param_name, param_id, card_ids):
         self.card, self.param, self.p_id, self.c_ids = \
@@ -195,63 +199,90 @@ if __name__ == '__main__':
         else:
             opts.offset = (int(opts.rc)-1)*8
             opts.count = 8
-    if opts.stage != None:
-        card, id = stage_map[opts.stage]
-    else:
-        card, id = opts.target
+
+    # Assemble some stuff to do
+    actions = []
+    for a in args:
+        if a == 'go':
+            actions += ['stop', 'setup', 'start']
+        else:
+            actions += [a]
+
+    if len(actions) == 0:
+        abort_msg('Provide an action.')
+
+    # Check and process arguments
+    if 'setup' in actions:
+        if opts.stage != None:
+            card, id = stage_map[opts.stage]
+        elif opts.target != None:
+            card, id = opts.target
+        else:
+            abort_msg('Provide either --target or --stage to specify target.')
+
+    # We will probably need an MCE.
+    m = mce()
 
     # Handle command
-    cmd = args[0]
-    if cmd == 'stop':
-        m = mce()
-        m.write('cc', 'internal_cmd_mode', [0])
-    if cmd == 'setup' or cmd == 'go':
-        # Determine the card and parameter ID
-        ca = configAnalysis(load=False)
-        lines = ca.load()
-        ok, results = ca.get_ramp_params(card, id, opts.offset, opts.count)
-        if not ok:
-            print results
-        else:
-            if opts.count == None: opts.count = -1
-            c_id, p_id, target_count = results
-            if target_count == None:
-                print 'Provide target register count.'
+    for action in actions:
+        if action == 'stop':
+            print 'Disabling internal ramp.'
+            m.write('cc', 'internal_cmd_mode', [0])
+        elif action == 'setup':
+            print 'Determining ramp parameters.'
+            # Determine the card and parameter ID
+            ca = configAnalysis(load=False)
+            lines = ca.load()
+            ok, results = ca.get_ramp_params(card, id, opts.offset, opts.count)
+            if not ok:
+                print results
             else:
-                print 'Mapped (%s,%s)[%i,%i] to card %#02x, param %#02x, count %i' % \
-                    (card,id,opts.offset,opts.count,c_id,p_id,target_count)
-        # Now get an MCE
-        m = mce()
-        # Determine timing stuff?
-        timing_info = int(opts.step_frames!=None) + int(opts.step_period!=None) +  \
-            int(opts.step_frequency!=None)
-        if timing_info != 1:
-            print 'Provide exactly one option to set the update period.'
-            sys.exit(1)
-        if opts.step_frames == None:
+                if opts.count == None: opts.count = -1
+                c_id, p_id, target_count = results
+                if target_count == None:
+                    o.error('Provide target register count.')
+                else:
+                    print ' Mapped (%s,%s)[%i,%i] to card %#02x, param %#02x, count %i' % \
+                        (card,id,opts.offset,opts.count,c_id,p_id,target_count)
+            # Determine timing stuff?
+            timing_info = int(opts.step_frames!=None) + int(opts.step_period!=None) +  \
+                int(opts.step_frequency!=None)
+            if timing_info != 1:
+                o.error('Provide exactly one option to set the update period.')
             data_rate = m.read('cc', 'data_rate')
             num_rows = m.read('cc', 'num_rows')[0]
             row_len = m.read('cc', 'row_len')[0]
             f_frame = 5e7 / (num_rows * row_len)
-            if opts.step_frequency == None:
-                opts.step_frequency = 1./opts.step_period
-            opts.step_frames = int(round(f_frame / opts.step_frequency))
-        # Is this obviously wrong?
-        if opts.step_frames <= 0:
-            print 'Step period is less than 0 frames, aborting.'
-            sys.exit(1)
-        # Set it up.
-        ## disable internal commanding
-        mce.write('cc', 'internal_cmd_mode', [0])
-        ## set target register and data length
-        mce.write('cc', 'ramp_card_addr', [c_id])
-        mce.write('cc', 'ramp_param_id', [p_id])
-        mce.write('cc', 'ramp_step_data_num', [target_count])
-        ## set parameter range
-        mce.write('cc', 'ramp_min_val', [opts.range[0]])
-        mce.write('cc', 'ramp_max_val', [opts.range[1]])
-        mce.write('cc', 'ramp_step_size', [opts.range[2]])
-        ## set update interval
-        mce.write('cc', 'ramp_step_period', [opts.step_frames])
-    if cmd == 'start' or cmd == 'go':
-        mce.write('cc', 'internal_cmd_mode', [2])
+            if opts.step_frames == None:
+                if opts.step_frequency == None:
+                    opts.step_frequency = 1./opts.step_period
+                opts.step_frames = int(round(f_frame / opts.step_frequency))
+            # Is this obviously wrong?
+            if opts.step_frames <= 0:
+                abort_msg('Step period is less than 0 frames, aborting.')
+            if opts.range == None:
+                abort_msg('Provide a description of the ramp range using --range.')
+            # Inform...
+            n_steps = (opts.range[1] - opts.range[0]) / opts.range[2] + 1
+            print ' Ramp will step every %i frames.' % opts.step_frames
+            print ' Ramp repeat rate will be %f Hz.' % (f_frame / opts.step_frames / n_steps)
+
+            # Set it up.
+            print 'Writing ramp configuration to MCE.'
+            ## disable internal commanding
+            m.write('cc', 'internal_cmd_mode', [0])
+            ## set target register and data length
+            m.write('cc', 'ramp_card_addr', [c_id])
+            m.write('cc', 'ramp_param_id', [p_id])
+            m.write('cc', 'ramp_step_data_num', [target_count])
+            ## set parameter range
+            m.write('cc', 'ramp_min_val', [opts.range[0]])
+            m.write('cc', 'ramp_max_val', [opts.range[1]])
+            m.write('cc', 'ramp_step_size', [opts.range[2]])
+            ## set update interval
+            m.write('cc', 'ramp_step_period', [opts.step_frames])
+        elif action == 'start':
+            print 'Starting internal ramp.'
+            m.write('cc', 'internal_cmd_mode', [2])
+
+
