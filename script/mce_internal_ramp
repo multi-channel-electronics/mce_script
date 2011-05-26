@@ -92,7 +92,7 @@ class virtualMap:
         maps = []
         for ms in map_strs:
             # Pull out the start, length, param address, and offset:
-            m = re.match( r'(?:\()([0-9]+)(?:,)([0-9]+)(?:\)->\(\')(.*)(?:\'\+\ +)(.*)(?:\))',
+            m = re.match( r'(?:\()([0-9]+)(?:,)([0-9]+)(?:\)->\(\')(.*)(?:\'\+\ *)(.*)(?:\))',
                           ms).groups()
             c, p = m[2].split()
             maps.append((int(m[0],0), int(m[1],0), c, p, int(m[3],0)))
