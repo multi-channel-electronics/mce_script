@@ -40,6 +40,13 @@ int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
         'config_adc_offset_all', 'adc_offset_c', 'adc_offset_cr',
         'frail_servo_p', 'frail_servo_d', 'frail_servo_i', 'frail_detectors'] 
 
+def parse_string_text(s):
+    """
+    Parse 's' into substrings delimited by double quotes.
+    """
+    words = s.split('"')[1::2]
+    return words
+
 def mas_param(file, key, type, raw=False):
     try:
         p = subprocess.Popen(["mas_param", "-s", file, "get", key],
@@ -70,12 +77,10 @@ def mas_param(file, key, type, raw=False):
         else:
             return numpy.array([float(x) for x in v])
     else: # scalar or vector string
-        v = value.split()
+        v = parse_string_text(value)
         if (len(v) == 1):
-            #Remove white space and lead/trail quotes.
-            return value.strip()[1:-1]
-        else:
-            return [s.strip()[1:-1] for s in v]
+            return v[0]
+        return v
 
 def set_exp_param(file, key, value):
     """Writes the value given to the specified parameter of the experimental
@@ -182,7 +187,7 @@ def get_param_descriptions(file):
 class exptFile:
     casts = {'integer': int,
              'float': float,
-             'string': lambda x: str(x[1:-1])}
+             'string': str}
 
     def __init__(self, filename=None, read=True):
         self.data = {}
@@ -194,10 +199,17 @@ class exptFile:
         val = mas_param(self.filename, name, 0, raw=True)
         desc = self.info[name]
         cast = self.casts[desc['type']]
-        if desc['is_array']:
-            val = numpy.array(map(cast, val.split()))
+        if desc['type'] == 'string':
+            # String tokens are "" delimited
+            val = parse_string_text(val)
         else:
-            val = cast(val)
+            # Numerical data are space-delimited
+            val = val.split()
+        if desc['is_array']:
+            val = numpy.array(map(cast, val))
+        else:
+            val = cast(val[0])
+        # Update internal data and return
         self.data[name] = val
         return val
 
