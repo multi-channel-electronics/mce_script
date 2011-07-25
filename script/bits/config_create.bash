@@ -95,11 +95,27 @@ for rc in 1 2 3 4; do
     echo "wb rc$rc sample_dly   $sample_dly" >> $mce_script
     echo "wb rc$rc sample_num   $sample_num" >> $mce_script
     echo "wb rc$rc fb_dly       $fb_dly" >> $mce_script
-    echo "wb rc$rc fb_const     " `repeat_string $fb_const 8` >> $mce_script
-    echo "wb rc$rc servo_mode   " `repeat_string $servo_mode 8` >> $mce_script
+    echo "wb rc$rc fb_const    " `repeat_string $fb_const 8` >> $mce_script
     echo "wb rc$rc data_mode    $data_mode" >> $mce_script
     echo "wb rc$rc sa_bias      ${sa_bias[@]:$ch_ofs:8}" >> $mce_script
     echo "wb rc$rc offset       ${sa_offset[@]:$ch_ofs:8}" >> $mce_script
+
+    # Don't auto-servo columns flagged in "columns_off"
+    if [ "$servo_mode" == "3" ]; then
+	echo -n "wb rc$rc servo_mode  "
+	for c in `seq 0 7`; do
+	    chan=$(( $c + $ch_ofs ))
+	    if [ "${columns_off[$chan]}" == "1" ]; then
+		echo -n " 1"
+	    else
+		echo -n " 3"
+	    fi
+	done
+	echo
+    else
+	# Servo modes other than 3 are not affected by columns_off
+	echo "wb rc$rc servo_mode   " `repeat_string $servo_mode 8`
+    fi >> $mce_script
 
     # Servo parameters, including dead and frail detector turn-offs
     for c in `seq 0 7`; do
