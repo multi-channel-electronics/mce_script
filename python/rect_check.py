@@ -2,7 +2,7 @@
 
 from numpy import *
 
-MCE_CLOCK = 50000000
+MCE_CLOCK = 5e7 # Hz
 MCE_OVERHEAD = 44
 
 class frameConfig:

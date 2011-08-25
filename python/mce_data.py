@@ -402,7 +402,7 @@ class SmallMCEFile:
         a = numpy.fromfile(file=fin, dtype='<i4', count=count*f_dwords)
         n_frames = len(a) / f_dwords
         if len(a) != count*f_dwords:
-            print 'Warning: read probelm, only %i of %i requested frames were read.'% \
+            print 'Warning: read problem, only %i of %i requested frames were read.'% \
                   (len(a)/f_dwords, count)
         a.shape = (n_frames, f_dwords)
         if raw_frames:
