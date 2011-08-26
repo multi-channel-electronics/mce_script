@@ -65,9 +65,9 @@ class BitField(object):
         else:
             # For unsigned fields, bit operations should be used
             data = (data >> self.start) & ((1 << self.count)-1)
-        if do_scale and self.scale != 1.:
-            data = data * self.scale
-        return data
+        if not do_scale:
+            return data
+        return data.astype('float') * self.scale
 
 
 class DataMode(dict):
