@@ -51,14 +51,14 @@ class runfile_block:
         self.fout
 
 
-def unwrap(data, period):
+def unwrap(data, period, in_place=True):
     ddata = data[...,1:] - data[...,:-1]
-    ups = (ddata >  period/2).nonzero()
-    dns = (ddata < -period/2).nonzero()
-    for r, c, i in zip(*ups):
-        data[r, c, i+1:] -= period
-    for r, c, i in zip(*dns):
-        data[r, c, i+1:] += period
+    ups = (ddata >  period/2).astype('int').cumsum(axis=-1)
+    dns = (ddata < -period/2).astype('int').cumsum(axis=-1)
+    if not in_place:
+        data = data.copy()
+    data[...,1:] += float(period) * (dns - ups)
+    return data
 
 def loadArrayParams(filename=None, array_name=None):
     if array_name == None:
