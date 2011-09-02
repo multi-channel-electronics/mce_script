@@ -90,6 +90,18 @@ def read_ascii(filename, data_start=0, comment_chars=[]):
         data.append([float(x) for x in w])
     return array(data).transpose()
 
+class logger:
+    def __init__(self, verbosity=0, indent=True):
+        self.v = verbosity
+        self.indent = indent
+    def write(self, s, level=0):
+        if level <= self.v:
+            if self.indent:
+                print ' '*level,
+            print s
+    def __call__(self, *args, **kwargs):
+        return self.write(*args, **kwargs)
+
 #
 # Main IV analysis routine
 #
@@ -154,6 +166,7 @@ t0 = time.time()
 from optparse import OptionParser
 o = OptionParser(usage="%prog [options] [iv_filename]")
 o.add_option('--plot-dir', default=None)
+o.add_option('--summary-only', action='store_true')
 o.add_option('--verbosity', default=2, type='int')
 o.add_option('--rf-file', default=None)
 o.add_option('--array', default=None)
@@ -167,6 +180,9 @@ if opts.interactive:
 
 if len(args) != 1:
     o.error('Give exactly 1 IV filename.')
+
+# Messaging
+printv = logger(opts.verbosity)
 
 # Source data
 filename = args[0]
@@ -187,6 +203,7 @@ if opts.rf_file == 'none':
     opts.rf_file = None
 
 # Load data and properties
+printv('Loading data...', 1)
 filedata = MCEFile(filename)
 
 if opts.array == None:
@@ -224,6 +241,7 @@ period = MCE_params['periods'][data_mode]
 data = filedata.Read(row_col=True).data
 data_cols = array(filedata._NameChannels(row_col=True)[1])
 
+printv('Unwrapping...', 1)
 unwrap(data, period)
 unwrap(data, period/2)
 data *= ar_par['fb_normalize'][data_cols].reshape(1,-1,1) / filtgain
@@ -292,6 +310,7 @@ class adict:
             if k in self.keys:
                 getattr(self,k)[index] = v
 
+printv('Analyzing...', 1)
 iv_data = adict(keys, dtypes, (n_row, n_col))
 for c in range(n_col):
     for r in range(n_row):
@@ -314,6 +333,15 @@ for r, c in ok_rc:
     i0, i1 = iv_data.norm_idx0[r,c], iv_data.norm_idx1[r,c]+1
     iv_data.R_norm[r,c] = R[r,c,i0:i1].mean()
 
+# Mark transition as place where R drops
+iv_data.define(['trans_idx'], ['int'], Rnorm.shape)
+for r, c in ok_rc:
+    i0, i1 = iv_data.norm_idx0[r,c], iv_data.super_idx0[r,c]
+    trans = (R[r,c,i0:i1] < 0.9*iv_data.R_norm[r,c]).nonzero()[0]
+    if trans.shape[-1] > 0:
+        iv_data.trans_idx[r,c] = trans[0]
+
+# Determine saturation power
 perRn = R / iv_data.R_norm.reshape(n_row,n_col,1)
 for r, c in ok_rc:
     norm_region = (perRn[r,c,:iv_data.super_idx0[r,c]] > 0.5).nonzero()[0]
@@ -397,15 +425,13 @@ set_data.keep_rec[ok] = (p0<p)*(p<p1)*(r0<r)*(r<r1)
 # Report
 #
 
-if opts.verbosity >= 2:
-    print 'Good normal branches found in each column:'
-    for c in range(n_col):
-        print 'Column %2i = %4i' % (c, iv_data.ok[:,c].sum())
+printv('Good normal branches found in each column:', 2)
+for c in range(n_col):
+    printv('Column %2i = %4i' % (c, iv_data.ok[:,c].sum()), 2)
 
-if opts.verbosity >= 1:
+if printv.v >= 1:
     if opts.with_rshunt_bug:
         print 'Rshunt bug is in!.'
-        print
     print 'Recommended biases for target of %10.4f Rn' % ar_par['per_Rn_bias']
     for l in range(n_lines):
         print 'Line %2i = %6i' % (l, bias_points_dac[l])
@@ -423,8 +449,7 @@ if opts.verbosity >= 1:
 
 
 if opts.rf_file != None:
-    if opts.verbosity >= 1:
-        print 'Writing runfile block to %s' % opts.rf_file
+    printv('Writing runfile block to %s' % opts.rf_file, 1)
     rf_out = runfile_block(opts.rf_file)
     rf_out.write_scalar('IV','')
     rf_out.write_scalar('iv_file', filename)
@@ -443,22 +468,23 @@ if opts.rf_file != None:
     rf_out.write_scalar('/IV','')
     rf_out.close()
     
+printv('Analysis complete (%8.3f)' % (time.time() - t0), 1)
+
 #
 # Plot :P
 #
 
-if opts.plot_dir != None:
-    if opts.verbosity >= 1:
-        print 'Plotting (%8.3f)' % (time.time() - t0)
+if opts.plot_dir != None and not opts.summary_only:
+    printv('Plotting all data (%8.3f)' % (time.time() - t0), 1)
 
-    from auto_setup.util.plotter import *
+    from auto_setup.util.plotter import stackedPager
     import biggles as bg
 
     # Three columns need 3 labels
     x_labels = [ 'TES V (uV)', 'TES P (pW)', 'Det bias (A)' ]
 
     for c in range(n_col):
-        print 'Plotting column %2i' % c
+        printv('Plotting column %2i' % c, 1)
         file_pattern = os.path.join(opts.plot_dir, 'IV_plots_C%02i_%%02i.png' % c)
         pi = stackedPager(
             page_shape=(6,3),
@@ -480,6 +506,18 @@ if opts.plot_dir != None:
                 x, y = v_tes[r,c,idx]*i_tes[r,c,idx], v_tes[r,c,idx]/i_tes[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
             elif pc == 2:
+                y = data[r,c]
+                x = raw_bias
+                p.add(bg.Curve(x, y))
+                regions = (iv_data.norm_idx0[r,c],
+                           iv_data.norm_idx1[r,c]-1,
+                           iv_data.trans_idx[r,c],
+                           iv_data.super_idx0[r,c],
+                           iv_data.super_idx1[r,c]-1)
+                for i in regions:
+                    p.add(bg.LineX(x[i], type='dot') )
+                x = None
+            elif pc == 9:
                 # Shunt I vs shunt V (super-cond)
                 idx = arange(iv_data.super_idx0[r,c], n_pts)
                 if len(idx) == 0: continue
@@ -492,5 +530,71 @@ if opts.plot_dir != None:
                 if xl != None: p.xrange = xl
                 if yl != None: p.yrange = yl
 
-if opts.verbosity >= 1:
-    print 'Analysis complete (%8.3f)' % (time.time() - t0)
+
+printv('Generating summary plots', 1)
+
+def get_R_crossing(i):
+    """
+    Scan the R/Rnormal data to return R/Rnormal at index ramp index i
+    for each detector.
+
+    Checks that i is actually insider the transition, returning
+    1. (normal) or 0. (superconducting) for out-of-range points.
+    """
+    # Look up fraction Rn
+    RR = perRn[:,:,i].copy()
+    # Flag superconductin
+    RR[i<=iv_data.trans_idx] = 1.
+    # Flag normal
+    RR[i>iv_data.super_idx0] = 1.
+    return RR
+
+# Summary plots.
+import pylab as pl
+
+# First summary plot:
+#  Histograms of %Rn for several biases.
+
+targets = arange(*ar_par.get('perRn_plot_target_bins',
+                             (raw_bias[n_pts/4],raw_bias[3.1*n_pts/4],
+                              (raw_bias[3*n_pts/4] - raw_bias[n_pts/4])/5)))
+
+# Convert targets to ramp index
+targetb = [(raw_bias <= t).nonzero()[0][0] for t in targets]
+ntarg = len(targets)
+
+# Get percent Rn
+RR = [get_R_crossing(t) for t in targetb]
+
+pl.clf()
+for i,t in enumerate(targets):
+    pl.subplot(ntarg, 1, 1+i)
+    y = RR[i]
+    pl.hist(y.ravel(), bins=arange(0., 1.01, .05))
+    y0 = pl.ylim()[1]
+    pl.text(0.5, y0*.9, 'TES = %5i' % t, va='top', ha='center', fontsize=11)
+    if i==0:
+        pl.title(filename)
+
+pl.gcf().set_size_inches(5., 10.)
+pl.savefig(os.path.join(opts.plot_dir, 'IV_det_hist.png'))
+pl.clf()
+
+
+# Next summary plot:
+#  Count of dets remaining uncut vs. bias
+r0,r1 = ar_par['per_Rn_cut']
+n = []
+bi = arange(0, len(raw_bias), 10)
+for b in bi:
+    RR = get_R_crossing(b)
+    n.append(((r0 <= RR) * (RR < r1)).sum())
+
+pl.figure()
+pl.plot(raw_bias[bi], n)
+pl.xlabel('TES BIAS (DAC)')
+pl.ylabel('N_DETS ON TRANSITION')
+pl.title(filename)
+pl.savefig(os.path.join(opts.plot_dir, 'IV_det_count.png'))
+
+printv('Plotting complete (%8.3f)' % (time.time() - t0), 1)
