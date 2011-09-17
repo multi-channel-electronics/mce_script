@@ -19,4 +19,6 @@ setenv MCE_JAM_DIR ${MAS_ROOT}/firmware/
 setenv MAS_IDL ${MAS_ROOT}/idl_pro/
 setenv MAS_PYTHON ${MAS_ROOT}/python/
 
+setenv MAS_CONFIG ${MAS_TEMPLATE}
+
 setenv PATH ${PATH}:${MAS_BIN}:${MAS_SCRIPT}:${MAS_TEST_SUITE}

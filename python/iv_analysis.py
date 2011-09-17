@@ -64,7 +64,7 @@ def loadArrayParams(filename=None, array_name=None):
     if array_name == None:
         array_name = open('/data/cryo/array_id').readline().strip()
     if filename == None:
-        filename = os.getenv('MAS_TEMPLATE') + '/array_%s.cfg' % array_name
+        filename = os.getenv('MAS_CONFIG') + '/array_%s.cfg' % array_name
     cfg = cfgFile(filename)
     params = {'array': array_name,
               'source_file': filename}

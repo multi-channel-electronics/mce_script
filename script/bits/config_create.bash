@@ -74,7 +74,7 @@ fi
 user_word=0
 if [ -e "/data/cryo/array_id" ]; then
     array_id=`cat /data/cryo/array_id`
-    user_word=`awk "($$1 == \"$array_id\") {print $$2}" $MAS_TEMPLATE/array_list`
+    user_word=`awk "($$1 == \"$array_id\") {print $$2}" $MAS_CONFIG/array_list`
     [ "$user_word" == "" ] && user_word=0
 fi
 echo "wb cc user_word $user_word" >> $mce_script

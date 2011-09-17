@@ -20,7 +20,7 @@ esac
 data_mode=`command_reply rb rc$rc data_mode`
 array_id=`cat /data/cryo/array_id`
 prog="(\$1==\"${array_id}\") {print \$2}"
-array_integer=`awk "${prog}" $MAS_TEMPLATE/array_list`
+array_integer=`awk "${prog}" $MAS_CONFIG/array_list`
 
 [ "$array_integer" != "" ] || array_integer=0
 

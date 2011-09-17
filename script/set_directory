@@ -65,7 +65,7 @@ if [ ! -e analysis ]; then
     chmod g+s analysis
 fi
 
-[ -e experiment.cfg ] || cp $MAS_TEMPLATE/$exp_cfg experiment.cfg
+[ -e experiment.cfg ] || cp $MAS_CONFIG/$exp_cfg experiment.cfg
 
 # Create an mce config script
 

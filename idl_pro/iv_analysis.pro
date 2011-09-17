@@ -55,7 +55,7 @@ if not keyword_set(array_file) then begin
         readf, arf, array_name
         free_lun,arf
     endif
-    array_file=strcompress( getenv('MAS_TEMPLATE')+'/array_'+array_name+'.cfg', /remove_all)
+    array_file=strcompress( getenv('MAS_CONFIG')+'/array_'+array_name+'.cfg', /remove_all)
 endif
 
 if 1 then begin
