@@ -41,7 +41,7 @@ fi
 # Check firmware
 fw_rev=`command_reply rb rc$rc_cmd fw_rev |cut -d' ' -f1`
 case "$fw_rev" in
-    0x400000d | 0x400000e | 0x5000001 | 0x5000002 | 0x5000007 | 0x5000008)
+    0x400000d | 0x400000e | 0x5*)
 	;;
     0x4010007 | 0x4020007 | 0x4030007)
 	echo "RC firmware $fw_rev does not support single column raw mode!"
