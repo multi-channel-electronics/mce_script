@@ -162,9 +162,10 @@ def get_param_descriptions(file):
     """
     try:
         p = subprocess.Popen(["mas_param", "-s", file, "info"],
-                stdout=subprocess.PIPE);
-        value = p.communicate()[0]
-        status = p.wait();
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE);
+        value, err_text = p.communicate()
+        if p.wait() != 0:
+            raise OSError(1, err_text)
     except OSError, (errno, strerror):
         print "Failed to get parameter info table from mas_param\n" \
             "[Errno {0}] {1}".format(errno, strerror)
@@ -184,7 +185,12 @@ def get_param_descriptions(file):
                       'length': size}
     return params, info
 
-class exptFile:
+class exptFile(dict):
+    """
+    Manage information from an experiment.cfg-style file, loaded using
+    mas_param.  For the most part, operate like a dictionary with
+    special read and write methods.
+    """
     casts = {'integer': int,
              'float': float,
              'string': str}
@@ -196,6 +202,11 @@ class exptFile:
             self.read(refresh_info=True)
 
     def read_param(self, name):
+        """
+        Refresh the value the named parameter, and return it, by
+        calling mas_param to load it from the source configuration
+        file.
+        """
         val = mas_param(self.filename, name, 0, raw=True)
         desc = self.info[name]
         cast = self.casts[desc['type']]
@@ -210,31 +221,40 @@ class exptFile:
         else:
             val = cast(val[0])
         # Update internal data and return
-        self.data[name] = val
-        return val
+        self[name] = val
+        return self.get_param(name, missing_ok=False)
 
     def read(self, refresh_info=False):
+        """
+        Load an entire config file.
+        """
         if refresh_info:
             self.names, self.info = get_param_descriptions(self.filename)
-        self.data = {}
+        self.clear()
         for n in self.names:
             self.read_param(n)
 
     def get_param(self, name, missing_ok=False):
-        if missing_ok and not name in self.data:
+        if missing_ok and not name in self:
             return None
-        return self.data[name]
+        if hasattr(self[name], '__copy__'):
+            # Don't expose references to mutable objects (arrays)
+            return self[name].copy()
+        return self[name]
     
     def set_param(self, name, data, index=None):
+        if hasattr(self[name], '__copy__'):
+            # Don't store references to mutable objects (arrays)
+            data = data.copy()
         if index == None:
-            self.data[name] = data
+            self[name] = data
         else:
-            self.data[name][index] = data
+            self[name][index] = data
         set_exp_param(self.filename, name, data)
 
     def write(self):
-        for k, v in iter(self.data):
-            self.write_param(k,v)
+        for k, v in self.iter():
+            self.set_param(k,v)
 
 
 if __name__ == '__main__':
