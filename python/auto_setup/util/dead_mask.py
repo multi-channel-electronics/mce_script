@@ -17,9 +17,9 @@ class DeadMask:
         self.label = label
 
     def read(self, filename):
-        nr = mas_param(filename, 'n_rows', 0)
-        nc = mas_param(filename, 'n_cols', 0)
-        d = mas_param(filename, 'mask', 0)
+        nr = mas_param(filename, 'n_rows', 'integer')
+        nc = mas_param(filename, 'n_cols', 'integer')
+        d = mas_param(filename, 'mask', 'integer')
         if nr==None or nc==None or d==None:
             raise RuntimeError, 'Invalid or missing dead_mask file "%s"' % filename
         self.data = d.reshape(nc, nr).transpose()

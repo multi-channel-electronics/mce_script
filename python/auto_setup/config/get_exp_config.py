@@ -1,12 +1,15 @@
 import numpy
 import subprocess
 
-# this implementation is kind of lame...
-string_keys = ['array_id', 'dead_mask_list', 'frail_mask_list']
-float_keys = ['sa_offset_bias_ratio', 'sq2_servo_gain', 'sq1_servo_gain',
-        'tes_bias_normal_time']
-int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
-        'hardware_bac', 'hardware_rect', 'hardware_rc_data', 'sb0_select_clk',
+# These hard-coded keys are on their way out -- the list can
+#  now be obtained from mas_param.  Once everything is working
+#  ok, remove this list and the legacy support (get_fake_expt).
+config_keys = {
+    'string': ['array_id', 'dead_mask_list', 'frail_mask_list'],
+    'float': ['sa_offset_bias_ratio', 'sq2_servo_gain', 'sq1_servo_gain',
+        'tes_bias_normal_time'],
+    'integer': ['array_width', 'hardware_rc', 'hardware_sync',
+        'hardware_rect', 'hardware_rc_data', 'sb0_select_clk',
         'sb0_use_dv', 'sb0_use_sync', 'sb1_select_clk', 'sb1_use_dv',
         'sb1_use_sync', 'default_num_rows', 'default_sample_num',
         'default_data_mode', 'default_flux_jumping', 'default_servo_p',
@@ -39,6 +42,7 @@ int_keys = ['array_width', 'hardware_rc', 'hardware_sync',
         'sq2_fb', 'sq2_fb_set', 'sa_bias', 'sa_fb', 'sa_offset',
         'config_adc_offset_all', 'adc_offset_c', 'adc_offset_cr',
         'frail_servo_p', 'frail_servo_d', 'frail_servo_i', 'frail_detectors'] 
+}
 
 def parse_string_text(s):
     """
@@ -47,7 +51,7 @@ def parse_string_text(s):
     words = s.split('"')[1::2]
     return words
 
-def mas_param(file, key, type, raw=False):
+def mas_param(file, key, type=None, no_singles=False):
     try:
         p = subprocess.Popen(["mas_param", "-s", file, "get", key],
                 stdout=subprocess.PIPE);
@@ -61,26 +65,27 @@ def mas_param(file, key, type, raw=False):
     if (status):
         return None
 
-    if raw:
+    if type == None or type == 'raw':
         return value.strip()
 
-    if (type == 0): # scalar or vector int
+    if type == 'integer': # scalar or vector int
         v = value.split()
-        if (len(v) == 1):
+        if not no_singles and (len(v) == 1):
             return int(v[0])
         else:
             return numpy.array([int(x) for x in v])
-    elif (type == 1): # scalar or vector float
+    if type == 'float': # scalar or vector float
         v = value.split()
-        if (len(v) == 1):
+        if not no_singles and (len(v) == 1):
             return float(v[0])
         else:
             return numpy.array([float(x) for x in v])
-    else: # scalar or vector string
-        v = parse_string_text(value)
-        if (len(v) == 1):
-            return v[0]
-        return v
+    
+    # scalar or vector string
+    v = parse_string_text(value)
+    if (len(v) == 1) and not no_singles:
+        return v[0]
+    return v
 
 def set_exp_param(file, key, value):
     """Writes the value given to the specified parameter of the experimental
@@ -102,7 +107,7 @@ def set_exp_param(file, key, value):
     if (status != 0):
         raise OSError("An error occurred while setting " + key)
 
-def get_exp_param(file, key, array=True, missing_ok=False):
+def get_exp_param(file, key, no_singles=False, missing_ok=False):
     """Returns the value of one parameter of the experimental configuration.
 
     file: the name of the configuration file to read.
@@ -111,12 +116,10 @@ def get_exp_param(file, key, array=True, missing_ok=False):
     if (key == "_source"):
         # for compatibility with the dictionary
         return file;
-    if key in string_keys:
-        v = mas_param(file, key, 2)
-    elif key in float_keys:
-        v = numpy.array(mas_param(file, key, 1))
-    elif key in int_keys:
-        v = numpy.array(mas_param(file, key, 0))
+    for dtype in ['string', 'float', 'integer']:
+        if key in config_keys[dtype]:
+            v = mas_param(file, key, dtype, no_singles=no_singles)
+            break
     else:
         raise KeyError("unknown experimental parameter: " + key)
     
@@ -131,16 +134,9 @@ def get_exp_config(file):
     file: the name of the configuration file to read."""
 
     config = {'_source': file};
-
-    for key in (string_keys):
-        config[key] = mas_param(file, key, 2)
-
-    for key in (float_keys):
-        config[key] = numpy.array(mas_param(file, key, 1))
-
-    for key in (int_keys):
-        config[key] = numpy.array(mas_param(file, key, 0))
-
+    for dtype in ['string', 'float', 'integer']:
+        for key in config_keys[dtype]:
+            config[key] = mas_param(file, key, dtype)
     return config;
 
 def set_exp_param_range(file, key, range, value):
@@ -196,7 +192,6 @@ class exptFile(dict):
              'string': str}
 
     def __init__(self, filename=None, read=True):
-        self.data = {}
         self.filename = filename
         if self.filename != None:
             self.read(refresh_info=True)
@@ -207,7 +202,9 @@ class exptFile(dict):
         calling mas_param to load it from the source configuration
         file.
         """
-        val = mas_param(self.filename, name, 0, raw=True)
+        val = mas_param(self.filename, name)
+        if val == None:
+            return None
         desc = self.info[name]
         cast = self.casts[desc['type']]
         if desc['type'] == 'string':
@@ -243,7 +240,7 @@ class exptFile(dict):
         return self[name]
     
     def set_param(self, name, data, index=None):
-        if hasattr(self[name], '__copy__'):
+        if hasattr(data, '__copy__'):
             # Don't store references to mutable objects (arrays)
             data = data.copy()
         if index == None:
@@ -255,6 +252,29 @@ class exptFile(dict):
     def write(self):
         for k, v in self.iter():
             self.set_param(k,v)
+
+def get_fake_expt(filename):
+    print """
+Creating exptFile based on hard-coded experiment.cfg parameters...
+
+Please upgrade mas_param to support "info" dumping.  Thanks.
+"""
+    e = exptFile(filename, read=False)
+    names, info = [], {}
+    for dtype in ['string', 'float', 'integer']:
+        for k in config_keys[dtype]:
+            p = get_exp_param(filename, k, no_singles=True, missing_ok=True)
+            if p == None:
+                continue
+            is_array = len(p) != 1
+            e.info[k] = {'type': dtype,
+                         'is_array': is_array,
+                         'length': len(p)}
+            e.names.append(k)
+            if not is_array:
+                p = p[0]
+            e[k] = p
+    return e
 
 
 if __name__ == '__main__':

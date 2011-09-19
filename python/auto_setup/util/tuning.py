@@ -49,7 +49,10 @@ class tuningData:
         if exp_file == None:
             exp_file = os.path.join(self.base_dir, 'experiment.cfg')
         self.exp_file = exp_file
-        #self.exptfile = config.exptFile(exp_file)
+        try:
+            self.exptfile = config.exptFile(exp_file)
+        except:
+            self.exptfile = config.get_fake_expt(exp_file)
 
         # Log file
         self.openlog_failed = False
@@ -60,16 +63,25 @@ class tuningData:
         os.mkdir(self.plot_dir)
 
     def get_exp_param(self, key, missing_ok=False):
-        #return self.exptfile.get_param(key, missing_ok=missing_ok)
-        return config.get_exp_param(self.exp_file, key, missing_ok=missing_ok)
+        return self.exptfile.get_param(key, missing_ok=missing_ok)
+        #return config.get_exp_param(self.exp_file, key, missing_ok=missing_ok)
 
     def set_exp_param(self, key, value):
-        #return self.exptfile.set_param(key, value)
-        return config.set_exp_param(self.exp_file, key, value)
+        return self.exptfile.set_param(key, value)
+        #return config.set_exp_param(self.exp_file, key, value)
 
     def set_exp_param_range(self, key, range, value):
-        #return self.exptfile.set_param(key, value, index=range)
-        return config.set_exp_param_range(self.exp_file, key, range, value)
+        return self.exptfile.set_param(key, value, index=range)
+        #return config.set_exp_param_range(self.exp_file, key, range, value)
+
+    def clear_exp_param(self, key, value):
+        return self.set_exp_param(key, zeros(len(self.get_exp_param(key))))
+
+    def copy_exp_param(self, src_key, dest_key):
+        """
+        Copy the value in src_key to dest_key.
+        """
+        return self.set_exp_param(dest_key, self.get_exp_param(src_key))
 
     def run(self, args, no_log=False):
         if (no_log):
@@ -107,8 +119,8 @@ class tuningData:
     def rc_list(self):
         # Since the all-card tuning relies on RCS data acquisition, get the RC list
         # from hardware_rc_data, which determines RCS acq membership.
-        hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc_data");
-        #hardware_rc = self.exptfile.get_param("hardware_rc_data")
+        #hardware_rc = config.get_exp_param(self.exp_file, "hardware_rc_data");
+        hardware_rc = self.exptfile.get_param("hardware_rc_data")
         return [c + 1 for c in range(len(hardware_rc)) if hardware_rc[c] == 1]
 
     def column_list(self):
