@@ -181,7 +181,7 @@ def get_param_descriptions(file):
                       'length': size}
     return params, info
 
-class exptFile(dict):
+class configFile(dict):
     """
     Manage information from an experiment.cfg-style file, loaded using
     mas_param.  For the most part, operate like a dictionary with
@@ -255,11 +255,11 @@ class exptFile(dict):
 
 def get_fake_expt(filename):
     print """
-Creating exptFile based on hard-coded experiment.cfg parameters...
+Creating configFile based on hard-coded experiment.cfg parameters...
 
 Please upgrade mas_param to support "info" dumping.  Thanks.
 """
-    e = exptFile(filename, read=False)
+    e = configFile(filename, read=False)
     names, info = [], {}
     for dtype in ['string', 'float', 'integer']:
         for k in config_keys[dtype]:
@@ -280,5 +280,5 @@ Please upgrade mas_param to support "info" dumping.  Thanks.
 if __name__ == '__main__':
     # Unit test...
     fn = '/data/cryo/current_data/experiment.cfg'
-    cfg = exptFile(fn)
+    cfg = configFile(fn)
     print cfg.get_param('dead_mask_list')

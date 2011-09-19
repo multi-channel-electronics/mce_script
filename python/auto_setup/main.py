@@ -51,17 +51,18 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
         for i,x in enumerate(cfg_tes_bias_idle):
             tuning.cmd("wra tes bias %i %s" % (i, x))
 
-    # load squid biases from config file default parameters
-    def_sa_bias = tuning.get_exp_param("default_sa_bias")
+    # Load squid biases from config file default parameters
     sq2_bias = tuning.get_exp_param("default_sq2_bias")
     sq1_bias = tuning.get_exp_param("default_sq1_bias")
     sq1_bias_off = tuning.get_exp_param("default_sq1_bias_off")
 
-    # Load default values for biases
-    tuning.set_exp_param("sa_bias", def_sa_bias)
-    tuning.set_exp_param("sq2_bias", sq2_bias)
-    tuning.set_exp_param("sq1_bias", zeros([len(sq1_bias)]))
-    tuning.set_exp_param("sq1_bias_off", zeros([len(sq1_bias_off)]))
+    # Set SA and SQ2 to default biases
+    tuning.copy_exp_param("default_sa_bias", "sa_bias")
+    tuning.copy_exp_param("default_sq2_bias", "sq2_bias")
+
+    # Set SQ1 off
+    tuning.clear_exp_param("sq1_bias")
+    tuning.clear_exp_param("sq1_bias_off")
 
     # data_mode and servo_mode and write.
     prepare_mce(tuning, run_now=True)
@@ -115,9 +116,8 @@ def prepare_sa_ramp(tuning, cols=None):
 
     # Set SQ2 and SQ1 biases to 0
     tuning.set_exp_param_range("sq2_bias", cols, cols*0)
-    n_sq1 = len(tuning.get_exp_param('sq1_bias'))
-    tuning.set_exp_param("sq1_bias", zeros(n_sq1))
-    tuning.set_exp_param("sq1_bias_off", zeros(n_sq1))
+    tuning.clear_exp_param('sq1_bias')
+    tuning.clear_exp_param('sq1_bias_off')
 
     # Set the SA bias and offset to the default values
     offset_ratio = tuning.get_exp_param("sa_offset_bias_ratio")
@@ -214,10 +214,8 @@ def prepare_sq1_servo(tuning):
     tuning.set_exp_param("servo_mode", 1)
 
     # Enable SQ1 bias
-    sq1_bias = tuning.get_exp_param("default_sq1_bias")
-    sq1_bias_off = tuning.get_exp_param("default_sq1_bias_off")
-    tuning.set_exp_param("sq1_bias", sq1_bias)
-    tuning.set_exp_param("sq1_bias_off", sq1_bias_off)
+    tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
+    tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
 
     # Set the ADC_offsets to their per-column values
     tuning.set_exp_param("config_adc_offset_all", 0)
@@ -329,15 +327,10 @@ def operate(tuning):
     This should be run once the final ADC offsets have been chosen (sq1_ramp).
     """
     # Servo control
-    tuning.set_exp_param("servo_mode", 3)
-    tuning.set_exp_param("servo_p", tuning.get_exp_param("default_servo_p"))
-    tuning.set_exp_param("servo_i", tuning.get_exp_param("default_servo_i"))
-    tuning.set_exp_param("servo_d", tuning.get_exp_param("default_servo_d"))
-    tuning.set_exp_param("flux_jumping", \
-            tuning.get_exp_param("default_flux_jumping"))
-
-    # Data mode, etc.
-    tuning.set_exp_param("data_mode", tuning.get_exp_param("default_data_mode"))
+    tuning.set_exp_param('servo_mode', 3)
+    for param in ['servo_p', 'servo_i', 'servo_d', 'flux_jumping',
+                  'data_mode']:
+        tuning.copy_exp_param('default_%s'%param, param)
 
     # Disable dog-housed column biases
     columns_off = tuning.get_exp_param("columns_off")

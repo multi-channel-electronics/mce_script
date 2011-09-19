@@ -50,7 +50,7 @@ class tuningData:
             exp_file = os.path.join(self.base_dir, 'experiment.cfg')
         self.exp_file = exp_file
         try:
-            self.exptfile = config.exptFile(exp_file)
+            self.exptfile = config.configFile(exp_file)
         except:
             self.exptfile = config.get_fake_expt(exp_file)
 
@@ -74,8 +74,8 @@ class tuningData:
         return self.exptfile.set_param(key, value, index=range)
         #return config.set_exp_param_range(self.exp_file, key, range, value)
 
-    def clear_exp_param(self, key, value):
-        return self.set_exp_param(key, zeros(len(self.get_exp_param(key))))
+    def clear_exp_param(self, key):
+        return self.set_exp_param(key, 0*self.get_exp_param(key))
 
     def copy_exp_param(self, src_key, dest_key):
         """
