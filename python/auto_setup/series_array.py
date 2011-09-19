@@ -145,7 +145,7 @@ class SARamp(util.RCData):
             self.bias = 0 # ?
         else:
             self.bias_style = 'select'
-            self.bias = [0 for i in range(n_col)]
+            self.bias = zeros(n_col,'int')
 
     def read_data(self, filename, reduce_rows=True):
         self.mcefile = MCEFile(filename)
@@ -207,7 +207,7 @@ class SARamp(util.RCData):
             sa.data_shape = self.data_shape[1:]
             sa.gridded = True
             sa.bias_style = 'select'
-            sa.bias = [self.bias[i] for c in self.cols]
+            sa.bias = self.bias[self.cols]
             output.append(sa)
         return output
 
