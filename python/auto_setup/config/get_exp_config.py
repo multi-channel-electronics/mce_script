@@ -192,6 +192,7 @@ class configFile(dict):
              'string': str}
 
     def __init__(self, filename=None, read=True):
+        dict.__init__(self)
         self.filename = filename
         if self.filename != None:
             self.read(refresh_info=True)

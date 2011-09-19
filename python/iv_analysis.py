@@ -4,6 +4,7 @@ from mce_data import MCEFile
 import subprocess as sp
 
 from auto_setup.util import interactive_errors
+from auto_setup import config
 
 class cfgFile:
     def __init__(self, filename):
@@ -65,22 +66,10 @@ def loadArrayParams(filename=None, array_name=None):
         array_name = open('/data/cryo/array_id').readline().strip()
     if filename == None:
         filename = os.getenv('MAS_CONFIG') + '/array_%s.cfg' % array_name
-    cfg = cfgFile(filename)
-    params = {'array': array_name,
-              'source_file': filename}
-    schema = [
-        ('float', True,  ['Rfb', 'M_ratio', 'default_Rshunt', 'per_Rn_bias',
-                          'fb_DAC_amps', 'bias_DAC_bits',
-                          'bias_DAC_volts', 'fb_DAC_bits']),
-        ('int',   True,  ['ncut_lim', 'use_srdp_Rshunt', 'n_bias_lines', 'bias_step']),
-        ('float', False, ['fb_normalize', 'per_Rn_cut', 'psat_cut', 'good_shunt_range',
-                          'Rbias_arr', 'Rbias_cable']),
-        ('int',   False, ['bias_lines']),
-        ]
-    for dtype, single, keys in schema:
-        for k in keys:
-            params[k] = cfg.get(k, dtype, single)
-    return params
+    cfg = config.configFile(filename)
+    cfg.update({'array': array_name,
+                'source_file': filename})
+    return cfg
 
 def read_ascii(filename, data_start=0, comment_chars=[]):
     data = []
@@ -550,6 +539,8 @@ def get_R_crossing(i):
     return RR
 
 # Summary plots.
+import matplotlib
+matplotlib.use('agg')
 import pylab as pl
 
 # First summary plot:
