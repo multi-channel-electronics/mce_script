@@ -329,6 +329,8 @@ def plot(x, y, y_rc, lock_points, plot_file,
             dx = (hi - lo)*.1
             ax.yrange = lo - dx, hi + dx
             ax.xrange = x[0]/1000., x[-1]/1000.
+
+    pl.cleanup()
     return {
         'plot_files': pl.plot_files,
         }

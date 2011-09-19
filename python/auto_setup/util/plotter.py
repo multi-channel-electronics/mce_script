@@ -1,3 +1,4 @@
+import os, shutil
 import distutils.version as dvs
 import biggles
 
@@ -192,6 +193,7 @@ class plotGridder:
         ('force_hlabel', False),
         ('target_shape', (4,4)),
         ('img_size', (600, 450)),
+        ('format', 'png'),
         ]
 
     def __init__(self, shape, filename, **kwargs):
@@ -222,9 +224,19 @@ class plotGridder:
         # Prepare for nextism
         self.reset()
 
-    def __del__(self):
+    def cleanup(self):
         if not self.written and self.canvas != None:
             self._write_hpage()
+        ofile = self.filename + '.pdf'
+        if self.format == 'pdf' and not os.path.exists(ofile):
+            pp = pdfCollator(self.plot_files, ofile)
+            if pp.collate():
+                for x in self.plot_files:
+                    os.remove(x)
+                self.plot_files = [ofile]
+
+    def __del__(self):
+        self.cleanup()
 
     def reset(self):
         self.canvas = None
@@ -289,7 +301,10 @@ class plotGridder:
             filename += '_%02i' % v
         if H > 1 or self.force_hlabel:
             filename += '_%i' % ((h+H)%H)
-        filename += '.png'
+        if self.format == 'png':
+            filename += '.png'
+        else:
+            filename += '.svg'
         self.canvas.write_img(self.img_size[0], self.img_size[1], filename)
         self.written = True
         if not filename in self.plot_files:
@@ -344,3 +359,95 @@ class plotGridder:
                 
         # Increment
         return row, col, self._get_plot()
+
+
+def hack_svg_viewbox(src, dest):
+    """
+    Convert a biggles/libplot-generated SVG file (src) to one suitable
+    for consumption by svg2rlg and save in dest.
+
+    Rescales the SVG viewBox from (0,1) to (0,npix).  The PDF
+    converter seems to insist on interpreting the viewBox coordinates
+    as the desired image width in pixels.
+    """
+    import re
+    from xml.dom import minidom
+
+    md = minidom.parse(src)
+    svg = md.childNodes[1]
+    # Find our tags of interest
+    for x in svg.childNodes:
+        if x.nodeName == 'rect' and x.getAttribute('id') =='background':
+            bg_rect = x
+        elif x.nodeName == 'g':
+            svg_g = x
+    # Get transform atoms
+    transforms = svg_g.getAttribute('transform')
+    t_atoms = re.findall('([a-z]*\([^\)]*\))', transforms)
+    # Get the keyword and first two arguments for each transform
+    t_data = [ re.match('([a-zA-z]*)\(([0-9.\-]*)[\ ,]([0-9.\-]*).*\)', t)
+               for t in t_atoms]
+    t_data = [ (t.group(1), t.group(2), t.group(3)) for t in t_data]
+    # The "scale" secretly holds the original libplot image size.
+    for n, x, y in t_data:
+        if n == 'scale':
+            x, y = float(x), float(y)
+            break
+    else:
+        raise RuntimeError, "Could not find scale argument"
+    xsize, ysize = int(round(1/x)), int(round(-1/y))
+    # New coordinate description
+    svg_g.setAttribute('transform', 'translate(0 %i) scale(1 -1)' % ysize)
+    svg.setAttribute('viewBox', '0 0 %i %i' % (xsize, ysize))
+    bg_rect.setAttribute('width', str(xsize))
+    bg_rect.setAttribute('height', str(ysize))
+    fout = open(dest, 'w')
+    md.writexml(fout)
+    del fout
+
+try:
+    from pyPdf import PdfFileWriter, PdfFileReader
+    from svglib.svglib import svg2rlg
+    from reportlab.graphics import renderPDF
+except:
+    print 'Failed to load PDF collation libraries.'
+
+
+class pdfCollator:
+    """
+    Combine some SVGs into a single PDF.
+    """
+    def __init__(self, sources, dest):
+        self.sources = sources
+        self.dest = dest
+
+    def collate(self, remove_temp=True):
+        # Make temporary folder
+        dest_dir, _ = os.path.split(self.dest)
+        if not os.path.exists(dest_dir):
+            raise RuntimeError, "output place %s d.n.e."% dest_dir
+        temp_dir = dest_dir + '/tmp'
+        if not os.path.exists(temp_dir):
+            os.mkdir(temp_dir)
+        # Fix SVG windows for PDFing
+        temp_page = ['%s/page%i.tmp' % (temp_dir, i)
+                     for i,_ in enumerate(self.sources)]
+        for s, d in zip(self.sources,temp_page):
+            hack_svg_viewbox(s, d)
+        # Generate single PDF pages
+        for s in temp_page:
+            drawing = svg2rlg(s)
+            renderPDF.drawToFile(drawing, s, autoSize=1)
+        # Concatenate the PDF pages into a single document
+        output = PdfFileWriter()
+        for s in temp_page:
+            i = PdfFileReader(open(s,'rb'))
+            output.addPage(i.getPage(0))
+            del i
+        fout = file(self.dest, 'wb')
+        output.write(fout)
+        fout.close()
+        # Remove the temporary folder
+        if remove_temp:
+            shutil.rmtree(temp_dir)
+        return True
