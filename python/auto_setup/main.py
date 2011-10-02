@@ -336,8 +336,8 @@ def operate(tuning):
     columns_off = tuning.get_exp_param("columns_off")
     bad_columns = columns_off.nonzero()[0]
     if len(bad_columns) > 0:
-        tuning.set_exp_param_range("sa_bias", bad_columns, 0)
-        tuning.set_exp_param_range("sq2_bias", bad_columns, 0)
+        tuning.set_exp_param_range("sa_bias", bad_columns, 0*bad_columns)
+        tuning.set_exp_param_range("sq2_bias", bad_columns, 0*bad_columns)
 
     # Compile dead detector mask
     print "Assembling dead detector mask."
