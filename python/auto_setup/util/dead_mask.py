@@ -49,7 +49,22 @@ class DeadMask:
             f.write(comment)
         f.write(self.str())
         f.close()
-        
+
+    def linear(self, n_rows=None):
+        """
+        Return a 1-d, integer numpy array of the dead mask, by
+        unraveling the column-dominant vector after (possibly)
+        trimming or extending it to have n_rows rows.
+        """
+        if n_rows == None:
+            n_rows = self.shape[0]
+        nr, nc = self.data.shape[0]
+        if nr < n_rows:   # pad the data
+            out = zeros((n_rows, nc), dtype=self.data.dtype)
+            out[:nr] = self.data
+        else:             # view
+            out = self.data[:n_rows]
+        return out.transpose().ravel().astype('int')
 
 def get_all_dead_masks(tuning, union=False, frail=False):
     """
