@@ -278,7 +278,7 @@ class SARamp(util.RCData):
         self.analysis.update(an)
         return self.analysis
 
-    def plot(self, plot_file=None):
+    def plot(self, plot_file=None, format=None):
         self._check_data()
         self._check_analysis()
 
@@ -289,7 +289,8 @@ class SARamp(util.RCData):
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
 
-        format = self.tuning.get_exp_param('tuning_plot_format')
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format')
 
         # Plot plot plot
         return servo.plot(

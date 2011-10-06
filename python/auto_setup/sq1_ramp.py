@@ -266,7 +266,7 @@ class SQ1Ramp(util.RCData):
         self.reduce2()
         return self.analysis
 
-    def plot(self, plot_file=None, dead_masks=None, format='png'):
+    def plot(self, plot_file=None, dead_masks=None, format=None):
         self._check_data()
         self._check_analysis()
 
@@ -283,7 +283,8 @@ class SQ1Ramp(util.RCData):
         else:
             insets = None
 
-        format = self.tuning.get_exp_param('tuning_plot_format')
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format')
 
         # Plot plot plot
         servo.plot(self.fb, self.data, (nr, nc),

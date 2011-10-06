@@ -268,7 +268,7 @@ class SQ1Servo(util.RCData):
         self.analysis = an
         return an
         
-    def plot(self, plot_file=None):
+    def plot(self, plot_file=None, format=None):
         self._check_data()
         self._check_analysis()
 
@@ -276,7 +276,8 @@ class SQ1Servo(util.RCData):
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
 
-        format = self.tuning.get_exp_param('tuning_plot_format')
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format')
 
         # Plot plot plot
         return servo.plot(
