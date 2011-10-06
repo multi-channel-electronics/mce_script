@@ -247,7 +247,9 @@ class configFile(dict):
         if index == None:
             self[name] = data
         else:
+            # Replace some values, but write them all.
             self[name][index] = data
+            data = self[name]
         set_exp_param(self.filename, name, data)
 
     def write(self):
