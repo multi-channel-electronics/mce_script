@@ -18,8 +18,9 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
 
     sq = SQ2Servo(servo_data['filename'], tuning=tuning)
     lock_points = sq.reduce(slope=slope)
-    plot_out = sq.plot()
-    tuning.register_plots(*plot_out['plot_files'])
+    if tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
 
     # Return analysis
     return lock_points

@@ -160,8 +160,9 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
     tuning.write_config()
 
     # Plot final curve only.
-    plot_out = sa.plot()
-    tuning.register_plots(*plot_out['plot_files'])
+    if tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sa.plot()
+        tuning.register_plots(*plot_out['plot_files'])
 
     return {"status": 0, "column_adc_offset": target}
 
@@ -314,7 +315,8 @@ def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
 
     # Produce plots
     masks = util.get_all_dead_masks(tuning)
-    ramps.plot(dead_masks=masks)
+    if tuning.get_exp_param('tuning_do_plots'):
+        ramps.plot(dead_masks=masks)
 
     # Return analysis stuff so it can be stored in .sqtune...
     return ramps

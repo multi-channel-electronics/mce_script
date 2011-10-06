@@ -27,8 +27,9 @@ def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
 
     sq = SQ1Servo(servo_data['filename'], tuning=tuning)
     lock_points = sq.reduce()
-    plot_out = sq.plot()
-    tuning.register_plots(*plot_out['plot_files'])
+    if tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
 
     # Return dictionary of relevant results
     lock_points['super_servo'] = super_servo
