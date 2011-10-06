@@ -71,8 +71,8 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
     # thermalisation
 
     if (check_bias and on_bias == 0):
-        print "Waiting for thermalisation."
-        time.sleep(210)
+        print "Waiting for thermalization."
+        time.sleep(tuning.get_exp_param('tuning_therm_time'))
 
     return {"ramp_sa_bias": ramp_sa_bias, "sq1_bias": sq1_bias,
             "sq1_bias_off": sq1_bias_off, "sq2_bias": sq2_bias}
@@ -378,7 +378,7 @@ def frametest_check(tuning, rcs, row, column):
                 binary=1, acq_id=acq_id)
 
 
-def auto_setup(rcs=None, check_bias=False, short=False, ramp_sa_bias=None,
+def auto_setup(rcs=None, check_bias=None, short=False, ramp_sa_bias=None,
                note=None, reg_note=None, data_root=None,
                first_stage=None, last_stage=None,
                debug=False):
@@ -401,15 +401,14 @@ IDL auto_setup_squids."""
     # set rc list, if necessary
     if (rcs == None):
         print "  Tuning all available RCs."
-        # Cards in sequence.
-        #rcs = tuning.rc_list()
-        # All cards at once.
         rcs = ['s']
 
     # default parameters
     if ramp_sa_bias == None:
         ramp_sa_bias = bool(tuning.get_exp_param('sa_ramp_bias'))
-
+    if check_bias == None:
+        check_bias = bool(tuning.get_exp_param('tuning_check_bias'))
+    
     # initialise the auto setup
     tune_data = do_init(tuning, rcs, check_bias, ramp_sa_bias, note)
 

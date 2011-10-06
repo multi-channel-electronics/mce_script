@@ -31,8 +31,10 @@ o.add_option('--last-stage', default=None,help=
 o.add_option('-s', '--shortness', default=0, type='int', help=
              "legacy... pass integer [0, 1,2 ] to get equivalent of "\
                  "--first-stage [sa_bias, sq1_servo, sq1_ramp]")
-o.add_option('--no-check-bias', action='store_true', default=False, help=
-             "disable checking of SA and SQ2 bias")
+o.add_option('--check-bias', action='store_true', dest='check_bias', help=
+             "force checking of SA and SQ2 bias")
+o.add_option('--no-check-bias', action='store_false', dest='check_bias', help=
+             "force no checking of SA and SQ2 bias")
 o.add_option('--set-directory', default=1, type='int',
              help='pass 1 or 0 depending on whether you want to run '
              'set_directory before tuning')
@@ -50,8 +52,6 @@ if (len(opts.rc) == 0) or ('s' in opts.rc):
 else:
     opts.rc = [int(x) for x in opts.rc]
 
-check_bias = not opts.no_check_bias
-
 # set_directory?
 if opts.set_directory:
     if subprocess.call(['set_directory']) != 0:
@@ -61,4 +61,4 @@ if opts.set_directory:
 # Tune.
 ast.auto_setup(rcs=opts.rc, short=opts.shortness, reg_note=opts.reg_note,
                first_stage=opts.first_stage, last_stage=opts.last_stage,
-               check_bias=check_bias)
+               check_bias=opts.check_bias)
