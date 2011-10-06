@@ -274,6 +274,7 @@ def plot(x, y, y_rc, lock_points, plot_file,
          slopes=False,
          scale_style='tight',
          label_style='row_col',
+         format=None,
          ):
 
     nr, nc = y_rc
@@ -295,9 +296,11 @@ def plot(x, y, y_rc, lock_points, plot_file,
                     y0 = get('', 'y')
                 slopes.append(zip(m, x0, y0))
                 
-    pl = util.plotGridder(y_rc, plot_file, title=title, xlabel=xlabel, ylabel=ylabel,
+    pl = util.plotGridder(y_rc, plot_file, title=title,
+                          xlabel=xlabel, ylabel=ylabel,
                           target_shape=shape, img_size=img_size,
-                          col_labels=cl, rowcol_labels=rcl)
+                          col_labels=cl, rowcol_labels=rcl,
+                          format=format)
             
     for r, c, ax in pl:
         if r >= nr or c >= nc: continue

@@ -231,6 +231,8 @@ class SQ2Servo(util.RCData):
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
 
+        format = self.tuning.get_exp_param('tuning_plot_format')
+
         # Plot plot plot
         return servo.plot(
             self.fb, self.data, self.data_shape[-3:-1], self.analysis,
@@ -239,4 +241,6 @@ class SQ2Servo(util.RCData):
             title=self.data_origin['basename'],
             titles=['Column %i' %c for c in self.cols],
             xlabel='SQ2 FB / 1000',
-            ylabel='SA FB / 1000')
+            ylabel='SA FB / 1000',
+            format=format,
+            )

@@ -282,6 +282,9 @@ class SQ1Ramp(util.RCData):
                     if d > 0: insets[i] += dm.label + ' '
         else:
             insets = None
+
+        format = self.tuning.get_exp_param('tuning_plot_format')
+
         # Plot plot plot
         servo.plot(self.fb, self.data, (nr, nc),
                    self.analysis, plot_file,
@@ -294,6 +297,7 @@ class SQ1Ramp(util.RCData):
                    ylabel='AD Units / 1000',
                    scale_style='tight',
                    label_style='row_col',
+                   format=format,
                    )
 
     def sqtune_report(self):
