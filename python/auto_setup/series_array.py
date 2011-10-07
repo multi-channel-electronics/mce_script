@@ -292,12 +292,16 @@ class SARamp(util.RCData):
         if format == None:
             format = self.tuning.get_exp_param('tuning_plot_format')
 
+        # Display biases as inset text
+        insets = ['BIAS = %5i' % x for x in self.bias]
+
         # Plot plot plot
         return servo.plot(
             self.fb, self.data, self.data_shape[-3:-1],
             self.analysis, plot_file,
             shape=(4, 2),
             slopes=True,
+            insets=insets,
             title=self.data_origin['basename'],
             titles=['Column %i - SA_bias=%6i' %(c,b) \
                     for c,b in zip(self.cols, self.bias)],

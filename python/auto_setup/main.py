@@ -168,8 +168,6 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
 
 
 def do_sq2_servo(tuning, rc, rc_indices, tune_data):
-    def_sa_bias = tuning.get_exp_param("default_sa_bias")
-
     # Sets the initial SA fb (found in the previous step or set to mid-range)
     # for the SQ2 servo
     sa_fb_init = tuning.get_exp_param('sa_fb')
@@ -187,16 +185,31 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     tuning.set_exp_param_range("sq2_bias", rc_indices,
             tune_data["sq2_bias"][rc_indices])
 
-    if (tuning.get_exp_param("sq2_servo_bias_ramp") != 0):
-        raise RuntimeError, "sq2_servo_bias_ramp is not yet supported..."
-
-    # Update settings, acquire and analyze the ramp.
+    # Update settings, acquire servo
     tuning.write_config()
-    sq2_data = sq2_servo.go(tuning, rc)
+    ok, servo_data = sq2_servo.acquire(tuning, rc)
+    if not ok:
+        raise RuntimeError, servo_data['error']
 
-    # Save SQ2 set point (SA feedback) and SQ2 feedback
+    sq = sq2_servo.SQ2Servo(servo_data['filename'], tuning=tuning)
+    bias_ramp = sq.bias_style == 'ramp'
+    if bias_ramp:
+        sq.reduce1()
+        sq = sq.select_biases() # best bias?
+
+    sq2_data = sq.reduce()
+
+    if tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+
+    # Save SQ2 set-point (SA feedback) and SQ2 feedback
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["lock_y"])
     tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["lock_x"])
+
+    # Write the sq2 bias choice too?
+    if bias_ramp:
+        tuning.set_exp_param_range("sq2_bias", rc_indices, sq.bias)
 
     # For SQ2 fast-switching, write the big FB array
     tu_nr = tuning.get_exp_param('default_num_rows') # number of rows

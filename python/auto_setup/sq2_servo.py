@@ -154,8 +154,10 @@ class SQ2Servo(util.RCData):
         else:
             # If we weren't ramping the SQ2 bias, we like to know what it was.
             fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+        # This should just extend the else; the second clause is a bug work-around
+        if not bias_ramp or (bias_ramp and n_bias == 1):
             self.bias_style = 'select'
-            self.bias = array(rf.Item('HEADER', 'RB sq2 bias', 'int'))[self.cols]
+            self.bias = array(rf.Item('HEADER', 'RB sq2 bias', type='int'))[self.cols]
 
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
@@ -190,6 +192,25 @@ class SQ2Servo(util.RCData):
         return output
 
     def reduce(self, slope=None, lock_amp=True):
+        self.reduce1()
+        self.reduce2(slope=slope, lock_amp=lock_amp)
+        return self.analysis
+
+    def reduce1(self):
+        """
+        Compute peak-to-peak response.
+        """
+        self._check_data()
+        self._check_analysis(existence=True)
+        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
+        self.analysis['y_span'] = span
+        if self.bias_style == 'ramp':
+            # Identify bias index of largest response in each column
+            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=0)
+            self.analysis['y_span_select'] = select
+        return self.analysis
+    
+    def reduce2(self, slope=None, lock_amp=True):
         self._check_data()
         self._check_analysis(existence=True)
         
@@ -221,9 +242,27 @@ class SQ2Servo(util.RCData):
 
         self.analysis = an
         return an
-
-
         
+    def select_biases(self, indices=None):
+        """
+        Reduce the servo data by selecting certain curves from
+        super-entries in each column.
+        """
+        if indices == None:
+            self._check_analysis()
+            indices = self.analysis['y_span_select']
+        # Get a single-bas servo
+        s = self.split()[0]
+        s.bias_style = 'select'
+        s.data.shape = s.data_shape
+        self.data.shape = self.data_shape
+        for i, j in enumerate(indices):
+            s.bias[i] = self.bias[j]
+            s.data[:,i,:] = self.data[j,:,i,:]
+        s.data.shape = (-1, s.data_shape[-1])
+        self.data.shape = (-1, self.data_shape[-1])
+        return s
+
     def plot(self, plot_file=None, format=None):
         self._check_data()
         self._check_analysis()
@@ -235,11 +274,15 @@ class SQ2Servo(util.RCData):
         if format == None:
             format = self.tuning.get_exp_param('tuning_plot_format')
 
+        # Display biases as inset text
+        insets = ['BIAS = %5i' % x for x in self.bias]
+
         # Plot plot plot
         return servo.plot(
             self.fb, self.data, self.data_shape[-3:-1], self.analysis,
             plot_file,
             slopes=True,
+            insets=insets,
             title=self.data_origin['basename'],
             titles=['Column %i' %c for c in self.cols],
             xlabel='SQ2 FB / 1000',
