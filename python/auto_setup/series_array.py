@@ -72,83 +72,23 @@ def acquire(tuning, rc, filename=None, do_bias=None):
                   }
 
 
-class SARamp(util.RCData):
+class SARamp(servo.SquidData):
+    """
+    Read and analyze SA ramp data.
+    """
+    # Note most useful behaviour is inherited from SquidData.
+    stage_name = 'SARamp'
+    xlabel='SA FB / 1000'
+    ylabel='AD Units / 1000'
+
     def __init__(self, filename=None, reduce_rows=True, tuning=None):
-        util.RCData.__init__(self)
-        self.data = None
-        self.analysis = None
-        self.tuning = tuning
+        servo.SquidData.__init__(self, tuning=tuning)
         if filename != None:
             self.read_data(filename, reduce_rows=reduce_rows)
 
-    @staticmethod
-    def join(args):
-        """
-        Arguments are SARamp objects, loaded with data.
-        """
-        synth = SARamp()
-        # Borrow most things from the first argument
-        synth.mcefile = None
-        synth.tuning = args[0].tuning
-        synth.data_origin = dict(args[0].data_origin)
-        synth.fb = args[0].fb.copy()
-        synth.d_fb = args[0].d_fb
-        synth.bias_style = args[0].bias_style
-        synth.bias = args[0].bias.copy()
-
-        # Join data systematically
-        util.RCData.join(synth, args)
-        return synth
-
-    def _check_data(self, simple=False):
-        if self.data == None:
-            raise RuntimeError, 'SARamp needs data.'
-        if simple and self.gridded:
-            raise RuntimeError, 'Simple SARamp expected (use split?)'
-
-    def _check_analysis(self, existence=False):
-        if self.analysis == None:
-            if existence:
-                self.analysis = {}
-            else:
-                raise RuntimeError, 'SARamp lacks desired analysis structure.'
-
-    def reduce_rows(self):
-        s = list(self.data_shape)
-        n_r, n_c, n_fb = s[-3:]
-        self.data.shape = (-1, n_r, n_c, n_fb)
-        self.data = self.data.astype('float').mean(axis=-3).reshape(-1, n_fb)
-        s[-3] = 1
-        self.data_shape = s
-        self.rows = [-1]
-
-    def from_array(self, data, shape=None, fb=None, origin='array'):
-        """
-        Load SA data from an array, for testing or whatever.
-        """
-        self.data_shape = data.shape
-        self.data_origin = {'filename': origin,
-                            'basename': origin }
-        while len(self.data_shape) < 3:
-            self.data_shape = (1,) + self.data_shape
-        self.data = data.reshape(-1, data.shape[-1])
-        n_row, n_col = self.data_shape[-3:-1]
-        self.gridded = True
-        self.cols = array([i for i in range(n_col)])
-        self.rows = array([i for i in range(n_row)])
-        if fb == None:
-            fb = arange(self.data.shape[-1])
-        self.fb = fb
-        self.d_fb = fb[1] - fb[0]
-        if len(self.data_shape) > 3:
-            self.bias_style = 'ramp'
-            self.bias = 0 # ?
-        else:
-            self.bias_style = 'select'
-            self.bias = zeros(n_col,'int')
-
     def read_data(self, filename, reduce_rows=True):
         self.mcefile = MCEFile(filename)
+        self.rf = self.mcefile.runfile
         self.data = self.mcefile.Read(row_col=True).data
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
@@ -187,69 +127,16 @@ class SARamp(util.RCData):
         self.data = self.data.reshape(-1, n_fb)
         if reduce_rows:
             self.reduce_rows()
-        
-    def split(self):
-        """
-        Split multi-bias data (from combined bias+fb ramp) into single
-        objects per bias.  Returns a list of single bias ramps.
-        """
-        if self.bias_style == 'select':
-            return [self]
-
-        n_bias, n_row, n_col, n_fb = self.data_shape
-        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'tuning', 'mcefile']
-        output = []
-        for i in range(n_bias):
-            sa = SARamp()
-            for k in copy_keys:
-                setattr(sa, k, getattr(self, k))
-            sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
-            sa.data_shape = self.data_shape[1:]
-            sa.gridded = True
-            sa.bias_style = 'select'
-            sa.bias = ones(self.cols.shape, 'int')*self.bias[i]
-            output.append(sa)
-        return output
-
-    def subselect(self, selector=None):
-        """
-        Reduce the SA data by selecting certain curves from
-        super-entries in each column.
-        """
-        if selector == None:
-            self._check_analysis()
-            selector = self.analysis['y_span_select']
-        sa = self.split()[0]
-        sa.bias_style = 'select'
-        sa.data.shape = sa.data_shape
-        self.data.shape = self.data_shape
-        for i, s in enumerate(selector):
-            sa.bias[i] = self.bias[s]
-            sa.data[:,i,:] = self.data[s,:,i,:]
-        sa.data.shape = (-1, sa.data_shape[-1])
-        self.data.shape = (-1, self.data_shape[-1])
-        return sa
 
     def reduce(self, slope=None):
         self.reduce1()
         self.reduce2(slope=slope)
         return self.analysis
 
-    def reduce1(self):
-        """
-        Compute peak-to-peak response.
-        """
-        self._check_data()
-        self._check_analysis(existence=True)
-        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
-        self.analysis['y_span'] = span
-        if self.bias_style == 'ramp':
-            # Identify bias index of largest response in each column
-            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=0)
-            self.analysis['y_span_select'] = select
-        return self.analysis
-    
     def reduce2(self, slope=None):
+        """
+        Special analysis steps for SA ramp.
+        """
         self._check_data()
         self._check_analysis(existence=True)
 
@@ -277,44 +164,4 @@ class SARamp(util.RCData):
 
         self.analysis.update(an)
         return self.analysis
-
-    def plot(self, plot_file=None, format=None):
-        if plot_file == None:
-            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
-                                         (self.data_origin['basename']))
-
-        if format == None:
-            format = self.tuning.get_exp_param('tuning_plot_format')
-
-        # Is this a multi-bias ramp?  If so, split down
-        if self.bias_style == 'ramp':
-            ss = self.split()
-            plot_files = []
-            for i,s in enumerate(ss):
-                s.reduce()
-                p = s.plot(plot_file=plot_file+'_%02i'%i, format=format)
-                plot_files += p['plot_files']
-            return {'plot_files': plot_files}
-
-        # Now worry about whether we have analysis and data...
-        self._check_data()
-        self._check_analysis()
-
-        # Display biases as inset text
-        insets = ['BIAS = %5i' % x for x in self.bias]
-
-        # Plot plot plot
-        return servo.plot(
-            self.fb, self.data, self.data_shape[-3:-1],
-            self.analysis, plot_file,
-            shape=(4, 2),
-            slopes=True,
-            insets=insets,
-            title=self.data_origin['basename'],
-            titles=['Column %i - SA_bias=%6i' %(c,b) \
-                    for c,b in zip(self.cols, self.bias)],
-            xlabel='SA FB / 1000',
-            ylabel='AD Units / 1000',
-            format=format,
-            )
 

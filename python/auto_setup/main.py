@@ -145,7 +145,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
 
     if bias_ramp:
         sa.reduce1()
-        sa = sa.subselect() # replace with best bias version
+        sa = sa.select_biases() # replace with best bias version
 
     lock_points = sa.reduce()
     

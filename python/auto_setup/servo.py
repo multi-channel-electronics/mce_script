@@ -1,6 +1,7 @@
 import auto_setup.util as util
 from numpy import *
 import biggles
+import os
 
 def smooth(x, scale):
     s = x.shape
@@ -337,3 +338,209 @@ def plot(x, y, y_rc, lock_points, plot_file,
     return {
         'plot_files': pl.plot_files,
         }
+
+
+"""
+SquidData - base class for tuning stage analysis objects.
+"""
+
+class SquidData(util.RCData):
+    stage_name = 'SquidData'
+
+    def __init__(self, tuning=None):
+        util.RCData.__init__(self)
+        self.data = None
+        self.analysis = None
+        self.tuning = tuning
+
+    @classmethod
+    def join(cls, args):
+        """
+        Merge a list of objects of type cls into a new cls.
+        """
+        synth = cls(tuning=args[0].tuning)
+        # Borrow most things from the first argument
+        synth.mcefile = None
+        synth.data_origin = dict(args[0].data_origin)
+        synth.fb = args[0].fb.copy()
+        synth.d_fb = args[0].d_fb
+        synth.bias_style = args[0].bias_style
+        synth.bias = args[0].bias.copy()
+
+        # Join data systematically
+        util.RCData.join(synth, args)
+        return synth
+
+    def _check_data(self, simple=False):
+        if self.data == None:
+            raise RuntimeError, '%s needs data.' % self.stage_name
+        if simple and self.gridded:
+            raise RuntimeError, 'Simple %s expected (use split?)' % \
+                self.stage_name
+
+    def _check_analysis(self, existence=False):
+        if self.analysis == None:
+            if existence:
+                self.analysis = {}
+            else:
+                raise RuntimeError, '%s lacks desired analysis structure.' % \
+                    self.stage_name
+
+    def reduce_rows(self):
+        """
+        Average along rows dimension.
+        """
+        s = list(self.data_shape)
+        n_r, n_c, n_fb = s[-3:]
+        self.data.shape = (-1, n_r, n_c, n_fb)
+        self.data = self.data.astype('float').mean(axis=-3).reshape(-1, n_fb)
+        s[-3] = 1
+        self.data_shape = s
+        self.rows = [-1]
+
+    def from_array(self, data, shape=None, fb=None, bias=None, origin='array'):
+        """
+        Load V-phi data from an array, for testing or whatever.
+        """
+        self.data_shape = data.shape
+        self.data_origin = {'filename': origin,
+                            'basename': origin }
+        while len(self.data_shape) < 3:
+            self.data_shape = (1,) + self.data_shape
+        self.data = data.reshape(-1, data.shape[-1])
+        n_row, n_col = self.data_shape[-3:-1]
+        self.gridded = True
+        self.cols = array([i for i in range(n_col)])
+        self.rows = array([i for i in range(n_row)])
+        if fb == None:
+            fb = arange(self.data.shape[-1])
+        self.fb = fb
+        self.d_fb = fb[1] - fb[0]
+        if len(self.data_shape) > 3:
+            self.bias_style = 'ramp'
+            self.bias = bias
+            if self.bias == None:
+                self.bias = arange(self.data_shape[-3])
+        else:
+            self.bias_style = 'select'
+            self.bias = bias
+            if self.bias == None:
+                self.bias = zeros(n_col,'int')
+        self.mcefile = None
+        self.rf = None
+
+    def read_data(self, filename, **kwargs):
+        raise RuntimeError, "this is a virtual method"
+
+    def split(self):
+        """
+        Split multi-bias data (from combined bias+fb ramp) into single
+        objects per bias.  Returns a list of single bias ramps.
+        """
+        if self.bias_style == 'select':
+            return [self]
+
+        n_bias, n_row, n_col, n_fb = self.data_shape
+        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb',
+                     'tuning', 'mcefile', 'rf']
+        output = []
+        for i in range(n_bias):
+            s = self.__class__()
+            for k in copy_keys:
+                setattr(s, k, getattr(self, k))
+            s.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
+            s.data_shape = self.data_shape[1:]
+            s.gridded = True
+            s.bias_style = 'select'
+            s.bias = ones(self.cols.shape, 'int')*self.bias[i]
+            output.append(s)
+        return output
+
+    def select_biases(self, indices=None):
+        """
+        Reduce the servo data by selecting certain curves from
+        super-entries in each column.
+        """
+        if indices == None:
+            self._check_analysis()
+            indices = self.analysis['y_span_select']
+        # Get a single-bias servo
+        s = self.split()[0]
+        s.bias_style = 'select'
+        s.data.shape = s.data_shape
+        self.data.shape = self.data_shape
+        for i, j in enumerate(indices):
+            s.bias[i] = self.bias[j]
+            s.data[:,i,:] = self.data[j,:,i,:]
+        s.data.shape = (-1, s.data_shape[-1])
+        self.data.shape = (-1, self.data_shape[-1])
+        return s
+
+    def reduce(self, slope=None):
+        self.reduce1()
+        self.reduce2(slope=slope)
+        return self.analysis
+
+    def reduce1(self):
+        """
+        Compute peak-to-peak response, store in self.analysis.
+        """
+        self._check_data()
+        self._check_analysis(existence=True)
+        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
+        self.analysis['y_span'] = span
+        if self.bias_style == 'ramp':
+            # Identify bias index of largest response in each column
+            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=0)
+            self.analysis['y_span_select'] = select
+        return self.analysis
+    
+    def reduce2(self, slope=None):
+        raise RuntimeError, "this is a virtual method."
+
+    def plot(self, plot_file=None, format=None):
+        if plot_file == None:
+            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
+                                         (self.data_origin['basename']))
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format')
+
+        # Is this a multi-bias ramp?  If so, split down
+        if self.bias_style == 'ramp':
+            ss = self.split()
+            plot_files = []
+            _format = format
+            if format == 'pdf':  # make one big pdf
+                _format = 'svg'
+            for i,s in enumerate(ss):
+                s.reduce()
+                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format)
+                plot_files += p['plot_files']
+            # collate into pdf?
+            if format == 'pdf':
+                ofile = plot_file + '_all.pdf'
+                pp = util.plotter.pdfCollator(plot_files, ofile)
+                if pp.collate(remove_sources=True):
+                    plot_files = [ofile]
+            return {'plot_files': plot_files}
+
+        # Now worry about whether we have analysis and data...
+        self._check_data()
+        self._check_analysis()
+
+        # Display biases as inset text
+        insets = ['BIAS = %5i' % x for x in self.bias]
+
+        # Plot plot plot
+        return plot(
+            self.fb, self.data, self.data_shape[-3:-1],
+            self.analysis, plot_file,
+            shape=(4, 2),
+            slopes=True,
+            insets=insets,
+            title=self.data_origin['basename'],
+            xlabel=self.xlabel,
+            ylabel=self.ylabel,
+            format=format,
+            )
+    

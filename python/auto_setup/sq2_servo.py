@@ -86,48 +86,22 @@ def acquire(tuning, rc, filename=None, fb=None,
     return True, {'basename': acq_id,
                   'filename': fullname }
 
-class SQ2Servo(util.RCData):
+class SQ2Servo(servo.SquidData):
+    """
+    Read and analyze SQ2 servo data.
+    """
+    # Note most useful behaviour is inherited from SquidData.
+    stage_name = 'SQ2Servo'
+    xlabel='SQ2 FB / 1000'
+    ylabel='SA FB / 1000'
+
     def __init__(self, filename=None, tuning=None):
-        util.RCData.__init__(self)
-        self.data = None
-        self.analysis = None
-        self.tuning = tuning
+        servo.SquidData.__init__(self, tuning=tuning)
         if filename != None:
             self.read_data(filename)
 
-    @staticmethod
-    def join(args):
-        """
-        Arguments are SQ2Servo objects, loaded with data.
-        """
-        synth = SQ2Servo()
-        # Borrow most things from the first argument
-        synth.mcefile = None
-        synth.tuning = args[0].tuning
-        synth.data_origin = dict(args[0].data_origin)
-        synth.fb = args[0].fb.copy()
-        synth.d_fb = args[0].d_fb
-        synth.bias_style = args[0].bias_style
-        synth.bias = args[0].bias.copy()
-
-        # Join data systematically
-        util.RCData.join(synth, args)
-        return synth
-
-    def _check_data(self, simple=False):
-        if self.data == None:
-            raise RuntimeError, 'SQ2Servo needs data.'
-        if simple and self.gridded:
-            raise RuntimeError, 'Simple SQ2Servo expected (use split?)'
-
-    def _check_analysis(self, existence=False):
-        if self.analysis == None:
-            if existence:
-                self.analysis = {}
-            else:
-                raise RuntimeError, 'SQ2Servo lacks desired analysis structure.'
-
     def read_data(self, filename, reduce_rows=False):
+        self.mcefile = None
         rf = MCERunfile(filename+'.run')
         self.rf = rf
         self.error, self.data = util.load_bias_file(filename+'.bias')
@@ -169,48 +143,15 @@ class SQ2Servo(util.RCData):
         self.data_shape = self.data.shape
         self.data = self.data.reshape(-1, n_fb)
 
-    def split(self):
-        """
-        Split multi-bias data (from combined bias+fb ramp) into single
-        objects per bias.  Returns a list of single bias servos.
-        """
-        if self.bias_style == 'select':
-            return [self]
-
-        n_bias, n_row, n_col, n_fb = self.data_shape
-        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'tuning']
-        output = []
-        for i in range(n_bias):
-            sa = SQ2Servo()
-            for k in copy_keys:
-                exec('sa.%s = self.%s' %(k,k))
-            sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
-            sa.data_shape = self.data_shape[1:]
-            sa.bias_style = 'select'
-            sa.bias = ones(self.cols.shape, 'int')*self.bias[i]
-            output.append(sa)
-        return output
-
     def reduce(self, slope=None, lock_amp=True):
         self.reduce1()
         self.reduce2(slope=slope, lock_amp=lock_amp)
         return self.analysis
 
-    def reduce1(self):
-        """
-        Compute peak-to-peak response.
-        """
-        self._check_data()
-        self._check_analysis(existence=True)
-        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
-        self.analysis['y_span'] = span
-        if self.bias_style == 'ramp':
-            # Identify bias index of largest response in each column
-            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=0)
-            self.analysis['y_span_select'] = select
-        return self.analysis
-    
     def reduce2(self, slope=None, lock_amp=True):
+        """
+        Special reduction steps for SQ2 servo.
+        """
         self._check_data()
         self._check_analysis(existence=True)
         
@@ -242,70 +183,3 @@ class SQ2Servo(util.RCData):
 
         self.analysis = an
         return an
-        
-    def select_biases(self, indices=None):
-        """
-        Reduce the servo data by selecting certain curves from
-        super-entries in each column.
-        """
-        if indices == None:
-            self._check_analysis()
-            indices = self.analysis['y_span_select']
-        # Get a single-bias servo
-        s = self.split()[0]
-        s.bias_style = 'select'
-        s.data.shape = s.data_shape
-        self.data.shape = self.data_shape
-        for i, j in enumerate(indices):
-            s.bias[i] = self.bias[j]
-            s.data[:,i,:] = self.data[j,:,i,:]
-        s.data.shape = (-1, s.data_shape[-1])
-        self.data.shape = (-1, self.data_shape[-1])
-        return s
-
-    def plot(self, plot_file=None, format=None):
-        if plot_file == None:
-            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
-                                         (self.data_origin['basename']))
-
-        if format == None:
-            format = self.tuning.get_exp_param('tuning_plot_format')
-
-        # Is this a multi-bias ramp?  If so, split down
-        if self.bias_style == 'ramp':
-            ss = self.split()
-            plot_files = []
-            _format = format
-            if format == 'pdf':  # make one big pdf
-                _format = 'svg'
-            for i,s in enumerate(ss):
-                s.reduce()
-                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format)
-                plot_files += p['plot_files']
-            # collate into pdf?
-            if format == 'pdf':
-                ofile = plot_file + '_all.pdf'
-                pp = util.plotter.pdfCollator(plot_files, ofile)
-                if pp.collate(remove_sources=True):
-                    plot_files = [ofile]
-            return {'plot_files': plot_files}
-
-        # Now worry about whether we have analysis and data...
-        self._check_data()
-        self._check_analysis()
-
-        # Display biases as inset text
-        insets = ['BIAS = %5i' % x for x in self.bias]
-
-        # Plot plot plot
-        return servo.plot(
-            self.fb, self.data, self.data_shape[-3:-1], self.analysis,
-            plot_file,
-            slopes=True,
-            insets=insets,
-            title=self.data_origin['basename'],
-            titles=['Column %i' %c for c in self.cols],
-            xlabel='SQ2 FB / 1000',
-            ylabel='SA FB / 1000',
-            format=format,
-            )

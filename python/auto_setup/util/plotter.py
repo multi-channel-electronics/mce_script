@@ -230,9 +230,7 @@ class plotGridder:
         ofile = self.filename + '.pdf'
         if self.format == 'pdf' and not os.path.exists(ofile):
             pp = pdfCollator(self.plot_files, ofile)
-            if pp.collate():
-                for x in self.plot_files:
-                    os.remove(x)
+            if pp.collate(remove_sources=True):
                 self.plot_files = [ofile]
 
     def __del__(self):
