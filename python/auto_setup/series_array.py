@@ -207,7 +207,7 @@ class SARamp(util.RCData):
             sa.data_shape = self.data_shape[1:]
             sa.gridded = True
             sa.bias_style = 'select'
-            sa.bias = self.bias[self.cols]
+            sa.bias = ones(self.cols.shape, 'int')*self.bias[i]
             output.append(sa)
         return output
 
@@ -279,18 +279,26 @@ class SARamp(util.RCData):
         return self.analysis
 
     def plot(self, plot_file=None, format=None):
-        self._check_data()
-        self._check_analysis()
-
-        if self.bias_style != 'select':
-            raise RuntimeError, 'We cannot plot whole ramps, just the final selection.'
-        
         if plot_file == None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
 
         if format == None:
             format = self.tuning.get_exp_param('tuning_plot_format')
+
+        # Is this a multi-bias ramp?  If so, split down
+        if self.bias_style == 'ramp':
+            ss = self.split()
+            plot_files = []
+            for i,s in enumerate(ss):
+                s.reduce()
+                p = s.plot(plot_file=plot_file+'_%02i'%i, format=format)
+                plot_files += p['plot_files']
+            return {'plot_files': plot_files}
+
+        # Now worry about whether we have analysis and data...
+        self._check_data()
+        self._check_analysis()
 
         # Display biases as inset text
         insets = ['BIAS = %5i' % x for x in self.bias]

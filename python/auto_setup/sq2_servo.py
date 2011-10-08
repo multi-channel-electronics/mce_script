@@ -187,7 +187,7 @@ class SQ2Servo(util.RCData):
             sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
             sa.data_shape = self.data_shape[1:]
             sa.bias_style = 'select'
-            sa.bias = [self.bias[i] for c in self.cols]
+            sa.bias = ones(self.cols.shape, 'int')*self.bias[i]
             output.append(sa)
         return output
 
@@ -251,7 +251,7 @@ class SQ2Servo(util.RCData):
         if indices == None:
             self._check_analysis()
             indices = self.analysis['y_span_select']
-        # Get a single-bas servo
+        # Get a single-bias servo
         s = self.split()[0]
         s.bias_style = 'select'
         s.data.shape = s.data_shape
@@ -264,15 +264,35 @@ class SQ2Servo(util.RCData):
         return s
 
     def plot(self, plot_file=None, format=None):
-        self._check_data()
-        self._check_analysis()
-
         if plot_file == None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
 
         if format == None:
             format = self.tuning.get_exp_param('tuning_plot_format')
+
+        # Is this a multi-bias ramp?  If so, split down
+        if self.bias_style == 'ramp':
+            ss = self.split()
+            plot_files = []
+            _format = format
+            if format == 'pdf':  # make one big pdf
+                _format = 'svg'
+            for i,s in enumerate(ss):
+                s.reduce()
+                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format)
+                plot_files += p['plot_files']
+            # collate into pdf?
+            if format == 'pdf':
+                ofile = plot_file + '_all.pdf'
+                pp = util.plotter.pdfCollator(plot_files, ofile)
+                if pp.collate(remove_sources=True):
+                    plot_files = [ofile]
+            return {'plot_files': plot_files}
+
+        # Now worry about whether we have analysis and data...
+        self._check_data()
+        self._check_analysis()
 
         # Display biases as inset text
         insets = ['BIAS = %5i' % x for x in self.bias]

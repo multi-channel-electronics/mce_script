@@ -421,7 +421,7 @@ class pdfCollator:
         self.sources = sources
         self.dest = dest
 
-    def collate(self, remove_temp=True):
+    def collate(self, remove_temp=True, remove_sources=False):
         # Make temporary folder
         dest_dir, _ = os.path.split(self.dest)
         if not os.path.exists(dest_dir):
@@ -450,4 +450,7 @@ class pdfCollator:
         # Remove the temporary folder
         if remove_temp:
             shutil.rmtree(temp_dir)
+        # Remove the source images
+        if remove_sources:
+            map(os.remove, self.sources)
         return True

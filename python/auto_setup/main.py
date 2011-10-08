@@ -136,7 +136,14 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
         raise RuntimeError, ramp_data['error']
 
     sa = series_array.SARamp(ramp_data['filename'], tuning=tuning)
-    if sa.bias_style == 'ramp':
+    bias_ramp = sa.bias_style == 'ramp'
+
+    # If multi-bias, plot each one.
+    if bias_ramp and tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sa.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+
+    if bias_ramp:
         sa.reduce1()
         sa = sa.subselect() # replace with best bias version
 
@@ -159,7 +166,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
 
     tuning.write_config()
 
-    # Plot final curve only.
+    # Plot final bias result
     if tuning.get_exp_param('tuning_do_plots'):
         plot_out = sa.plot()
         tuning.register_plots(*plot_out['plot_files'])
@@ -193,12 +200,19 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
 
     sq = sq2_servo.SQ2Servo(servo_data['filename'], tuning=tuning)
     bias_ramp = sq.bias_style == 'ramp'
+
+    # If multi-bias, plot each one.
+    if bias_ramp and tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+
     if bias_ramp:
         sq.reduce1()
         sq = sq.select_biases() # best bias?
 
     sq2_data = sq.reduce()
 
+    # Plot final bias result
     if tuning.get_exp_param('tuning_do_plots'):
         plot_out = sq.plot()
         tuning.register_plots(*plot_out['plot_files'])
