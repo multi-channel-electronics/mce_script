@@ -1,0 +1,116 @@
+#!/usr/bin/python
+
+USAGE_MSG="""
+ %prog [options...] command
+
+ Valid commands are:
+     setup   load or generate an arbitrary waveform and write to MCE
+     start   start AWG loop
+     stop    stop AWG / internal ramping
+
+ Note that this program does not configure the MCE timing parameters
+ or the target internal register ; use mce_internal_ramp for that.
+
+ To load pre-computed data into the AWG block, use --filename or
+ --stdin:
+
+   --filename <file>    Load ascii data from file.
+
+   --stdin              Load ascii data from stdin.
+
+   --column <int>       For multi-column ascii input sources,
+                        specify a column to use.
+
+ This program can, instead, generate a few different kinds of
+ waveforms automatically.
+
+   --sine <ofs> <amp>      Generate a sine wave, offset + amp*sin(t)
+
+   --triangle <ofs> <amp>  Generate a triangle wave that ramps from
+                           offset to offset + amp and back again.
+
+   --count <int>           Specify the number of ramp steps to use
+                           for auto-generated waveforms.
+
+"""
+
+import subprocess as sp
+import re
+import sys,os
+import numpy
+
+try:
+    from mce import mce
+except ImportError:
+    print 'Could not load mce module; mce commanding will be disabled.'
+
+import mce_internal
+
+def abort_msg(text, error=20):
+    sys.stderr.write('Error: %s\n' % text)
+    sys.exit(error)
+
+
+if __name__ == '__main__':
+    from optparse import OptionParser
+    o = OptionParser(usage=USAGE_MSG)
+    o.add_option('--filename',default=None)
+    o.add_option('--stdin', action='store_true')
+    o.add_option('--column',type='int')
+    o.add_option('--sine',nargs=2,type='int')
+    o.add_option('--triangle',nargs=2,type='int')
+    o.add_option('--count',type='int')
+    opts, args = o.parse_args()
+
+    # Assemble some stuff to do
+    actions = args
+    if len(actions) == 0:
+        abort_msg('Provide an action. (Use option -h for detailed help.)')
+
+    # Where are the data coming from?
+    fin = None
+    if opts.filename != None:
+        fin = open(opts.filename, 'r')
+    elif opts.stdin:
+        fin = sys.stdin
+    if fin != None:
+        data = []
+        for line in fin:
+            w = line.split()
+            if len(w) == 0 or w[0][0] == '#': continue
+            if opts.column != None:
+                w = [w[opts.column]]
+            data += [int(float(x)) for x in w]
+    else:
+        if opts.count == None:
+            opts.count = mce_internal.AWG_MAX_DATA
+        if opts.sine != None:
+            offset, amp = opts.sine
+            data = amp*numpy.sin(2.*numpy.pi*numpy.arange(opts.count) /
+                                 opts.count) + offset
+        elif opts.triangle != None:
+            offset, amp = opts.triangle
+            data = 2.*amp*numpy.arange(opts.count)/opts.count
+            data[opts.count/2:] = 2.*amp-data[opts.count/2:]
+            data += offset
+        elif 'setup' in args:
+            abort_msg('Specify a waveform source, or special waveform.')
+
+    # We will probably need an MCE.
+    m = mce()
+
+    # Handle command
+    for action in actions:
+        if action == 'stop':
+            print 'Disabling internal ramp/AWG.'
+            m.write('cc', 'internal_cmd_mode', [0])
+        elif action == 'start':
+            print 'Starting arbitrary waveform.'
+            m.write('cc', 'internal_cmd_mode', [3])
+        elif action == 'setup':
+            print 'Writing arbitrary waveform.'
+            awg = mce_internal.awgAccessor(m)
+            awg.write(data)
+        else:
+            abort_msg('I do not understand command "%s", aborting.' % action)
+
