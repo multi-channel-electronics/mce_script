@@ -32,8 +32,13 @@ class mce_control(mce):
             data.shape = (-1, self.n_row, self.n_col)
         return data
 
-    def read_row(self, n=1, avg=False):
-        d = np.array(self.read_frames(n, data_only=True))[:,:self.n_rc*MCE_CHANS]
+    def read_row(self, n=None, avg=False):
+        _n = n
+        if _n == None:
+            _n = 1
+        d = np.array(self.read_frames(_n, data_only=True))[:,:self.n_rc*MCE_CHANS]
+        if n==None:
+            return d[0]
         if avg:
             return d.mean(axis=0)
         return d
