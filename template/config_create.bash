@@ -1,5 +1,8 @@
 #START config_create.bash
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 create_start=`print_ctime`
 
 # The variable mce_script is the output location
