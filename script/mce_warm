@@ -2,6 +2,9 @@
 #
 # Applies the SA and S2 biases found in experiment.cfg to the MCE.
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 echo "Setting SA and SQ2 biases to default values to pre-warm the SA board."

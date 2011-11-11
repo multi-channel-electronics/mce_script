@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_TEST_SUITE/test_suite_library.bash
 
 path_name=${0%/*}

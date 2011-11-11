@@ -7,9 +7,10 @@
 # Revision 1.5  2007/10/25 18:12:15  mce
 # MA can handle replies with more than 1 line and any number of values per line
 # reports number of non-zero items
-#
-#
-#
+
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 if [ $# -lt 2 ]; then
     echo "----------------"
     echo "Usage: check_zero card parameter [quiet]"

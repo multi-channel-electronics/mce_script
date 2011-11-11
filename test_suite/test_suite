@@ -4,6 +4,9 @@
 # This is the overall script for the test suite.
 #---------------------------------------------------------------
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 #---------------------------------------------------------------
 # Constants
 #---------------------------------------------------------------

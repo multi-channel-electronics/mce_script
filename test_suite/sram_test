@@ -17,6 +17,9 @@
 #     b) write 0x0F to detect shorts between address lines
 #   4. read back -1 from addr FFFF
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 
 let address_zero_data=0
 let "walking_one_data=0x55555555"

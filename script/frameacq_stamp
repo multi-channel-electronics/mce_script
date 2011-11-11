@@ -7,6 +7,9 @@
 #    frameacq_stamp 1 outfile 10000 | tee -a outfile.run
 #
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 runfile_version=2

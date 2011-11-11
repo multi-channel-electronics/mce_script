@@ -24,6 +24,9 @@
 # note      under-used.  Passing "no_db" here suppresses db registration...
 #
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 ARRAY_ID=`cat ${MAS_DATA_ROOT}/array_id`
 LAST_TUNE=${MAS_DATA_ROOT}/last_squid_tune
 LAST_IV=${MAS_DATA_ROOT}/last_iv_det_data

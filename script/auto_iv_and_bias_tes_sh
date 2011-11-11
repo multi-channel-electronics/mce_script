@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 ## source ~mce/mas_env.bash
 source $MAS_SCRIPT/mas_library.bash
 

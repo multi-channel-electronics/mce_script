@@ -4,6 +4,9 @@
 # Sets SA bias to full current (65535) on all channels.
 #
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 echo "Current SA bias values:"

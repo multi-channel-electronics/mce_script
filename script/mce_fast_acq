@@ -3,6 +3,9 @@
 # Acquires 'fast' data, meaning full or partial frames at elevated
 # frame_rates.
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 if [ "$#" -lt "2" ]; then

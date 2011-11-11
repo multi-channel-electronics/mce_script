@@ -7,6 +7,9 @@
 #
 ## source ~mce/mas_env.bash
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 TEMPFILE="pidz.temp"
 
 if [ "$#" -lt 6 ] ; then

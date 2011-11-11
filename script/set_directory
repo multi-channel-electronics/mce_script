@@ -1,9 +1,7 @@
 #!/bin/bash
 
-if [ "$MAS_ROOT" == "" ]; then
-    echo MAS_ROOT variable not set.
-    exit 1
-fi
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
 
 # data_root is the first argument to this function, or "${MAS_DATA_ROOT}" if
 # no arguments are given.

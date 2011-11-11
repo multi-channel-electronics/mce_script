@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 CD=`cat ${MAS_DATA_ROOT}/current_data_name`
 
 CONFIG=${MAS_DATA}/config_mce_auto_setup_${CD}

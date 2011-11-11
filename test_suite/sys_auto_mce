@@ -1,4 +1,9 @@
+#!/bin/bash
 # MA: no error checking here as this is temporary subrack check
+
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 TMP="$MAS_TEMP/mce_check.tmp"
 

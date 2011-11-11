@@ -3,6 +3,9 @@
 # Adapted from ramp_tes_bias for DAS
 #
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 if [ "$#" -lt "2" ]; then

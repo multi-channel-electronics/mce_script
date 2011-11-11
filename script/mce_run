@@ -8,6 +8,9 @@
 # This script is intended to be fairly low-level, it shouldn't do
 # more than it needs to to collect a complete data file.
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 SCRNAME=mce_run
 

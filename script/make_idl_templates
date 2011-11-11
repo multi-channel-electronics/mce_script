@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 this_array=`cat ${MAS_DATA_ROOT}/array_id`
 
 if [ "$this_array" == "" ] || [ "$this_array" == "default" ]; then

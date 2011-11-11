@@ -4,6 +4,9 @@
 # put in 'run_id' and 'user_word' is a mix of the data mode and the
 # array_id code.
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 # Copy data mode for card $1 (eg '1' or 's') into bits 15:8

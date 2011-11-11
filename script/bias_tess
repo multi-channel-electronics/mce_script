@@ -3,6 +3,9 @@
 # Applies the biases from the command line to "tes bias"
 #
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 script_name="$0"

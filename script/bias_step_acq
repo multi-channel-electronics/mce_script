@@ -5,6 +5,9 @@
 # When calling from auto_*, set the MAS_LOGID variable to pass a message to
 # the acq database.
 
+# initialise environment
+eval `${MAS_CONFIG:-/usr/mce/bin/mas_config} -s`
+
 source $MAS_SCRIPT/mas_library.bash
 
 line=$(( $1 - 1 ))
