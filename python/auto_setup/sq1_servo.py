@@ -92,6 +92,8 @@ def acquire(tuning, rc, filename=None, fb=None,
 
 
 class SQ1Servo(util.RCData):
+    xlabel='SQ1 FB / 1000'
+    ylabel='SQ2 FB / 1000'
     def __init__(self, filename=None, tuning=None):
         util.RCData.__init__(self, data_attrs=['data', 'error'])
         self.data = None
@@ -193,11 +195,12 @@ class SQ1Servo(util.RCData):
             self.bias_style = 'ramp'
             self.bias = bias0 + d_bias*arange(n_bias)
         else:
-            # If we weren't ramping the SQ1 bias, we like to know what it was.
             fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+            n_bias = 1
+        # This should just extend the else; the second clause is a bug work-around
+        if not bias_ramp or (bias_ramp and n_bias == 1):
             self.bias_style = 'select'
             self.bias = array(rf.Item('HEADER', 'RB sq2 bias', 'int'))[self.cols]
-            n_bias = 1
 
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
@@ -234,6 +237,22 @@ class SQ1Servo(util.RCData):
             output.append(sa)
         return output
 
+    # This is different from servo.SquidData.reduce1 because for
+    # multi-bias we pick a per-row best bias.
+    def reduce1(self):
+        """
+        Compute peak-to-peak response, store in self.analysis.
+        """
+        self._check_data()
+        self._check_analysis(existence=True)
+        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
+        self.analysis['y_span'] = span
+        if self.bias_style == 'ramp':
+            # Identify bias index of largest response in each row
+            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=1)
+            self.analysis['y_span_select_row'] = select
+        return self.analysis
+
     def reduce(self, slope=None, lock_amp=True):
         self._check_data()
         self._check_analysis(existence=True)
@@ -249,7 +268,7 @@ class SQ1Servo(util.RCData):
         # Make slope either a scalar, or 1 value per curve.
         if any(slope != slope[0]):
             z = zeros(self.data_shape[:-1])
-            z[:,:,:] = slope.reshape(1,1,-1)
+            z[...,:,:] = slope.reshape(1,-1)
             slope = z
         else:
             slope = slope[0]
@@ -268,7 +287,73 @@ class SQ1Servo(util.RCData):
         self.analysis = an
         return an
         
+    def select_biases(self, indices=None):
+        """
+        Reduce the servo data by selecting certain curves from
+        super-entries in each row.
+        """
+        if indices == None:
+            self._check_analysis()
+            indices = self.analysis['y_span_select_row']
+        # Get a single-bias servo
+        s = self.split()[0]
+        s.bias_style = 'select'
+        s.data.shape = s.data_shape
+        self.data.shape = self.data_shape
+        for i, j in enumerate(indices):
+            s.bias[i] = self.bias[j]
+            s.data[i,:,:] = self.data[j,i,:,:]
+        s.data.shape = (-1, s.data_shape[-1])
+        self.data.shape = (-1, self.data_shape[-1])
+        return s
+
     def plot(self, plot_file=None, format=None):
+        if plot_file == None:
+            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
+                                         (self.data_origin['basename']))
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format')
+
+        # Is this a multi-bias ramp?  If so, split down
+        if self.bias_style == 'ramp':
+            ss = self.split()
+            plot_files = []
+            _format = format
+            if format == 'pdf':  # make one big pdf
+                _format = 'svg'
+            for i,s in enumerate(ss):
+                s.reduce()
+                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format)
+                plot_files += p['plot_files']
+            # collate into pdf?
+            if format == 'pdf':
+                ofile = plot_file + '_all.pdf'
+                pp = util.plotter.pdfCollator(plot_files, ofile)
+                if pp.collate(remove_sources=True):
+                    plot_files = [ofile]
+            return {'plot_files': plot_files}
+
+        # Now worry about whether we have analysis and data...
+        self._check_data()
+        self._check_analysis()
+
+        # Display biases as inset text
+        #insets = ['BIAS = %5i' % x for x in self.bias]
+        insets = None
+
+        # Plot plot plot
+        return servo.plot(
+            self.fb, self.data, self.data_shape[-3:-1],
+            self.analysis, plot_file,
+            slopes=True,
+            insets=insets,
+            title=self.data_origin['basename'],
+            xlabel=self.xlabel,
+            ylabel=self.ylabel,
+            format=format,
+            )
+    
+    def _plot(self, plot_file=None, format=None):
         self._check_data()
         self._check_analysis()
 

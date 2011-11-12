@@ -254,27 +254,41 @@ def prepare_sq1_servo(tuning):
 
 def do_sq1_servo(tuning, rc, rc_indices):
    
-    # Sets the initial SQ2 fb (found in the previous step or set to mid-range)
-    # for the SQ1 servo
-    #sq2_fb_init = tuning.get_exp_param('sq2_fb')
-    sq2_fb_init = [8200] * (max(rc_indices)+1)
-    f = open(os.path.join(tuning.base_dir, "sq2fb.init"), "w")
-    for x in sq2_fb_init:
-        f.write("%i\n" % x)
-    f.close()
+    # super_servo means collecting all-row servo data for fast sq2 switching
+    super_servo = tuning.get_exp_param('config_fast_sq2') or \
+        tuning.get_exp_param('sq1_servo_all_rows')
 
-    sq1_data = sq1_servo.go(tuning, rc)
-    
+    ok, servo_data = sq1_servo.acquire(tuning, rc, super_servo=super_servo)
+    if not ok:
+        raise RuntimeError, servo_data['error']
+
+    sq = sq1_servo.SQ1Servo(servo_data['filename'], tuning=tuning)
+    bias_ramp = sq.bias_style == 'ramp'
+
+    # If multi-bias, plot each one.
+    if bias_ramp and tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+
+    if bias_ramp:
+        sq.reduce1()
+        sq = sq.select_biases() # best bias?
+
+    sq1_data = sq.reduce()
+    if tuning.get_exp_param('tuning_do_plots'):
+        plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+
     # Load existing FB choices
     fb_nr = tuning.get_exp_param('array_width') # number of rows in sq2_fb_set
     fb_col = tuning.get_exp_param('sq2_fb')
     fb_set = tuning.get_exp_param('sq2_fb_set').reshape(-1, fb_nr).transpose() # r,c
     
     # Determine the SQ2 FB for each column, and if possible for each detector.
-    cols = sq1_data['cols']
+    cols = sq.cols
     phi0 = tuning.get_exp_param('sq2_flux_quanta')[cols]
-    if sq1_data['super_servo']:
-        n_row, n_col = sq1_data['data_shape'][-3:-1]
+    if super_servo:
+        n_row, n_col = sq.data_shape[-3:-1]
         fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col) % phi0
         # Get chosen row on each column
         rows = tuning.get_exp_param('sq2_rows')[cols]

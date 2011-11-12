@@ -126,8 +126,8 @@ class SQ2Servo(servo.SquidData):
             self.bias_style = 'ramp'
             self.bias = bias0 + d_bias*arange(n_bias)
         else:
-            # If we weren't ramping the SQ2 bias, we like to know what it was.
             fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
+            n_bias = 1
         # This should just extend the else; the second clause is a bug work-around
         if not bias_ramp or (bias_ramp and n_bias == 1):
             self.bias_style = 'select'
