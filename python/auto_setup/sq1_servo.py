@@ -94,6 +94,8 @@ def acquire(tuning, rc, filename=None, fb=None,
 class SQ1Servo(util.RCData):
     xlabel='SQ1 FB / 1000'
     ylabel='SQ2 FB / 1000'
+    elabel='Error / 1000'
+
     def __init__(self, filename=None, tuning=None):
         util.RCData.__init__(self, data_attrs=['data', 'error'])
         self.data = None
@@ -307,7 +309,7 @@ class SQ1Servo(util.RCData):
         self.data.shape = (-1, self.data_shape[-1])
         return s
 
-    def plot(self, plot_file=None, format=None):
+    def plot(self, plot_file=None, format=None, data=None):
         if plot_file == None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
@@ -341,9 +343,13 @@ class SQ1Servo(util.RCData):
         #insets = ['BIAS = %5i' % x for x in self.bias]
         insets = None
 
+        # Default data is self.data
+        if data == None:
+            data = self.data
+
         # Plot plot plot
         return servo.plot(
-            self.fb, self.data, self.data_shape[-3:-1],
+            self.fb, data, self.data_shape[-3:-1],
             self.analysis, plot_file,
             slopes=True,
             insets=insets,
@@ -352,27 +358,16 @@ class SQ1Servo(util.RCData):
             ylabel=self.ylabel,
             format=format,
             )
-    
-    def _plot(self, plot_file=None, format=None):
-        self._check_data()
-        self._check_analysis()
 
-        if plot_file == None:
-            plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
-                                         (self.data_origin['basename']))
+    def plot_error(self, *args, **kwargs):
+        if not 'data' in kwargs:
+            kwargs['data'] = self.error
+        if 'plot_file' != kwargs:
 
-        if format == None:
-            format = self.tuning.get_exp_param('tuning_plot_format')
-
-        # Plot plot plot
-        return servo.plot(
-            self.fb, self.data, self.data_shape[-3:-1],
-            self.analysis, plot_file,
-            slopes=True,
-            title=self.data_origin['basename'],
-            xlabel='SQ1 FB / 1000',
-            ylabel='SQ2 FB / 1000',
-            set_points=True,
-            format=format,
-            )
-
+            kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
+                                  (self.data_origin['basename'] + '_err'))
+        # Briefly swap labels.  Not thread safe...
+        _ylab, self.ylabel = self.ylabel, self.elabel
+        z = self.plot(*args, **kwargs)
+        self.ylabel = _ylab
+        return z

@@ -352,6 +352,7 @@ class SquidData(util.RCData):
         self.data = None
         self.analysis = None
         self.tuning = tuning
+        self.data_attrs.append('error')
 
     @classmethod
     def join(cls, args):
@@ -498,7 +499,7 @@ class SquidData(util.RCData):
     def reduce2(self, slope=None):
         raise RuntimeError, "this is a virtual method."
 
-    def plot(self, plot_file=None, format=None):
+    def plot(self, plot_file=None, format=None, data=None):
         if plot_file == None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
@@ -531,9 +532,13 @@ class SquidData(util.RCData):
         # Display biases as inset text
         insets = ['BIAS = %5i' % x for x in self.bias]
 
+        # Default data is self.data
+        if data == None:
+            data = self.data
+
         # Plot plot plot
         return plot(
-            self.fb, self.data, self.data_shape[-3:-1],
+            self.fb, data, self.data_shape[-3:-1],
             self.analysis, plot_file,
             shape=(4, 2),
             slopes=True,

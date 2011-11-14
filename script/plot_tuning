@@ -50,7 +50,9 @@ tf = ast.util.FileSet(source_dir)
 
 # Do we have an experiment.cfg?
 if opts.config_file == None:
+    # There's probably one with the tuning data.
     opts.config_file = tf.get('cfg_file', None)
+
 if opts.config_file == None:
     tuning = None
 else:
@@ -82,15 +84,17 @@ if 'sq2_servo' in opts.stage:
     s.reduce(slope=slope)
     s.plot(plot_file='%s/%s_sq2_servo' % (odir, basename),
            format=opts.format)
+    s.plot_error(plot_file='%s/%s_sq2_servo_err' % (odir, basename),
+                 format=opts.format)
 
 if 'sq1_servo' in opts.stage:
-    print 'load'
     ss = [ ast.SQ1Servo(x, tuning=tuning) for x in tf.stage_all('sq1_servo') ]
-    print 'done'
     s = ast.SQ1Servo.join(ss).split()[0]
     s.reduce(slope=slope)
     s.plot(plot_file='%s/%s_sq1_servo' % (odir, basename),
            format=opts.format)
+    s.plot_error(plot_file='%s/%s_sq1_servo_err' % (odir, basename),
+                 format=opts.format)
 
 if 'sq1_ramp' in opts.stage:
     # Load SQ1 ramp

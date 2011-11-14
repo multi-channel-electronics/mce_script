@@ -94,6 +94,7 @@ class SQ2Servo(servo.SquidData):
     stage_name = 'SQ2Servo'
     xlabel='SQ2 FB / 1000'
     ylabel='SA FB / 1000'
+    elabel='Error / 1000'
 
     def __init__(self, filename=None, tuning=None):
         servo.SquidData.__init__(self, tuning=tuning)
@@ -183,3 +184,15 @@ class SQ2Servo(servo.SquidData):
 
         self.analysis = an
         return an
+
+    def plot_error(self, *args, **kwargs):
+        if not 'data' in kwargs:
+            kwargs['data'] = self.error
+        if 'plot_file' != kwargs:
+            kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
+                                  (self.data_origin['basename'] + '_err'))
+        # Briefly swap labels.  Not thread safe...
+        _ylab, self.ylabel = self.ylabel, self.elabel
+        z = self.plot(*args, **kwargs)
+        self.ylabel = _ylab
+        return z

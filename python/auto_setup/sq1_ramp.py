@@ -127,7 +127,7 @@ class SQ1Ramp(util.RCData):
         """
         Arguments are SQ1Ramp objects, loaded with data.
         """
-        synth = SQ1Ramp()
+        synth = SQ1Ramp(tuning=args[0].tuning)
         # Borrow most things from the first argument
         synth.mcefile = None
         synth.data_origin = dict(args[0].data_origin)

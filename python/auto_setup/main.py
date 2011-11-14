@@ -205,6 +205,8 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     if bias_ramp and tuning.get_exp_param('tuning_do_plots'):
         plot_out = sq.plot()
         tuning.register_plots(*plot_out['plot_files'])
+        plot_out = sq.plot_error()
+        tuning.register_plots(*plot_out['plot_files'])
 
     if bias_ramp:
         sq.reduce1()
@@ -215,6 +217,8 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     # Plot final bias result
     if tuning.get_exp_param('tuning_do_plots'):
         plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+        plot_out = sq.plot_error()
         tuning.register_plots(*plot_out['plot_files'])
 
     # Save SQ2 set-point (SA feedback) and SQ2 feedback
@@ -269,6 +273,8 @@ def do_sq1_servo(tuning, rc, rc_indices):
     if bias_ramp and tuning.get_exp_param('tuning_do_plots'):
         plot_out = sq.plot()
         tuning.register_plots(*plot_out['plot_files'])
+        plot_out = sq.plot_error()
+        tuning.register_plots(*plot_out['plot_files'])
 
     if bias_ramp:
         sq.reduce1()
@@ -277,6 +283,8 @@ def do_sq1_servo(tuning, rc, rc_indices):
     sq1_data = sq.reduce()
     if tuning.get_exp_param('tuning_do_plots'):
         plot_out = sq.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+        plot_out = sq.plot_error()
         tuning.register_plots(*plot_out['plot_files'])
 
     # Load existing FB choices
