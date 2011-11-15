@@ -135,6 +135,8 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
             left_idx = right_idx[-1]
             # Take nearest low-point, or 0 if there isn't one.
             right_idx = hstack(((yy<=-extremality).nonzero()[0],0))[0]
+        if left_idx >= right_idx:
+            left_idx, right_idx = 0,0
         ranges.append((left_idx, right_idx))
         oks.append(ok)
     i_left, i_right = array(ranges).transpose()
