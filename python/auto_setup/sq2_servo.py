@@ -98,6 +98,7 @@ class SQ2Servo(servo.SquidData):
 
     def __init__(self, filename=None, tuning=None):
         servo.SquidData.__init__(self, tuning=tuning)
+        self.data_attrs.append('error')
         if filename != None:
             self.read_data(filename)
 
@@ -188,7 +189,7 @@ class SQ2Servo(servo.SquidData):
     def plot_error(self, *args, **kwargs):
         if not 'data' in kwargs:
             kwargs['data'] = self.error
-        if 'plot_file' != kwargs:
+        if not 'plot_file' in kwargs:
             kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
                                   (self.data_origin['basename'] + '_err'))
         # Briefly swap labels.  Not thread safe...

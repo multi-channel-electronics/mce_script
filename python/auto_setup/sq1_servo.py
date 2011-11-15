@@ -98,6 +98,7 @@ class SQ1Servo(util.RCData):
 
     def __init__(self, filename=None, tuning=None):
         util.RCData.__init__(self, data_attrs=['data', 'error'])
+        self.data_attrs.append('error')
         self.data = None
         self.analysis = None
         self.tuning = tuning
@@ -362,8 +363,7 @@ class SQ1Servo(util.RCData):
     def plot_error(self, *args, **kwargs):
         if not 'data' in kwargs:
             kwargs['data'] = self.error
-        if 'plot_file' != kwargs:
-
+        if not 'plot_file' in kwargs:
             kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
                                   (self.data_origin['basename'] + '_err'))
         # Briefly swap labels.  Not thread safe...

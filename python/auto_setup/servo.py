@@ -202,6 +202,8 @@ def get_slopes(data, index, n_points=5, min_index=None, max_index=None,
 
 def period_correlation(y, width=None, normalize=True):
     n, nx = y.shape
+    # Remove mean!
+    y = y - y.mean(axis=1)[:,None]
     if width == None:
         width = nx / 2
     m = nx - width
@@ -352,7 +354,6 @@ class SquidData(util.RCData):
         self.data = None
         self.analysis = None
         self.tuning = tuning
-        self.data_attrs.append('error')
 
     @classmethod
     def join(cls, args):
