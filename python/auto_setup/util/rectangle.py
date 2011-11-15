@@ -24,7 +24,9 @@ import numpy
 
 class RCData:
     def __init__(self, gridded=False,
-                 row_attr='rows', col_attr='cols', data_attrs=['data']):
+                 row_attr='rows', col_attr='cols', data_attrs=None):
+        if data_attrs == None:
+            data_attrs = ['data']
         self.gridded = gridded
         for a in ['row_attr', 'col_attr', 'data_attrs']:
             setattr(self, a, eval(a))

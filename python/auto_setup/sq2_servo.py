@@ -166,8 +166,8 @@ class SQ2Servo(servo.SquidData):
 
         # Make slope either a scalar, or 1 value per curve.
         if any(slope != slope[0]):
-            z = zeros(self.data_shape[:-1])
-            z[:,:,:] = slope.reshape(1,1,-1)
+            z = zeros(self.data.shape[:-1])
+            z[...,:] = slope.reshape(1,-1)
             slope = z
         else:
             slope = slope[0]

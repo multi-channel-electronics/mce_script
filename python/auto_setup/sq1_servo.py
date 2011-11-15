@@ -97,7 +97,7 @@ class SQ1Servo(util.RCData):
     elabel='Error / 1000'
 
     def __init__(self, filename=None, tuning=None):
-        util.RCData.__init__(self, data_attrs=['data', 'error'])
+        util.RCData.__init__(self)
         self.data_attrs.append('error')
         self.data = None
         self.analysis = None
@@ -269,10 +269,10 @@ class SQ1Servo(util.RCData):
             slope = array([slope]*len(self.cols))
 
         # Make slope either a scalar, or 1 value per curve.
+        #fdfs
         if any(slope != slope[0]):
-            z = zeros(self.data_shape[:-1])
-            z[...,:,:] = slope.reshape(1,-1)
-            slope = z
+            z = zeros(self.data.shape[:-1]).reshape(-1, len(slope), 'float')
+            slope = (z + slope).ravel()
         else:
             slope = slope[0]
         n_fb = len(self.fb)
