@@ -21,13 +21,18 @@ opts, args = o.parse_args()
 for action in args:
     if action == 'measure_sa_offset_ratio':
         m = mce()
-        print 'Storing SA bias...'
+        print 'Saving current configuration...'
         sa_bias0 = m.read('sa', 'bias')
         sa_offset0 = m.read('sa', 'offset')
         sample_num = m.read('rca', 'sample_num')[0]
+        servo0, data0 = m.servo_mode(), m.data_mode()
+        
+        print 'Setting up...'
+        n_sa = len(sa_bias0)
+        m.servo_mode(0)
+        m.data_mode(0)
 
         print 'Measuring SA bias response...'
-        n_sa = len(sa_bias0)
         step = 1000
         m.write('sa', 'bias', [0]*n_sa)
         m.write('sa', 'offset', [0]*n_sa)
@@ -39,8 +44,11 @@ for action in args:
         m.write('sa', 'offset', [step]*n_sa)
         y2 = m.read_row()
         
+        print 'Restoring...'
         m.write('sa', 'offset', sa_offset0)
         m.write('sa', 'bias', sa_bias0) 
+        m.servo_mode(servo0)
+        m.data_mode(data0)
         
         # Measure response to SA bias:
         d_bias   = y1 - y0
