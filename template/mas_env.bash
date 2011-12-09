@@ -32,3 +32,8 @@ export MAS_CONFIG=$MAS_TEMPLATE
 
 export PATH=${PATH}:${MAS_BIN}:${MAS_SCRIPT}:${MAS_TEST_SUITE}
 export PYTHONPATH=${PYTHONPATH}:${MAS_PYTHON}
+
+if [ -e /usr/mce/python ]; then 
+    export PYTHONPATH=${PYTHONPATH}:/usr/mce/python
+fi
+

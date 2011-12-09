@@ -72,11 +72,12 @@ fi
 new_config="config_mce_auto_setup_$today"
 if [ -e $new_config ]; then
   echo "There is already a config_mce_auto_setup file in this directory"
-else
-    mce_make_config
-    chmod u+rwx $new_config
-    chmod g+rws $new_config
+  echo "Re-writing it."
 fi
+
+mce_make_config
+chmod u+rwx $new_config
+chmod g+rws $new_config
 
 # Reopen the log file, or launch the server
 
