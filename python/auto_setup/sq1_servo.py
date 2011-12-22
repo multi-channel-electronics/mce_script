@@ -269,9 +269,8 @@ class SQ1Servo(util.RCData):
             slope = array([slope]*len(self.cols))
 
         # Make slope either a scalar, or 1 value per curve.
-        #fdfs
         if any(slope != slope[0]):
-            z = zeros(self.data.shape[:-1]).reshape(-1, len(slope), 'float')
+            z = zeros(self.data.shape[:-1]).reshape(-1, len(slope))
             slope = (z + slope).ravel()
         else:
             slope = slope[0]
