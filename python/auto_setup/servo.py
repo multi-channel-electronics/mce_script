@@ -552,3 +552,29 @@ class SquidData(util.RCData):
             format=format,
             )
     
+
+if __name__ == '__main__':
+    from random import random
+    # Get some fake data
+    N = 100
+    x = arange(N)
+    y = []
+    F = [2.2, 1.3, 0., 10.]
+    for f in F:
+        a, b, p = random() * 1000, (random()-.5)*10000, random()*N
+        y.append(a * sin(2*pi*x*f/N+p) + b)
+    y = array(y)
+    print 'Periods:  ', period(y)
+    print 'Expected: ', N/array(F)
+    lp = get_lock_points(y, slope=array([1,1,1,-1]))
+    print 'Lock-x: ', lp['lock_idx']
+    print 'Plotting...'
+    fp = biggles.Table(2,2)
+    for i in range(4):
+        p = biggles.FramedPlot()
+        p.add(biggles.Curve(x, y[i]))
+        p.add(biggles.LineX(x[lp['lock_idx'][i]],type='dashed'))
+        p.add(biggles.LineY(lp['lock_y'][i],type='dashed'))
+        p.yrange = y[i].min()-10, y[i].max()+10
+        fp[i%2,i/2] = p
+    fp.write_img(500,500, 'check_servo.png')
