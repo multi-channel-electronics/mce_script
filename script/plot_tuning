@@ -13,6 +13,8 @@ If output_directory is ommitted, ./ is used.
 o = OptionParser(usage=usage)
 o.add_option('-i','--interactive',action='store_true',default=False)
 o.add_option('-s','--stage',action='append',default=None)
+o.add_option('--summary',action='store_true',default=False,help=
+             "For bias ramps, plot only the final bias choice.")
 o.add_option('-m','--format',default=None,help=
              "Set output format (png, svg, pdf).")
 o.add_option('--default-slope', type='float', default=None)
@@ -80,7 +82,17 @@ if 'sa_ramp' in opts.stage:
 
 if 'sq2_servo' in opts.stage:
     ss = [ ast.SQ2Servo(x, tuning=tuning) for x in tf.stage_all('sq2_servo') ]
-    s = ast.SQ2Servo.join(ss).split()[0]
+    s = ast.SQ2Servo.join(ss)
+    if s.bias_style == 'ramp':
+        if not opts.summary:
+            # Plot data for every bias value
+            s.plot(plot_file='%s/%s_sq2_servo' % (odir, basename),
+                   format=opts.format)
+            s.plot_error(plot_file='%s/%s_sq2_servo_err' % (odir, basename),
+                         format=opts.format)
+        # Flatten ramp to best bias choice
+        s.reduce1()
+        s = s.select_biases()
     s.reduce(slope=slope)
     s.plot(plot_file='%s/%s_sq2_servo' % (odir, basename),
            format=opts.format)

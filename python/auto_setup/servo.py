@@ -350,6 +350,8 @@ SquidData - base class for tuning stage analysis objects.
 
 class SquidData(util.RCData):
     stage_name = 'SquidData'
+    xlabel = 'X'
+    ylabels = {'data': 'Y'}
 
     def __init__(self, tuning=None):
         util.RCData.__init__(self)
@@ -450,9 +452,13 @@ class SquidData(util.RCData):
         output = []
         for i in range(n_bias):
             s = self.__class__()
+            # Copy basic keys, or set to None.
             for k in copy_keys:
-                setattr(s, k, getattr(self, k))
-            s.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
+                setattr(s, k, getattr(self, k, None))
+            # Copy data arrays
+            for k in self.data_attrs:
+                data = getattr(self, k)
+                setattr(s, k, data.reshape(n_bias, -1)[i].reshape(-1, n_fb))
             s.data_shape = self.data_shape[1:]
             s.gridded = True
             s.bias_style = 'select'
@@ -471,13 +477,15 @@ class SquidData(util.RCData):
         # Get a single-bias servo
         s = self.split()[0]
         s.bias_style = 'select'
-        s.data.shape = s.data_shape
-        self.data.shape = self.data_shape
         for i, j in enumerate(indices):
             s.bias[i] = self.bias[j]
-            s.data[:,i,:] = self.data[j,:,i,:]
-        s.data.shape = (-1, s.data_shape[-1])
-        self.data.shape = (-1, self.data_shape[-1])
+        # Make sure to reduce each data attribute
+        for k in self.data_attrs:
+            src, dest = getattr(self, k), getattr(s, k)
+            src.shape, dest.shape = self.data_shape, s.data_shape
+            for i, j in enumerate(indices):
+                dest[:,i,:] = src[j,:,i,:]
+            src.shape, dest.shape = (-1, self.data_shape[-1]), (-1, s.data_shape[-1])
         return s
 
     def reduce(self, slope=None):
@@ -502,7 +510,7 @@ class SquidData(util.RCData):
     def reduce2(self, slope=None):
         raise RuntimeError, "this is a virtual method."
 
-    def plot(self, plot_file=None, format=None, data=None):
+    def plot(self, plot_file=None, format=None, data_attr='data'):
         if plot_file == None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
@@ -518,7 +526,8 @@ class SquidData(util.RCData):
                 _format = 'svg'
             for i,s in enumerate(ss):
                 s.reduce()
-                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format)
+                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format,
+                           data_attr=data_attr)
                 plot_files += p['plot_files']
             # collate into pdf?
             if format == 'pdf':
@@ -536,9 +545,8 @@ class SquidData(util.RCData):
         insets = ['BIAS = %5i' % x for x in self.bias]
 
         # Default data is self.data
-        if data == None:
-            data = self.data
-
+        data = getattr(self, data_attr)
+    
         # Plot plot plot
         return plot(
             self.fb, data, self.data_shape[-3:-1],
@@ -548,7 +556,7 @@ class SquidData(util.RCData):
             insets=insets,
             title=self.data_origin['basename'],
             xlabel=self.xlabel,
-            ylabel=self.ylabel,
+            ylabel=self.ylabels[data_attr],
             format=format,
             )
     

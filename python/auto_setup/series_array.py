@@ -79,7 +79,7 @@ class SARamp(servo.SquidData):
     # Note most useful behaviour is inherited from SquidData.
     stage_name = 'SARamp'
     xlabel='SA FB / 1000'
-    ylabel='AD Units / 1000'
+    ylabels= {'data': 'AD Units / 1000'}
 
     def __init__(self, filename=None, reduce_rows=True, tuning=None):
         servo.SquidData.__init__(self, tuning=tuning)

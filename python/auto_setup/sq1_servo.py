@@ -92,9 +92,10 @@ def acquire(tuning, rc, filename=None, fb=None,
 
 
 class SQ1Servo(util.RCData):
-    xlabel='SQ1 FB / 1000'
-    ylabel='SQ2 FB / 1000'
-    elabel='Error / 1000'
+    stage_name = 'SQ1Servo'
+    xlabel = 'SQ1 FB / 1000'
+    ylabels = {'data': 'SQ2 FB / 1000',
+               'error': 'Error / 1000'}
 
     def __init__(self, filename=None, tuning=None):
         util.RCData.__init__(self)
@@ -309,7 +310,7 @@ class SQ1Servo(util.RCData):
         self.data.shape = (-1, self.data_shape[-1])
         return s
 
-    def plot(self, plot_file=None, format=None, data=None):
+    def plot(self, plot_file=None, format=None, data_attr='data'):
         if plot_file == None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
@@ -344,8 +345,7 @@ class SQ1Servo(util.RCData):
         insets = None
 
         # Default data is self.data
-        if data == None:
-            data = self.data
+        data = getattr(self, data_attr)
 
         # Plot plot plot
         return servo.plot(
@@ -355,18 +355,14 @@ class SQ1Servo(util.RCData):
             insets=insets,
             title=self.data_origin['basename'],
             xlabel=self.xlabel,
-            ylabel=self.ylabel,
+            ylabel=self.ylabels[data_attr],
             format=format,
             )
 
     def plot_error(self, *args, **kwargs):
-        if not 'data' in kwargs:
-            kwargs['data'] = self.error
+        if not 'data_attr' in kwargs:
+            kwargs['data_attr'] = 'error'
         if not 'plot_file' in kwargs:
             kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
                                   (self.data_origin['basename'] + '_err'))
-        # Briefly swap labels.  Not thread safe...
-        _ylab, self.ylabel = self.ylabel, self.elabel
-        z = self.plot(*args, **kwargs)
-        self.ylabel = _ylab
-        return z
+        return self.plot(*args, **kwargs)

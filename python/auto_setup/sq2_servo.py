@@ -92,9 +92,9 @@ class SQ2Servo(servo.SquidData):
     """
     # Note most useful behaviour is inherited from SquidData.
     stage_name = 'SQ2Servo'
-    xlabel='SQ2 FB / 1000'
-    ylabel='SA FB / 1000'
-    elabel='Error / 1000'
+    xlabel = 'SQ2 FB / 1000'
+    ylabels = {'data': 'SA FB / 1000',
+               'error': 'Error / 1000'}
 
     def __init__(self, filename=None, tuning=None):
         servo.SquidData.__init__(self, tuning=tuning)
@@ -144,6 +144,7 @@ class SQ2Servo(servo.SquidData):
             self.data = self.data.transpose([2, 0, 1, 3])
         self.data_shape = self.data.shape
         self.data = self.data.reshape(-1, n_fb)
+        self.error = self.error.reshape(-1, n_fb)
 
     def reduce(self, slope=None, lock_amp=True):
         self.reduce1()
@@ -187,13 +188,9 @@ class SQ2Servo(servo.SquidData):
         return an
 
     def plot_error(self, *args, **kwargs):
-        if not 'data' in kwargs:
-            kwargs['data'] = self.error
+        if not 'data_attr' in kwargs:
+            kwargs['data_attr'] = 'error'
         if not 'plot_file' in kwargs:
             kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
                                   (self.data_origin['basename'] + '_err'))
-        # Briefly swap labels.  Not thread safe...
-        _ylab, self.ylabel = self.ylabel, self.elabel
-        z = self.plot(*args, **kwargs)
-        self.ylabel = _ylab
-        return z
+        return self.plot(*args, **kwargs)
