@@ -754,3 +754,30 @@ def runfile_break(s):
     data = ' '.join(words[1:])
 
     return key, data
+
+
+#
+# Functions for processing squid data
+#
+
+# unwrap -- this is a low-level portable version.  We should have a
+# second routine that interprets the MCEData structure directly, to
+# lookup period from data_mode or whatever.
+
+def unwrap(data, period, in_place=False):
+    """
+    Removes jumps (due to fixed bit-width windowing, or something)
+    from a data array.  "data" should be an array of signed values,
+    with possible jumps of size "period" in its right-most dimension.
+
+    With in_place=True, the data is unwrapped in place, rather than
+    creating a new buffer for the unwrapped data.
+    """
+    ddata = data[...,1:] - data[...,:-1]
+    ups = (ddata >  period/2).astype('int').cumsum(axis=-1)
+    dns = (ddata < -period/2).astype('int').cumsum(axis=-1)
+    if not in_place:
+        data = data.copy()
+    data[...,1:] += float(period) * (dns - ups)
+    return data
+

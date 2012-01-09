@@ -1,6 +1,6 @@
 import os, sys, time
 from numpy import *
-from mce_data import MCEFile
+from mce_data import MCEFile, unwrap
 import subprocess as sp
 
 from auto_setup.util import interactive_errors
@@ -51,15 +51,6 @@ class runfile_block:
             self.fout.close()
         self.fout
 
-
-def unwrap(data, period, in_place=True):
-    ddata = data[...,1:] - data[...,:-1]
-    ups = (ddata >  period/2).astype('int').cumsum(axis=-1)
-    dns = (ddata < -period/2).astype('int').cumsum(axis=-1)
-    if not in_place:
-        data = data.copy()
-    data[...,1:] += float(period) * (dns - ups)
-    return data
 
 def loadArrayParams(filename=None, array_name=None):
     if array_name == None:
@@ -231,8 +222,8 @@ data = filedata.Read(row_col=True).data
 data_cols = array(filedata._NameChannels(row_col=True)[1])
 
 printv('Unwrapping...', 1)
-unwrap(data, period)
-unwrap(data, period/2)
+unwrap(data, period, in_place=True)
+unwrap(data, period/2, in_place=True)
 data *= ar_par['fb_normalize'][data_cols].reshape(1,-1,1) / filtgain
 
 # The size of the problem
