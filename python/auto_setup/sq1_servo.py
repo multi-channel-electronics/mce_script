@@ -232,12 +232,14 @@ class SQ1Servo(util.RCData):
         for i in range(n_bias):
             sa = SQ1Servo()
             for k in copy_keys:
-                exec('sa.%s = self.%s' %(k,k))
-            sa.data = self.data.reshape(n_bias, -1)[i].reshape(-1, n_fb)
+                setattr(sa, k, getattr(self, k))
+            for k in self.data_attrs:
+                y = getattr(self, k).reshape(n_bias, -1)[i]
+                setattr(sa, k, y.reshape(-1, n_fb))
             sa.data_shape = self.data_shape[1:]
             sa.gridded = self.gridded
             sa.bias_style = 'select'
-            sa.bias = [self.bias[i] for c in self.cols]
+            sa.bias = array([self.bias[i]])
             output.append(sa)
         return output
 
@@ -253,7 +255,7 @@ class SQ1Servo(util.RCData):
         self.analysis['y_span'] = span
         if self.bias_style == 'ramp':
             # Identify bias index of largest response in each row
-            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=1)
+            select = span.reshape(self.data_shape[:-1]).max(axis=-1).argmax(axis=0)
             self.analysis['y_span_select_row'] = select
         return self.analysis
 
@@ -301,11 +303,13 @@ class SQ1Servo(util.RCData):
         # Get a single-bias servo
         s = self.split()[0]
         s.bias_style = 'select'
+        s.bias = zeros(s.data_shape[-2]) # 1 bias per row
         s.data.shape = s.data_shape
         self.data.shape = self.data_shape
-        for i, j in enumerate(indices):
-            s.bias[i] = self.bias[j]
-            s.data[i,:,:] = self.data[j,i,:,:]
+        # Indices are chosen bias index, per row.
+        for row, bias_idx in enumerate(indices):
+            s.bias[row] = self.bias[bias_idx]
+            s.data[row,:,:] = self.data[bias_idx,row,:,:]
         s.data.shape = (-1, s.data_shape[-1])
         self.data.shape = (-1, self.data_shape[-1])
         return s
