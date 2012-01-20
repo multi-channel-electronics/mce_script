@@ -90,6 +90,41 @@ def acquire(tuning, rc, filename=None, fb=None,
     return True, {'basename': acq_id,
                   'filename': fullname }
 
+def acquire_all_row_painful(tuning, rc, filename=None, fb=None,
+                            gain=None, old_servo=False):
+    """
+    For non-fast switching systems, acquire SQ1 servo data for all
+    rows using repeated invocations of single row servos.  Then
+    rewrite the data as if it were a single servo, to trick everyone.
+    """
+    # File defaults
+    if filename == None:
+        filename, acq_id = tuning.filename(rc=rc, action='sq1servo')
+    else:
+        try:
+            acq_id = str(int(filename.split('_')[0]))
+        except ValueError:
+            acq_id = str(time.time())
+    # Call standard acquire
+    results = []
+    for row in range(tuning.get_exp_param('num_rows')):
+        # Imitate filenames of a real all row servo
+        ok, r = acquire(tuning, rc, filename=filename+'.r%02i'%row,
+                        fb=fb, gain=gain, super_servo=False, old_servo=old_servo)
+        if not ok:
+            print r
+            return ok, r
+        results.append(r)
+
+    # Link the row0 runfile/data to masquerade as a single acq.
+    target = '%s/%s' % (tuning.base_dir, filename)
+    os.symlink(target + '.r00', target)
+    os.symlink(target + '.r00.run', target + '.run')
+
+    return True, {'basename': results[0]['basename'],
+                  'filename': target }
+
+
 
 class SQ1Servo(util.RCData):
     stage_name = 'SQ1Servo'
@@ -204,7 +239,7 @@ class SQ1Servo(util.RCData):
         # This should just extend the else; the second clause is a bug work-around
         if not bias_ramp or (bias_ramp and n_bias == 1):
             self.bias_style = 'select'
-            self.bias = array(rf.Item('HEADER', 'RB sq2 bias', 'int'))[self.cols]
+            self.bias = array(rf.Item('HEADER', 'RB sq2 bias', type='int'))[self.cols]
 
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
@@ -303,7 +338,7 @@ class SQ1Servo(util.RCData):
         # Get a single-bias servo
         s = self.split()[0]
         s.bias_style = 'select'
-        s.bias = zeros(s.data_shape[-2]) # 1 bias per row
+        s.bias = zeros(s.data_shape[-1]) # 1 bias per row
         s.data.shape = s.data_shape
         self.data.shape = self.data_shape
         # Indices are chosen bias index, per row.
@@ -330,7 +365,7 @@ class SQ1Servo(util.RCData):
                 _format = 'svg'
             for i,s in enumerate(ss):
                 s.reduce()
-                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format)
+                p = s.plot(plot_file=plot_file+'_b%02i'%i, format=_format)
                 plot_files += p['plot_files']
             # collate into pdf?
             if format == 'pdf':
@@ -345,8 +380,15 @@ class SQ1Servo(util.RCData):
         self._check_analysis()
 
         # Display biases as inset text
-        #insets = ['BIAS = %5i' % x for x in self.bias]
         insets = None
+        if 0: #len(self.bias) == 1:
+            # The single bias used for all rows.
+            insets = ['BIAS = %5i' % self.bias[0]
+                      for x in range(self.data.shape[0])]
+        elif 0: #len(self.bias) > 1:
+            row_idx = zeros(self.data_shape[:-1], 'int')
+            row_idx[...,:] = arange(row_idx.shape[-1])
+            insets = ['BIAS = %5i' % self.bias[row] for row in row_idx.ravel()]
 
         # Default data is self.data
         data = getattr(self, data_attr)

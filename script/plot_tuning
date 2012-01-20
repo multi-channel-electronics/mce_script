@@ -102,6 +102,16 @@ if 'sq2_servo' in opts.stage:
 if 'sq1_servo' in opts.stage:
     ss = [ ast.SQ1Servo(x, tuning=tuning) for x in tf.stage_all('sq1_servo') ]
     s = ast.SQ1Servo.join(ss).split()[0]
+    if s.bias_style == 'ramp':
+        if not opts.summary:
+            # Plot data for every bias value
+            s.plot(plot_file='%s/%s_sq1_servo' % (odir, basename),
+                   format=opts.format)
+            s.plot_error(plot_file='%s/%s_sq1_servo_err' % (odir, basename),
+                         format=opts.format)
+        # Flatten ramp to best bias choice
+        s.reduce1()
+        s = s.select_biases()
     s.reduce(slope=slope)
     s.plot(plot_file='%s/%s_sq1_servo' % (odir, basename),
            format=opts.format)

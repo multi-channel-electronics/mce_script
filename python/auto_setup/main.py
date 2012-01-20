@@ -260,10 +260,14 @@ def prepare_sq1_servo(tuning):
 def do_sq1_servo(tuning, rc, rc_indices):
    
     # super_servo means collecting all-row servo data for fast sq2 switching
-    super_servo = tuning.get_exp_param('config_fast_sq2') or \
-        tuning.get_exp_param('sq1_servo_all_rows')
+    fast_sq2 = tuning.get_exp_param('config_fast_sq2')
+    super_servo = fast_sq2 or tuning.get_exp_param('sq1_servo_all_rows')
+    
+    if super_servo and not fast_sq2:
+        ok, servo_data = sq1_servo.acquire_all_row_painful(tuning, rc)
+    else:
+        ok, servo_data = sq1_servo.acquire(tuning, rc, super_servo=super_servo)
 
-    ok, servo_data = sq1_servo.acquire(tuning, rc, super_servo=super_servo)
     if not ok:
         raise RuntimeError, servo_data['error']
 
