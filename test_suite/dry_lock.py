@@ -135,7 +135,7 @@ if __name__ == '__main__':
     # Essential setup
     m.reset()
     time.sleep(0.1)
-    m.write('cc', 'rcs_to_report_data', [1<<5])
+    #m.write('cc', 'rcs_to_report_data', [1<<5])
     m.write('rca', 'sample_num', [SAMPLE_NUM])
     m.write('rca', 'sample_dly', [SAMPLE_DELAY])
     m.write('sys', 'row_len', [100])
