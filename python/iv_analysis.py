@@ -316,10 +316,10 @@ for r, c in ok_rc:
 # Mark transition as place where R drops
 iv_data.define(['trans_idx'], ['int'], Rnorm.shape)
 for r, c in ok_rc:
-    i0, i1 = iv_data.norm_idx0[r,c], iv_data.super_idx0[r,c]
+    i0, i1 = iv_data.norm_idx1[r,c], iv_data.super_idx0[r,c]
     trans = (R[r,c,i0:i1] < 0.9*iv_data.R_norm[r,c]).nonzero()[0]
     if trans.shape[-1] > 0:
-        iv_data.trans_idx[r,c] = trans[0]
+        iv_data.trans_idx[r,c] = trans[0] + i0
 
 # Determine saturation power
 perRn = R / iv_data.R_norm.reshape(n_row,n_col,1)
@@ -407,7 +407,7 @@ set_data.keep_rec[ok] = (p0<p)*(p<p1)*(r0<r)*(r<r1)
 
 printv('Good normal branches found in each column:', 2)
 for c in range(n_col):
-    printv('Column %2i = %4i' % (c, iv_data.ok[:,c].sum()), 2)
+    printv('Column %2i = %4i' % (data_cols[c], iv_data.ok[:,c].sum()), 2)
 
 if printv.v >= 1:
     if opts.with_rshunt_bug:
@@ -464,8 +464,8 @@ if opts.plot_dir != None and not opts.summary_only:
     x_labels = [ 'TES V (uV)', 'TES P (pW)', 'Det bias (A)' ]
 
     for c in range(n_col):
-        printv('Plotting column %2i' % c, 1)
-        file_pattern = os.path.join(opts.plot_dir, 'IV_plots_C%02i_%%02i.png' % c)
+        printv('Plotting column %2i' % data_cols[c], 1)
+        file_pattern = os.path.join(opts.plot_dir, 'IV_plots_C%02i_%%02i.png' % data_cols[c])
         pi = stackedPager(
             page_shape=(6,3),
             shape=(n_row,3),
@@ -488,14 +488,17 @@ if opts.plot_dir != None and not opts.summary_only:
             elif pc == 2:
                 y = data[r,c]
                 x = raw_bias
+                # Shaded regions; normal, transition, supercond.
+                regions = [(iv_data.norm_idx0[r,c],iv_data.norm_idx1[r,c]),
+                           (iv_data.trans_idx[r,c],iv_data.super_idx0[r,c]),
+                           (iv_data.super_idx0[r,c],iv_data.super_idx1[r,c]-1)]
+                colors = ('light blue', 'green', 'pink')
+                for reg,col in zip(regions, colors):
+                    _x = [x[reg[0]], x[reg[1]]]
+                    p.add(bg.FillAbove(_x, [y.min(), y.min()], color=col))
+                # IV curve
                 p.add(bg.Curve(x, y))
-                regions = (iv_data.norm_idx0[r,c],
-                           iv_data.norm_idx1[r,c]-1,
-                           iv_data.trans_idx[r,c],
-                           iv_data.super_idx0[r,c],
-                           iv_data.super_idx1[r,c]-1)
-                for i in regions:
-                    p.add(bg.LineX(x[i], type='dot') )
+                yl = (y.min(), y.max())
                 x = None
             elif pc == 9:
                 # Shunt I vs shunt V (super-cond)
