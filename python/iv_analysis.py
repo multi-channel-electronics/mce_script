@@ -499,8 +499,6 @@ if opts.plot_dir != None and not opts.summary_only:
                 if len(idx) == 0: continue
                 x, y = v_tes[r,c,idx]*i_tes[r,c,idx], v_tes[r,c,idx]/i_tes[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
-                if c==2:
-                    print r, xl
             elif pc == 2:
                 # Show data with analysis regions
                 y = data[r,c] / 1000
