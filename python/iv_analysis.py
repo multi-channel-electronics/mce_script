@@ -514,6 +514,9 @@ if opts.plot_dir != None and not opts.summary_only:
                 # IV curve
                 p.add(bg.Curve(x, y))
                 yl = (y.min(), y.max())
+                # Selected bias value
+                x = bias_points_dac[bias_lines[c]] / 1000.
+                p.add(bg.Curve([x,x],yl,type='dashed'))
                 x = None
             elif pc == 9:
                 # Shunt I vs shunt V (super-cond)
@@ -566,6 +569,8 @@ for tes_idx in range(ar_par['n_bias_lines']):
     n = array(n)
     pl.figure()
     pl.plot(raw_bias[bi], n)
+    # Show the chosen bias too
+    pl.axvline(bias_points_dac[tes_idx], color='k', ls='dashed')
     pl.xlabel('TES BIAS (DAC)')
     pl.ylabel('N_DETS ON TRANSITION')
     pl.title('%s - bias line %i' % (filename, tes_idx))
@@ -602,7 +607,8 @@ for tes_idx in range(ar_par['n_bias_lines']):
         pl.text(0.5, y0*.9, 'BIAS = %5i' % t,
                 va='top', ha='center', fontsize=11)
         if i==0:
-            pl.title('%s - bias line %i' % (filename, tes_idx))
+            pl.title('%s - bias line %i (best bias = %i)' % \
+                         (filename, tes_idx, bias_points_dac[tes_idx]))
 
     pl.gcf().set_size_inches(5., 10.)
     pl.savefig(os.path.join(opts.plot_dir, 'IV_det_hist_%02i.png' % (tes_idx)))
