@@ -29,8 +29,9 @@ class runfile_block:
     """
     Write (especially) numpy arrays to a runfile-block file.
     """
-    def __init__(self, filename, mode='w'):
+    def __init__(self, filename, mode='w', data_cols=None):
         self.fout = open(filename, mode)
+        self.data_cols = data_cols
 
     def __del__(self):
         self.close()
@@ -43,8 +44,11 @@ class runfile_block:
         self.write_scalar(key, _value)
     
     def write_array(self, key, value, format='%.6f'):
+        data_cols = arange(value.shape[1])
+        if self.data_cols != None:
+            data_cols = self.data_cols
         for c in range(value.shape[1]):
-            self.write_vector(key % c, value[:,c], format)
+            self.write_vector(key % data_cols[c], value[:,c], format)
 
     def close(self):
         if self.fout != None:
@@ -91,33 +95,36 @@ def analyze_IV_curve(bias, fb, deriv_thresh=5e-6):
     n = bias.shape[0]
     i = 0
     dy = fb[1:] - fb[:-1]
-    span = 12
+    dbias = -mean(bias[1:] - bias[:-1])
+    span = max(5, int(.100/dbias))
     supercon, transend = None, None
-    # Look at all places where the derivative is negative.
-    neg_idx = (dy[:-span]<0).nonzero()[0]
-    # Find the first stable such point.
-    for i in neg_idx:
-        if median(dy[i:i+span]) <= 0:
-            supercon = i
+    # Look at all places where the derivative is positive.
+    pos_idx = (dy[:-span]>0).nonzero()[0]
+    # Find the first stable such point; that's the transition
+    for i in pos_idx:
+        if median(dy[i:i+span]) > 0:
+            trans = i
             break
     else:
         return results
-    # Look for large derivatives (transition)
-    big_idx = (dy[i:-span] > deriv_thresh).nonzero()[0] + i
+    # Look for large negative derivatives (supercond branch)
+    big_idx = (dy[i:-span] < -deriv_thresh).nonzero()[0] + i
     for i in big_idx:
-        if median(dy[i:i+span]) > deriv_thresh:
+        if median(dy[i:i+span]) < -deriv_thresh:
             transend = i
             break
     else:
-        return results
-    trans_bias = bias[supercon]
-    normal_idx = ((bias > trans_bias+0.2)*(bias < trans_bias + 0.8)* \
-                      (arange(n) <= n*3/4)).nonzero()[0]
+        # Ok if we didn't find the supercond branch.
+        transend = len(bias)-2
+        #return results
+    trans_bias = bias[trans]
+    normal_idx = ((bias > trans_bias+0.2)).nonzero()[0]
+
     ok = len(normal_idx) > 1
     if not ok:
         return results
-    results = dict(zip(['ok', 'supercon', 'trans_end', 'trans_bias'],
-                       [ok, supercon, transend, trans_bias]))
+    results = dict(zip(['ok', 'trans_begin', 'trans_end', 'trans_bias'],
+                       [ok, trans, transend, trans_bias]))
     # Fit normal branch
     normfit = polyfit(bias[normal_idx], fb[normal_idx], 1)
     Rnorm, offset = normfit
@@ -299,7 +306,7 @@ for c in range(n_col):
 ok_rc = zip(*iv_data.ok.nonzero())
 
 # Remove offset from feedback data and convert to TES current (uA)
-di_dfb = 1 / (-ar_par['M_ratio']*Rfb)
+di_dfb = 1 / (ar_par['M_ratio']*Rfb)
 i_tes = 1e6 * di_dfb * (fb - iv_data.norm_offset.reshape(n_row, n_col, 1))
 
 # Compute v_tes (uV) from bias voltage and i_tes
@@ -388,9 +395,10 @@ if opts.with_rshunt_bug:
 else:
     Rshunt_eff = Rshunt
 
-set_data.resp = -di_dfb*dfb_ddac * 1e-6*set_data.v_tes * \
+set_data.resp = di_dfb*dfb_ddac * 1e-6*set_data.v_tes * \
     (1 - Rshunt_eff/set_data.perRn/iv_data.R_norm)
 set_data.resp[~iv_data.ok] = 0.
+set_data.resp /= ar_par['fb_normalize'][data_cols]
 
 # Cutting, cutting.
 
@@ -430,7 +438,7 @@ if printv.v >= 1:
 
 if opts.rf_file != None:
     printv('Writing runfile block to %s' % opts.rf_file, 1)
-    rf_out = runfile_block(opts.rf_file)
+    rf_out = runfile_block(opts.rf_file, data_cols=data_cols)
     rf_out.write_scalar('IV','')
     rf_out.write_scalar('iv_file', filename)
     rf_out.write_scalar('target_percent_Rn', 100*ar_par['per_Rn_bias'], '%i')
@@ -473,21 +481,30 @@ if opts.plot_dir != None and not opts.summary_only:
             img_size=(700, 700),
         )
         for r, pc, p in pi:
+            valid = ok[r,c] and (iv_data.R_norm[r,c] > 0)
             xl, yl = None, None
             if pc == 0:
                 # TES I vs TES V (transition and normal)
+                if not valid:
+                    continue
                 idx = arange(0, iv_data.super_idx0[r,c])
                 if len(idx) == 0: continue
                 x, y = v_tes[r,c,idx], i_tes[r,c,idx]
+                xl, yl = (0, x.max()), (0, y.max())
             elif pc == 1:
                 # R_eff vs P (transition and normal)
+                if not valid:
+                    continue
                 idx = arange(0, iv_data.super_idx0[r,c])
                 if len(idx) == 0: continue
                 x, y = v_tes[r,c,idx]*i_tes[r,c,idx], v_tes[r,c,idx]/i_tes[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
+                if c==2:
+                    print r, xl
             elif pc == 2:
-                y = data[r,c]
-                x = raw_bias
+                # Show data with analysis regions
+                y = data[r,c] / 1000
+                x = raw_bias / 1000
                 # Shaded regions; normal, transition, supercond.
                 regions = [(iv_data.norm_idx0[r,c],iv_data.norm_idx1[r,c]),
                            (iv_data.trans_idx[r,c],iv_data.super_idx0[r,c]),
@@ -513,8 +530,11 @@ if opts.plot_dir != None and not opts.summary_only:
                 if xl != None: p.xrange = xl
                 if yl != None: p.yrange = yl
 
-
 printv('Generating summary plots', 1)
+
+import matplotlib
+matplotlib.use('agg')
+import pylab as pl
 
 def get_R_crossing(i):
     """
@@ -532,54 +552,62 @@ def get_R_crossing(i):
     RR[i>iv_data.super_idx0] = 1.
     return RR
 
-# Summary plots.
-import matplotlib
-matplotlib.use('agg')
-import pylab as pl
 
-# First summary plot:
-#  Histograms of %Rn for several biases.
+# Loop over bias lines.
+for tes_idx in range(ar_par['n_bias_lines']):
+    
+    # First summary plot:
+    #  Count of dets on transition vs. bias
+    s = ok * (bias_lines == tes_idx)
+    r0,r1 = ar_par['per_Rn_cut']
+    n = []
+    bi = arange(0, len(raw_bias), 10)
+    for b in bi:
+        RR = get_R_crossing(b)
+        n.append((s * (r0 <= RR) * (RR < r1)).sum())
+    n = array(n)
+    pl.figure()
+    pl.plot(raw_bias[bi], n)
+    pl.xlabel('TES BIAS (DAC)')
+    pl.ylabel('N_DETS ON TRANSITION')
+    pl.title('%s - bias line %i' % (filename, tes_idx))
+    pl.savefig(os.path.join(opts.plot_dir, 'IV_det_count_%02i.png' % tes_idx))
 
-targets = arange(*ar_par.get('perRn_plot_target_bins',
-                             (raw_bias[n_pts/4],raw_bias[3.1*n_pts/4],
-                              (raw_bias[3*n_pts/4] - raw_bias[n_pts/4])/5)))
+    # Second summary plot:
+    #  For interesting biases, show %Rn distribution.
+    if n.max() == 0:
+        continue
 
-# Convert targets to ramp index
-targetb = [(raw_bias <= t).nonzero()[0][0] for t in targets]
-ntarg = len(targets)
+    targets = ar_par.get('perRn_plot_target_bins')
+    if targets == None:
+        # Base targets on the dets-on-transition results.
+        lo, hi = (n > n.max() / 10).nonzero()[0][[-1,0]]
+        lo, hi = raw_bias[bi[lo]], raw_bias[bi[hi]]
+        targets = (lo, hi, (hi-lo) / 4.99)
 
-# Get percent Rn
-RR = [get_R_crossing(t) for t in targetb]
+    # To a range
+    targets = arange(*targets)
 
-pl.clf()
-for i,t in enumerate(targets):
-    pl.subplot(ntarg, 1, 1+i)
-    y = RR[i]
-    pl.hist(y.ravel(), bins=arange(0., 1.01, .05))
-    y0 = pl.ylim()[1]
-    pl.text(0.5, y0*.9, 'TES = %5i' % t, va='top', ha='center', fontsize=11)
-    if i==0:
-        pl.title(filename)
+    # Convert targets to ramp index
+    targetb = [(raw_bias <= t).nonzero()[0][0] for t in targets]
+    ntarg = len(targets)
 
-pl.gcf().set_size_inches(5., 10.)
-pl.savefig(os.path.join(opts.plot_dir, 'IV_det_hist.png'))
-pl.clf()
+    # Get percent Rn
+    RR = [get_R_crossing(t) for t in targetb]
 
+    pl.clf()
+    for i,t in enumerate(targets):
+        pl.subplot(ntarg, 1, 1+i)
+        y = RR[i][ok]
+        pl.hist(y.ravel(), bins=arange(0., 1.01, .05))
+        y0 = pl.ylim()[1]
+        pl.text(0.5, y0*.9, 'BIAS = %5i' % t,
+                va='top', ha='center', fontsize=11)
+        if i==0:
+            pl.title('%s - bias line %i' % (filename, tes_idx))
 
-# Next summary plot:
-#  Count of dets remaining uncut vs. bias
-r0,r1 = ar_par['per_Rn_cut']
-n = []
-bi = arange(0, len(raw_bias), 10)
-for b in bi:
-    RR = get_R_crossing(b)
-    n.append(((r0 <= RR) * (RR < r1)).sum())
-
-pl.figure()
-pl.plot(raw_bias[bi], n)
-pl.xlabel('TES BIAS (DAC)')
-pl.ylabel('N_DETS ON TRANSITION')
-pl.title(filename)
-pl.savefig(os.path.join(opts.plot_dir, 'IV_det_count.png'))
+    pl.gcf().set_size_inches(5., 10.)
+    pl.savefig(os.path.join(opts.plot_dir, 'IV_det_hist_%02i.png' % (tes_idx)))
+    pl.clf()
 
 printv('Plotting complete (%8.3f)' % (time.time() - t0), 1)
