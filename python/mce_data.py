@@ -843,8 +843,8 @@ class MCEButterworth(MCEFilter):
                 x = 0.5 - x #flip
             if x < 0:
                 return (1.-x) * g0
-            return abs(cutoff - abs(self.spectrum(x, f_samp=f_samp)/g0)**2)
-        return fmin(_spec,0.1,disp=0)[0]
+            return abs(cutoff - abs(self.spectrum(x)/g0)**2)
+        return fmin(_spec,0.1,disp=0)[0] * f_samp
 
     @classmethod
     def from_params(cls, ftype, fparams):
