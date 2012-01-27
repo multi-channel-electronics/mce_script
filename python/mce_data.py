@@ -516,7 +516,7 @@ class SmallMCEFile:
              do_extract=True, do_scale=True, data_mode=None,
              field=None, fields=None, row_col=False,
              raw_frames=False, cc_indices=False,
-             n_frames=None):
+             n_frames=None, unfilter=False):
         """
         Read MCE data, and optionally extract the MCE signals.
 
@@ -541,6 +541,8 @@ class SmallMCEFile:
                     and checksum), with indices (frame, index_in_frame).
         cc_indices  If True, count and start are interpreted as readout frame indices and
                     not sample indices.  Default is False.
+        unfilter    If True, deconvolve the MCE low pass filter from filtered data.
+                    If set to 'DC', divide out the DC gain of the filter only.
         """
         if n_frames != None:
             print 'Warning: Use of n_frames in Read() is deprecated, please use '\
@@ -622,12 +624,22 @@ class SmallMCEFile:
         if data_out.data_is_dict:
             data_out.data = {}
 
+        # Get the filter description, if we need it
+        if unfilter and ('fb_filt' in fields):
+            filt = MCEButterworth.from_runfile(self.runfile)
+
         # Extract each field and store
         for f in fields:
             # Use BitField.extract to get each field
             new_data = dm_data[f].extract(data, do_scale=do_scale)
             if row_col:
                 new_data.shape = (self.n_rows, self.n_cols*self.n_rc, -1)
+            # Filter?
+            if f == 'fb_filt':
+                if unfilter == 'DC':
+                    new_data /= filt.gain()
+                elif unfilter == True:
+                    raise RuntimeError, "full deconvolution not implemented"
             if data_out.data_is_dict:
                 data_out.data[f] = new_data
             else:
@@ -780,4 +792,97 @@ def unwrap(data, period, in_place=False):
         data = data.copy()
     data[...,1:] += float(period) * (dns - ups)
     return data
+
+
+#
+# MCE low-pass filters
+#
+
+class MCEFilter:
+    pass
+
+class MCEButterworth(MCEFilter):
+    def __init__(self, params):
+        """
+        Initialize with a list of 6 parameters, corresponding to 4
+        coefficients and two gain magnitudes.
+        """
+        self.params = params
+    
+    def spectrum(self, f, f_samp=1.):
+        """
+        Return filter response as a function a frequency.
+        
+        f is the array of frequencies at which to evaluate the response.
+        f_samp is the sampling frequency.
+        """
+        f = f / f_samp
+        K = 1./2**14
+        scalars = [K, K, K, K, 1., 1.]
+        b11, b12, b21, b22, k1, k2 = [s*p for s,p in zip(scalars, self.params)]
+        z = numpy.exp(-2j*numpy.pi*f)
+        H = (1. + z)**4 / (1. - b11*z + b12*z**2) / (1. - b21*z + b22*z**2)
+        return H  / 2**(k1+k2)
+
+    def gain(self):
+        """
+        Estimate the DC gain of the filter.
+        """
+        return self.spectrum(0).real
+
+    def f3dB(self, cutoff=0.5, f_samp=1.):
+        """
+        Estimate the frequency at which the filter attenuates half of
+        the signal power (relative to DC).
+        """
+        from scipy.optimize import fmin
+        g0 = self.gain()
+        def _spec(x):
+            if x.ndim > 0: x = x[0]
+            if x > 0.5:
+                x = 0.5 - x #flip
+            if x < 0:
+                return (1.-x) * g0
+            return abs(cutoff - abs(self.spectrum(x, f_samp=f_samp)/g0)**2)
+        return fmin(_spec,0.1,disp=0)[0]
+
+    @classmethod
+    def from_params(cls, ftype, fparams):
+        params = None
+        if ftype == None or ftype == 0 or ftype == 1:
+            # Classic filter
+            params = [32092, 15750, 31238, 14895, 0, 11]
+        elif ftype == 2:
+            # That other hard-coded filter
+            params = [32295, 15915, 32568, 16188, 3, 14]
+        elif ftype == 255:
+            # Parametrized
+            params = fparams
+        # Did this all work out?
+        if params == None or len(params) != 6:
+            raise ValueError, "Invalid filter parameters for ftype='%i'" %\
+                ftype
+        return cls(params)
+
+    @classmethod
+    def from_runfile(cls, runfile):
+        """
+        Parses an MCERunfile for filter parameters and returns an
+        MCEFilter.
+        """
+        if isinstance(runfile, str):
+            # I guess it's a filename
+            runfile = MCERunfile(runfile)
+        # Preferred readout card
+        rc = runfile.Item('FRAMEACQ', 'RC')
+        if rc == None:
+            rc = 'rc1'
+        else:
+            rc = 'rc' + rc[0]
+        # Maybe there is a filter description
+        ftype = runfile.Item('HEADER', 'RB %s fltr_type' % rc,
+                             type='int', array=False)
+        fparams = runfile.Item('HEADER', 'RB %s fltr_coeff' % rc, type='int')
+        # That should be enough
+        return cls.from_params(ftype, fparams)
 
