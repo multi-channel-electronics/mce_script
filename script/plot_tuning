@@ -38,7 +38,8 @@ if opts.interactive:
 if not os.path.exists(odir):
     os.makedirs(odir)
 
-default_ops = ['sa_ramp', 'sq2_servo', 'sq1_servo', 'sq1_ramp']
+default_ops = ['sa_ramp', 'sq2_servo', 'sq1_servo', 'sq1_ramp',
+               'sq1_ramp_check', 'sq1_ramp_tes']
 
 if opts.stage == None:
     opts.stage = default_ops
@@ -101,7 +102,7 @@ if 'sq2_servo' in opts.stage:
 
 if 'sq1_servo' in opts.stage:
     ss = [ ast.SQ1Servo(x, tuning=tuning) for x in tf.stage_all('sq1_servo') ]
-    s = ast.SQ1Servo.join(ss).split()[0]
+    s = ast.SQ1Servo.join(ss)
     if s.bias_style == 'ramp':
         if not opts.summary:
             # Plot data for every bias value
@@ -126,3 +127,19 @@ if 'sq1_ramp' in opts.stage:
     s.plot(plot_file='%s/%s_sq1_ramp' % (odir, basename),
            format=opts.format)
 
+if 'sq1_rampc' in opts.stage:
+    # Load SQ1 ramp
+    ss = [ ast.SQ1Ramp(x, tuning=tuning) for x in
+           tf.stage_all('sq1_ramp_check') ]
+    s = ast.SQ1Ramp.join(ss)
+    s.reduce()
+    s.plot(plot_file='%s/%s_sq1_ramp_check' % (odir, basename),
+           format=opts.format)
+
+if 'sq1_ramp_tes' in opts.stage:
+    ss = [ ast.SQ1RampTes(x, tuning=tuning) for x in
+           tf.stage_all('sq1_ramp_tes') ]
+    s = ast.SQ1RampTes.join(ss)
+    s.reduce()
+    s.plot(plot_file='%s/%s_sq1_ramp_tes' % (odir, basename),
+           format=opts.format)

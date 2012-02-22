@@ -27,8 +27,11 @@ if stage == 'sa_ramp':
 elif stage == 'sq2_servo':
     ramps = [aset.sq2_servo.SQ2Servo(f) for f in files]
     out_format = 'column'
-elif stage == 'sq1_ramp':
+elif stage == 'sq1_ramp' or stage == 'sq1_ramp_check':
     ramps = [aset.SQ1Ramp(f) for f in files]
+    out_format = 'array'
+elif stage == 'sq1_ramp_tes':
+    ramps = [aset.SQ1RampTes(f) for f in files]
     out_format = 'array'
 else:
     print 'Unsupported stage argument "%s".' % stage
@@ -65,6 +68,8 @@ stage_keys = {
     'sa_ramp': 'sa_flux_quanta',
     'sq2_servo': 'sq2_flux_quanta',
     'sq1_ramp': 'flux_quanta_all',
+    'sq1_ramp_check': 'flux_quanta_all',
+    'sq1_ramp_tes': 'tes_quanta',
     }
 
 name = stage_keys[stage]
