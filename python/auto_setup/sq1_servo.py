@@ -365,7 +365,8 @@ class SQ1Servo(util.RCData):
                 _format = 'svg'
             for i,s in enumerate(ss):
                 s.reduce()
-                p = s.plot(plot_file=plot_file+'_b%02i'%i, format=_format)
+                p = s.plot(plot_file=plot_file+'_b%02i'%i, format=_format,
+                           data_attr=data_attr)
                 plot_files += p['plot_files']
             # collate into pdf?
             if format == 'pdf':
@@ -395,6 +396,7 @@ class SQ1Servo(util.RCData):
 
         # Plot plot plot
         return servo.plot(
+
             self.fb, data, self.data_shape[-3:-1],
             self.analysis, plot_file,
             slopes=True,

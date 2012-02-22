@@ -488,6 +488,19 @@ class SquidData(util.RCData):
             src.shape, dest.shape = (-1, self.data_shape[-1]), (-1, s.data_shape[-1])
         return s
 
+    def get_selection_ramp(self):
+        # This better be a ramp
+        if not self.bias_style == 'ramp':
+            return RuntimeError, \
+                "get_selection_ramp only valid for bias ramps."
+        # Get curve amplitudes as fn of bias
+        nb, nr, nc, n = self.data_shape
+        span = self.analysis['y_span'].reshape(nb, nr, nc).\
+            transpose(axes=(1,2,0))
+        brs = biasRampSummary()
+        brs.from_array(span, fb=self.bias)
+        return brs
+
     def reduce(self, slope=None):
         self.reduce1()
         self.reduce2(slope=slope)
@@ -559,6 +572,9 @@ class SquidData(util.RCData):
             ylabel=self.ylabels[data_attr],
             format=format,
             )
+
+class biasRampSummary(util.RCData):
+    pass
     
 
 if __name__ == '__main__':

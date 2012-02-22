@@ -376,6 +376,35 @@ def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
     return ramps
 
 
+def do_sq1_ramp_tes(tuning, rcs, tune_data, init=True):
+    # Just make sure we're in open-loop
+    tuning.set_exp_param("data_mode", 0)
+    tuning.set_exp_param("servo_mode", 1)
+    tuning.write_config()
+
+    # Acquire ramp for each RC
+    ramps = []
+    for rc in rcs:
+        ok, info = sq1_ramp.acquire_tes_ramp(tuning, rc)
+        if not ok:
+            raise RuntimeError, 'sq1ramp failed for rc%s (%s)' % \
+                (str(rc), info['error'])
+        ramps.append(sq1_ramp.SQ1RampTes(info['filename']))
+
+    # Join into single data/analysis object
+    ramps = sq1_ramp.SQ1RampTes.join(ramps)
+    ramps.tuning = tuning
+    lock_points = ramps.reduce()
+
+    # Produce plots
+    masks = util.get_all_dead_masks(tuning)
+    if tuning.get_exp_param('tuning_do_plots'):
+        ramps.plot(dead_masks=masks)
+
+    # Return analysis stuff so it can be stored in .sqtune...
+    return ramps
+
+
 def operate(tuning):
     """
     Mask dead detectors, enable the MCE servo, and set the default data mode.
@@ -528,10 +557,8 @@ IDL auto_setup_squids."""
         tuning.write_sqtune(sq1_ramp=sq1)
 
     if 'sq1_ramp_tes' in stages:
-        # ramp tes bias and see open loop response?
-        print 'sq1_ramp_tes to-be-implemented...'
-        #rtb_file_name, acq_id = tuning.filename(rc=rc, action="sq1rampb")
-        #ramp_sq1_bias_plot(rtb_file_name, rc=rc, acq_id=acq_id)
+        # open-loop ramping of the TES bias
+        tes = do_sq1_ramp_tes(tuning, rcs, tune_data)
 
     if 'frametest' in stages:
         # lock check

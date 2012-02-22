@@ -53,6 +53,34 @@ def acquire(tuning, rc, filename=None, check=False):
                   'rc': rc,
                   }
 
+def acquire_tes_ramp(tuning, rc, filename=None):
+    # File defaults
+    if filename == None:
+        action = 'sq1ramptes'
+        filename, acq_id = tuning.filename(rc=rc, action=action)
+    else:
+        try:
+            acq_id = str(int(filename.split('_')[0]))
+        except ValueError:
+            acq_id = str(time.time())
+
+    # Execute ramp
+    cmd = ['ramp_sq1_tes_bias', filename, rc]
+    status = tuning.run(cmd)
+    if status != 0:
+        return False, {'error': 'command failed: %s' % str(cmd)}
+
+    # Register this acquisition, taking nframes from runfile.
+    fullname = os.path.join(tuning.base_dir, filename)
+    rf = MCERunfile(fullname + '.run')
+    n_frames = rf.Item('FRAMEACQ','DATA_FRAMECOUNT',type='int',array=False)
+    tuning.register(acq_id, 'tune_ramp', fullname, n_frames)
+    
+    return True, {'basename': acq_id,
+                  'filename':fullname,
+                  'rc': rc,
+                  }
+
 def get_lock_slope(data, index, slope_points=5):
     """
     Fit straight line to data in vicinity of index.  Return x
@@ -114,6 +142,10 @@ def lock_stats(data, target=0., range=None, slope=1.,
 
 
 class SQ1Ramp(util.RCData):
+
+    xlabel = 'SQ1 FB / 1000'
+    ylabel = 'AD Units / 1000'
+
     def __init__(self, filename=None, tuning=None):
         util.RCData.__init__(self)
         self.data = None
@@ -122,12 +154,12 @@ class SQ1Ramp(util.RCData):
         if filename != None:
             self.read_data(filename)
 
-    @staticmethod
-    def join(args):
+    @classmethod
+    def join(cls, args):
         """
-        Arguments are SQ1Ramp objects, loaded with data.
+        Arguments are SQ1Ramp (or inheritor) objects, loaded with data.
         """
-        synth = SQ1Ramp(tuning=args[0].tuning)
+        synth = cls(tuning=args[0].tuning)
         # Borrow most things from the first argument
         synth.mcefile = None
         synth.data_origin = dict(args[0].data_origin)
@@ -294,8 +326,8 @@ class SQ1Ramp(util.RCData):
                    insets=insets,
                    title=self.data_origin['basename'],
                    slopes=True, set_points=False, intervals=False,
-                   xlabel='SQ1 FB / 1000',
-                   ylabel='AD Units / 1000',
+                   xlabel=self.xlabel,
+                   ylabel=self.ylabel,
                    scale_style='tight',
                    label_style='row_col',
                    format=format,
@@ -329,3 +361,5 @@ class SQ1Ramp(util.RCData):
             ]
         return data
 
+class SQ1RampTes(SQ1Ramp):
+    xlabel = 'TES bias / 1000'
