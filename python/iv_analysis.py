@@ -89,6 +89,7 @@ class logger:
 #
 # Main IV analysis routine
 #
+SCALE = .100  # uV
 
 def analyze_IV_curve(bias, fb, deriv_thresh=5e-6):
     results = {'ok': False}
@@ -96,7 +97,7 @@ def analyze_IV_curve(bias, fb, deriv_thresh=5e-6):
     i = 0
     dy = fb[1:] - fb[:-1]
     dbias = -mean(bias[1:] - bias[:-1])
-    span = max(5, int(.100/dbias))
+    span = max(5, int(SCALE/dbias))
     supercon, transend = None, None
     # Look at all places where the derivative is positive.
     pos_idx = (dy[:-span]>0).nonzero()[0]
@@ -471,11 +472,12 @@ if opts.plot_dir != None and not opts.summary_only:
     # Three columns need 3 labels
     x_labels = [ 'TES V (uV)', 'TES P (pW)', 'Det bias (A)' ]
 
+    rows_pp = 6
     for c in range(n_col):
         printv('Plotting column %2i' % data_cols[c], 1)
         file_pattern = os.path.join(opts.plot_dir, 'IV_plots_C%02i_%%02i.png' % data_cols[c])
         pi = stackedPager(
-            page_shape=(6,3),
+            page_shape=(rows_pp,3),
             shape=(n_row,3),
             filename=file_pattern,
             img_size=(700, 700),
@@ -483,15 +485,30 @@ if opts.plot_dir != None and not opts.summary_only:
         for r, pc, p in pi:
             valid = ok[r,c] and (iv_data.R_norm[r,c] > 0)
             xl, yl = None, None
+            if r % rows_pp == 0:
+                fr = pi.canvas['plot'][0,pc]
+                if pc == 1:
+                    fr.title = 'Column %02i Rows %02i-%02i' % \
+                        (data_cols[c], r, r+rows_pp-1)
+                else:
+                    fr.title = ''
+            else:
+                fr == None
             if pc == 0:
                 # TES I vs TES V (transition and normal)
-                if not valid:
-                    continue
+                #if not valid:
+                #    continue
+                if fr != None:
+                    fr.xlabel = 'V_TES (uV)'
+                    fr.ylabel = 'P_TES (pW)'
                 idx = arange(0, iv_data.super_idx0[r,c])
                 if len(idx) == 0: continue
                 x, y = v_tes[r,c,idx], i_tes[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
             elif pc == 1:
+                if fr != None:
+                    fr.xlabel = 'TES POWER (pW)'
+                    fr.ylabel = 'R_EFF (Ohms)'
                 # R_eff vs P (transition and normal)
                 if not valid:
                     continue
@@ -500,6 +517,9 @@ if opts.plot_dir != None and not opts.summary_only:
                 x, y = v_tes[r,c,idx]*i_tes[r,c,idx], v_tes[r,c,idx]/i_tes[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
             elif pc == 2:
+                if fr != None:
+                    fr.xlabel = 'TES BIAS (DAC/1000)'
+                    fr.ylabel = 'FB (DAC/1000)'
                 # Show data with analysis regions
                 y = data[r,c] / 1000
                 x = raw_bias / 1000
