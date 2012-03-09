@@ -462,7 +462,7 @@ class SmallMCEFile:
                         names.append((r, c))
         return names
                     
-    def _ExtractRect(self, data_in):
+    def _ExtractRect(self, data_in, dtype='float'):
         """
         Given CC data frames, extract RC channel data assuming
         according to data content parameters.
@@ -474,10 +474,15 @@ class SmallMCEFile:
         # with each RC's data one-by-one
         data_in.shape = (n_ro, -1, self.n_rc * self.rc_step)
 
+        # Probably should leave the type the same, oops.
+        if dtype == None:
+            dtype = data_in.dtype
+
         # Short-hand some critical sizes and declare output data array
         f = self.n_cols*self.n_rows          # RC frame size
         p = self.size_ro / f                 # CC/RC packing multiplier
-        data = numpy.zeros((self.n_rows, self.n_rc, self.n_cols, n_ro * p))
+        data = numpy.zeros((self.n_rows, self.n_rc, self.n_cols, n_ro * p),
+                           dtype=dtype)
 
         # The only sane way to do this is one RC at a time
         for rci in range(self.n_rc):
