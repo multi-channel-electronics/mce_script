@@ -256,6 +256,33 @@ class configFile(dict):
         for k, v in self.iter():
             self.set_param(k,v)
 
+    def merge_from(self, filename, clobber=False, verbose=False):
+        src = configFile(filename)
+        for k in src.keys():
+            if (not k in self) or clobber:
+                self[k] = src[k]
+                self.info[k] = src.info[k]
+                if not k in self.names:
+                    self.names.append(k)
+
+    @staticmethod
+    def compare(c1, c2):
+        results = []
+        c2k = [x for x in c2.keys()]
+        for k in sorted(c1.keys()):
+            if not k in c2k:
+                results.append((k, 'left only'))
+                continue
+            c2k.remove(k)
+            if c1.info[k]['type'] != c2.info[k]['type']:
+                results.append((k, 'type conflict'))
+            elif c1.info[k]['is_array'] != c2.info[k]['is_array']:
+                results.append((k, 'arrayness conflict'))
+        for k in c2k:
+            results.append((k, 'right only'))
+        return results
+            
+        
 def get_fake_expt(filename):
     print """
 Creating configFile based on hard-coded experiment.cfg parameters...
@@ -282,6 +309,11 @@ Please upgrade mas_param to support "info" dumping.  Thanks.
 
 if __name__ == '__main__':
     # Unit test...
-    fn = '/data/cryo/current_data/experiment.cfg'
-    cfg = configFile(fn)
-    print cfg.get_param('dead_mask_list')
+    fn1 = '/data/cryo/current_data/experiment.cfg'
+    fn2 = './experiment.cfg'
+    print 'load'
+    c1 = configFile(fn1)
+    c2 = configFile(fn2)
+    print 'scan'
+    for x in c1.compare(c1, c2):
+        print x
