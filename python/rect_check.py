@@ -53,6 +53,8 @@ class frameConfig:
         """
         # Check for MCE state:
         for k, _ in self.mce_params:
+            if k == 'barrier':
+                continue
             if self.params[k] == None:
                 return None
         # 
@@ -119,8 +121,13 @@ class frameConfig:
         acq_cards = rf.Item('FRAMEACQ', 'RC', type='int')
         rc = 'rc%i' % acq_cards[0]
         for k, (c, p) in self.mce_params:
+            if k == 'barrier':
+                continue
             if c == 'rca': c = rc
-            self.params[k] = rf.Item('HEADER', 'RB %s %s' % (c, p), type='int')[0]
+            item = rf.Item('HEADER', 'RB %s %s' % (c, p), type='int')
+            if item == None:
+                raise RuntimeError, "Failed to find key for %s %s" % (c,p)
+            self.params[k] = item[0]
         self.derive()
 
     def from_mce(self, mce=None):
