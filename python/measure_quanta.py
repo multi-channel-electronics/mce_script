@@ -7,7 +7,7 @@ o = OptionParser(usage="""
                %prog [options] tuning_dir stage
 
 where tuning_dir is the folder containg the tuning data and stage is
-one of sa_ramp, sq2_servo, or sq1_ramp.""")
+one of sa_ramp, sq2_servo, sq1_ramp, or sq1_ramp_tes.""")
 o.add_option('-m','--median',action='store_true',default=False,
              dest='do_median',help='replace zeros with column median')
 o.add_option('--span',type=float,default=1.5,
