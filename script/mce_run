@@ -19,9 +19,10 @@ function usage {
     echo "     RC         is the card number e.g. \"3\", or \"s\" for all"
     echo
     echo "Recognized options (must follow the mandatory arguments):"
-    echo "     --dirfile    force dirfile data format"
-    echo "     --flatfile   force flatfile data format"
-    echo "     --no-locking do not check/assert the data driver lock"
+    echo "     --dirfile       force dirfile data format"
+    echo "     --flatfile      force flatfile data format"
+    echo "     --no-locking    do not check/assert the data driver lock"
+    echo "     --sequence <n>  break output into chunks of size n frames"
     [ "$1" == "" ] || exit $1
     exit 1
 }
@@ -42,9 +43,10 @@ shift 3
 
 # Options processing
 locking=1
+fileseq=
 
-for a in $@; do
-    case "$a" in
+while [ "$#" != "0" ]; do 
+    case "$1" in
 	"--flatfile")
 	    acq_config_suffix=""
 	    ;;
@@ -56,12 +58,17 @@ for a in $@; do
 	"--no-locking")
 	    locking=0
 	    ;;
-
+	
+	"--sequence")
+	    fileseq=$2
+	    shift
+	    ;;
 	*)
 	    echo "$SCRNAME : unknown option '$a'"
 	    usage
 	    ;;
     esac
+    shift
 done
 
 # Query the data lock state
@@ -116,9 +123,11 @@ echo "FRAME_BASENAME=$filename"
 lock_opts=
 [ "$locking" == "1" ] && lock_opts="-X lock_down"
 
+[ "$fileseq" != "" ] && acq_config_suffix=${acq_config_suffix}_fs
+
 mce_cmd -q -o / \
     $lock_opts \
-    -X "acq_config${acq_config_suffix} $filename rc$rc" \
+    -X "acq_config${acq_config_suffix} $filename rc$rc $fileseq" \
     -X "acq_go $numpts"
 
 if [ "$?" != "0" ]; then
