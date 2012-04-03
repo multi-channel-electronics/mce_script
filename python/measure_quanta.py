@@ -1,5 +1,6 @@
 import auto_setup as aset
 from pylab import *
+import os, sys
 
 from optparse import OptionParser
 
@@ -19,8 +20,17 @@ if len(args) != 2:
 tuning_dir = args[0]
 stage = args[1]
 
+# Protect user
+if not tuning_dir[0] == '/' and not os.path.exists(tuning_dir):
+    print 'Cannot find "%s", looking in $MAS_DATA...' % tuning_dir
+    tuning_dir = os.getenv('MAS_DATA')+tuning_dir
+
 fs = aset.util.FileSet(tuning_dir)
 files = fs.stage_all(stage)
+if len(files) == 0:
+    print 'No files found for stage %s' % stage
+    sys.exit(1)
+
 if stage == 'sa_ramp':
     ramps = [aset.series_array.SARamp(f) for f in files]
     out_format = 'column'
