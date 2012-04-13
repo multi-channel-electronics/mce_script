@@ -5,6 +5,9 @@ import auto_setup as ast
 import subprocess
 from optparse import OptionParser
 
+stage_list = ['sa_ramp', 'sq2_servo', 'sq1_servo', 'sq1_ramp',
+              'sq1_ramp_tes', 'operate']
+
 o = OptionParser(usage="""
 %prog [options]
 
@@ -13,7 +16,7 @@ use the --rc=RC option.  To tune only certain squid stages of an
 array, use --first-stage and --last-stage.  Valid arguments to
 --*-stage options are:
 
-  sa_ramp sq2_servo sq1_servo sq1_ramp sq1_ramp_tes operate
+   """ + ' '.join(stage_list) + """
 
 The auto-setup gets most of its configuration instructions from
 experiment.cfg.
@@ -29,7 +32,7 @@ o.add_option('--first-stage', default=None,help=
 o.add_option('--last-stage', default=None,help=
              "select squid stage after which to stop tuning")
 o.add_option('-s', '--shortness', default=0, type='int', help=
-             "legacy... pass integer [0, 1,2 ] to get equivalent of "\
+             "legacy... pass integer [0, 1, 2] to get equivalent of "\
                  "--first-stage [sa_bias, sq1_servo, sq1_ramp]")
 o.add_option('--check-bias', action='store_true', dest='check_bias', help=
              "force checking of SA and SQ2 bias")
