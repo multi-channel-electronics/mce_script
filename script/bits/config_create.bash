@@ -7,6 +7,9 @@ mce_script="/tmp/`whoami`_config_mce.scr"
 # Remove existing script
 [ -e "$mce_script" ] && rm -f "$mce_script"
 
+# For raveled 2d arrays
+AROWS=${array_width}
+
 # Choose sync box parameters:
 if [ "$config_sync" != "0" ]; then
 	select_clk=$sb1_select_clk
@@ -23,6 +26,9 @@ adc_offset_divided=( adc_offset_c )
 for i in `seq 0 $(( ${#adc_offset_c[@]} - 1))` ; do
 	adc_offset_divided[$i]=$(( ${adc_offset_c[$i]} / $sample_num ))
 done
+
+# Perhaps you don't know about mux11d -- default to off
+hardware_mux11d=${hardware_mux11d:-0}
 
 # Allow some flexibility in hardware_fast_sq2 vs. hardware_bac
 if [ "$hardware_fast_sq2" == "" ]; then
@@ -159,13 +165,13 @@ for rc in 1 2 3 4; do
 	if [ "${config_flux_quanta_all}" != "0" ]; then
 	    echo "wb rc$rc flx_quanta$c ${flux_quanta_all[@]:$r_off:$array_width}" >> $mce_script
 	else
-	    repeat_string "${flux_quanta[$chan]}" 41 "wb rc$rc flx_quanta$c" >> $mce_script
+	    repeat_string "${flux_quanta[$chan]}" $AROWS "wb rc$rc flx_quanta$c" >> $mce_script
 	fi
 
 	if [ "${config_adc_offset_all}" != "0" ]; then
 	    echo "wb rc$rc adc_offset$c ${adc_offset_cr[@]:$r_off:$array_width}" >> $mce_script
 	else
-	    repeat_string "${adc_offset_divided[$chan]}" 41 "wb rc$rc adc_offset$c" >> $mce_script
+	    repeat_string "${adc_offset_divided[$chan]}" $AROWS "wb rc$rc adc_offset$c" >> $mce_script
 	fi
     done
 
@@ -185,12 +191,18 @@ done
 #----------------------------------------------
 # Address Card
 #----------------------------------------------
+if [ "$hardware_mux11d" == "0" ]; then 
+    echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
+    echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
+else
+    echo "wb row select ${row_select[@]}" >> $mce_script
+    echo "wb row deselect ${row_deselect[@]}" >> $mce_script
+fi
+
 echo "wb ac row_dly   $row_dly" >> $mce_script
 echo "wb ac row_order ${row_order[@]}" >> $mce_script
-echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
-echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
-
+	
 
 # Set the TES biases via the "tes bias" virtual address
 if [ "$tes_bias_do_reconfig" != "0" ]; then
@@ -224,27 +236,53 @@ for rc in 1 2 3 4; do
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
  
     ch_ofs=$(( ($rc-1)*8 ))
-    echo "wra sa  fb    $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"    >> $mce_script
-    echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}" >> $mce_script
 
-    if [ "$config_fast_sq2" == "0" ]; then
-	if [ "$hardware_fast_sq2" == "1" ]; then
-	    # Emulate bias card with a BAC
-	    for a in `seq 0 7`; do
-		c=$(( $ch_ofs + $a ))
-		repeat_string "${sq2_fb[$c]}" 41 "wb bac fb_col$c" >> $mce_script
-	    done
+    if [ "$hardware_mux11d" == "0" ]; then
+
+	echo "wra sa  fb    $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"
+	echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}"
+
+        # SQ2 feedback
+	if [ "$config_fast_sq2" == "0" ]; then
+	    if [ "$hardware_fast_sq2" == "1" ]; then
+	        # Emulate bias card with a BAC
+		for a in `seq 0 7`; do
+		    c=$(( $ch_ofs + $a ))
+		    repeat_string "${sq2_fb[$c]}" $AROWS "wb bac fb_col$c"
+		done
+	    else
+                # People still use bias cards?
+		echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"
+	    fi
 	else
-            # People still use bias cards?
-	    echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"   >> $mce_script
+	    # BAC and new bias card firmware support sq2 fb_col%
+	    for a in `seq 0 7`; do
+		row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
+		echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:$AROWS}"
+	    done
 	fi
     else
-	# BAC and new bias card firmware support sq2 fb_col%
-	for a in `seq 0 7`; do
-	    row_ofs=$(( ($ch_ofs+$a) * 41 ))
-	    echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:41}" >> $mce_script
-	done
-    fi
+	# SA FB, possibly fast-switching
+	echo "wra sa enbl_mux $ch_ofs 8 `repeat_string $config_fast_sa_fb 8`"
+	if [ "$config_fast_sa_fb" == "1" ]; then
+	    for a in `seq 0 7`; do
+		row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
+		echo "wb sa fb_col$(( $a + $ch_ofs )) ${sa_fb_set[@]:$row_ofs:$AROWS}"
+	    done
+	else
+	    echo "wra sa fb $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"
+	fi
+	# SQ1 bias, possibly fast-switching
+	echo "wra sq1 enbl_mux $ch_ofs 8 `repeat_string $config_fast_sq1_bias 8`"
+	if [ "$config_fast_sq1_bias" == "1" ]; then
+	    for a in `seq 0 7`; do
+		row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
+		echo "wb sq1 bias_col$(( $a + $ch_ofs )) ${sq1_bias_set[@]:$row_ofs:$AROWS}"
+	    done
+	else
+	    echo "wra sq1 bias $ch_ofs  ${sq1_bias[@]:$ch_ofs:8}"
+	fi
+    fi >> $mce_script
 done
 
 # Servo loop re-init
