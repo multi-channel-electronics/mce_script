@@ -1,0 +1,94 @@
+#!/usr/bin/python
+
+USAGE = """
+%prog [option] ... [expt_file [config_script]]
+
+Creates an MCE config script from an experiment.cfg file.
+
+The defaults are such that experiment.cfg is assumed to be in
+$MAS_DATA, and the config script gets written there too, with a name
+like
+       config_mce_auto_setup_<date>
+
+Note that the script will not be executed by default; pass -x to run
+the script and program the MCE immediately.
+"""
+
+import os, sys, stat
+import subprocess as sp
+
+from optparse import OptionParser
+o = OptionParser(usage=USAGE)
+o.add_option('-e','--expt-file',default=None,help=
+             "Input filename for experiment.cfg file.")
+o.add_option('-o','--config-script',default=None,help=
+             "Output filename for the config script.")
+o.add_option('-x','--execute',action='store_true',help=
+             "Execute the config script immediately after creating it.")
+o.add_option('-v','--verbosity',type='int',default=1,help=
+             "Larger numbers leave the verbosity the same, while smaller "
+             "numbers leave it the same.")
+o.add_option('--name',help=
+             "Alternate tag (instead of trying to find the current_data_name) "
+             "for auto-named output script.")
+
+opts, args = o.parse_args()
+
+# Defaults
+
+data_folder = os.getenv('MAS_DATA')
+script_source = '%s/bits/' % os.getenv('MAS_SCRIPT')
+
+# Support classic command line arguments
+if len(args) > 2:
+    o.error("I can really only handle 2 arguments.")
+
+if len(args) >= 1:
+    opts.expt_file = args[0]
+
+if len(args) >= 2:
+    opts.config_script = args[1]
+    
+# And then the real defaults
+if opts.expt_file == None:
+    opts.expt_file = '%s/experiment.cfg' % data_folder
+    
+if opts.config_script == None:
+    if opts.name == None and opts:
+	opts.name = open('/data/cryo/current_data_name').readline().strip()
+    opts.config_script = '%s/config_mce_auto_setup_%s' % (data_folder, opts.name)
+    sys.stderr.write("Using default configuration file, '%s'\n" % opts.config_script)
+    
+if os.path.exists(opts.config_script):
+    print "Removing existing '%s'" % opts.config_script
+    os.remove(opts.config_script)
+
+fout = open(opts.config_script, 'w')
+fout.write('#!/bin/bash\n')
+
+def cat_onto(fout, filename):
+    for line in open(filename, 'r'):
+        fout.write(line)
+
+cat_onto(fout, script_source + 'config_header.bash')
+
+p = sp.Popen(['mas_param', '-s', opts.expt_file, 'bash'], stdout=sp.PIPE)
+for line in p.stdout:
+    fout.write(line)
+p.communicate()
+
+cat_onto(fout, script_source + 'config_create.bash')
+
+cat_onto(fout, script_source + 'config_run.bash')
+
+del fout
+
+# Execution for all
+perms = os.stat(opts.config_script)[stat.ST_MODE]
+new_perms = perms | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+os.chmod(opts.config_script, new_perms)
+
+# Execution in our time?
+if opts.execute:
+    print "Executing the new '%s'" % opts.config_script
+    sp.call([opts.config_script])

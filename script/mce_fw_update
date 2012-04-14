@@ -32,7 +32,7 @@ echo " MCE firmware revisions prior to firmware update:"
 
 case "$DEVICE" in
     EPC16)
-	echo mce_jam -u -f800000 -aprogram -dDO_VERIFY=0 $JAM_FILE
+	mce_jam -u -f800000 -aprogram -dDO_VERIFY=0 $JAM_FILE
 	;;
     EPCS64)
 	mce_jam -u -f8000000 -aconfigure $JAM_FILE && \
@@ -50,8 +50,9 @@ esac
 echo " Configuration complete."
 
 if [[ $DEVICE != "FPGA"  ]]; then
-  echo "  Triggering Clock Card reconfiguration, which reconfigures all other cards too.."
-  mce_cmd -q -x rs cc config_fac 1
+  echo "  Triggering Clock Card reconfiguration, which resets all other cards ..."
+#  mce_cmd -q -x rs cc config_app 1
+  echo "UNCOMMENT ME"
   sleep 15
 fi
 

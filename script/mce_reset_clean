@@ -18,7 +18,8 @@ function check_card_life {
 
 expt=$MAS_DATA/experiment.cfg
 rc_flags=( `mas_param -s $expt get hardware_rc` )
-bac_flag=`mas_param -s $expt get hardware_bac`
+bac_flag=0
+[ "`mas_param -s $expt get hardware_fast_sq2`" == "1" ] && bac_flag=1
 if [ "$?" != "0" ]; then
     card_list="sys"
 else
