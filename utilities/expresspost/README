@@ -42,8 +42,8 @@ This will install /etc/init.d/expresspost, and will also create a link
 in /etc/rc2.d/S90expresspost so that expresspost will get launched
 each time the computer starts up.  To start/stop expresspost manually, run:
 
- /etc/init.d/expresspost start
- /etc/init.d/expresspost stop
+ sudo /etc/init.d/expresspost start
+ sudo /etc/init.d/expresspost stop
 
 
 File list syntax
