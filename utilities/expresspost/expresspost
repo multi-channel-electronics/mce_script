@@ -30,6 +30,7 @@ PID_FILE=/var/run/$PROG.pid
 SOURCE=/data/cryo/
 ARRAY=`cat /data/cryo/array_id`
 DEST=act@lancelot:/data/mce_plots/${ARRAY}/
+SSH_KEY=/home/mce/.ssh/id_rsa
 SPEC=mceplots_archive
 
 # Make sure the binary exists
@@ -38,7 +39,8 @@ test -f $PROG_BIN || exit 0
 start() {
   log_begin_msg $"Starting $PROG: "
   start-stop-daemon --start --pidfile $PID_FILE --name $PROG \
-      --startas $PROG_BIN -- --source-dir $SOURCE --dest-location $DEST --file-spec $SPEC \
+      --startas $PROG_BIN -- --source-dir $SOURCE --dest-location $DEST \
+      --ssh-key $SSH_KEY --file-spec $SPEC \
       --aggression 0
   log_end_msg $?
   RETVAL=$?

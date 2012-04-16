@@ -114,12 +114,13 @@ class ArchiveList:
        
 
 class Rsyncer:
-    def __init__(self, dest):
+    def __init__(self, dest, key=None):
         self.dest = dest
+        self.key = key
 
     def Sync(self, sources, suffix, extra_permissions=None):
         full_dest = self.dest + '/' + suffix
-        args = ['rsync', '-e', 'ssh -i /home/mce/.ssh/id_rsa', '-uvzr']
+        args = ['rsync', '-e', 'ssh -i %s'%self.key, '-uvzr']
         args.extend(sources)
         args.append(full_dest)
 
@@ -131,8 +132,8 @@ class Rsyncer:
         # split dest into host and folder...
         if extra_permissions != None:
             host, folder = full_dest.split(':')
-            argstr = 'ssh -i /home/mce/.ssh/id_rsa %s chmod %s %s' % \
-                (host, extra_permissions, folder)
+            argstr = 'ssh -i %s %s chmod %s %s' % \
+                (self.key, host, extra_permissions, folder)
             err = os.spawnv(os.P_WAIT, '/usr/bin/ssh', argstr.split())
             if (err != 0):
                 print 'ssh didn\'t like: ', argstr
@@ -146,6 +147,7 @@ def process_options():
     opts.add_option('--file-spec', '-f', default="archive_req")
     opts.add_option('--aggression', '-a', type='int', default=1)
     opts.add_option('--compress', '-z', default=1)
+    opts.add_option('--ssh-key', '-k')
 
     (op, ar) = opts.parse_args()
 
@@ -160,7 +162,7 @@ def main():
     op = process_options()
 
     # Copier object, with destination in mind
-    r = Rsyncer(op.dest_location)
+    r = Rsyncer(op.dest_location, op.ssh_key)
     
     # Watch for changes in the archive files.
     w = WatchSet(op.source_dir, op.file_spec, recursive=True)

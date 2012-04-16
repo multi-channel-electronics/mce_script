@@ -1,0 +1,61 @@
+expresspost
+===========
+
+expresspost will want to run as root, and to have access to a
+passwordless ssh key for copying files over.
+
+It works by monitoring a directory on the local system for files
+matching a certain pattern.  Those files are interpreted as lists
+(with a particular syntax) of files to copy to the remote system.
+
+
+Configuration
+-------------
+
+expresspost is configured through some variables set in the daemon
+launching script, "expresspost".  Modify this script before installing.
+
+For example in "expresspost" we might set up the following variables:
+
+SOURCE=/home/mce/tuning_data/
+DEST=mhasse@gamow.phas.ubc.ca:tuning_data/
+SSH_KEY=/home/mhasse/.ssh/id_rsa_pw
+SPEC=file_list
+
+These describe:
+ SOURCE     the local directory to watch for updates
+ DEST 	    the ssh host and directory where the files should end up
+ SSH_KEY    the ssh key to use
+ SPEC 	    the file name to search for on the local system.
+
+So this setup will watch /tuning_data on the local system.  Any files
+called "file_list" will be parsed.
+
+
+Installation
+------------
+
+Run
+ sudo make install
+
+This will install /etc/init.d/expresspost, and will also create a link
+in /etc/rc2.d/S90expresspost so that expresspost will get launched
+each time the computer starts up.  To start/stop expresspost manually, run:
+
+ /etc/init.d/expresspost start
+ /etc/init.d/expresspost stop
+
+
+File list syntax
+----------------
+
+The file lists should look like this:
+ prefix 1234500000/
+ file 1234500001.png
+ file 1234500002.png
+ complete
+
+The script will copy the two files to subdirectory "1234500000" on the
+remote system (then it will write "ack" onto the end of the file
+list).
+
