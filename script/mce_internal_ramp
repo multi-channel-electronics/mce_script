@@ -152,7 +152,9 @@ if __name__ == '__main__':
             if opts.step_frames <= 0:
                 abort_msg('Step period is less than 0 frames, aborting.')
             if opts.range == None:
-                abort_msg('Provide a description of the ramp range using --range.')
+                opts.range=[0,0,1]
+                print ' Defaulting to range [%i,%i,%i]' % opts.range
+
             # Inform...
             n_steps = (opts.range[1] - opts.range[0]) / opts.range[2] + 1
             print ' Ramp will step every %i frames.' % opts.step_frames
