@@ -263,7 +263,7 @@ for rc in 1 2 3 4; do
 	fi
     else
 	# SA FB, possibly fast-switching
-	echo "wra sa enbl_mux $ch_ofs 8 `repeat_string $config_fast_sa_fb 8`"
+	echo "wra sa enbl_mux $ch_ofs `repeat_string $config_fast_sa_fb 8`"
 	if [ "$config_fast_sa_fb" == "1" ]; then
 	    for a in `seq 0 7`; do
 		row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
@@ -273,7 +273,7 @@ for rc in 1 2 3 4; do
 	    echo "wra sa fb $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"
 	fi
 	# SQ1 bias, possibly fast-switching
-	echo "wra sq1 enbl_mux $ch_ofs 8 `repeat_string $config_fast_sq1_bias 8`"
+	echo "wra sq1 enbl_mux $ch_ofs `repeat_string $config_fast_sq1_bias 8`"
 	if [ "$config_fast_sq1_bias" == "1" ]; then
 	    for a in `seq 0 7`; do
 		row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
