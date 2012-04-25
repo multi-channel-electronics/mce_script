@@ -18,7 +18,7 @@ class RC_revE:
     # Overall gain of SA output to ADC input
     output_gain = 202.36
     # SA output voltage per ADC bit
-    dVdX_adc = 1.8/2**14 / 202.36
+    dVdX_adc = 2.00/2**14 / 202.36
     # SA output voltage per bit of offset DAC
     dVdX_offset = 2.5/2**16 / 45.92
     # SA bias voltage, per bit of bias DAC
@@ -28,9 +28,9 @@ class RC_revE:
 
 class RC_revB:
     # Overall gain of SA output to ADC input
-    output_gain = 99.46
+    output_gain = 198.9
     # SA output voltage per ADC bit
-    dVdX_adc = 1.0/2**14 / 99.46
+    dVdX_adc = 2.20/2**14 / 198.9
     # SA output voltage per bit of offset DAC
     dVdX_offset = 2.5/2**16 / 33.90
     # SA bias voltage, per bit of bias DAC
@@ -38,6 +38,10 @@ class RC_revB:
     # SA bias resistance (not including cable)
     R_bias = 15000.
 
+RC_revs = {
+    2: RC_revB,
+    5: RC_revE,
+}
 
 
 from  optparse import OptionParser
@@ -53,6 +57,9 @@ for action in args:
         sa_bias0 = m.read('sa', 'bias')
         sa_offset0 = m.read('sa', 'offset')
         sample_num = m.read('rca', 'sample_num')[0]
+        card_rev = m.read('rca', 'card_type')[0] >> 16
+        if card_rev == 0:
+            card_rev = 2
         servo0, data0 = m.servo_mode(), m.data_mode()
         
         print 'Setting up...'
@@ -103,7 +110,7 @@ for action in args:
         print
 
         # Analyze those signals
-        rc = RC_revE()
+        rc = RC_revs[card_rev]
         d_offset_pred = rc.dVdX_offset / rc.dVdX_adc
 
         # Convert d_bias to voltage ratio between SA output (at
