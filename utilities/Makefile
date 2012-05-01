@@ -1,17 +1,23 @@
-CC=gcc
+CC=gcc -std=c99
 
-CFLAGS+=-Wall -std=c99 -D_GNU_SOURCE
+CPPFLAGS += -D_GNU_SOURCE
+CFLAGS += -Wall
 
 TARGETS= eat_packets runfile_scan extract_frames catch_rampers ascii_frame
 
 DEPS = mce_header.h
 
-INSTALL_DIR=/usr/mce/bin
-
 all: $(TARGETS)
 
 install: $(TARGETS)
-	cp $(TARGETS) $(INSTALL_DIR)
+	@if test -z "${MAS_VAR}"; then \
+		echo "Set MAS_VAR before running make install."; \
+		echo "(If MAS_VAR *is* set, try \"sudo -E make install\")"; \
+		false; \
+	else \
+		export MAS_BIN=$$($$MAS_VAR --bin-dir); \
+	install -m 0755 -g mce -d $$MAS_BIN
+	install -m 2755 -g mce $(TARGETS) $$MAS_BIN
 
 eat_packets: eat_packets.o sequence.o mce_header.o $(DEPS) 
 
@@ -19,10 +25,9 @@ extract_frames: extract_frames.o
 
 catch_rampers: catch_rampers.o
 
-runfile_scan: scan.c runfile.o runfile.h
-	$(CC) $(CFLAGS) scan.c runfile.o -o runfile_scan
+runfile_scan: scan.o runfile.o
 
-runfile.o: runfile.c runfile.h
+scan.o runfile.o :: runfile.h
 
 tidy:
 	-rm *~ *.o

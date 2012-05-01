@@ -1,0 +1,14 @@
+# This is a template for the DO.NOT.EDIT files which are installed in MAS_ROOT
+# and its subdirectories.  These files are meant to chase off people accustomed
+# to editing the scripts in-place.  Lines beginning with # are not copied on
+# install.
+#
+DO NOT EDIT THE SCRIPTS IN THIS DIRECTORY.  CHANGES MADE HERE WILL BE LOST.
+
+This is not a checked out copy of the subversion repository, but rather an
+installed build of mce_script.  To edit the scripts here, check out a local
+copy of mce_script somewhere else, edit the scripts, and then run
+
+  sudo make install
+
+from the top level directory.
