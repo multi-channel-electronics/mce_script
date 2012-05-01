@@ -6,19 +6,19 @@ In the past, the MCE script tree was checked out directly into /usr/mce/mce_scri
 $MAS_ROOT was pointing).  We now encourage people to check out MCE script elsewhere and then
 install a read-only copy into /usr/mce/mce_script.
 
-To build and install MCE script first build it by running:
+To install MCE script, first build it by running:
 
   make
 
-from the top-level directory.  (The directory containing this file) and then install it with
+from the top-level directory (the directory containing this file) and then install it with
 
   sudo -E make install
 
-The install rule requires you to set MAS_VAR to the full path of the mas_var program installed
-as part of MAS.  If MAS_VAR isn't defined, for a standard install, the following should work
-in bash:
+Before installing, you must set the MAS_VAR environment variable to the full path of the
+mas_var program installed as part of MAS.  If MAS_VAR isn't defined, for a standard install,
+the following should work in bash:
 
-  export MAS_VAR=/usr/mce/mas_var
+  export MAS_VAR=/usr/mce/bin/mas_var
 
 (The -E in the sudo call prevents sudo from scrubbing your definition of MAS_VAR from the
 environment.)
