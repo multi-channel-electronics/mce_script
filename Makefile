@@ -33,6 +33,7 @@ install:
 			dirlist=`find $$d -name .svn -prune -printf '' -o \
 					\( -type d -print \)`; \
 			grep -v '^#' dne > $${MAS_ROOT}/DO.NOT.EDIT; \
+			chown $${MAS_USER}:$${MAS_GROUP} $${MAS_ROOT}/DO.NOT.EDIT; \
 			for s in $$dirlist; do \
 				echo "Installing $$s -> $${MAS_ROOT}/$$s"; \
 				install -vm 2755 -o $${MAS_USER} -g $${MAS_GROUP} -d $${MAS_ROOT}/$$s; \
