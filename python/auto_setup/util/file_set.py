@@ -2,6 +2,10 @@ from glob import glob
 import os
 
 class FileSet(dict):
+    """
+    Search a tuning folder for tuning data files.
+    """
+
     def __init__(self, folder):
         self.read(folder)
 
@@ -14,9 +18,16 @@ class FileSet(dict):
             ('sq1rampb','tes_ramp'),
             ('sq1rampc','sq1_ramp_check'),
             ('sq1ramptes','sq1_ramp_tes'),
+            ('rsservo','rs_servo'),
+            ('sq1servosa','sq1_servo_sa'),
             ]:
             self[name] = {}
             stage_files = glob('%s/*%s' % (folder, tag))
+            bias_files = glob('%s/*%s.bias' % (folder, tag))
+            # Isolated bias_files should return the basename
+            for b in bias_files:
+                if b[:-5] not in stage_files:
+                    stage_files.append(b[:-5])
             for f in stage_files:
                 for rc in ['RC1', 'RC2', 'RC3', 'RC4', 'RCs', 'RCS']:
                     if rc in f:
