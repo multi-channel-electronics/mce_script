@@ -16,8 +16,9 @@ install: $(TARGETS)
 		false; \
 	else \
 		export MAS_BIN=$$($$MAS_VAR --bin-dir); \
-	install -m 0755 -g mce -d $$MAS_BIN
-	install -m 2755 -g mce $(TARGETS) $$MAS_BIN
+		install -m 0755 -g mce -d $$MAS_BIN; \
+		install -m 2755 -g mce $(TARGETS) $$MAS_BIN; \
+	fi
 
 eat_packets: eat_packets.o sequence.o mce_header.o $(DEPS) 
 
@@ -26,11 +27,12 @@ extract_frames: extract_frames.o
 catch_rampers: catch_rampers.o
 
 runfile_scan: scan.o runfile.o
+	$(CC) $(LDFLAGS) -o runfile_scan scan.o runfile.o
 
 scan.o runfile.o :: runfile.h
 
 tidy:
-	-rm *~ *.o
+	rm -f *~ *.o
 
 clean: tidy
-	-rm $(TARGETS)
+	rm -f $(TARGETS)

@@ -3,7 +3,7 @@ SHELL=/bin/bash
 # subdirectories; if the subdirectory contains a Makefile, it will be used,
 # otherwise these are simply installed verbatim by the install rule below,
 # recursively descending into subdirectories and preserving symlinks
-SUBDIRS=python script template test_suite utilities
+SUBDIRS=idl_pro python script template test_suite utilities
 
 all clean:
 	for d in $(SUBDIRS); do \
