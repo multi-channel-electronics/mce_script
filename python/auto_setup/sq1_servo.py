@@ -1,6 +1,7 @@
 import time, os, glob
 import auto_setup.util as util
 from numpy import *
+import numpy as np
 from mce_data import MCERunfile, MCEFile
 
 import servo
@@ -126,53 +127,19 @@ def acquire_all_row_painful(tuning, rc, filename=None, fb=None,
 
 
 
-class SQ1Servo(util.RCData):
+class SQ1Servo(servo.SquidData):
     stage_name = 'SQ1Servo'
     xlabel = 'SQ1 FB / 1000'
     ylabels = {'data': 'SQ2 FB / 1000',
                'error': 'Error / 1000'}
 
+    bias_assoc = 'row'
+
     def __init__(self, filename=None, tuning=None):
-        util.RCData.__init__(self)
+        servo.SquidData.__init__(self, tuning=tuning)
         self.data_attrs.append('error')
-        self.data = None
-        self.analysis = None
-        self.tuning = tuning
         if filename != None:
             self.read_data(filename)
-
-    @staticmethod
-    def join(args, target=None):
-        """
-        Arguments are SQ1Servo objects, loaded with data.
-        """
-        if target == None:
-            target = SQ1Servo()
-        # Borrow most things from the first argument
-        target.mcefile = None
-        target.tuning = args[0].tuning
-        target.data_origin = dict(args[0].data_origin)
-        target.fb = args[0].fb.copy()
-        target.d_fb = args[0].d_fb
-        target.bias_style = args[0].bias_style
-        target.bias = args[0].bias.copy()
-
-        # Join data systematically
-        util.RCData.join(target, args)
-        return target
-
-    def _check_data(self, simple=False):
-        if self.data == None:
-            raise RuntimeError, 'SQ1Servo needs data.'
-        if simple and self.gridded:
-            raise RuntimeError, 'Simple SQ1Servo expected (use split?)'
-
-    def _check_analysis(self, existence=False):
-        if self.analysis == None:
-            if existence:
-                self.analysis = {}
-            else:
-                raise RuntimeError, 'SQ1Servo lacks desired analysis structure.'
 
     def _read_super(self, filename):
         """
@@ -239,7 +206,8 @@ class SQ1Servo(util.RCData):
         # This should just extend the else; the second clause is a bug work-around
         if not bias_ramp or (bias_ramp and n_bias == 1):
             self.bias_style = 'select'
-            self.bias = array(rf.Item('HEADER', 'RB sq2 bias', type='int'))[self.cols]
+            row_order = np.array(rf.Item('HEADER', 'RB ac row_order', type='int'))
+            # Delay setting self.bias until we know what rows are involved...
 
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
@@ -253,34 +221,13 @@ class SQ1Servo(util.RCData):
         else:
             self._read_super(filename)
 
-    def split(self):
-        """
-        Split multi-bias data (from combined bias+fb ramp) into single
-        objects per bias.  Returns a list of single bias servos.
-        """
-        if self.bias_style == 'select':
-            return [self]
-
-        n_bias, n_row, n_col, n_fb = self.data_shape
-        copy_keys = ['data_origin', 'rows', 'cols', 'fb', 'd_fb', 'tuning']
-        output = []
-        for i in range(n_bias):
-            sa = SQ1Servo()
-            for k in copy_keys:
-                setattr(sa, k, getattr(self, k))
-            for k in self.data_attrs:
-                y = getattr(self, k).reshape(n_bias, -1)[i]
-                setattr(sa, k, y.reshape(-1, n_fb))
-            sa.data_shape = self.data_shape[1:]
-            sa.gridded = self.gridded
-            sa.bias_style = 'select'
-            sa.bias = array([self.bias[i]])
-            output.append(sa)
-        return output
+        if not bias_ramp or (bias_ramp and n_bias == 1):
+            idx = row_order[self.rows]
+            self.bias = array(rf.Item('HEADER', 'RB sq1 bias', type='int'))[idx]
 
     # This is different from servo.SquidData.reduce1 because for
     # multi-bias we pick a per-row best bias.
-    def reduce1(self):
+    def reduce1(self, slope=None):
         """
         Compute peak-to-peak response, store in self.analysis.
         """
@@ -292,6 +239,7 @@ class SQ1Servo(util.RCData):
             # Identify bias index of largest response in each row
             select = span.reshape(self.data_shape[:-1]).max(axis=-1).argmax(axis=0)
             self.analysis['y_span_select_row'] = select
+        self.analysis['select_row_sel']
         return self.analysis
 
     def reduce(self, slope=None, lock_amp=True):
@@ -327,28 +275,6 @@ class SQ1Servo(util.RCData):
         self.analysis = an
         return an
         
-    def select_biases(self, indices=None):
-        """
-        Reduce the servo data by selecting certain curves from
-        super-entries in each row.
-        """
-        if indices == None:
-            self._check_analysis()
-            indices = self.analysis['y_span_select_row']
-        # Get a single-bias servo
-        s = self.split()[0]
-        s.bias_style = 'select'
-        s.bias = zeros(s.data_shape[-1]) # 1 bias per row
-        s.data.shape = s.data_shape
-        self.data.shape = self.data_shape
-        # Indices are chosen bias index, per row.
-        for row, bias_idx in enumerate(indices):
-            s.bias[row] = self.bias[bias_idx]
-            s.data[row,:,:] = self.data[bias_idx,row,:,:]
-        s.data.shape = (-1, s.data_shape[-1])
-        self.data.shape = (-1, self.data_shape[-1])
-        return s
-
     def plot(self, plot_file=None, format=None, data_attr='data'):
         if plot_file == None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
@@ -381,15 +307,16 @@ class SQ1Servo(util.RCData):
         self._check_analysis()
 
         # Display biases as inset text
-        insets = None
-        if 0: #len(self.bias) == 1:
-            # The single bias used for all rows.
-            insets = ['BIAS = %5i' % self.bias[0]
-                      for x in range(self.data.shape[0])]
-        elif 0: #len(self.bias) > 1:
-            row_idx = zeros(self.data_shape[:-1], 'int')
-            row_idx[...,:] = arange(row_idx.shape[-1])
-            insets = ['BIAS = %5i' % self.bias[row] for row in row_idx.ravel()]
+        n_row, n_col = self.data_shape[-3:-1]
+        idx = np.arange(n_row*n_col) 
+        if self.bias_assoc == 'row':
+            idx /= n_col
+        elif self.bias_assoc == 'col':
+            idx %= n_col
+        ## make one string per bias...
+        insets = ['BIAS = %5i' % b for b in self.bias]
+        ## then repeat it as needed
+        insets = [insets[i] for i in idx]
 
         # Default data is self.data
         data = getattr(self, data_attr)
@@ -414,3 +341,123 @@ class SQ1Servo(util.RCData):
             kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
                                   (self.data_origin['basename'] + '_err'))
         return self.plot(*args, **kwargs)
+
+
+class SQ1ServoSA(SQ1Servo):
+    stage_name = 'SQ1ServoSA'
+    xlabel = 'SQ1 FB / 1000'
+    ylabels = {'data': 'SA FB / 1000',
+               'error': 'Error / 1000'}
+
+    bias_assoc = 'rowcol'
+
+    def read_data(self, filename):
+        """
+        Loads an sq1servo_sa data set.
+        """
+        rf = MCERunfile(filename+'.run')
+        self.rf = rf
+        self.data_origin = {'filename': filename,
+                            'basename': filename.split('/')[-1]}
+
+        # Determine columns, biases, feedbacks involved in servo
+        self.load_ramp_params('RB sq1 bias')
+
+        # Prime
+        self.data_shape = (-1, 1, len(self.cols), len(self.fb))
+
+        # Attempt load after counting bias/fb steps
+        self._read_super_bias(filename)
+
+    def reduce1(self, slope=None):
+        """
+        """
+        self._check_data()
+        self._check_analysis(existence=True)
+
+        # We actually need to assess curve quality here; ask for
+        # non-trivial lock-points.  Let's do two tests.
+        # 1. Is there a V-phi (identified non trivial maximum and minimum)
+        # 2. Are there too many zero-crossings?
+        ok = np.zeros(self.data.shape[0], 'bool')
+        r = []
+        for i in range(len(self.data)):
+            reg = servo.get_curve_regions(self.data[i], pairs=True)
+            if i == 100: print reg
+            # reg will always have at least 4 entries.  Remove any
+            # trivial ones though.
+            while len(reg) > 0 and reg[0][0] == reg[0][1]:
+                reg.pop(0)
+            while len(reg) > 0 and reg[-1][0] == reg[-1][1]:
+                reg.pop(-1)
+            # Now insist on at least 4 real features.  That's 1 phi0.
+            if len(reg) < 4:
+                continue
+            # Also ask for a relatively small number of zero crossings
+            dy = self.data[i] - self.data[i].mean()
+            nz = (dy[1:] * dy[:-1] < 0).sum()
+            if nz > 50:
+                continue
+            ok[i] = True
+        self.reg = reg
+        self.analysis['ok'] = ok
+
+        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
+        self.analysis['y_span'] = span
+        if self.bias_style == 'ramp':
+            # Identify bias index of largest response in each row
+            #select = span.reshape(self.data_shape[:-1]).max(axis=-1).argmax(axis=0)
+            #self.analysis['y_span_select_row'] = select
+            dshape = self.data_shape[:-1]
+            n_bias, n_row, n_col = dshape
+            n_det = n_row * n_col
+            # Count good curves in each column
+            ok = self.analysis['ok'].reshape(n_bias, n_det)
+            n_ok = ok.sum(axis=0)
+            bias_idx = np.zeros(n_det, 'int')
+            bias_ok = np.zeros(n_det, 'bool')
+            # Get the best bias for each row/col
+            span = span.reshape(n_bias, -1)
+            for i in range(ok.shape[1]):
+                if n_ok[i] > 0:
+                    bias_idx[i] = np.argmax(ok[:,i] * span[:,i])
+                    bias_ok[i] = True
+            self.analysis['select_rowcol_sel'] = bias_idx
+            self.analysis['select_rowcol_ok'] = n_ok > 0
+
+        return self.analysis
+
+    def reduce(self, slope=None, lock_amp=True):
+        self._check_data()
+        self._check_analysis(existence=True)
+        
+        if slope == None:
+            # Dodge possiblity that params are different lengths...
+            s1 = self.tuning.get_exp_param('default_servo_i')[self.cols]
+            s2 = self.tuning.get_exp_param('sq1_servo_gain')[self.cols]
+            slope = -sign(s1*s2)
+        if not hasattr(slope, '__getitem__'):
+            slope = array([slope]*len(self.cols))
+
+        # Make slope either a scalar, or 1 value per curve.
+        if any(slope != slope[0]):
+            z = zeros(self.data.shape[:-1]).reshape(-1, len(slope))
+            slope = (z + slope).ravel()
+        else:
+            slope = slope[0]
+        n_fb = len(self.fb)
+        an = servo.get_lock_points(self.data, scale=n_fb/40,
+                                   lock_amp=lock_amp, slope=slope)
+
+        # Add feedback keys
+        for k in ['lock', 'left', 'right']:
+            an[k+'_x'] = self.fb[an[k+'_idx']]
+
+        # Tweak feedback values and rescale slopes
+        d_fb = self.fb[1] - self.fb[0]
+        an['lock_x'] += (d_fb * an['lock_didx']).astype('int')
+        an['lock_slope'] /= d_fb
+
+        self.analysis = an
+        return an
+        

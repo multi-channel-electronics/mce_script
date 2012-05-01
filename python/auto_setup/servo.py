@@ -1,5 +1,6 @@
 import auto_setup.util as util
 from numpy import *
+import numpy as np
 import biggles
 import os
 
@@ -353,6 +354,9 @@ class SquidData(util.RCData):
     xlabel = 'X'
     ylabels = {'data': 'Y'}
 
+    # Are 'select' biases associated with column or row?
+    bias_assoc = 'col'
+
     def __init__(self, tuning=None):
         util.RCData.__init__(self)
         self.data = None
@@ -360,18 +364,24 @@ class SquidData(util.RCData):
         self.tuning = tuning
 
     @classmethod
-    def join(cls, args):
+    def join(cls, args, target=None):
         """
         Merge a list of objects of type cls into a new cls.
         """
-        synth = cls(tuning=args[0].tuning)
+        synth = target
+        if synth == None:
+            synth = cls(tuning=args[0].tuning)
+        
         # Borrow most things from the first argument
         synth.mcefile = None
         synth.data_origin = dict(args[0].data_origin)
         synth.fb = args[0].fb.copy()
         synth.d_fb = args[0].d_fb
         synth.bias_style = args[0].bias_style
-        synth.bias = args[0].bias.copy()
+        if synth.bias_style == 'select':
+            synth.bias = np.hstack([a.bias for a in args])
+        else:
+            synth.bias = args[0].bias.copy()
 
         # Join data systematically
         util.RCData.join(synth, args)
@@ -435,6 +445,61 @@ class SquidData(util.RCData):
         self.mcefile = None
         self.rf = None
 
+    def load_ramp_params(self, bias_key, servo_par_bug=False):
+        """
+        Parse runfile loop declaration to determine feedback and bias
+        values applied.  Requries self.rf and self.cols to already be set.
+
+        bias_key should be the runfile parameter (in HEADER) where the
+        applied bias can be found, in cases where the bias is not
+        being ramped.
+        """
+        rf = self.rf
+        rcs = rf.Item('FRAMEACQ', 'RC', type='int')
+        self.cols = array([i+(rc-1)*8 for rc in rcs for i in range(8)])
+
+        # Fix me: sometimes runfile always indicates bias was ramped,
+        # even though it usually wasn't
+        bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', \
+                                 array=False).strip().endswith('bias'))
+        
+        if bias_ramp:
+            bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1',
+                                            type='int')
+            fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1',
+                                      type='int')
+            self.bias_style = 'ramp'
+            self.bias = bias0 + d_bias*arange(n_bias)
+        else:
+            fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1',
+                                      type='int')
+            n_bias = 1
+        # This should just extend the else; the second clause is a bug work-around
+        if not bias_ramp or (servo_par_bug and (bias_ramp and n_bias == 1)):
+            self.bias_style = 'select'
+            self.bias = array(rf.Item('HEADER', bias_key, type='int'))[self.cols]
+
+        self.d_fb = d_fb
+        self.fb = fb0 + arange(n_fb) * d_fb
+
+    def _read_super_bias(self, filename):
+        """
+        Helper for read_data that assembles array of data from all-row
+        .bias files.
+        """
+        f = filename + '.bias'
+        index_set, self.error, self.data = util.load_super_bias_file(f)
+        n_bias, n_fb, n_row = amax(index_set, axis=1)+1
+        # Reshape and transpose time axis to the end
+        n_col = self.error.shape[0]
+        self.error, self.data = [ \
+            d.reshape(n_col, n_bias, n_fb, n_row). \
+                transpose([1,3,0,2]). \
+                reshape(-1, n_fb) for d in [self.error, self.data]]
+        self.data_shape = (n_bias, n_row, n_col, n_fb)
+        self.gridded = True
+        self.rows = index_set[2,:n_row]
+
     def read_data(self, filename, **kwargs):
         raise RuntimeError, "this is a virtual method"
 
@@ -462,30 +527,70 @@ class SquidData(util.RCData):
             s.data_shape = self.data_shape[1:]
             s.gridded = True
             s.bias_style = 'select'
-            s.bias = ones(self.cols.shape, 'int')*self.bias[i]
+            if self.bias_assoc == 'col':
+                s.bias = ones(n_col, 'int')*self.bias[i]
+            elif self.bias_assoc == 'row':
+                s.bias = ones(n_row, 'int')*self.bias[i]
+            elif self.bias_assoc == 'rowcol':
+                s.bias = ones(n_row*n_col, 'int')*self.bias[i]
             output.append(s)
         return output
 
-    def select_biases(self, indices=None):
+    def select_biases(self, bias_idx=None, assoc=None):
         """
-        Reduce the servo data by selecting certain curves from
-        super-entries in each column.
+        Reduce bias-ramp V-phi data to bias-select data, by selecting
+        a particular bias index for each row, column, or (row,col)
+        pair.  Returns an object of the same type.
         """
-        if indices == None:
-            self._check_analysis()
-            indices = self.analysis['y_span_select']
-        # Get a single-bias servo
+        if self.bias_style == 'select':
+            return None # or self?
+        
+        n_bias, n_row, n_col, n_fb = self.data_shape
+        sh = n_bias, n_row, n_col, -1   # intermediate shape
+
+        # How many biases are we selecting here?
+        if assoc == None:
+            assoc = self.bias_assoc
+
+        if assoc == 'rowcol':
+            sh = n_bias, n_row*n_col, 1, -1
+            ax = (0,1,2,3)
+        elif assoc == 'col':
+            ax = (0,2,1,3)   # target the col axis
+        elif assoc == 'row':
+            ax = (0,1,2,3)
+        else:
+            raise ValueError, "cannot select_bias with assoc='%'" % assoc
+
+        # If no bias_idx, try to find it in analysis
+        if bias_idx == None:
+            k = 'select_%s_sel'%assoc
+            if not k in self.analysis:
+                k = 'y_span_select' # ya, it's been a long road.
+            bias_idx = self.analysis[k]
+
+        idx0, idx1 = bias_idx, np.arange(len(bias_idx))
+        # assert len(select) == sh[ax]
+
+        # Get a cheap single-bias servo
         s = self.split()[0]
         s.bias_style = 'select'
-        for i, j in enumerate(indices):
-            s.bias[i] = self.bias[j]
-        # Make sure to reduce each data attribute
+        s.bias = self.bias[bias_idx]
+        s.data.shape = s.data_shape
+
+        # Function for collapsing dimensions 0 and 1 of data (after a
+        # transposition maybe), with selections idx.
+        def ar_select(data):
+            data = data.reshape(sh).transpose(ax)
+            data = data[idx0,idx1].copy()
+            return data
+
+        # Loop over identified data attributes
         for k in self.data_attrs:
-            src, dest = getattr(self, k), getattr(s, k)
-            src.shape, dest.shape = self.data_shape, s.data_shape
-            for i, j in enumerate(indices):
-                dest[:,i,:] = src[j,:,i,:]
-            src.shape, dest.shape = (-1, self.data_shape[-1]), (-1, s.data_shape[-1])
+            d = getattr(self, k).reshape(sh)
+            d = ar_select(d)
+            setattr(s, k, d.reshape(-1,n_fb))
+
         return s
 
     def get_selection_ramp(self):
@@ -506,7 +611,7 @@ class SquidData(util.RCData):
         self.reduce2(slope=slope)
         return self.analysis
 
-    def reduce1(self):
+    def reduce1(self, slope=None):
         """
         Compute peak-to-peak response, store in self.analysis.
         """

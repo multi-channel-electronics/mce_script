@@ -146,6 +146,14 @@ class SARamp(servo.SquidData):
         if not hasattr(slope, '__getitem__'):
             slope = array([slope]*len(self.cols))
         
+        # Make slope either a scalar, or 1 value per curve.
+        if any(slope != slope[0]):
+            z = zeros(self.data.shape[:-1])
+            z[...,:] = slope.reshape(1,-1)
+            slope = z
+        else:
+            slope = slope[0]
+
         # Smooth SA data; use kernel with odd width or the lag is non-integral.
         n_fb = len(self.fb)
         scale = max([8 * n_fb / 800, 0])
