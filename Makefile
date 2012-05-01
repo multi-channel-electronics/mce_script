@@ -41,7 +41,7 @@ install:
 				chown $${MAS_USER}:$${MAS_GROUP} $${MAS_ROOT}/$$s/DO.NOT.EDIT; \
 				filelist=`find $$s -maxdepth 1 -type f -executable`; \
 				if test ! -z "$$filelist"; then \
-					install -vm 0755 -o $${MAS_USER} -g $${MAS_GROUP} $$filelist $${MAS_ROOT}/$$s; \
+					install -vm 2755 -o $${MAS_USER} -g $${MAS_GROUP} $$filelist $${MAS_ROOT}/$$s; \
 				fi; \
 				filelist=`find $$s -maxdepth 1 -type f \\! -executable`; \
 				if test ! -z "$$filelist"; then \
