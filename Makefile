@@ -20,7 +20,7 @@ install:
 	fi;
 	@export MAS_ROOT=$$($$MAS_VAR --mas-root); \
 	if [ -d $$MAS_ROOT -a `stat --printf=%i .` = `stat --printf=%i $$MAS_ROOT` ]; then \
-		echo "Install path $$MAS_ROOT is the same as source directory!"; \
+		echo "Install path $$MAS_ROOT is the same as the source directory!"; \
 		exit 1; \
 	fi; \
 	export MAS_USER=$$($$MAS_VAR --user); \
