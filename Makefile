@@ -16,34 +16,44 @@ install:
 	@if test -z "${MAS_VAR}"; then \
 		echo "Set MAS_VAR before running make install."; \
 		echo "(If MAS_VAR *is* set, try \"sudo -E make install\")"; \
-		false; \
-	else \
-		export MAS_ROOT=$$($$MAS_VAR --mas-root); \
-		install -d $${MAS_ROOT}; \
-		for d in $(SUBDIRS); do \
-			if [ -e $$d/Makefile ]; then \
-				( cd $$d && make $@ ); \
-			else \
-				dirlist=`find $$d -name .svn -prune -printf '' -o \
-						\( -type d -print \)`; \
-				grep -v '^#' dne > $${MAS_ROOT}/DO.NOT.EDIT; \
-				for s in $$dirlist; do \
-					echo "Installing $$s -> $${MAS_ROOT}/$$s"; \
-					install -d $${MAS_ROOT}/$$s; \
-					grep -v '^#' dne > $${MAS_ROOT}/$$s/DO.NOT.EDIT; \
-					filelist=`find $$s -maxdepth 1 -type f`; \
-					if test ! -z "$$filelist"; then \
-						cp $$filelist $${MAS_ROOT}/$$s; \
-					fi; \
-					linklist=`find $$s -maxdepth 1 -type l`; \
-					if test ! -z "$$linklist"; then \
-						for x in $$linklist; do \
-							target=`readlink $$x`; \
-							name=`basename $$x`; \
-							( cd $${MAS_ROOT}/$$s && ln -sf $$target $$name ); \
-						done; \
-					fi; \
-				done; \
-			fi; \
-		done; \
-	fi
+		exit 1; \
+	fi;
+	@export MAS_ROOT=$$($$MAS_VAR --mas-root); \
+	if [ -d $$MAS_ROOT -a `stat --printf=%i .` = `stat --printf=%i $$MAS_ROOT` ]; then \
+		echo "Install path $$MAS_ROOT is the same as source directory!"; \
+		exit 1; \
+	fi; \
+	export MAS_USER=$$($$MAS_VAR --user); \
+	export MAS_GROUP=$$($$MAS_VAR --group); \
+	install -vm 2755 -o $${MAS_USER} -g $${MAS_GROUP} -d $${MAS_ROOT}; \
+	for d in $(SUBDIRS); do \
+		if [ -e $$d/Makefile ]; then \
+			( cd $$d && make $@ ); \
+		else \
+			dirlist=`find $$d -name .svn -prune -printf '' -o \
+					\( -type d -print \)`; \
+			grep -v '^#' dne > $${MAS_ROOT}/DO.NOT.EDIT; \
+			for s in $$dirlist; do \
+				echo "Installing $$s -> $${MAS_ROOT}/$$s"; \
+				install -vm 2755 -o $${MAS_USER} -g $${MAS_GROUP} -d $${MAS_ROOT}/$$s; \
+				grep -v '^#' dne > $${MAS_ROOT}/$$s/DO.NOT.EDIT; \
+				chown $${MAS_USER}:$${MAS_GROUP} $${MAS_ROOT}/$$s/DO.NOT.EDIT; \
+				filelist=`find $$s -maxdepth 1 -type f -executable`; \
+				if test ! -z "$$filelist"; then \
+					install -vm 0755 -o $${MAS_USER} -g $${MAS_GROUP} $$filelist $${MAS_ROOT}/$$s; \
+				fi; \
+				filelist=`find $$s -maxdepth 1 -type f \\! -executable`; \
+				if test ! -z "$$filelist"; then \
+					install -vm 0644 -o $${MAS_USER} -g $${MAS_GROUP} $$filelist $${MAS_ROOT}/$$s; \
+				fi; \
+				linklist=`find $$s -maxdepth 1 -type l`; \
+				if test ! -z "$$linklist"; then \
+					for x in $$linklist; do \
+						target=`readlink $$x`; \
+						name=`basename $$x`; \
+						( cd $${MAS_ROOT}/$$s && ln -sf $$target $$name ); \
+					done; \
+				fi; \
+			done; \
+		fi; \
+	done; \
