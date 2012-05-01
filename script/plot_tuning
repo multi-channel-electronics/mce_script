@@ -39,7 +39,7 @@ if not os.path.exists(odir):
     os.makedirs(odir)
 
 default_ops = ['sa_ramp', 'sq2_servo', 'sq1_servo', 'sq1_ramp',
-               'sq1_ramp_check', 'sq1_ramp_tes']
+               'sq1_ramp_check', 'sq1_ramp_tes', 'rs_servo', 'sq1_servo_sa']
 
 if opts.stage == None:
     opts.stage = default_ops
@@ -73,8 +73,8 @@ class_map = {
     'sa_ramp': ast.SARamp,
     'sq2_servo': ast.SQ2Servo,
     'sq1_servo': ast.SQ1Servo,
-#    'rs_servo': ast.rsServo,
-#    'sq1_servo_sa': ast.SQ1ServoSA,
+    'rs_servo': ast.RSServo,
+    'sq1_servo_sa': ast.SQ1ServoSA,
     'sq1_ramp': ast.SQ1Ramp,
     'sq1_ramp_check': ast.SQ1Ramp,
     'sq1_ramp_tes': ast.SQ1RampTes,
@@ -89,23 +89,25 @@ for stage in opts.stage:
         # Default handling
         ss = [ cls(x, tuning=tuning) for x in tf.stage_all(stage) ]
         if len(ss) == 0:
-            print ' -> no data for %s' % stage
+            print ' -> no data found'
             continue
         s = cls.join(ss)
 
     # Per stage handling
     if stage == 'sa_ramp':
-        s.reduce1()
-        if s.bias_style == 'ramp':
-            s2 = s.subselect()
-        else:
-            s2 = s
         check_slope()
+        if s.bias_style == 'ramp':
+            if not opts.summary:
+                print ' -> plotting each bias'
+                s.plot(plot_file='%s/%s_sa_ramp' % (odir, basename),
+                       format=opts.format)
+            s.reduce1()
+            s = s.select_biases()
         s.reduce(slope=slope)
         print ' -> plotting'
         s.plot(plot_file='%s/%s_sa_ramp' % (odir, basename),
                 format=opts.format)
-    elif stage in ['sq1_servo', 'sq2_servo']:
+    elif stage in ['sq1_servo', 'sq2_servo', 'rs_servo', 'sq1_servo_sa']:
         if s.bias_style == 'ramp':
             if not opts.summary:
                 print ' -> plotting each bias'
@@ -115,7 +117,7 @@ for stage in opts.stage:
                 s.plot_error(plot_file='%s/%s_%s_err' % (odir, basename, stage),
                              format=opts.format)
             # Flatten ramp to best bias choice
-            s.reduce1()
+            s.reduce1(slope=slope)
             s = s.select_biases()
         s.reduce(slope=slope)
         print ' -> plotting summary'
