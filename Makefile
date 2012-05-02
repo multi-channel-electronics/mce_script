@@ -82,5 +82,4 @@ install: id
 			done; \
 		fi; \
 	done; \
-	install -vm 0644 -o $${MAS_USER} -g $${MAS_GROUP} id $${MAS_ROOT}; \
-	printenv
+	install -vm 0644 -o $${MAS_USER} -g $${MAS_GROUP} id $${MAS_ROOT};
