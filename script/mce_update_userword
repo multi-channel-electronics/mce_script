@@ -4,6 +4,14 @@
 # put in 'run_id' and 'user_word' is a mix of the data mode and the
 # array_id code.
 
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
+
 source $MAS_SCRIPT/mas_library.bash
 
 # Copy data mode for card $1 (eg '1' or 's') into bits 15:8
@@ -18,7 +26,7 @@ case "$1" in
 esac
 
 data_mode=`command_reply rb rc$rc data_mode`
-array_id=`cat /data/cryo/array_id`
+array_id=$(cat ${MAS_DATA_ROOT}/array_id)
 prog="(\$1==\"${array_id}\") {print \$2}"
 array_integer=`awk "${prog}" $MAS_CONFIG/array_list`
 

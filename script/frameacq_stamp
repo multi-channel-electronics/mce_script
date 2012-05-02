@@ -7,6 +7,14 @@
 #    frameacq_stamp 1 outfile 10000 | tee -a outfile.run
 #
 
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
+
 source $MAS_SCRIPT/mas_library.bash
 
 runfile_version=2
@@ -27,7 +35,7 @@ fi
 data_filename="$2"
 data_framecount="$3"
 
-array_id=`cat /data/cryo/array_id`
+array_id=`cat ${MAS_DATA_ROOT}/array_id`
 mas_version=`mce_cmd -v`
 
 ctime=`date +%s`

@@ -9,6 +9,14 @@ if [ "$#" != "3" ]; then
     exit 1
 fi
 
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
+
 if [ "$1" == "0" ]; then
     mce_cmd -q -X "wb cc use_dv $3" -X "wb cc use_sync $2" || exit 1
     mce_cmd -q -X "wb cc select_clk 0" || exit 1

@@ -1,9 +1,17 @@
 #!/bin/bash
 
-CD=`cat /data/cryo/current_data_name`
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
 
-CONFIG=/data/cryo/current_data/config_mce_auto_setup_${CD}
-EXPT=/data/cryo/current_data/experiment.cfg
+CD=$(cat ${MAS_DATA_ROOT}/current_data_name)
+
+CONFIG=${MAS_DATA}/config_mce_auto_setup_${CD}
+EXPT=${MAS_DATA}/experiment.cfg
 
 if [ ! -e $CONFIG ]; then
     echo "$CONFIG not found, retune or recover manually from previous day's settings."
@@ -16,7 +24,7 @@ $CONFIG
 # Only mess with TES if tes_bias_do_reconfig=1.
 do_tes=`mas_param -s $EXPT get tes_bias_do_reconfig`
 if [ "$do_tes" == "1" ]; then
-    BIAS=/data/cryo/tes_bias_recommended
+    BIAS=${MAS_DATA_ROOT}/tes_bias_recommended
     norm_bias=`mas_param -s $EXPT get tes_bias_normal`
     norm_time=`mas_param -s $EXPT get tes_bias_normal_time`
 

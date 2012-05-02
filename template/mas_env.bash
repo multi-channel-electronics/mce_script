@@ -1,39 +1,49 @@
 #!/bin/bash
 
-# To run the mce_scripts from your own checked-out source tree, point
-# the MAS_ROOT variable to your checked out copy and then source this
-# file.  e.g.:
+# The following environmental variables, if they are set, affect this
+# script:
 #
-#     export MAS_ROOT="/home/mhasse/mce_script/trunk/"
-#     source mas_env.bash
+# o  MAS_ROOT:    to use something other than the default, installed
+#                 MCE script, point this to your checked out copy, e.g.:
 #
-# If your .bashrc sources mas_env.bash automatically, with a different
-# MAS_ROOT, you probably need to set the $PATH variable by hand as it
-# will still preferentially run things from the old directories.
+#                 export MAS_ROOT="/home/mhasse/mce_script/trunk/"
+#
+# o  MAS_MCE_DEV: ignored if MAS doesn't have multicard capability.  If
+#                 multicard capability *is* enabled, set this to the
+#                 fibre card number you want to use, e.g.:
+#
+#                 export MAS_MCE_DEV=1
+#
+# o  MAS_CONFIG:  to use a non-standard MCE config directory, point this
+#                 variable to it, e.g.:
+#
+#                 export MAS_CONFIG="/data/mce_test_config/"
+#
+# Default values are used for variables which aren't set.  All other
+# MAS variables will be overwritten by this script.  It also updates
+# PATH and PYTHONPATH appropriately.
+#
+# To get this script to do anything useful, you have to source it after
+# possibly setting the above variables, e.g:
+#
+#       export MAS_ROOT="/home/mhasse/mce_script/trunk/"
+#       source mas_env.bash
 
-if [ "$MAS_ROOT" == "" ]; then
-	export MAS_ROOT=/usr/mce/mce_script
+#unset volitile variables
+unset MAS_BIN
+unset MAS_TEMP
+unset MAS_DATA_ROOT
+unset MAS_DATA
+
+unset MAS_IDL
+unset MAS_PYTHON
+unset MAS_TEMPLATE
+unset MAS_TEST_SUITE
+
+#now reset the environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
 fi
-
-#Trailing slashes are recommended
-
-export MAS_BIN=/usr/mce/bin/
-export MAS_TEMP=/tmp/
-export MAS_DATA=/data/cryo/current_data/
-
-export MAS_TEMPLATE=${MAS_ROOT}/template/
-export MAS_SCRIPT=${MAS_ROOT}/script/
-export MCE_JAM_DIR=${MAS_ROOT}/firmware/
-export MAS_TEST_SUITE=${MAS_ROOT}/test_suite/
-export MAS_IDL=${MAS_ROOT}/idl_pro/
-export MAS_PYTHON=${MAS_ROOT}/python/
-
-export MAS_CONFIG=$MAS_TEMPLATE
-
-export PATH=${PATH}:${MAS_BIN}:${MAS_SCRIPT}:${MAS_TEST_SUITE}
-export PYTHONPATH=${PYTHONPATH}:${MAS_PYTHON}
-
-if [ -e /usr/mce/python ]; then 
-    export PYTHONPATH=${PYTHONPATH}:/usr/mce/python
-fi
-

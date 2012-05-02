@@ -17,6 +17,14 @@
 #     b) write 0x0F to detect shorts between address lines
 #   4. read back -1 from addr FFFF
 
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
+
 
 let address_zero_data=0
 let "walking_one_data=0x55555555"

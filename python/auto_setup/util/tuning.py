@@ -1,6 +1,7 @@
 # vi: ts=4:sw=4:et
 import os, subprocess, time
 import auto_setup.config as config
+from mce import mas_var
 
 class tuningData:
     """
@@ -10,12 +11,12 @@ class tuningData:
                  reg_note=None):
 
         # Binary file locations
-        self.bin_path = '/usr/mce/bin/'
+        self.bin_path = mas_var('bin-dir')
         self.debug = debug
 
         # The data root
         if data_root == None:
-            data_root = "/data/cryo"
+            data_root = mas_var('data-root')
         self.data_root = data_root
 
         # name
@@ -26,7 +27,7 @@ class tuningData:
 
         # current data directory -- we get this from the "current_data" symlink,
         # which may or may not point to an absolute path
-        self.current_data = os.path.join(self.data_root, "current_data")
+        self.current_data = mas_var('data-dir')
         if os.path.exists(self.current_data):
             self.current_data = os.path.basename(os.readlink(self.current_data))
 

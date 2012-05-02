@@ -62,7 +62,7 @@ for o,a in optlist:
 
 card = "%s%i"% (card_name, card_num)
 
-#mas_data_dir = environ["MAS_DATA"]
+#mas_data_dir = mav_var('data-dir')
 #print "\nExecuting set_directory"
 #system("set_directory")
 

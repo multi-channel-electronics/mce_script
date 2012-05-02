@@ -1,8 +1,16 @@
 #START config_create.bash
 
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary."
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
+
 create_start=`print_ctime`
 
-mce_script="/tmp/`whoami`_config_mce.scr"
+mce_script=${MAS_TEMP}/`whoami`_config_mce.scr
 
 # Remove existing script
 [ -e "$mce_script" ] && rm -f "$mce_script"
@@ -78,8 +86,8 @@ fi
 
 # Write cc user_word based on array_id - this shows up in frame data
 user_word=0
-if [ -e "/data/cryo/array_id" ]; then
-    array_id=`cat /data/cryo/array_id`
+if [ -e "${MAS_DATA_ROOT}/array_id" ]; then
+    array_id=`cat ${MAS_DATA_ROOT}/array_id`
     user_word=`awk "($$1 == \"$array_id\") {print $$2}" $MAS_CONFIG/array_list`
     [ "$user_word" == "" ] && user_word=0
 fi

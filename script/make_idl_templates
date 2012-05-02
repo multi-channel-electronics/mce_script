@@ -1,6 +1,14 @@
 #!/bin/bash
 
-this_array=`cat /data/cryo/array_id`
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
+
+this_array=$(cat $MAS_DATA_ROOT/array_id)
 
 if [ "$this_array" == "" ] || [ "$this_array" == "default" ]; then
     expt=$MAS_CONFIG/experiment.cfg

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# vim: ts=4 sw=4 et
 
 from mce import *
 from mce_data import *
@@ -12,7 +13,7 @@ NCOLS=N_RC*8
 rc_present = None
 
 def expt_param(key, dtype=None):
-    src = '/data/cryo/current_data/experiment.cfg'
+    src = mas_var('data-dir') + '/experiment.cfg'
     line = commands.getoutput('mas_param -s %s get %s' % (src, key))
     s = line.split(' ')
     if dtype == None or dtype == 'string':
@@ -109,9 +110,10 @@ def main():
     if opts.tuning == None:
         print 'Using most recent tuning...'
         try:
+            data_root = mas_var('data-root')
             w = [s.strip() for s in
-               open('/data/cryo/last_squid_tune_name').readlines()]
-            tuning = '/data/cryo/%s/%s/'%tuple(w)
+               open(data_root + '/last_squid_tune_name').readlines()]
+            tuning = data_root + '/%s/%s/'%tuple(w)
             assert(len(glob('%s/*ssa'%tuning)) > 0)
             opts.tuning = tuning
         except:

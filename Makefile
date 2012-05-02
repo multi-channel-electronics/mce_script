@@ -12,7 +12,31 @@ all clean:
 		fi \
 	done
 
-install:
+# The identity file; because "make install" is usually run via sudo, we
+# take care to report the real instead of effective user.
+id:
+	@echo " MCE SCRIPT INSTALLATION IDENTITY" > id
+	@echo "----------------------------------" >> id
+	@echo >> id
+	@echo "Install date: `date -u`" >> id
+	@if [ -z $$SUDO_USER ]; then \
+		echo "Installed by: $$USER" >> id; \
+	else \
+		echo "Installed by: $$SUDO_USER" >> id; \
+	fi
+	@echo "Install host: $$HOSTNAME" >> id
+	@echo >> id
+	@echo "Source path: `pwd`" >> id
+	@echo "SVN version: `svnversion`" >> id
+	@echo >> id
+	@echo "SVN Info:" >> id
+	@svn info | tail -n +2 | sed -e 's/^/    /' >> id
+	@if [ ! -z $$SUDO_USER ]; then chown $$SUDO_USER:$$SUDO_GROUP id; fi
+
+# Force regeneration of the id file whenever "make install" is run.
+.PHONY: id
+
+install: id
 	@if test -z "${MAS_VAR}"; then \
 		echo "Set MAS_VAR before running make install."; \
 		echo "(If MAS_VAR *is* set, try \"sudo -E make install\")"; \
@@ -58,3 +82,5 @@ install:
 			done; \
 		fi; \
 	done; \
+	install -vm 0644 -o $${MAS_USER} -g $${MAS_GROUP} id $${MAS_ROOT}; \
+	printenv

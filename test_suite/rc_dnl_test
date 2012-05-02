@@ -7,6 +7,7 @@ import time
 from sys import *
 from numpy import *
 from pylab import *
+from mce import mas_var
 from mce_data import *
 from glob import glob
 from os import *
@@ -69,7 +70,7 @@ if (acquire):
 else:
   rc_dir = rc_num
 
-mas_data_dir = environ["MAS_DATA"]
+mas_data_dir = mas_var('data-dir')
 if (acquire):
   print "\nExecuting: set_directory"
   system("set_directory")

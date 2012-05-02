@@ -1,4 +1,5 @@
 import auto_setup as aset
+from mce import mas_var
 from pylab import *
 import os, sys
 
@@ -23,7 +24,7 @@ stage = args[1]
 # Protect user
 if not tuning_dir[0] == '/' and not os.path.exists(tuning_dir):
     print 'Cannot find "%s", looking in $MAS_DATA...' % tuning_dir
-    tuning_dir = os.getenv('MAS_DATA')+tuning_dir
+    tuning_dir = mas_var('data-dir')+tuning_dir
 
 fs = aset.util.FileSet(tuning_dir)
 files = fs.stage_all(stage)

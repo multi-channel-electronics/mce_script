@@ -1,9 +1,11 @@
 #START config_header.bash
 
-# Do not set MAS environment!  Just source the library
-if [ "$MAS_ROOT" == "" ]; then
-	echo MAS_ROOT not defined. >&2
-	exit 1
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
 fi
 
 source ${MAS_SCRIPT}/mas_library.bash
