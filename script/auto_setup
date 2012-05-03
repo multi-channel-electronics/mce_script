@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# vi: ts=4:sw=4:et
 
 import auto_setup as ast
 
@@ -24,23 +25,34 @@ experiment.cfg.
 o.add_option('--rc', action='append', default=[],help=
              "Select RC for tuning (e.g. 2, or s). Pass multiple " \
                  "times to tune multiple cards.  Default is s.")
+
+o.add_option('-d', '--debug', action='store_true', help=
+             "Run in debug mode.")
+
 o.add_option('-i', '--interactive', action='store_true',help=
              "Drop to pdb shell on error.  Useful for debugging.")
+
 o.add_option('--first-stage', default=None,help=
              "select squid stage at which to begin tuning (i.e. skips "\
                  "preceding tuning steps)")
+
 o.add_option('--last-stage', default=None,help=
              "select squid stage after which to stop tuning")
+
 o.add_option('-s', '--shortness', default=0, type='int', help=
              "legacy... pass integer [0, 1, 2] to get equivalent of "\
                  "--first-stage [sa_bias, sq1_servo, sq1_ramp]")
+
 o.add_option('--check-bias', action='store_true', dest='check_bias', help=
              "force checking of SA and SQ2 bias")
+
 o.add_option('--no-check-bias', action='store_false', dest='check_bias', help=
              "force no checking of SA and SQ2 bias")
+
 o.add_option('--set-directory', default=1, type='int',
              help='pass 1 or 0 depending on whether you want to run '
              'set_directory before tuning')
+
 o.add_option('--reg-note', default=None)
 opts, args = o.parse_args()
 
@@ -64,4 +76,4 @@ if opts.set_directory:
 # Tune.
 ast.auto_setup(rcs=opts.rc, short=opts.shortness, reg_note=opts.reg_note,
                first_stage=opts.first_stage, last_stage=opts.last_stage,
-               check_bias=opts.check_bias)
+               check_bias=opts.check_bias, debug=opts.debug)

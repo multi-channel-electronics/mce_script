@@ -1,3 +1,4 @@
+# vim: ts=4 sw=4 et
 import time, os, glob
 import auto_setup.util as util
 from numpy import *
@@ -36,7 +37,7 @@ def acquire(tuning, rc, filename=None):
         except ValueError:
             acq_id = str(time.time())
 
-    cmd = [tuning.bin_path+'rs_servo', '-p', 50, rc, filename]
+    cmd = [os.path.join(tuning.bin_path, 'rs_servo'), '-p', 50, rc, filename]
 
     status = tuning.run(cmd)
     if status != 0:

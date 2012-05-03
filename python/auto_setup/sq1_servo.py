@@ -1,3 +1,4 @@
+# vim: ts=4 sw=4 et
 import time, os, glob
 import auto_setup.util as util
 from numpy import *
@@ -52,9 +53,9 @@ def acquire(tuning, rc, filename=None, fb=None,
             acq_id = str(time.time())
 
     if super_servo:
-        cmd = [tuning.bin_path+'sq1servo_all', '-p', 50]
+        cmd = [os.path.join(tuning.bin_path, 'sq1servo_all'), '-p', 50]
     else:
-        cmd = [tuning.bin_path+'sq1servo']
+        cmd = [os.path.join(tuning.bin_path, 'sq1servo')]
 
     if old_servo:
         # FB
