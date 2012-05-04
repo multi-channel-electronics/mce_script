@@ -437,12 +437,12 @@ class SmallMCEFile:
 
         row_index = [ self._rfMCEParam('rc%i'%(r+1), 'readout_row_index') \
                           for r in rcs ]
-        col_index = [ r*MCE_COL + self._rfMCEParam('rc%i'%(r+1), 'readout_col_index') \
+        col_index = [ self._rfMCEParam('rc%i'%(r+1), 'readout_col_index') \
                           for r in rcs ]
         for i in range(len(rcs)):
             if row_index[i] == None: row_index[i] = 0
             if col_index[i] == None: col_index[i] = 0
-
+        col_index = [ c + r*MCE_COL for r,c in zip(rcs, col_index) ]
 
         if row_col:
             # Use the row-indexing provided by the first RC.
