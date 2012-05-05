@@ -19,10 +19,15 @@ class tuningData:
 
         # The data dir, by default ${MAS_DATA} -- if a data_dir is specified
         # explicitly, the ${MAS_DATA_ROOT}/last_squid_tune symlink isn't updated
+        # also, if a data dir is specified, we can't assume it's a directory
+        # with a date in it's name, so we just use the current date.
         if data_dir == None:
             data_dir = self.paths.data_dir()
+            self.no_last_squid_tune = False;
+            self.date = os.path.basename(os.readlink(data_dir))
         else:
             self.no_last_squid_tune = True;
+            self.date = time.strftime("%Y%m%d")
 
         # name
         self.the_time = time.time();
@@ -43,7 +48,7 @@ class tuningData:
         # Various filenames
         self.log_file = os.path.join(self.data_dir, name+'.log')
         self.config_mce_file = os.path.join(self.base_dir,
-                "config_mce_auto_setup_" + self.current_data)
+                "config_mce_auto_setup_" + self.date)
         self.note_file = os.path.join(self.data_dir, self.name + "_note")
         self.sqtune_file = os.path.join(self.data_dir, self.name + ".sqtune")
 
@@ -193,7 +198,7 @@ class tuningData:
         f = open(filename, 'w')
         f.write("<SQUID>\n")
         f.write("<SQ_tuning_completed> %i\n" % int(done))
-        f.write("<SQ_tuning_date> %s\n" % self.current_data)
+        f.write("<SQ_tuning_date> %s\n" % self.date)
         f.write("<SQ_tuning_dir> %s\n" % self.name)
         if sq1_ramp != None:
             for item in sq1_ramp.sqtune_report():
@@ -208,7 +213,7 @@ class tuningData:
         
         #this isn't updated if the user specified a data_dir when initialising
         #the tuning
-        if  no_last_squid_tune != True:
+        if  self.no_last_squid_tune != True:
             lst = os.path.join(self.paths.data_root(), "last_squid_tune")
             if os.path.lexists(lst):
                 os.remove(lst)

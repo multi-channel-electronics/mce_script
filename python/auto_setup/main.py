@@ -474,6 +474,7 @@ IDL auto_setup_squids."""
 
     tuning = util.tuningData(data_dir=data_dir, reg_note=reg_note, debug=debug)
     print 'Tuning ctime: %i' % tuning.the_time
+    print 'Tuning date : ' + tuning.date
 
     # Create data and analysis directories
     tuning.make_dirs()
