@@ -572,7 +572,7 @@ IDL auto_setup_squids."""
 
     # Copy experiment.cfg and config script between main data dir and tuning dir.
     shutil.copy2(tuning.config_mce_file, os.path.join(tuning.data_dir,
-                 "config_mce_auto_setup_" + tuning.current_data))
+                 "config_mce_auto_setup_" + tuning.date))
     shutil.copy2(tuning.exp_file, tuning.data_dir)
 
     t_elapsed = time.time() - tuning.the_time
