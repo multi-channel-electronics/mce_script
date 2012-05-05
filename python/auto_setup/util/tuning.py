@@ -1,23 +1,28 @@
 # vi: ts=4:sw=4:et
 import os, subprocess, time
 import auto_setup.config as config
-from mce import mas_var
+from mas_path import mas_path
 
 class tuningData:
     """
     Generic, static data useful to all methods.
     """
-    def __init__(self, name=None, exp_file=None, data_root=None, debug=False,
+    def __init__(self, name=None, exp_file=None, data_dir=None, debug=False,
                  reg_note=None):
 
+        # Path munging object
+        self.paths = mas_path();
+
         # Binary file locations
-        self.bin_path = mas_var('bin-dir')
+        self.bin_path = self.paths.bin_dir()
         self.debug = debug
 
-        # The data root
-        if data_root == None:
-            data_root = mas_var('data-root')
-        self.data_root = data_root
+        # The data dir, by default ${MAS_DATA} -- if a data_dir is specified
+        # explicitly, the ${MAS_DATA_ROOT}/last_squid_tune symlink isn't updated
+        if data_dir == None:
+            data_dir = self.paths.data_dir()
+        else:
+            self.no_last_squid_tune = True;
 
         # name
         self.the_time = time.time();
@@ -25,14 +30,10 @@ class tuningData:
             name = '%10i' % (self.the_time)
         self.name = name
 
-        # current data directory -- we get this from the "current_data" symlink,
-        # which may or may not point to an absolute path
-        self.current_data = mas_var('data-dir')
-        if os.path.exists(self.current_data):
-            self.current_data = os.path.basename(os.readlink(self.current_data))
+        # canonicalise the data directory
+        self.base_dir = os.path.abspath(data_dir)
 
         # Data directories
-        self.base_dir = os.path.join(self.data_root, self.current_data)
         self.data_dir = os.path.join(self.base_dir, name)
         self.plot_dir = os.path.join(self.base_dir, 'analysis', name)
 
@@ -205,10 +206,13 @@ class tuningData:
         f.write("</SQUID>\n")
         f.close()
         
-        lst = os.path.join(self.data_root, "last_squid_tune")
-        if os.path.lexists(lst):
-            os.remove(lst)
-        os.symlink(filename, lst)
+        #this isn't updated if the user specified a data_dir when initialising
+        #the tuning
+        if  no_last_squid_tune != True:
+            lst = os.path.join(self.paths.data_root(), "last_squid_tune")
+            if os.path.lexists(lst):
+                os.remove(lst)
+            os.symlink(filename, lst)
 
     def write_note(self, note, filename=None):
         if filename == None:

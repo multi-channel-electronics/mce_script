@@ -308,9 +308,9 @@ Please upgrade mas_param to support "info" dumping.  Thanks.
 
 
 if __name__ == '__main__':
-    from mce import mas_var
+    from auto_setup.util import mas_path
     # Unit test...
-    fn1 = mas_var('data-dir') + '/experiment.cfg'
+    fn1 = mas_path().data_dir() + '/experiment.cfg'
     fn2 = './experiment.cfg'
     print 'load'
     c1 = configFile(fn1)

@@ -1,7 +1,7 @@
 import os, sys, time
 from numpy import *
 from mce_data import MCEFile, unwrap
-from mce import mas_var
+from auto_setup.util import mas_path
 import subprocess as sp
 
 from auto_setup.util import interactive_errors
@@ -59,9 +59,11 @@ class runfile_block:
 
 def loadArrayParams(filename=None, array_name=None):
     if array_name == None:
-        array_name = open(mas_var('data-root') + '/array_id').readline().strip()
+        array_name = open(os.path.join(mas_path().data_root(),
+            'array_id')).readline().strip()
     if filename == None:
-        filename = mas_var('config-dir') + '/array_%s.cfg' % array_name
+        filename = os.path.join(mas_path().config_dir(),
+                'array_%s.cfg' % array_name)
     cfg = config.configFile(filename)
     cfg.update({'array': array_name,
                 'source_file': filename})

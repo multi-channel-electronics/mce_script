@@ -1,5 +1,4 @@
 from auto_setup.config import mas_param
-from mce import mas_var
 
 import numpy
 import os
@@ -82,7 +81,7 @@ def get_all_dead_masks(tuning, union=False, frail=False):
         mask_list = ["squid1", "multilock", "jumper", "connection", "tes_short",
                 "other"]
 
-    mask_files = [ mas_var('config-dir') + os.path.join("dead_lists",
+    mask_files = [ os.path.join(tuning.paths.config_dir(), "dead_lists",
             tuning.get_exp_param("array_id"), prefix + m + ".cfg") for m in
             mask_list ]
 

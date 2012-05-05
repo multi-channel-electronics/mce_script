@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # vim: ts=4 sw=4 et
 
+from auto_setup.util import mas_path
 from mce import *
 from mce_data import *
 from glob import glob
@@ -13,8 +14,8 @@ NCOLS=N_RC*8
 rc_present = None
 
 def expt_param(key, dtype=None):
-    src = mas_var('data-dir') + '/experiment.cfg'
-    line = commands.getoutput('mas_param -s %s get %s' % (src, key))
+    src = mas_path().experiment_file()
+    line = commands.getoutput('mas_param -s %s get %s' % (src, key)).rstrip()
     s = line.split(' ')
     if dtype == None or dtype == 'string':
         return s
@@ -110,7 +111,7 @@ def main():
     if opts.tuning == None:
         print 'Using most recent tuning...'
         try:
-            data_root = mas_var('data-root')
+            data_root = mas_path().data_root()
             w = [s.strip() for s in
                open(data_root + '/last_squid_tune_name').readlines()]
             tuning = data_root + '/%s/%s/'%tuple(w)
