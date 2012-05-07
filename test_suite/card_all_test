@@ -9,6 +9,7 @@ from sys import *
 from os import *
 from mce import *
 from mce_data import *
+from auto_setup.util import mas_path
 
 ##### Threshold setting for this test #####
 fpga_temp_hi = 40
@@ -52,7 +53,7 @@ if card_name == "rc" or card_name == "bc":
 else:
   card = card_name
 
-mas_data_dir = mas_var('data-dir')
+mas_data_dir = mas_path().data_dir()
 print "\nExecuting set_directory"
 system("set_directory")
 

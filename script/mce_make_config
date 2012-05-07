@@ -16,7 +16,7 @@ the script and program the MCE immediately.
 
 import os, sys, stat
 import subprocess as sp
-from mce import mas_var
+from auto_setup.util import mas_path
 
 from optparse import OptionParser
 o = OptionParser(usage=USAGE)
@@ -37,8 +37,9 @@ opts, args = o.parse_args()
 
 # Defaults
 
-data_folder = mas_var('data-dir')
-script_source = '%s/bits/' % mas_var('script-dir')
+paths = mas_path()
+data_folder = paths.data_dir()
+script_source = '%s/bits/' % paths.script_dir()
 
 # Support classic command line arguments
 if len(args) > 2:
@@ -56,7 +57,8 @@ if opts.expt_file == None:
     
 if opts.config_script == None:
     if opts.name == None and opts:
-        opts.name = open(mas_var('data-root') + '/current_data_name').readline().strip()
+        opts.name = open(os.path.join(paths.data_root(),
+          'current_data_name')).readline().strip()
     opts.config_script = '%s/config_mce_auto_setup_%s' % (data_folder, opts.name)
     sys.stderr.write("Using default configuration file, '%s'\n" % opts.config_script)
     

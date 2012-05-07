@@ -37,11 +37,15 @@ id:
 .PHONY: id
 
 install: id
-	@if test -z "${MAS_VAR}"; then \
+	@if test -z "$$MAS_VAR"; then \
 		echo "Set MAS_VAR before running make install."; \
 		echo "(If MAS_VAR *is* set, try \"sudo -E make install\")"; \
 		exit 1; \
 	fi;
+	@if test ! -x $$MAS_VAR; then \
+		echo "$$MAS_VAR is not executable!  Cannot continue"; \
+		exit 1; \
+	fi
 	@export MAS_ROOT=$$($$MAS_VAR --mas-root); \
 	if [ -d $$MAS_ROOT -a `stat --printf=%i .` = `stat --printf=%i $$MAS_ROOT` ]; then \
 		echo "Install path $$MAS_ROOT is the same as the source directory!"; \
