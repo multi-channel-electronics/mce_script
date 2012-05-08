@@ -59,7 +59,7 @@ if opts.config_file == None:
 if opts.config_file == None:
     tuning = None
 else:
-    tuning = ast.util.tuningData(exp_file=opts.config_file)
+    tuning = ast.util.tuningData(exp_file=opts.config_file, data_dir='')
 
 slope = opts.default_slope 
 
