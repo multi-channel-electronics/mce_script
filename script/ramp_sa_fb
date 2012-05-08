@@ -68,7 +68,7 @@ rc=$2
 do_bias_ramp=$3
 
 start_ctime=`print_ctime`
-tempfile=$MAS_TEMP/`whoami`__ramp_sa_fb.temp
+tempfile=$MAS_TEMP/`whoami`__ramp_sa_fb$MAS_MCE_DEV.temp
 script_name=$0
 
 # Load parameters

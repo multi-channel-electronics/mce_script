@@ -43,7 +43,7 @@ case "$rc" in
 	exit 1
 esac
     
-tempfile=$MAS_TEMP/`whoami`_ramp_sq2_fb.temp
+tempfile=$MAS_TEMP/`whoami`_ramp_sq2_fb$MAS_MCE_DEV.temp
 runfile=$datafile.run
 
 # SQ1 feedback ramp parameters

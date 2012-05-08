@@ -10,7 +10,7 @@ fi
 
 create_start=`print_ctime`
 
-mce_script=${MAS_TEMP}/`whoami`_config_mce.scr
+mce_script=${MAS_TEMP}/`whoami`_config_mce${MAS_MCE_DEV}.scr
 
 # Remove existing script
 [ -e "$mce_script" ] && rm -f "$mce_script"

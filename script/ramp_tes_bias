@@ -112,7 +112,7 @@ fi
 echo "<tes_bias>" >> $biasfile
 echo "Acquiring I-V curve into data file $datafile"
 
-script=$MAS_TEMP/`whoami`_ramp_tes_bias.scr
+script=$MAS_TEMP/`whoami`_ramp_tes_bias$MAS_MCE_DEV.scr
 [ -e $script ] && rm $script
 
 # Get a count of the bias lines in the system

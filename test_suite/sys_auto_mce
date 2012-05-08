@@ -11,7 +11,7 @@ else
 fi
 
 source $MAS_SCRIPT/mas_library.bash
-TMP="$MAS_TEMP/mce_check.tmp"
+TMP="$MAS_TEMP/mce_check$MAS_MCE_DEV.tmp"
 /bin/rm $TMP
 
 if [ "$#" -lt "3" ]; then

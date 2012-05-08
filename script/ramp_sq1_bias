@@ -48,7 +48,7 @@ if [ "$tes_line" == "" ]; then
     tes_line=0
 fi
     
-tempfile=$MAS_TEMP/`whoami`_ramp_sq1_bias.temp
+tempfile=$MAS_TEMP/`whoami`_ramp_sq1_bias$MAS_MCE_DEV.temp
 runfile=$datafile.run
 
 # Default sq1 bias
