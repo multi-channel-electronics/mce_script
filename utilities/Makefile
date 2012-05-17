@@ -16,8 +16,9 @@ install: $(TARGETS)
 		false; \
 	else \
 		export MAS_BIN=$$($$MAS_VAR --bin-dir); \
-		install -m 0755 -g mce -d $$MAS_BIN; \
-		install -m 2755 -g mce $(TARGETS) $$MAS_BIN; \
+		export MAS_GROUP=$$($$MAS_VAR --group); \
+		install -m 0755 -g $$MAS_GROUP -d $$MAS_BIN; \
+		install -m 2755 -g $$MAS_GROUP $(TARGETS) $$MAS_BIN; \
 	fi
 
 eat_packets: eat_packets.o sequence.o mce_header.o $(DEPS) 
