@@ -22,9 +22,9 @@ class tuningData:
         # also, if a data dir is specified, we can't assume it's a directory
         # with a date in it's name, so we just use the current date.
         if data_dir == None:
-            data_dir = self.paths.data_dir()
+            data_dir = os.path.realpath(self.paths.data_dir())
             self.no_last_squid_tune = False;
-            self.date = os.path.basename(os.readlink(data_dir))
+            self.date = os.path.basename(data_dir)
         else:
             self.no_last_squid_tune = True;
             self.date = time.strftime("%Y%m%d")
