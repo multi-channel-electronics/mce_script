@@ -101,9 +101,9 @@ elif out_format == 'array':
     if opts.do_median:
         # replace zeros with the column median where available
         for c in range(0,n_col):
-            _s = periods[:,c]==0
+            _s = periods[:,c]!=0
             if _s.sum() > 0:
-                periods[_s,c] = int(round(median(periods[_s,c])))
+                periods[~_s,c] = int(round(median(periods[_s,c])))
     # Danger time
     pad = ','.join(['0' for x in range(41-n_row)])
     
