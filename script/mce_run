@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+
 # Acquires data from the MCE and create or append to a .run file.
 #
 # It also writes the current unix time into the run_id word of the
@@ -31,6 +31,9 @@ function usage {
     echo "     --flatfile      force flatfile data format"
     echo "     --no-locking    do not check/assert the data driver lock"
     echo "     --sequence <n>  break output into chunks of size n frames"
+    echo "     --symlink[=LNK] point a symlink called LNK (\"mas.lnk\" by"
+    echo "                     default to the output data; \$MAS_DATA will"
+    echo "                     be prepended."
     [ "$1" == "" ] || exit $1
     exit 1
 }
@@ -47,6 +50,7 @@ filename=$MAS_DATA/$1
 runfilename=${filename}.run
 numpts=$2
 rc=$3
+symlink=
 shift 3
 
 # Options processing
@@ -71,8 +75,14 @@ while [ "$#" != "0" ]; do
 	    fileseq=$2
 	    shift
 	    ;;
+  --symlink=*)
+      symlink=`expr "x$1" : 'x--symlink=\(.*\)'`
+      ;;
+  "--symlink")
+      symlink="mas.lnk"
+      ;;
 	*)
-	    echo "$SCRNAME : unknown option '$a'"
+	    echo "$SCRNAME : unknown option '$1'"
 	    usage
 	    ;;
     esac
@@ -128,15 +138,19 @@ fi
 
 echo "FRAME_BASENAME=$filename"
 
-lock_opts=
-[ "$locking" == "1" ] && lock_opts="-X lock_down"
+tempfile=$MAS_TEMP/`whoami`__mce_run$MAS_MCE_DEV.temp
+# truncate
+echo "" > $tempfile
+
+[ "$locking" == "1" ] && echo lock_down >> $tempfile
 
 [ "$fileseq" != "" ] && acq_config_suffix=${acq_config_suffix}_fs
 
-mce_cmd -q -o / \
-    $lock_opts \
-    -X "acq_config${acq_config_suffix} $filename rc$rc $fileseq" \
-    -X "acq_go $numpts"
+[ "x$symlink" == "x" ] || echo "acq_link $MAS_DATA/$symlink" >> $tempfile
+echo "acq_config${acq_config_suffix} $filename rc$rc $fileseq" >> $tempfile
+echo "acq_go $numpts" >> $tempfile
+
+mce_cmd -q -o / -f $tempfile
 
 if [ "$?" != "0" ]; then
     echo "$SCRNAME : mce_cmd returned error"
