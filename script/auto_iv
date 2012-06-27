@@ -4,7 +4,37 @@ import os, sys, time
 
 from optparse import OptionParser
 
+from auto_setup.util import mas_path
+mas_path = mas_path()
+
 stages = ['ramp', 'analysis', 'bias']
+
+def get_stage(stage):
+    return stages.index(stage)
+
+def do_stage(stage):
+    i0, i1, i = [stages.index(x) for x in
+                 [opts.first_stage, opts.last_stage, stage]]
+    return (i0 <= i) and (i <= i1)
+
+def true_path(linked_path, recursion=0):
+    """
+    Follow all symbolic links to get absolute, link-free path.
+    """
+    if recursion > 100:
+        raise
+    if linked_path == '':
+        return ''
+    if linked_path.endswith('/'):
+        return true_path(linked_path[:-1],recursion+1) + '/'
+    try:
+        p = os.readlink(linked_path)
+        return p
+    except OSError:
+        pass
+    a, b = os.path.split(linked_path)
+    return os.path.join(true_path(a, recursion+1), b)
+
 
 o = OptionParser()
 o.add_option('--first-stage')
@@ -20,27 +50,34 @@ o.add_option('--no-bias',action='store_true')
 o.add_option('--bias-only',action='store_true')
 opts, args = o.parse_args()
 
+# Let "args" do some obvious things
+if len(args) > 0:
+    opts.stage = args[0]
+    if opts.stage == 'go':
+        opts.stage = None  # trigger full thing
+        if len(args) > 1:
+            opts.ramp_file = args[1]
+    elif opts.stage == 'ramp':
+        if len(args) > 1:
+            opts.ramp_file = args[1]
+    elif opts.stage == 'analysis':
+        opts.ramp_file = args[1]
+    elif opts.stage =='bias':
+        opts.analysis_file = args[1]
+
+# Turn stage choice into a stage range.
 if opts.first_stage == None:
-    opts.first_stage = 0
-else:
-    opts.first_stage = stages.index(opts.first_stage)
-
+    opts.first_stage = stages[0]
 if opts.last_stage == None:
-    opts.last_stage = len(stages) - 1
-else:
-    opts.last_stage = stages.index(opts.last_stage)
+    opts.last_stage = stages[-1]
 
+# Ultimate override...
 if opts.stage != None:
-    s = stages.index(opts.stage)
-    opts.first_stage = s
-    opts.last_stage = s
+    opts.first_stage = opts.stage
+    opts.last_stage = opts.stage
 
 
 last_iv_link = '/data/cryo/last_iv.out'
-
-def do_stage(stage):
-    return stages.index(stage) >= opts.first_stage and \
-        stages.index(stage) <= opts.last_stage
 
 #
 #  Run a ramp?
@@ -48,16 +85,17 @@ def do_stage(stage):
 if do_stage('ramp'):
     if not opts.ramp_file:
         opts.ramp_file = '%i_iv' % (time.time())
+    ## Fix me: check error...
     os.system('ramp_tes_bias %s %s' % (opts.ramp_file, opts.rc))
-    opts.ramp_file = '/data/cryo/current_data/' + opts.ramp_file
+    opts.ramp_file = '%s/%s' % (mas_path.data_dir(), opts.ramp_file)
 
 #
 #  Analyze the IV curve?
 #
 if do_stage('analysis'):
     ## Fix me: abort if analysis fails.
-    os.system('python /usr/mce/mce_script/python/iv_analysis.py --summary %s' % 
-              opts.ramp_file)
+    os.system('python %s/iv_analysis.py --summary %s' % 
+              (mas_path.python_dir(), opts.ramp_file))
     # Link it
     link_exists = True
     if not os.path.exists(last_iv_link): # could be a broken link...
@@ -68,7 +106,7 @@ if do_stage('analysis'):
     if link_exists:
         os.remove(last_iv_link)
     opts.analysis_file = opts.ramp_file + '.out'
-    os.symlink(opts.analysis_file, last_iv_link)
+    os.symlink(true_path(opts.analysis_file), last_iv_link)
 
 #
 #  Apply the lastest biases?
