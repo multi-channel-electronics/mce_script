@@ -94,7 +94,7 @@ if do_stage('ramp'):
 #
 if do_stage('analysis'):
     ## Fix me: abort if analysis fails.
-    os.system('python %s/iv_analysis.py --summary %s' % 
+    os.system('python %s/iv_analysis.py %s' % 
               (mas_path.python_dir(), opts.ramp_file))
     # Link it
     link_exists = True
