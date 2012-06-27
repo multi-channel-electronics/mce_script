@@ -814,12 +814,16 @@ class MCEButterworth(MCEFilter):
         """
         self.params = params
     
-    def spectrum(self, f, f_samp=1.):
+    def transfer(self, f, f_samp=1., power=False):
         """
-        Return filter response as a function a frequency.
+        Return filter transfer function at frequencies f.
         
         f is the array of frequencies at which to evaluate the response.
+
         f_samp is the sampling frequency.
+
+        Setting power=True will return the power window function
+        (square of the modulus of the transfer function).
         """
         f = f / f_samp
         K = 1./2**14
@@ -827,13 +831,20 @@ class MCEButterworth(MCEFilter):
         b11, b12, b21, b22, k1, k2 = [s*p for s,p in zip(scalars, self.params)]
         z = numpy.exp(-2j*numpy.pi*f)
         H = (1. + z)**4 / (1. - b11*z + b12*z**2) / (1. - b21*z + b22*z**2)
-        return H  / 2**(k1+k2)
+        H /= 2**(k1+k2)
+        if power:
+            return abs(H)**2
+        return H
+
+    def spectrum(self, *args, **kwargs):
+        print '*** please use "transfer" method instead of "spectrum" method.'
+        return self.transfer(*args, **kwargs)
 
     def gain(self):
         """
         Estimate the DC gain of the filter.
         """
-        return self.spectrum(0).real
+        return self.transfer(0).real
 
     def f3dB(self, cutoff=0.5, f_samp=1.):
         """
@@ -848,8 +859,67 @@ class MCEButterworth(MCEFilter):
                 x = 0.5 - x #flip
             if x < 0:
                 return (1.-x) * g0
-            return abs(cutoff - abs(self.spectrum(x)/g0)**2)
+            return abs(cutoff - abs(self.transfer(x)/g0)**2)
         return fmin(_spec,0.1,disp=0)[0] * f_samp
+
+    # Filter application
+
+    def apply_filter(self, data, decimation=1., inverse=False,
+                     gain0=None):
+        """
+        Apply or de-apply filter to the last dimension of array
+        "data", using Fourier representation.
+
+        decimation      ratio of data frequency (e.g. 400 Hz) to the
+                        internal sampling frequency (e.g. 15151 Hz).
+
+        inverse         apply inverse of filter (deconvolve its
+                        effects)
+
+        gain0           by default the application / deapplication
+                        will include the DC gain of the filter.  If
+                        instead you want the DC gain to be one, pass
+                        gain0=1.
+        """
+        n = data.shape[-1]
+        freqs = numpy.arange(float(n))/n
+        freqs[int((n+1)/2):] -= 1.
+        spec = self.transfer(freqs, f_samp=1./decimation)
+        if gain0 != None:
+            spec *= gain0 / self.gain()
+        if inverse:
+            spec = 1./spec
+        return numpy.fft.ifft(numpy.fft.fft(data)*spec).real
+
+    def apply_filter_fir(self, data, truncate=False,
+                         stages=None):
+        """
+        Apply filter to data by applying the discrete-time filter.
+
+        truncate        If true, intermediate calculations are
+                        truncated as they would be in the MCE's fixed
+                        point implementation.  This allows for complete
+                        simulation of digital artifacts.
+        """
+        import scipy.signal as scs
+        # Special hack
+        n = data.shape[-1]
+        b = [1., 2., 1.]
+        # First filter
+        if stages == None or 0 in stages:
+            a = [1., -self.params[0]/2.**14, self.params[1]/2.**14]
+            data = scs.lfilter(b, a, data) / 2**self.params[5]
+            if truncate:
+                data = numpy.floor(data)
+        # Second filter
+        if stages == None or 1 in stages:
+            a = [1., -self.params[2]/2.**14, self.params[3]/2.**14]
+            data = scs.lfilter(b, a, data) / 2**self.params[4]
+            if truncate:
+                data = numpy.floor(data)
+        return data
+
+    # Static methods for convenient construction
 
     @classmethod
     def from_params(cls, ftype, fparams):
