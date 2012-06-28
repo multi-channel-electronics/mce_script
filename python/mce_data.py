@@ -345,6 +345,14 @@ class SmallMCEFile:
         if file_size % self.frame_bytes != 0:
             print 'Warning: partial frame at end of file.'
 
+    def _UpdateNFrames(self):
+        # Partial GetInfo... no error checking.
+        file_size = stat(self.filename).st_size
+        self.n_ro = file_size / self.frame_bytes
+        count_rc = self.n_rows * self.n_cols
+        count_cc = self.size_ro
+        self.n_frames = (count_cc / count_rc) * self.n_ro
+
     def _ReadHeader(self, offset=None):
         """
         Read the frame header at file position 'offset' (bytes),
