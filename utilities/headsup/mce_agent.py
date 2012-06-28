@@ -1,5 +1,5 @@
 """
-Implement a data consumer using pylab.
+Read data from the MCE directly.
 """
 
 import clients, nets
@@ -11,7 +11,7 @@ class mceProducer(clients.dataProducer):
         clients.dataProducer.__init__(self, nets.default_addr, name)
         self.mce = pymce.MCE()
         self.dshape = None
-        self.delay = .1
+        self.delay = .03
     def tick(self):
         d = self.mce.read_data(1, row_col=True).data[:,:,0]
         if self.dshape != d.shape:

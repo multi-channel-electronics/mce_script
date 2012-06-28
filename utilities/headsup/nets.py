@@ -7,14 +7,19 @@ import errno
 
 default_addr = 'localhost:12354'
 
-def send_dahi(socket, data):
+def send_dahi(sock, data):
     n = len(data)
     pre = 'dahi' + array.array('i', [n]).tostring()
     # Great
     data = pre + data
     n = 0
     while n < len(data):
-        n += socket.send(data[n:])
+        try:
+            n += sock.send(data[n:])
+        except socket.error as err:
+            return False, err
+    return True, 0
+            
 
 def recv_wrapped(sock, n):
     """

@@ -24,16 +24,20 @@ Then:
 
 class dataHandler(SocketServer.BaseRequestHandler):
     def handle(self):
-        data = ''
         me = self.request
         dd.add(me)
         me.setblocking(0.5)
         while True:
             while True:
-                action = dd.get_action(me)
-                if action == None:
+                op, data = dd.get_action(me)
+                if op == None:
                     break
-                send_dahi(me, action)
+                if op == 'send':
+                    ok, err = send_dahi(me, data)
+                    if err == errno.EPIPE:
+                        break
+                if op == 'close':
+                    break
             data = recv_dahi(me, block=False)
             if data == None:
                 break
@@ -56,22 +60,43 @@ class dataDistributor:
     def serve(self):
         self.server = thServer(self.addr, dataHandler)
         self.server.serve_forever()
+
+    #
+    # Callbacks for the TCPServer threads
+    #
+
     def add(self, conn):
+        """
+        Add the new socket conn to the list of clients.
+        """
         self._id += 1
-        self.clients[conn] = {'conn': conn, 'id': self._id}
+        self.clients[conn] = {'conn': conn, 'id': self._id,
+                              'name': '', 'type': ''}
         self.actions[conn] = []
     def remove(self, conn):
+        """
+        Remove socket conn from list of clients.
+        """
         self.actions.pop(conn)
         self.clients.pop(conn)
     def get_action(self, conn):
+        """
+        If there is outstanding data for conn to write, provide it.
+        """
         try:
             return self.actions[conn].pop(0)
         except:
-            return None
+            return None, None
     def data(self, conn, data):
+        """
+        Process the data packet from conn.
+        """
         info = self.clients[conn]
         cmd = data[:4]
         if cmd == 'diex':
+            for client in self.clients.keys():
+                #client.shutdown(socket.SHUT_RDWR)
+                self.actions[client].insert(0, ('close',None))
             self.server.shutdown()
         elif cmd == 'type':
             info['type'] = decode_strings(data[4:])[0]
@@ -84,13 +109,13 @@ class dataDistributor:
             data.sort()
             data = ['%i\x00%s\x00%s\x00' % row for row in data]
             data = '\x00'.join(data)
-            self.actions[c].append(cmd + data)
+            self.actions[conn].append(('send', cmd + data))
         elif cmd in ['ctrl','data']:
             # pass it on...
             for c in self.clients.keys():
                 info = self.clients[c]
                 if info.get('type') == 'plotter':
-                    self.actions[c].append(data)
+                    self.actions[c].append(('send', data))
         else:
             print 'Whatever, "%s"' % data[:4]
 
