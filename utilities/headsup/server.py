@@ -5,7 +5,7 @@ import array
 import SocketServer
 import errno
 
-import nets
+import nets, util
 from nets import *
 
 """
@@ -13,7 +13,7 @@ Implement a server that can pass data from distributors to plotters.
 
 Encapsulating protocol:
   'dahi' xxxx payload...
- where xxxx is the 32-bit packet size, in bytes.  Probably LSB first.
+where xxxx is the 32-bit payload size, in bytes.  Probably LSB first.
 
 Then:
   'type' 'x...' <- register client type (32 bytes)
@@ -21,6 +21,12 @@ Then:
   'list'        <- request list of clients. (returns parsable string)
   'diex'        <- exit
 """
+
+defaults = util.defaults.copy()
+defaults.update({
+    'client_name': 'server',
+    })
+
 
 class dataHandler(SocketServer.BaseRequestHandler):
     def handle(self):
@@ -121,24 +127,23 @@ class dataDistributor:
 
 
 if __name__ == '__main__':
-    from optparse import OptionParser
-    o = OptionParser()
+    o = util.upOptionParser()
+    o.add_standard(defaults)
     o.add_option('--kill',action='store_true')
     o.add_option('--tunnel')
-    opts, args = o.parse_args()
+    opts, args = o.parse_args(defaults)
     
-    SRVADR = nets.default_addr
-
     if opts.tunnel:
         import os
-        host, port = nets.decode_address(SRVADR)
-        os.system('ssh -N -L%i:%s:%i %s' % (port, host, port, opts.tunnel))
+        host, port = nets.decode_address(opts.server)
+        os.system('ssh -N -L%i:%s:%i %s' % \
+                      (opts.port, opts.host, opts.port, opts.tunnel))
                   
     if opts.kill:
         import clients
-        killer = clients.dataClient(SRVADR)
+        killer = clients.dataClient(opts.server)
         killer.send('diex')
         sys.exit(0)
 
-    dd = dataDistributor(SRVADR)
+    dd = dataDistributor(opts.server)
     dd.serve()

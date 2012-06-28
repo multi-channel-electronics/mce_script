@@ -2,13 +2,18 @@
 Read data from the MCE directly.
 """
 
-import clients, nets
+import clients, util
 import pymce
 import time
 
+defaults = util.defaults.copy()
+defaults.update({
+    'client_name': 'mce',
+    })
+
 class mceProducer(clients.dataProducer):
-    def __init__(self, name='mce'):
-        clients.dataProducer.__init__(self, nets.default_addr, name)
+    def __init__(self, addr, name='mce'):
+        clients.dataProducer.__init__(self, addr, name)
         self.mce = pymce.MCE()
         self.dshape = None
         self.delay = .03
@@ -30,14 +35,12 @@ class mceProducer(clients.dataProducer):
                 self.dshape = None
 
 if __name__ == '__main__':
-    from optparse import OptionParser
-    o = OptionParser()
+    o = util.upOptionParser()
+    o.add_standard(defaults)
     o.add_option('--run',action='store_true')
-    opts, args = o.parse_args()
+    opts, args = o.parse_args(defaults=defaults)
     
-    SRVADR = nets.default_addr
-
-    mp = mceProducer()
+    mp = mceProducer(opts.server, opts.name)
     if opts.run:
         mp.run()
     

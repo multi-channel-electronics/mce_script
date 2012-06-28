@@ -5,8 +5,6 @@ import array
 import numpy
 import errno
 
-default_addr = 'localhost:12354'
-
 def send_dahi(sock, data):
     n = len(data)
     pre = 'dahi' + array.array('i', [n]).tostring()

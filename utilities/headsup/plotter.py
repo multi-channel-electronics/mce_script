@@ -7,14 +7,19 @@ import time
 
 import clients, nets, util
 
+defaults = util.defaults.copy()
+defaults.update({
+    'client_name': 'pylab',
+    })
+
 pl.rcParams.update({
         'image.interpolation': 'nearest',
         'image.origin': 'lower'
 })
 
 class pylabPlotter(clients.dataConsumer):
-    def __init__(self, name='pylab'):
-        clients.dataConsumer.__init__(self, nets.default_addr, name)
+    def __init__(self, addr, name='pylab'):
+        clients.dataConsumer.__init__(self, addr, name)
         pl.ion()
         self.fig = pl.figure()
         pl.show()
@@ -51,8 +56,10 @@ class pylabPlotter(clients.dataConsumer):
                 timer.record(0)
 
 if __name__ == '__main__':
+    o = util.upOptionParser()
+    o.add_standard(defaults)
+    opts, args = o.parse_args(defaults=defaults)
 
-    pp = pylabPlotter()
+    pp = pylabPlotter(opts.server, opts.name)
     pp.go()
-    print 'disconnected.'
 
