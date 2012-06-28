@@ -131,7 +131,7 @@ if __name__ == '__main__':
 
     if opts.tunnel:
         import os
-        host, port = nets.decode_address(SRVADDR)
+        host, port = nets.decode_address(SRVADR)
         os.system('ssh -N -L%i:%s:%i %s' % (port, host, port, opts.tunnel))
                   
     if opts.kill:

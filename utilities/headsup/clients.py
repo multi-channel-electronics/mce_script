@@ -11,6 +11,7 @@ casts = {
 class dataClient:
     ctype = None
     name = None
+    connected = False
     def __init__(self, addr=None, name=None):
         if name != None:
             self.name = name
@@ -21,15 +22,24 @@ class dataClient:
             self.addr = addr
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(decode_address(self.addr))
-        self.sock.setblocking(0.5)
-        if self.name != None:
-            self.send('name%s\x00' % self.name)
-        if self.ctype != None:
-            self.send('type%s\x00' % self.ctype)
+        try:
+            self.sock.settimeout(0.1)
+            if self.name != None:
+                self.send('name%s\x00' % self.name)
+            if self.ctype != None:
+                self.send('type%s\x00' % self.ctype)
+            self.connected = True
+        except socket.error:
+            print 'failed to connect'
     def send(self, data):
         send_dahi(self.sock, data)
     def recv(self, block=False):
-        return recv_dahi(self.sock, block=block)
+        x = recv_dahi(self.sock, block=block)
+#        if x == None:
+#            self.sock.shutdown(socket.SHUT_RDWR)
+#            self.sock.close()
+#            self.connected = False
+        return x
 
 class dataConsumer(dataClient):
     ctype = 'plotter'
@@ -39,7 +49,7 @@ class dataConsumer(dataClient):
         dataClient.__init__(self, addr=addr, name=name)
     def process(self):
         data = self.recv(block=False)
-        if data == '':
+        if data == None or data == '':
             return None, None
         cmd = data[:4]
         if cmd == 'ctrl':
