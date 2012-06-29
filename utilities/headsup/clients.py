@@ -1,13 +1,8 @@
 from nets import *
+import util
 
 import numpy
 
-casts = {
-    'int': int,
-    'float': float,
-    'str': str,
-}
-    
 class dataClient:
     ctype = None
     name = None
@@ -20,29 +15,34 @@ class dataClient:
     def connect(self, addr=None):
         if addr != None:
             self.addr = addr
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect(decode_address(self.addr))
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.sock.connect(decode_address(self.addr))
+        except socket.error as err:
+            print 'Failed to connect to server; error %i (%s)' % \
+                (err.args[0], err.args[1])
+            return False
         try:
             self.sock.settimeout(0.1)
             if self.name != None:
-                self.send('name%s\x00' % self.name)
+                self.set_client_var('name', self.name)
             if self.ctype != None:
-                self.send('type%s\x00' % self.ctype)
+                self.set_client_var('type', self.ctype)
             self.connected = True
         except socket.error:
             print 'failed to connect'
     def send(self, data):
         send_dahi(self.sock, data)
     def recv(self, block=False):
-        x = recv_dahi(self.sock, block=block)
-#        if x == None:
-#            self.sock.shutdown(socket.SHUT_RDWR)
-#            self.sock.close()
-#            self.connected = False
-        return x
+        return recv_dahi(self.sock, block=block)
+    def set_client_var(self, name, value, dtype=None):
+        if dtype == None:
+            dtype = util.get_type(value)
+            value = str(value)
+        self.send('cliv' + encode_strings([name, dtype, value]))
 
 class dataConsumer(dataClient):
-    ctype = 'plotter'
+    ctype = 'sync'
     controls = {}
     data = []
     def __init__(self, addr, name):
@@ -54,7 +54,7 @@ class dataConsumer(dataClient):
         cmd = data[:4]
         if cmd == 'ctrl':
             key, dtype, value = decode_strings(data[4:])
-            value = casts[dtype](value)
+            value = util.casts[dtype](value)
             self.controls[key] = value
             return cmd, key
         elif cmd == 'data':
@@ -65,13 +65,16 @@ class dataConsumer(dataClient):
             return '?', data
 
 class dataProducer(dataClient):
-    ctype = 'producer'
+    ctype = 'source'
     def __init__(self, addr, name):
         dataClient.__init__(self, addr=addr, name=name)
         self.options = {}
         self.freshen = 0
-    def send_control(self, name, dtype, value):
-        self.send('ctrl' + encode_strings([name, dtype, str(value)]))
+    def send_control(self, name, value, dtype=None):
+        if dtype == None:
+            dtype = util.get_type(value)
+            value = str(value)
+        self.send('ctrl' + encode_strings([name, dtype, value]))
     def send_data(self, data):
         self.send('data' + data.astype('float32').tostring())
 
@@ -81,8 +84,8 @@ class dataProducer(dataClient):
             self.dshape = None
             self.freshen = self.options.get('refreshen', 100)
         if self.dshape != data.shape:
-            self.send_control('nrow', 'int', data.shape[0])
-            self.send_control('ncol', 'int', data.shape[1])
+            self.send_control('nrow', data.shape[0])
+            self.send_control('ncol', data.shape[1])
             self.dshape = data.shape
         self.send_data(data.ravel())
         self.freshen -= 1

@@ -20,6 +20,7 @@ Then:
   'name' 'x...' <- register client name (32 bytes)
   'list'        <- request list of clients. (returns parsable string)
   'diex'        <- exit
+  'serv'        <- set server variable
 """
 
 defaults = util.defaults.copy()
@@ -39,12 +40,12 @@ class dataHandler(SocketServer.BaseRequestHandler):
                 if op == None:
                     break
                 if op == 'send':
-                    ok, err = send_dahi(me, data)
+                    ok, err = nets.send_dahi(me, data)
                     if err == errno.EPIPE:
                         break
                 if op == 'close':
                     break
-            data = recv_dahi(me, block=False)
+            data = nets.recv_dahi(me, block=False)
             if data == None:
                 break
             if data == '':
@@ -59,13 +60,26 @@ class thServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 class dataDistributor:
     def __init__(self, addr=None):
         if addr != None:
-            self.addr = decode_address(addr)
+            self.addr = nets.decode_address(addr)
         self.clients = {}
         self.actions = {}
+        self.sources = {}
+        self.syncs = {}
         self._id = 0
+
     def serve(self):
         self.server = thServer(self.addr, dataHandler)
         self.server.serve_forever()
+
+    def post_action(self, conn, act, data=None, quick=False):
+        """
+        Register an action for a client thread to perform later.
+        """
+        data = (act, data)
+        if quick:
+            self.actions[conn].insert(0, data)
+        else:
+            self.actions[conn].append(data)
 
     #
     # Callbacks for the TCPServer threads
@@ -79,12 +93,14 @@ class dataDistributor:
         self.clients[conn] = {'conn': conn, 'id': self._id,
                               'name': '', 'type': ''}
         self.actions[conn] = []
+
     def remove(self, conn):
         """
         Remove socket conn from list of clients.
         """
         self.actions.pop(conn)
         self.clients.pop(conn)
+
     def get_action(self, conn):
         """
         If there is outstanding data for conn to write, provide it.
@@ -93,6 +109,7 @@ class dataDistributor:
             return self.actions[conn].pop(0)
         except:
             return None, None
+
     def data(self, conn, data):
         """
         Process the data packet from conn.
@@ -101,13 +118,12 @@ class dataDistributor:
         cmd = data[:4]
         if cmd == 'diex':
             for client in self.clients.keys():
-                #client.shutdown(socket.SHUT_RDWR)
-                self.actions[client].insert(0, ('close',None))
+                self.post_action(client, 'close', quick=True)
             self.server.shutdown()
-        elif cmd == 'type':
-            info['type'] = decode_strings(data[4:])[0]
-        elif cmd == 'name':
-            info['name'] = decode_strings(data[4:])[0]
+        elif cmd == 'cliv':
+            # Set client variables (name, type, sync)
+            key, dtype, value = decode_strings(data[4:])
+            info[key] = util.casts[dtype](value)
         elif cmd == 'list':
             data = []
             for client in self.clients.values():
@@ -115,13 +131,14 @@ class dataDistributor:
             data.sort()
             data = ['%i\x00%s\x00%s\x00' % row for row in data]
             data = '\x00'.join(data)
-            self.actions[conn].append(('send', cmd + data))
+            self.post_action(c, 'send', cmd+data)
+        # Sources send control and data packets, pass them on to
+        # listeners.
         elif cmd in ['ctrl','data']:
-            # pass it on...
             for c in self.clients.keys():
                 info = self.clients[c]
-                if info.get('type') == 'plotter':
-                    self.actions[c].append(('send', data))
+                if info.get('type') == 'sync':
+                    self.post_action(c, 'send', data)
         else:
             print 'Whatever, "%s"' % data[:4]
 

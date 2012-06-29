@@ -17,7 +17,6 @@ def send_dahi(sock, data):
         except socket.error as err:
             return False, err
     return True, 0
-            
 
 def recv_wrapped(sock, n):
     """

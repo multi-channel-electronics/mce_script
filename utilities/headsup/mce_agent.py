@@ -20,8 +20,8 @@ class mceProducer(clients.dataProducer):
     def tick(self):
         d = self.mce.read_data(1, row_col=True).data[:,:,0]
         if self.dshape != d.shape:
-            self.send_control('nrow', 'int', d.shape[0])
-            self.send_control('ncol', 'int', d.shape[1])
+            self.send_control('nrow', d.shape[0])
+            self.send_control('ncol', d.shape[1])
         self.send_data(d.ravel())
     def run(self):
         shape_fresh = 100

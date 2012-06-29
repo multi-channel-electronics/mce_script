@@ -32,8 +32,10 @@ class pylabPlotter(clients.dataConsumer):
         data = None
         timer = util.rateTracker()
         while self.connected:
-            op, _ = self.process()
+            op, item = self.process()
             if op == 'control':
+                if item in ['zmin','zmax']:
+                    self.im.set_clim(self['zmin'], self['zmax'])
                 if self.im != None:
                     self.im = None # invalidate display
                     self.fig.clf()
@@ -42,6 +44,10 @@ class pylabPlotter(clients.dataConsumer):
                 if dims[0]*dims[1] == 0:
                     continue 
                 data = self.data.pop(0).reshape(*dims)
+                if self.controls.get('zmin') == None:
+                    self.controls['zmin'] = data.min()
+                if self.controls.get('zmax') == None:
+                    self.controls['zmax'] = data.min()
             elif op == None and data != None:
                 # Only plot when idle!  Keeps things moving...
                 if self.im == None:

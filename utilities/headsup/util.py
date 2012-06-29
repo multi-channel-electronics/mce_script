@@ -37,3 +37,16 @@ class upOptionParser(OptionParser):
         return opts, args
 
         
+def get_type(x):
+    if isinstance(x, int):
+        return 'int'
+    if isinstance(x, float):
+        return 'float'
+    return 'str'
+    
+casts = {
+    'int': int,
+    'float': float,
+    'str': str,
+}
+    
