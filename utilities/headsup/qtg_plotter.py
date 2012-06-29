@@ -3,7 +3,7 @@ import sys, os
 from PyQt4 import QtCore, QtGui
 import pyqtgraph as pg
 
-import clients, util
+import clients, util, plotters
 
 defaults = util.defaults.copy()
 defaults.update({
@@ -36,7 +36,6 @@ img = pg.ImageItem()
 view.scene().addItem(img)
 
 idata = None
-
 def set_data(data, rezoom=True):
     global idata
     idata = data
@@ -52,31 +51,57 @@ class qtgPlotter(clients.dataConsumer):
     def __init__(self, addr, name='qtg'):
         clients.dataConsumer.__init__(self, addr, name)
         self.dshape = None
+        self.img = []
+        self.img_data = []
+    def add_image(self, image, image_name=None):
+        self.img.append((image, image_name))
+        self.img_data.append(None)
+    def update_image(self, data, idx=0):
+        (view,img), name = self.img[idx]
+        dshape = data.shape
+        view.setRange(QtCore.QRectF(0, 0, dshape[0], dshape[1]))
+        auto = self.controls.get('autoscale', False)
+        black, white = self.controls.get('zrange', (None,None))
+        img.updateImage(data, autoRange=auto, black=black, white=white)
+
     def poll(self):
+        if self.controls.get('exit'):
+            print 'Exiting on server request.'
+            app.exit()
         if not self.connected:
             self.connect()
-        op, _ = self.process()
+            if not self.connected:
+                print 'Exiting on failed reconnect.'
+                app.exit()
+        op, item = self.process()
         if op == 'control':
             pass
         elif op == 'data':
-            dims = [self.controls.get(k,0) for k in ['nrow', 'ncol']]
-            if dims[0]*dims[1] == 0:
+            dshape = self.controls.get('data_shape', None)
+            if dshape == None:
                 return
-            data = self.data.pop(0).reshape(*dims).transpose()
-            set_data(data)
+            data = self.data.pop(0).reshape(dshape).transpose()
+            #set_data(data)
+            self.update_image(data)
 
 if __name__ == '__main__':
     o = util.upOptionParser()
+    o.add_option('--no-controller',action='store_true')
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults=defaults)
 
     pp = qtgPlotter(opts.server, opts.name)
+    pp.add_image((view,img))
 
     # update image data every 20ms (or so)
     t = QtCore.QTimer()
     t.timeout.connect(pp.poll)
     t.start(20)
 
-    ## Start Qt event loop unless running in interactive mode.
-    if sys.flags.interactive != 1:
-        app.exec_()
+    if opts.no_controller:
+        ## Start Qt event loop unless running in interactive mode.
+        if sys.flags.interactive != 1:
+            app.exec_()
+    else:
+        disp = plotters.displayController(opts.server, opts.name+'_ctrl')
+        

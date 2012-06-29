@@ -53,14 +53,19 @@ class dataConsumer(dataClient):
             return None, None
         cmd = data[:4]
         if cmd == 'ctrl':
-            key, dtype, value = decode_strings(data[4:])
-            value = util.casts[dtype](value)
-            self.controls[key] = value
-            return cmd, key
+            new_controls = decode_json(data[4:])
+            updated_keys = []
+            for k, v in new_controls.iteritems():
+                if self.controls.get(k) != v:
+                    self.controls[k] = v
+                    updated_keys.append(k)
+            return cmd, updated_keys
         elif cmd == 'data':
             d = numpy.array(array.array('f', data[4:]))
             self.data.append(d)
             return cmd, d
+        elif cmd == 'diec':
+            self.controls['exit'] = True
         else:
             return '?', data
 
@@ -70,11 +75,7 @@ class dataProducer(dataClient):
         dataClient.__init__(self, addr=addr, name=name)
         self.options = {}
         self.freshen = 0
-    def send_control(self, name, value, dtype=None):
-        if dtype == None:
-            dtype = util.get_type(value)
-            value = str(value)
-        self.send('ctrl' + encode_strings([name, dtype, value]))
+
     def send_data(self, data):
         self.send('data' + data.astype('float32').tostring())
 
@@ -84,9 +85,11 @@ class dataProducer(dataClient):
             self.dshape = None
             self.freshen = self.options.get('refreshen', 100)
         if self.dshape != data.shape:
-            self.send_control('nrow', data.shape[0])
-            self.send_control('ncol', data.shape[1])
+            self.post_meta({'data_shape': data.shape})
             self.dshape = data.shape
         self.send_data(data.ravel())
         self.freshen -= 1
             
+    def post_meta(self, info):
+        self.send('ctrl' + encode_json(info))
+        

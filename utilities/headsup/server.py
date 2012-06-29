@@ -68,8 +68,11 @@ class dataDistributor:
         self._id = 0
 
     def serve(self):
-        self.server = thServer(self.addr, dataHandler)
-        self.server.serve_forever()
+        try:
+            self.server = thServer(self.addr, dataHandler)
+            self.server.serve_forever()
+        except socket.error as err:
+            print "Failed to start server, error %i (%s)" % err.args[:2]
 
     def post_action(self, conn, act, data=None, quick=False):
         """
@@ -125,13 +128,15 @@ class dataDistributor:
             key, dtype, value = decode_strings(data[4:])
             info[key] = util.casts[dtype](value)
         elif cmd == 'list':
-            data = []
-            for client in self.clients.values():
-                data.append((client['id'], client['name'], client['type']))
-            data.sort()
-            data = ['%i\x00%s\x00%s\x00' % row for row in data]
-            data = '\x00'.join(data)
-            self.post_action(c, 'send', cmd+data)
+            omit_keys = ['conn']
+            list_data = []
+            for c in self.clients.values():
+                d = c.copy()
+                for k in omit_keys:
+                    d.pop(k)
+                list_data.append((c['id'], d))
+            list_data = zip(*sorted(list_data))[1]
+            self.post_action(conn, 'send', 'list'+nets.encode_json(list_data))
         # Sources send control and data packets, pass them on to
         # listeners.
         elif cmd in ['ctrl','data']:

@@ -4,6 +4,7 @@ import time
 import array
 import numpy
 import errno
+import json
 
 def send_dahi(sock, data):
     n = len(data)
@@ -65,6 +66,16 @@ def recv_dahi(sock, block=True):
                 n += array.array('i', data[4:])[0]
                 header = True
             
+def encode_json(d):
+    return 'json\x00' + json.dumps(d)
+
+def decode_json(d):
+    a, b = d.split('\x00')
+    if not a == 'json':
+        raise ValueError, "does not appear to be a jsondict"
+    return json.loads(b)
+
+
 def encode_strings(ss):
     return '\x00'.join(ss) + '\x00'
 

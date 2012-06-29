@@ -32,22 +32,23 @@ class pylabPlotter(clients.dataConsumer):
         data = None
         timer = util.rateTracker()
         while self.connected:
-            op, item = self.process()
-            if op == 'control':
-                if item in ['zmin','zmax']:
-                    self.im.set_clim(self['zmin'], self['zmax'])
-                if self.im != None:
-                    self.im = None # invalidate display
-                    self.fig.clf()
+            if self.controls.get('exit'):
+                print 'Server issued client kill.'
+                break
+            op, items = self.process()
+            if op == 'ctrl':
+                auto = self.controls.get('autoscale', False)
+                if not auto and ('autoscale' in items or 'zrange' in items):
+                    # Set the image scale to most recent zrange
+                    self.im.set_clim(*self.controls['zrange'])
             elif op == 'data':
-                dims = [self.controls.get(k,0) for k in ['nrow', 'ncol']]
-                if dims[0]*dims[1] == 0:
+                dshape = self.controls.get('data_shape',None)
+                if dshape == None:
                     continue 
-                data = self.data.pop(0).reshape(*dims)
-                if self.controls.get('zmin') == None:
-                    self.controls['zmin'] = data.min()
-                if self.controls.get('zmax') == None:
-                    self.controls['zmax'] = data.min()
+                data = self.data.pop(0).reshape(dshape)
+                auto = self.controls.get('autoscale', False)
+                if auto:
+                    self.im.set_clim(data.min(), data.max())
             elif op == None and data != None:
                 # Only plot when idle!  Keeps things moving...
                 if self.im == None:

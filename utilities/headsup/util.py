@@ -49,4 +49,10 @@ casts = {
     'float': float,
     'str': str,
 }
-    
+
+def get_type_value_pair(dtype, value):
+    if dtype == None:
+        dtype = get_type(value)
+        return dtype, str(value)
+    return dtype, value
+
