@@ -7,6 +7,8 @@ class dataClient:
     ctype = None
     name = None
     connected = False
+    controls = {}
+    data = []
     def __init__(self, addr=None, name=None):
         self._tag = 0
         self.tagged_replies = {}
@@ -54,13 +56,6 @@ class dataClient:
             dtype = util.get_type(value)
             value = str(value)
         self.send('cliv' + encode_strings([name, dtype, value]))
-
-class dataConsumer(dataClient):
-    ctype = 'sync'
-    controls = {}
-    data = []
-    def __init__(self, addr, name):
-        dataClient.__init__(self, addr=addr, name=name)
     def process(self):
         """
         Read data from socket, interpret.  Returns tuple:
@@ -98,6 +93,9 @@ class dataConsumer(dataClient):
             return cmd, None
         else:
             return '?', cmd
+
+class dataConsumer(dataClient):
+    ctype = 'sync'
 
 class dataProducer(dataClient):
     ctype = 'source'
