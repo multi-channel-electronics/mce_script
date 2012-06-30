@@ -29,6 +29,15 @@ defaults.update({
     })
 
 
+client_info_defaults = ({
+        'name': '',
+        'type': '',
+        'inform': 1.0,
+        'rate': 0.,
+        'frame_dn': 0,
+        'frame_t0': 0,
+        })
+
 class dataHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         me = self.request
@@ -93,8 +102,8 @@ class dataDistributor:
         Add the new socket conn to the list of clients.
         """
         self._id += 1
-        self.clients[conn] = {'conn': conn, 'id': self._id,
-                              'name': '', 'type': ''}
+        self.clients[conn] = client_info_defaults.copy()
+        self.clients[conn].update({'conn': conn, 'id': self._id})
         self.actions[conn] = []
 
     def remove(self, conn):
@@ -139,14 +148,31 @@ class dataDistributor:
             self.post_action(conn, 'send', 'list'+nets.encode_json(list_data))
         # Sources send control and data packets, pass them on to
         # listeners.
-        elif cmd in ['ctrl','data']:
+        elif cmd in 'ctrl':
             for c in self.clients.keys():
                 info = self.clients[c]
                 if info.get('type') == 'sync':
                     self.post_action(c, 'send', data)
+        elif cmd == 'data':
+            for c in self.clients.keys():
+                info = self.clients[c]
+                if info.get('type') == 'sync':
+                    self.resend_frame(c, data)
         else:
             print 'Whatever, "%s"' % data[:4]
 
+    def resend_frame(self, conn, data):
+        info = self.clients[conn]
+        dt = max(info.get('rate', 1.), .0001) ** -1
+        t0 = info['frame_t0']
+        t1 = time.time()
+        elapsed = t1 - t0
+        if elapsed > dt:
+            self.post_action(conn, 'send', data)
+            if elapsed < 2*dt:
+                t1 = t0 + elapsed
+            info['frame_t0'] = t1
+                
 
 if __name__ == '__main__':
     o = util.upOptionParser()
