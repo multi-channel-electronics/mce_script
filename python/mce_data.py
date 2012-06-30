@@ -321,8 +321,6 @@ class SmallMCEFile:
 
         Sets members n_ro, n_rc, size_ro, frame_bytes, rc_step.
         """
-        if self.filename == None:
-            raise RuntimeError, 'Can\'t determine payload params without data file.'
         if self.header == None:
             self._ReadHeader()
         # Compute frame size from header data.
@@ -340,10 +338,12 @@ class SmallMCEFile:
             MCE_DWORD*(self.size_ro * self.n_rc + \
                            self.header['_header_size'] + self.header['_footer_size'])
         # Now stat the file to count the readout frames
-        file_size = stat(self.filename).st_size
-        self.n_ro = file_size / self.frame_bytes
-        if file_size % self.frame_bytes != 0:
-            print 'Warning: partial frame at end of file.'
+        if self.filename != None:
+            # This conditional caginess is for subclassing to MCEBinaryData.
+            file_size = stat(self.filename).st_size
+            self.n_ro = file_size / self.frame_bytes
+            if file_size % self.frame_bytes != 0:
+                print 'Warning: partial frame at end of file.'
 
     def _UpdateNFrames(self):
         # Partial GetInfo... no error checking.
@@ -353,18 +353,21 @@ class SmallMCEFile:
         count_cc = self.size_ro
         self.n_frames = (count_cc / count_rc) * self.n_ro
 
-    def _ReadHeader(self, offset=None):
+    def _ReadHeader(self, offset=None, head_binary=None):
         """
         Read the frame header at file position 'offset' (bytes),
         determine its version, and store its data in self.header.
         """
-        fin = open(self.filename)
-        if offset != None:
-            fin.seek(offset)
         # It's a V6, or maybe a V7.
         format = HeaderFormat()
-        head_binary = numpy.fromfile(file=fin, dtype='<i4', \
-                                     count=format.header_size)
+        if head_binary == None:
+            if self.filename == None:
+                raise RuntimeError, 'Can\'t read header without data file.'
+            fin = open(self.filename)
+            if offset != None:
+                fin.seek(offset)
+            head_binary = numpy.fromfile(file=fin, dtype='<i4',
+                                         count=format.header_size)
         # Lookup each offset and store
         self.header = {}
         for k in format.offsets:
