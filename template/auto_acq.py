@@ -84,7 +84,7 @@ details['temp_root'] = '%s/%s_%s__' % \
 rf0 = None
 for acq in acq_desc:
     rf_type = acq.get('runfile')
-    if not rf_type or acq['type'] == 'command':
+    if not rf_type or acq['type'] in ['pass', 'command']:
         continue
     # Runfile name?
     filename = acq['filename'] % details
@@ -120,6 +120,9 @@ lines = ['acq_multi_begin']
 
 for acq in acq_desc:
     ftype = acq.get('type','flatfile')
+    if ftype == 'pass':
+        continue
+    # Update details
     my_det = details.copy()
     my_det['filename'] = acq.get('filename','') % my_det
     my_det['seq_int'] = acq.get('sequencing_interval', 0)
@@ -132,7 +135,7 @@ for acq in acq_desc:
     if slink == None or slink == '':
         lines.append('acq_link')
     else:
-        lines.append('acq_link %s' % slink)
+        lines.append('acq_link %s' % (slink % my_det))
     # Construct init line for this output type
     fseq = my_det['seq_int'] > 0
     if ftype == 'flatfile':
