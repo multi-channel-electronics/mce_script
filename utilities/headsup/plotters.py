@@ -1,3 +1,5 @@
+import json
+
 import clients
 import numpy as np
 
@@ -72,3 +74,16 @@ class displayController(dict, clients.dataProducer):
     def unmask_area(self, row=None, col=None, shape=None):
         return self.mask_area(row, col, shape, unmask=True)
 
+    #
+    # Save and restore
+    #
+
+    def save(self, filename):
+        open(filename,'w').write(json.dumps(self))
+    
+    def restore(self, filename, update=False):
+        if not update:
+            self.clear()
+        d = json.loads(open(filename))
+        self.update(d)
+        

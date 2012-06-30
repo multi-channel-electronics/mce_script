@@ -42,7 +42,7 @@ class dataHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         me = self.request
         dd.add(me)
-        me.setblocking(0.5)
+        me.setblocking(0)
         while True:
             while True:
                 op, data = dd.get_action(me)
@@ -58,7 +58,7 @@ class dataHandler(SocketServer.BaseRequestHandler):
             if data == None:
                 break
             if data == '':
-                time.sleep(.5)
+                time.sleep(.01)
                 continue
             dd.data(me, data)
         dd.remove(me)
