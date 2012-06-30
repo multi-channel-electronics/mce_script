@@ -10,10 +10,17 @@ class dataClient:
     def __init__(self, addr=None, name=None):
         self._tag = 0
         self.tagged_replies = {}
+        self.connected = False
         if name != None:
             self.name = name
         if addr != None:
             self.connect(addr)
+    def __repr__(self):
+        constr = 'connected'
+        if not self.connected:
+            constr = 'not '+constr
+        return '<%s (%s); %s; %s>' % (self.__class__.__name__, self.name,
+                                      constr, str(self.addr))
     def connect(self, addr=None):
         if addr != None:
             self.addr = addr
@@ -33,6 +40,10 @@ class dataClient:
             self.connected = True
         except socket.error:
             print 'failed to connect'
+    def close(self):
+        self.connected = False
+        self.sock.close()
+        self.sock = None
     def send(self, data):
         send_dahi(self.sock, data, self._tag)
         self._tag
