@@ -74,6 +74,7 @@ details['ctime'] = '%i' % int(time.time())
 details['data_dir'] = mas_path.data_dir()
 details['n_frames'] = n_frames
 details['rc'] = 'rc%s' % opts.rc
+details['rc_num'] = '%s' % opts.rc
 details['temp_root'] = '%s/%s_%s__' % \
     (mas_path.temp_dir(), get_output('whoami').strip(),
      mas_path.__get_path__('fibre-card',[],None))
@@ -89,9 +90,8 @@ for acq in acq_desc:
     filename = acq['filename'] % details
     rf_filename = filename + '.run'
     if rf_type == 'create':
-        os.system('/bin/bash -c mce_status >> %s' % rf_filename)
-        os.system('/bin/bash -c frameacq_stamp %s %s %i >> %s' % \
-                  (details['rc'], filename, details['n_frames'], rf_filename))
+        os.system('frameacq_stamp %s %s %i >> %s' % \
+                  (details['rc_num'], filename, details['n_frames'], rf_filename))
         if rf0 == None:
             rf0 = rf_filename
     elif rf_type == 'symlink':
