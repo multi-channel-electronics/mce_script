@@ -6,7 +6,7 @@ import numpy
 import errno
 import json
 
-def send_dahi(sock, data):
+def send_dahi(sock, data, tag=None):
     n = len(data)
     pre = 'dahi' + array.array('i', [n]).tostring()
     # Great
@@ -52,7 +52,7 @@ def recv_dahi(sock, block=True):
         if _n == 0:
             if n_read == 0 and not block:
                 return ''
-            time.sleep(.4)
+            time.sleep(.01)
             continue
         n_read += _n
         data += new_data

@@ -8,6 +8,8 @@ class dataClient:
     name = None
     connected = False
     def __init__(self, addr=None, name=None):
+        self._tag = 0
+        self.tagged_replies = {}
         if name != None:
             self.name = name
         if addr != None:
@@ -32,7 +34,8 @@ class dataClient:
         except socket.error:
             print 'failed to connect'
     def send(self, data):
-        send_dahi(self.sock, data)
+        send_dahi(self.sock, data, self._tag)
+        self._tag
     def recv(self, block=False):
         return recv_dahi(self.sock, block=block)
     def set_client_var(self, name, value, dtype=None):
@@ -48,6 +51,17 @@ class dataConsumer(dataClient):
     def __init__(self, addr, name):
         dataClient.__init__(self, addr=addr, name=name)
     def process(self):
+        """
+        Read data from socket, interpret.  Returns tuple:
+
+        'data', frame_data
+
+        'ctrl', updated_keys_list
+
+        'diec', None
+
+        '?', unknown_command
+        """
         data = self.recv(block=False)
         if data == None or data == '':
             return None, None
@@ -57,7 +71,11 @@ class dataConsumer(dataClient):
             updated_keys = []
             for k, v in new_controls.iteritems():
                 if self.controls.get(k) != v:
-                    self.controls[k] = v
+                    # None means delete.
+                    if v == None:
+                        del self.controls[k]
+                    else:
+                        self.controls[k] = v
                     updated_keys.append(k)
             return cmd, updated_keys
         elif cmd == 'data':
@@ -66,8 +84,9 @@ class dataConsumer(dataClient):
             return cmd, d
         elif cmd == 'diec':
             self.controls['exit'] = True
+            return cmd, None
         else:
-            return '?', data
+            return '?', cmd
 
 class dataProducer(dataClient):
     ctype = 'source'
