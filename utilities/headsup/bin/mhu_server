@@ -141,7 +141,7 @@ class dataDistributor:
                 #self.post_action(client, 'close', quick=True)
             self.server.shutdown()
         elif cmd == 'cliv':
-            # Set client variables (name, type, sync)
+            # Set client variables (name, type)
             key, dtype, value = nets.decode_strings(data[4:])
             info[key] = util.casts[dtype](value)
             # Some client variables require immediate action
@@ -167,12 +167,12 @@ class dataDistributor:
             self.controls.update(nets.decode_json(data[4:]))
             for c in self.clients.keys():
                 info = self.clients[c]
-                if info.get('type') == 'sync' or info.get('monitor_controls'):
+                if info.get('type') == 'sink' or info.get('monitor_controls'):
                     self.post_action(c, 'send', data)
         elif cmd == 'data':
             for c in self.clients.keys():
                 info = self.clients[c]
-                if info.get('type') == 'sync':
+                if info.get('type') == 'sink':
                     self.resend_frame(c, data)
         else:
             print 'Whatever, "%s"' % data[:4]

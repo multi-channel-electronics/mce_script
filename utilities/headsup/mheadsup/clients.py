@@ -95,7 +95,7 @@ class dataClient:
             return '?', cmd
 
 class dataConsumer(dataClient):
-    ctype = 'sync'
+    ctype = 'sink'
 
 class dataProducer(dataClient):
     ctype = 'source'
