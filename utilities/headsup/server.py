@@ -36,7 +36,10 @@ client_info_defaults = ({
         'rate': 0.,
         'frame_dn': 0,
         'frame_t0': 0,
+        'monitor_controls': False,
+        'poll_controls': False,
         })
+
 
 class dataHandler(SocketServer.BaseRequestHandler):
     def handle(self):
@@ -72,9 +75,8 @@ class dataDistributor:
             self.addr = nets.decode_address(addr)
         self.clients = {}
         self.actions = {}
-        self.sources = {}
-        self.syncs = {}
         self._id = 0
+        self.controls = {}
 
     def serve(self):
         try:
@@ -130,12 +132,21 @@ class dataDistributor:
         cmd = data[:4]
         if cmd == 'diex':
             for client in self.clients.keys():
-                self.post_action(client, 'close', quick=True)
+                self.actions[client] = []
+                self.post_action(client, 'send', 'diec')
+                self.post_action(client, 'close')
+                #self.post_action(client, 'close', quick=True)
             self.server.shutdown()
         elif cmd == 'cliv':
             # Set client variables (name, type, sync)
             key, dtype, value = decode_strings(data[4:])
             info[key] = util.casts[dtype](value)
+            # Some client variables require immediate action
+            if key == 'poll_controls':
+                # Send full control dict to requester
+                self.post_action(conn, 'send', 'ctrl'+nets.encode_json(self.controls))
+                info[key] = 0
+                
         elif cmd == 'list':
             omit_keys = ['conn']
             list_data = []
@@ -149,9 +160,11 @@ class dataDistributor:
         # Sources send control and data packets, pass them on to
         # listeners.
         elif cmd in 'ctrl':
+            # Decode once for us
+            self.controls.update(nets.decode_json(data[4:]))
             for c in self.clients.keys():
                 info = self.clients[c]
-                if info.get('type') == 'sync':
+                if info.get('type') == 'sync' or info.get('monitor_controls'):
                     self.post_action(c, 'send', data)
         elif cmd == 'data':
             for c in self.clients.keys():
@@ -162,17 +175,21 @@ class dataDistributor:
             print 'Whatever, "%s"' % data[:4]
 
     def resend_frame(self, conn, data):
+        """
+        Check rate info of the client, and if it is time then send some data.
+        """
         info = self.clients[conn]
-        dt = max(info.get('rate', 1.), .0001) ** -1
+        rate = info.get('rate', 0.)
+        if rate <= 0:
+            return
         t0 = info['frame_t0']
         t1 = time.time()
         elapsed = t1 - t0
-        if elapsed > dt:
+        if elapsed > 1./rate:
             self.post_action(conn, 'send', data)
-            if elapsed < 2*dt:
+            if elapsed < 2./rate:
                 t1 = t0 + elapsed
             info['frame_t0'] = t1
-                
 
 if __name__ == '__main__':
     o = util.upOptionParser()
