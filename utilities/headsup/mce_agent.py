@@ -15,18 +15,26 @@ class mceProducer(clients.dataProducer):
     def __init__(self, addr, name='mce', field=None):
         clients.dataProducer.__init__(self, addr, name)
         self.mce = pymce.MCE()
-        self.dshape = None
+        self.dshape, self.dmode = None, None
         self.delay = .03
         self.field = field
     def tick(self):
         d = self.mce.read_data(1, row_col=True)
+        self.d = d
         if self.field != None:
-            d = d.extract(self.field)[:,:,0]
+            data = d.extract(self.field)[:,:,0]
+            dfield = self.field
+            if dfield == 'default':
+                dfield = d.fields[0]
         else:
-            d = d.data[:,:,0]
-        if self.dshape != d.shape:
-            self.post_meta({'data_shape': d.shape})
-        self.post_data(d)
+            data = d.data[:,:,0]
+        if self.dshape != data.shape:
+            self.post_meta({'data_shape': data.shape})
+        dmode = '%i (%s)' % (d.data_mode, dfield)
+        if self.dmode != dmode:
+            self.post_meta({'data_mode': dmode})
+            self.dmode = dmode
+        self.post_data(data)
     def run(self):
         t = util.rateTracker()
         while True:
@@ -39,7 +47,7 @@ if __name__ == '__main__':
     o.add_standard(defaults)
     o.add_option('--run',action='store_true')
     o.add_option('--frame-delay',type='float')
-    o.add_option('--data-field')
+    o.add_option('--data-field', default='default')
     opts, args = o.parse_args(defaults=defaults)
     
     mp = mceProducer(opts.server, opts.name, field=opts.data_field)

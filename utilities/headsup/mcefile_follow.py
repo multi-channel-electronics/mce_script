@@ -20,12 +20,12 @@ defaults.update({
 class mceFileFollower(clients.dataProducer):
     def __init__(self, addr, name='flatfile', field=None):
         clients.dataProducer.__init__(self, addr, name)
-        self.dshape = None
+        self.dshape, self.dmode = None, None
+        self.field = field
         self.delay = .03
         self.options = {'delay': .03,
                         'step': 10,
                         'watch': .1,
-                        'field': field,
                         'filename': None,
                         'trigger_exit': False,
                         'seek_tail': False,
@@ -86,10 +86,14 @@ class mceFileFollower(clients.dataProducer):
             self.mcefile = f
             if opts['seek_tail']:
                 # Go to almost end
-                n = min(f.n_frames - dn, 0)
+                n = max(f.n_frames - opts['step'], 0)
             else:
                 # Start from beginning
                 n = 0
+            dmode = '%i (%s)' % (f.data_mode, self.field)
+            if self.dmode != dmode:
+                self.post_meta({'data_mode': dmode})
+                self.dmode = dmode
             # Frame reader loop
             while self._check_thread() and not opts['trigger_reinit']:
                 dn = opts['step']
@@ -106,8 +110,7 @@ class mceFileFollower(clients.dataProducer):
                         break
                 if n == -1:
                     break
-                d = f.Read(start=n, count=dn, row_col=True,
-                           field=opts['field'])
+                d = f.Read(start=n, count=dn, row_col=True, field=self.field)
                 self.post_data(d.data[...,-1])
                 n += dn
                 time.sleep(opts['delay'])
@@ -137,9 +140,12 @@ class mceFileFollower(clients.dataProducer):
 if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_option('--data-field')
+    # For playback of existing file
     o.add_option('--once', action='store_true')
     o.add_option('--loop', action='store_true')
-    o.add_option('--zlims', type=float, nargs=2)
+    o.add_option('--step', type=int, default=10)
+    # For following a file on the fly
+    o.add_option('--live', action='store_true')
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults)
 
@@ -151,13 +157,15 @@ if __name__ == '__main__':
     mp = mceFileFollower(opts.server, opts.name,
                          field=opts.data_field)
 
+    if opts.live:
+        mp.options['seek_tail'] = True
+        mp.options['delay'] = .01
+        mp.options['watch'] = .01
+
     if opts.once:
         mp.options['control_forever'] = False
         mp.options['watch'] = False
     
-    if opts.zlims:
-        mp.post_meta({'zrange': opts.zlims})
-
     while True:
         mp.playback(flatfile, background=defaults['threaded'])
         if not opts.loop:
