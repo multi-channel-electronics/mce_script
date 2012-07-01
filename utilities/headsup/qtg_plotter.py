@@ -155,6 +155,7 @@ class qtgPlotter(plotters.displayClient):
                 if 'data_mode' in item:
                     self.texts.set_text('data_mode', self.controls['data_mode'])
             elif op == 'data':
+                self.texts.set_text('time_frame', '%.1f' % time.time())
                 dshape = self.controls.get('data_shape', None)
                 if dshape == None:
                     return
@@ -180,9 +181,9 @@ class qtgPlotter(plotters.displayClient):
 if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_option('--no-controller',action='store_true')
-    o.add_option('--data-rate', default=10.,
+    o.add_option('--data-rate', type=float, default=10.,
                  help="frame rate to request from server")
-    o.add_option('--display-rate', default=100.,
+    o.add_option('--display-rate', type=float, default=100.,
                  help="rate at which to update the display")
     o.add_option('--profile',
                  help="load a plotting profile file")
