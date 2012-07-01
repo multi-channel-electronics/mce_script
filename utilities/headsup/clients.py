@@ -102,21 +102,21 @@ class dataProducer(dataClient):
     def __init__(self, addr, name):
         dataClient.__init__(self, addr=addr, name=name)
         self.options = {}
-        self.freshen = 0
+        self.t_freshen = 0
 
     def send_data(self, data):
         self.send('data' + data.astype('float32').tostring())
 
     # Slightly higher level management, for regular shape reminders.
     def post_data(self, data):
-        if self.freshen <= 0:
+        t1 = time.time()
+        if self.t_freshen != 0 and t1 - self.t_freshen > 1:
             self.dshape = None
-            self.freshen = self.options.get('refreshen', 100)
+            self.t_freshen = t1
         if self.dshape != data.shape:
             self.post_meta({'data_shape': data.shape})
             self.dshape = data.shape
         self.send_data(data.ravel())
-        self.freshen -= 1
             
     def post_meta(self, info):
         self.send('ctrl' + encode_json(info))
