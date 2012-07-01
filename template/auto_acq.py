@@ -90,6 +90,7 @@ for acq in acq_desc:
     filename = acq['filename'] % details
     rf_filename = filename + '.run'
     if rf_type == 'create':
+        os.system('mce_status > %s' % rf_filename)
         os.system('frameacq_stamp %s %s %i >> %s' % \
                   (details['rc_num'], filename, details['n_frames'], rf_filename))
         if rf0 == None:
