@@ -1,0 +1,91 @@
+.. -*- mode: rst; mode: auto-fill -*-
+
+===========
+MCE headsup
+===========
+
+Client/server based plotting of streaming image data.  To use this,
+you start the server, then connect to it with data producing and data
+consuming clients.  The data producers ("sources") read data from some
+data acquisition device (or a file on disk) and stream it to the
+server.  The server sends the data to the data consumers ("syncs"),
+which plot it, or analyze, or ignore it.
+
+
+Dependencies
+============
+
+A minimum reasonable installation is python, numpy, pylab.  For full
+plotting power you will want PyQt4 (ubuntu package python-qt4).  If
+you want to stream MCE data or MCE files, you need MAS and
+mce_script.
+
+To install these scripts, run:
+
+         make
+	 sudo make install
+
+You don't need to install it at the root level to use it.  Just make
+sure that the python module (which ends up in
+builds/lib.xxxxxx-2.x/mheadsup) gets put somewhere that your python will
+look for it; and then you can run the binaries from
+builds/scripts-2.x.
+
+
+Quick start
+===========
+
+Remember you need to start a server, a sink, and a source.
+
+Start a local server:
+
+    mhu_server &
+
+Start a source; this will stream MCE data to the server:
+
+    mhu_mce --run &
+
+Start a plotter; this will read data from the server and display it
+using pylab:
+
+    mhu_plot_pl --data-rate 10.
+
+To stop the server, close all data producers and consumers and run
+
+    mhu_server --kill
+
+
+Advanced Server Configuration
+=============================
+
+Often you will want to acquire data in one place (the "source
+machine"), and stream it to another very different (the "sink
+machine").  In this case, the server can run on either the source or
+the sink machine, and an ssh tunnel can be used to complete the
+connection.
+
+To establish the tunnel, run a command like:
+
+   ssh -N 12354:localhost:12354 jones
+
+or, let mhu_server do that for you.
+
+Example 1: run the server on the sink machine.
+----------------------------------------------
+
+On source machine, called "mymce":
+
+    mhu_server &
+    mhu_mce --run &
+
+On sink machine, called something else:
+
+    mhu_server --tunnel=mymce
+
+This will open an ssh tunnel, and possibly ask you for your ssh
+password and stuff.  Once you do that, Ctrl-Z to suspend it, and run
+"bg" to leave it running in the background.  Then open a plotter:
+
+    mhu_plot_pl --data-rate 10.
+
+

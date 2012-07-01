@@ -1,30 +1,18 @@
 #!/usr/bin/python
 
+from mheadsup import clients, util, plotters, qtgfx
+
 import sys, os, time
+import numpy as np
 
 from PyQt4 import QtCore, QtGui
-import pyqtgraph as pg
 
-import numpy as np
-import clients, util, plotters
 
 defaults = util.defaults.copy()
 defaults.update({
     'client_name': 'qtg',
     })
 
-app = QtGui.QApplication([])
-
-## Create window with GraphicsView widget
-#win = QtGui.QMainWindow()
-win = QtGui.QWidget()
-win.resize(400,600)
-
-layout = QtGui.QGridLayout()
-
-view = pg.GraphicsView()
-#view.useOpenGL(True)
-#win.setCentralWidget(view)
 
 # Text window widget
 class infoSummary(QtGui.QWidget):
@@ -55,28 +43,6 @@ class infoSummary(QtGui.QWidget):
         self.layout().addWidget(l1, n, 0)
         self.layout().addWidget(l2, n, 1)
 
-info = infoSummary()
-win.setLayout(layout)
-layout.addWidget(view, 0,0)
-layout.addWidget(info, 1,0)
-win.show()
-
-## Allow mouse scale/pan
-#view.enableMouse()
-
-view.setAspectLocked(True)
-
-## Create image item
-img = pg.ImageItem()
-view.scene().addItem(img)
-
-
-if not sys.flags.interactive:
-    def sigint(signum, frame):
-        app.exit()
-    import signal 
-    signal.signal(signal.SIGINT, sigint)
-
 
 class mutexHolder:
     def __init__(self, mutex):
@@ -87,31 +53,28 @@ class mutexHolder:
         self.mutex.unlock()
 
 class qtgPlotter(plotters.displayClient):
-    def __init__(self, addr, name='qtg'):
+    def __init__(self, addr, name='qtg', texts=None):
         plotters.displayClient.__init__(self, addr, name)
         self.img = []
-        self.img_data = []
         self.mutex = QtCore.QMutex()
         # Replace label manager
-        info.fromTextItemList(self.texts)
-        self.texts = info
+        if texts != None:
+            texts.fromTextItemList(self.texts)
+            self.texts = texts
 
     def add_image(self, image, image_name=None):
         self.img.append((image, image_name))
-        self.img_data.append(None)
 
     def update_image(self, data=None, idx=0):
         """
         Updates the image, or some aspect of it (scale, zoom, ...).
         """
-        (view,img), name = self.img[idx]
+        img, _ = self.img[idx]
         if data == None:
             data = self.last_data
         if data == None or self.controls.get('data_shape', None) == None:
             return
         # Update zoom to match image?
-        if self.last_data == None or self.last_data.shape != data.shape:
-            view.setRange(QtCore.QRectF(0, 0, data.shape[0], data.shape[1]))
         self.last_data = data
         # Update data mask?
         if self.controls.get('mask_update'):
@@ -127,7 +90,11 @@ class qtgPlotter(plotters.displayClient):
         # Update.
         mask_val = self.controls.get('mask_value', (black+white)/2)
         data[~mask] = mask_val
-        img.updateImage(data, black=black, white=white)
+        # Condition data...
+        data = (data - black) / (white-black)
+        data[data<0] = 0
+        data[data>1] = 1
+        img.set_data(data.transpose())
 
     def poll(self):
         self.texts.set_text('time_now', '%.1f' % time.time())
@@ -178,6 +145,27 @@ class qtgPlotter(plotters.displayClient):
         self.idle_count = 0
         pp.set_client_var('rate', rate)
 
+class qplotter(QtGui.QWidget):
+    def __init__(self, img, info):
+        QtGui.QWidget.__init__(self)
+        self.view = qtgfx.tightView()
+        self.scene = QtGui.QGraphicsScene()
+        self.view.setScene(self.scene)
+        self.layout = QtGui.QGridLayout()
+        self.setLayout(self.layout)
+        self.layout.addWidget(self.view, 0,0)
+        self.layout.addWidget(info, 1,0)
+        self.scene.addItem(img)
+        
+
+
+if not sys.flags.interactive:
+    def sigint(signum, frame):
+        app.exit()
+    import signal 
+    signal.signal(signal.SIGINT, sigint)
+
+
 if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_option('--no-controller',action='store_true')
@@ -190,8 +178,19 @@ if __name__ == '__main__':
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults=defaults)
 
-    pp = qtgPlotter(opts.server, opts.name)
-    pp.add_image((view,img))
+    # Qt init
+    app = QtGui.QApplication([])
+    win = QtGui.QMainWindow()
+    win.resize(400,600)
+
+    img = qtgfx.GridDisplay()
+    info = infoSummary()
+    qp = qplotter(img, info)
+    win.setCentralWidget(qp)
+    win.show()
+
+    pp = qtgPlotter(opts.server, opts.name, texts=info)
+    pp.add_image(img)
 
     pp.launch(rate=opts.data_rate, refresh_rate=opts.display_rate)
 

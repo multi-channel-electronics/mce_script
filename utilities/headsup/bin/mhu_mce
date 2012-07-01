@@ -1,8 +1,10 @@
+#!/usr/bin/python
+
 """
 Read data from the MCE directly.
 """
 
-import clients, util
+from mheadsup import clients, util
 import pymce
 import time
 
@@ -22,7 +24,7 @@ class mceProducer(clients.dataProducer):
         d = self.mce.read_data(1, row_col=True)
         self.d = d
         if self.field != None:
-            data = d.extract(self.field)[:,:,0]
+            data = d.extract(self.field, unfilter='DC')[:,:,0]
             dfield = self.field
             if dfield == 'default':
                 dfield = d.fields[0]

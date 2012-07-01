@@ -4,14 +4,14 @@
 Implement a data consumer using pylab.
 """
 
+from mheadsup import clients, nets, util, plotters
+
 import pylab as pl
 import numpy as np
 import time
 import os
 import sys
 import subprocess
-
-import clients, nets, util, plotters
 
 defaults = util.defaults.copy()
 defaults.update({
@@ -133,9 +133,9 @@ if not sys.flags.interactive:
 if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_standard(defaults)
-    o.add_option('--no-controls',action='store_true')
-    o.add_option
+    o.add_option('--data-rate', type=float, default=10.,
+                 help="frame rate to request from server")
     opts, args = o.parse_args(defaults=defaults)
 
     pp = pylabPlotter(opts.server, opts.name)
-    pp.go()
+    pp.go(rate=opts.data_rate)

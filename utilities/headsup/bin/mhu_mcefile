@@ -1,8 +1,10 @@
+#!/usr/bin/python
+
 """
 Watch an MCE flatfile for new data, send it out.
 """
 
-import clients, util
+from mheadsup import clients, util
 import mce_data
 
 import threading

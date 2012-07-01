@@ -1,12 +1,15 @@
+#!/usr/bin/python
+
+import os
 import sys
 import socket
 import time
 import array
-import SocketServer
 import errno
+import SocketServer
 
-import nets, util
-from nets import *
+from mheadsup import nets, util, clients
+
 
 """
 Implement a server that can pass data from distributors to plotters.
@@ -139,7 +142,7 @@ class dataDistributor:
             self.server.shutdown()
         elif cmd == 'cliv':
             # Set client variables (name, type, sync)
-            key, dtype, value = decode_strings(data[4:])
+            key, dtype, value = nets.decode_strings(data[4:])
             info[key] = util.casts[dtype](value)
             # Some client variables require immediate action
             if key == 'poll_controls':
@@ -199,13 +202,11 @@ if __name__ == '__main__':
     opts, args = o.parse_args(defaults)
     
     if opts.tunnel:
-        import os
         host, port = nets.decode_address(opts.server)
         os.system('ssh -N -L%i:%s:%i %s' % \
                       (opts.port, opts.host, opts.port, opts.tunnel))
                   
     if opts.kill:
-        import clients
         killer = clients.dataClient(opts.server)
         killer.send('diex')
         sys.exit(0)
