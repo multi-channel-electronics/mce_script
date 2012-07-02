@@ -69,6 +69,8 @@ class qtgPlotter(plotters.displayClient):
         """
         Updates the image, or some aspect of it (scale, zoom, ...).
         """
+        if idx >= len(self.img):
+            return
         img, _ = self.img[idx]
         if data == None:
             data = self.last_data
@@ -134,12 +136,12 @@ class qtgPlotter(plotters.displayClient):
                 self.idle_count = 0
                 self.n_frames += 1
 
-    def launch(self, rate=10., refresh_rate=100.):
+    def launch(self, rate=10., refresh_rate=20.):
         self.refresh_rate = refresh_rate
         self.frame_rate = refresh_rate
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.poll)
-        self.timer.start(20.) #1./self.refresh_rate * 1000)
+        self.timer.start(1./self.refresh_rate)
         self.frame_t0 = None
         self.n_frames = 0
         self.idle_count = 0
@@ -184,6 +186,8 @@ if __name__ == '__main__':
     win.resize(400,600)
 
     img = qtgfx.GridDisplay()
+    #img = qtgfx.BlipDisplay()
+
     info = infoSummary()
     qp = qplotter(img, info)
     win.setCentralWidget(qp)
@@ -205,4 +209,3 @@ if __name__ == '__main__':
         #disp.timer.start(200.)
     else:
         app.exec_()
-        
