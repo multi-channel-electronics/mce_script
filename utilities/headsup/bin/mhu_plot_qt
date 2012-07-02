@@ -3,6 +3,7 @@
 from mheadsup import clients, util, plotters, qtgfx
 
 import sys, os, time
+import subprocess
 import numpy as np
 
 from PyQt4 import QtCore, QtGui
@@ -161,7 +162,7 @@ class qplotter(QtGui.QWidget):
         
 
 
-if not sys.flags.interactive:
+if 0: #if not sys.flags.interactive:
     def sigint(signum, frame):
         app.exit()
     import signal 
@@ -170,6 +171,7 @@ if not sys.flags.interactive:
 
 if __name__ == '__main__':
     o = util.upOptionParser()
+    o.add_option('-i','--interactive',action='store_true')
     o.add_option('--no-controller',action='store_true')
     o.add_option('--data-rate', type=float, default=10.,
                  help="frame rate to request from server")
@@ -179,6 +181,10 @@ if __name__ == '__main__':
                  help="load a plotting profile file")
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults=defaults)
+
+    if opts.interactive and not sys.flags.interactive:
+        # Uh, ok.
+        sys.exit(subprocess.call(['/usr/bin/python','-i'] + sys.argv))
 
     # Qt init
     app = QtGui.QApplication([])

@@ -55,6 +55,47 @@ To stop the server, close all data producers and consumers and run
     mhu_server --kill
 
 
+Controlling the Plotter
+=======================
+
+A separate connection needs to be made to the server to control the
+plotter.  Whatever.  The easiest thing to do is to use the Qt plotter,
+and run it interactively.  When you do that it automatically creates
+the plot window and a second connection for control, called "disp".
+E.g.:
+
+  mhasse@gonzo:~$ mhu_plot_qt -i
+  >>> disp.autoscale()
+  True
+  >>> disp.autoscale(False)
+  >>> disp.zrange(-1000,1000)
+  [-1000, 1000]
+
+A useful thing with this display controller is it can be used to mask
+certain channel in the output.  Masked channels will be suppressed by
+the plotter.  Start by initializing a mask of the right shape; then
+call "unmask_area" and "mask_area" with some combination that gets you
+what you want.
+
+  >>> disp.unmask_area(shape=(33,32))
+  >>> disp.mask_area(11,13)
+  >>> dsip.mask_area(row=15)
+  >>> disp.mask_area(col=12)
+  >>> disp.mask_area(col=range(0,8))
+
+If you get a good configuration, you can save it to a file and load it
+later.  Save like:
+
+  >>> disp.save('plots.jso')
+
+And restore with either
+  >>> disp.restore('plots.jso')
+
+or when you start the plotter:
+
+    mhasse@gonzo:~$ mhu_plot_qt -i --profile=plots.jso
+
+
 Advanced Server Configuration
 =============================
 
