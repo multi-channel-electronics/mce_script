@@ -92,11 +92,12 @@ class qtgPlotter(plotters.displayClient):
         auto, black, white = self._get_scale(data[mask])
         # Update.
         mask_val = self.controls.get('mask_value', (black+white)/2)
-        data[~mask] = mask_val
+        ##data[~mask] = mask_val
         # Condition data...
-        data = (data - black) / (white-black)
-        data[data<0] = 0
-        data[data>1] = 1
+        ##data = (data - black) / (white-black)
+        ##data[data<0] = 0
+        ##data[data>1] = 1
+        self._norm_data(data, black, white, mask, mask_val)
         img.set_data(data.transpose())
 
     def poll(self):

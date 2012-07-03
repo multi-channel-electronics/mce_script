@@ -1,6 +1,8 @@
 from PyQt4 import QtCore, QtGui
 import numpy as np
 
+from mheadsup import 
+
 class tightView(QtGui.QGraphicsView):
     """
     This magic keeps the items perfectly bounded in the window.
@@ -62,22 +64,6 @@ class GridDisplay(QtGui.QGraphicsObject):
         self.last_click = x, y
 
 
-def grid_coords(nrow, ncol):
-    # boring
-    c = np.arange(ncol)
-    r = np.arange(nrow)
-    x = (c + r[...,None]*0).ravel()
-    y = (c*0 + r[...,None]).ravel()
-    return x, y
-    
-def circle_coords(nrow, ncol, spacing=1.4):
-    N = nrow*ncol
-    A = spacing*N
-    a = np.arange(float(N))/N * A
-    r = (a/np.pi)**.5
-    R, PHI = np.ceil(r), (r - np.ceil(r))*2*np.pi
-    return R*np.cos(PHI), R*np.sin(PHI)
-
 class blipColorMap:
     def __init__(self, beginColor, endColor, granularity=256):
         self.brushes = []
@@ -128,7 +114,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     def create_blip_grid(self, nrow, ncol):
         for i in self.childItems():
             self.removeFromGroup(i)
-        x, y = grid_coords(nrow, ncol)
+        x, y = gfx.grid_coords(nrow, ncol)
         self.create_blips(x, y)
 
     def create_blips(self, x, y, w=1., h=1., form='rect', constructor=None):

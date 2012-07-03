@@ -45,6 +45,16 @@ class displayClient(clients.dataConsumer):
             self.texts.set_text('autoscale', str(auto))
         return auto, black, white
 
+    def _norm_data(self, data, black, white, mask=None, mask_val=None):
+        if mask != None and mask.sum() > 0:
+            if mask_val == None:
+                mask_val = (black+white)/2
+            data[~mask] = mask_val
+        data = (data - black) / (white-black)
+        data[data<0] = 0
+        data[data>1] = 1
+        return data
+
     def update_image(self, *args, **kwargs):
         """
         Updates the image, or some aspect of it (scale, zoom, ...).

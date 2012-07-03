@@ -4,7 +4,7 @@
 Implement a data consumer using pylab.
 """
 
-from mheadsup import clients, nets, util, plotters
+from mheadsup import clients, gfx, nets, util, plotters
 
 import pylab as pl
 import numpy as np
@@ -31,7 +31,7 @@ class pylabPlotter(plotters.displayClient):
         plotters.displayClient.__init__(self, addr, name)
         pl.ion()
         ax = pl.subplot2grid((1,3), (0,0),colspan=2)
-        pl.show()
+        #pl.show()
 
     def update_image(self, data=None, idx=0):
         """
@@ -60,12 +60,12 @@ class pylabPlotter(plotters.displayClient):
         auto, black, white = self._get_scale(data[mask])
         # Update.
         mask_val = self.controls.get('mask_value', (black+white)/2)
-        data[~mask] = mask_val
+        data = self._norm_data(data, black, white, mask, mask_val)
         if im == None:
-            self.im = pl.imshow(data, vmin=black, vmax=white)
+            self.im = pl.imshow(data, vmin=0, vmax=1)
         else:
             self.im.set_data(data)
-            self.im.set_clim(black, white)
+            #self.im.set_clim(black, white)
         pl.draw()
 
     def update_texts(self, redraw=None):
@@ -122,6 +122,57 @@ class pylabPlotter(plotters.displayClient):
             self.texts.set_text('time_now', '%.1f' % time.time())
             self.update_texts()
 
+class pylabPointPlotter(pylabPlotter):
+    point_loc = None
+    def update_image(self, data=None, idx=0):
+        """
+        Updates the image, or some aspect of it (scale, zoom, ...).
+        """
+        im = self.im
+        if data == None:
+            data = self.last_data
+        else:
+            self.last_data = data
+        if data == None or self.controls.get('data_shape', None) == None:
+            return
+        # Update zoom to match image?
+        if self.last_data == None or self.last_data.shape != data.shape:
+            im = None # Start over.
+        # Update data mask?
+        if self.controls.get('mask_update'):
+            self.data_mask = np.array(self.controls['mask']).astype('bool')
+            self.controls['mask_update'] = False
+        mask = self.data_mask
+        if mask == None:
+            mask = np.ones(data.shape, 'bool')
+        if mask.sum() == 0:
+            mask[0,0] = True
+        # Update zrange?
+        auto, black, white = self._get_scale(data[mask])
+        # Update.
+        mask_val = self.controls.get('mask_value', (black+white)/2)
+        print data.max(), data.min()
+        data = self._norm_data(data, black, white, mask, mask_val)
+        print ' ', data.max(), data.min()
+        if im == None:
+            colors = np.zeros((data.size,4))
+            colors[:,0] = data.ravel()
+            if self.point_loc == None or len(self.point_loc[0]) != data.size:
+                print 'change',  len(self.point_loc), data.size
+                self.point_loc = gfx.grid_coords(*data.shape)
+            x, y = self.point_loc
+            self.im = pl.scatter(x, y, color=colors, linewidths=0, s=100)
+        else:
+            colors = np.zeros((data.size,4))
+            colors[:,0] = data.ravel()
+            colors[:,3] = 1.
+            self.im.set_facecolor(colors)
+        pl.draw()
+    def set_locations(self, x, y):
+        self.point_loc = x, y
+        
+
+
 if not sys.flags.interactive:
     def sigint(signum, frame):
         sys.exit()
@@ -137,5 +188,7 @@ if __name__ == '__main__':
                  help="frame rate to request from server")
     opts, args = o.parse_args(defaults=defaults)
 
+    #pp = pylabPointPlotter(opts.server, opts.name)
+    #pp.set_locations(*gfx.circle_coords(33,16))
     pp = pylabPlotter(opts.server, opts.name)
     pp.go(rate=opts.data_rate)
