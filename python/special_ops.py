@@ -122,7 +122,8 @@ for action in args:
         ## Flags
         offset_good = abs(d_offset/d_offset_pred - 1) < .01
 
-        print 'Estimated SA cable resistance (assumes revE readout card):'
+        print 'Estimated SA cable resistance (rev%s readout card):' % \
+            chr(ord('A')-1+card_rev)
         for r in range((n_sa+7)/8):
             print '  ', ' '.join(['%7.1f' % x for x in R_cable[r*8:(r+1)*8]])
         print
@@ -132,7 +133,9 @@ for action in args:
         for r in range((n_sa+7)/8):
             print '  ', ' '.join(['%7.3f' % x for x in ratio[r*8:(r+1)*8]])
         ratio_mean = ratio[ratio!=0].mean()
+        print
         print 'The typical ratio is:  %.3f' % ratio_mean
+        print
 
         # This ratio isn't necessarily what you want to use, you might
         # want to let the floor drop out gradually
@@ -142,9 +145,10 @@ for action in args:
         ratio1[d_offset==0] = 0.
         print 'Suggested sa_offset_bias_ratios, by column:'
         for r in range((n_sa+7)/8):
-            print '  ', ' '.join(['%6.3f' % x for x in ratio1[r*8:(r+1)*8]])
+            print '  ', ' '.join(['%7.3f' % x for x in ratio1[r*8:(r+1)*8]])
         ratio1_min = ratio1[ratio1!=0].min()
         print 'Smallest range-filling ratio: %.3f' % ratio1_min 
+
         # Rough badness diagnostic
         if ratio1_min < ratio_mean:
             print 'You have weird ratios.  Seek advice.'
