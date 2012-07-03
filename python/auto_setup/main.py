@@ -145,6 +145,8 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
 
     if bias_ramp:
         sa.reduce1()
+        sa_summary = sa.ramp_summary()
+        sa_summary.plot()
         sa = sa.select_biases() # replace with best bias version
 
     lock_points = sa.reduce()
@@ -210,6 +212,8 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
 
     if bias_ramp:
         sq.reduce1()
+        sq2_summary = sq.ramp_summary()
+        sq2_summary.plot()
         sq = sq.select_biases() # best bias?
 
     sq2_data = sq.reduce()

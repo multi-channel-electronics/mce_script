@@ -707,8 +707,8 @@ class RampSummary(SquidData):
         self.data_shape = (1, n_row, n_col, n_bias)
         self.data_origin = parent.data_origin
         self.tuning = parent.tuning
-        self.cols = parent.cols.copy()
-        self.rows = parent.rows.copy()
+        self.cols = np.array(parent.cols, copy=True)
+        self.rows = np.array(parent.rows, copy=True)
         self.gridded = True
         self.bias = None
         self.bias_style = 'select'
