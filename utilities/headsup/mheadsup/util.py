@@ -1,4 +1,5 @@
-import time
+import os, sys, time
+import subprocess
 from optparse import OptionParser
 
 class rateTracker:
@@ -35,6 +36,12 @@ class upOptionParser(OptionParser):
         opts, args = OptionParser.parse_args(self)
         opts.server = '%s:%i' % (opts.host, opts.port)
         return opts, args
+
+
+def make_interactive(yes_do_it=True):
+    if not sys.flags.interactive:
+        # Uh, ok.
+        sys.exit(subprocess.call(['/usr/bin/python','-i'] + sys.argv))
 
         
 def get_type(x):

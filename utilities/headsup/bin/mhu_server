@@ -203,8 +203,8 @@ if __name__ == '__main__':
     
     if opts.tunnel:
         host, port = nets.decode_address(opts.server)
-        os.system('ssh -N -L%i:%s:%i %s' % \
-                      (opts.port, opts.host, opts.port, opts.tunnel))
+        sys.exit(os.system('ssh -N -L%i:%s:%i %s' % \
+                               (opts.port, opts.host, opts.port, opts.tunnel)))
                   
     if opts.kill:
         killer = clients.dataClient(opts.server)

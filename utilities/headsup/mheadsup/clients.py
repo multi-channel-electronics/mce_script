@@ -121,3 +121,10 @@ class dataProducer(dataClient):
     def post_meta(self, info):
         self.send('ctrl' + encode_json(info))
         
+if __name__ == '__main__':
+    o = util.upOptionParser()
+    o.add_standard(util.defaults)
+    opts, args = o.parse_args(util.defaults)
+
+    disp = dataProducer(opts.server, 'client')
+    print 'I am disp'

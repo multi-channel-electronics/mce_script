@@ -1,0 +1,30 @@
+#!/usr/bin/python
+
+import sys
+from mheadsup import clients, util
+
+try:
+    import pymce
+    has_mce = True
+except ImportError:
+    has_mce = False
+
+defaults = util.defaults.copy()
+defaults.update({
+    'client_name': 'control',
+    })
+
+if __name__ == '__main__':
+    o = util.upOptionParser()
+    o.add_option('-i','--interactive',action='store_true')
+    o.add_standard(defaults)
+    opts, args = o.parse_args(defaults=defaults)
+
+    util.make_interactive(opts.interactive)
+
+    c = clients.dataClient(opts.server, opts.name)
+    print 'I am c'
+
+    if has_mce:
+        m = pymce.MCE()
+        print 'I am m'
