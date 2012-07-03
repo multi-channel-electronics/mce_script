@@ -173,3 +173,24 @@ class SARamp(servo.SquidData):
         self.analysis.update(an)
         return self.analysis
 
+    def ramp_summary(self):
+        """
+        If this is an analyzed bias ramp, returns a RampSummary loaded
+        with the amplitudes, max and min values, and bias set points.
+        """
+        rs = SARampSummary.from_biases(self)
+        rs.add_data('y_span', self.analysis['y_span'],
+                    ylabel='Amplitude (/1000)')
+        rs.add_data('y_max', self.analysis['y_max'],
+                    ylabel='Max error (/1000)')
+        rs.add_data('y_max', self.analysis['y_max'],
+                    ylabel='Min error (/1000)')
+        # Turn bias indices into biases; store as analysis.
+        idx = self.analysis['y_span_select']
+        rs.analysis = {'lock_x': self.bias[idx]}
+        return rs
+
+
+class SARampSummary(servo.RampSummary):
+    xlabel = 'SA BIAS'
+

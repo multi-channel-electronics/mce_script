@@ -194,3 +194,24 @@ class SQ2Servo(servo.SquidData):
             kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
                                   (self.data_origin['basename'] + '_err'))
         return self.plot(*args, **kwargs)
+
+    def ramp_summary(self):
+        """
+        If this is an analyzed bias ramp, returns a RampSummary loaded
+        with the amplitudes, max and min values, and bias set points.
+        """
+        rs = SQ2ServoSummary.from_biases(self)
+        rs.add_data('y_span', self.analysis['y_span'],
+                    ylabel='Amplitude (/1000)')
+        rs.add_data('y_max', self.analysis['y_max'],
+                    ylabel='Max error (/1000)')
+        rs.add_data('y_max', self.analysis['y_max'],
+                    ylabel='Min error (/1000)')
+        # Turn bias indices into biases; store as analysis.
+        idx = self.analysis['y_span_select']
+        rs.analysis = {'lock_x': self.bias[idx]}
+        return rs
+
+
+class SQ2ServoSummary(servo.RampSummary):
+    xlabel = 'SQ2 BIAS'

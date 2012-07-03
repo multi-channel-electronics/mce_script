@@ -617,11 +617,14 @@ class SquidData(util.RCData):
         """
         self._check_data()
         self._check_analysis(existence=True)
-        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
-        self.analysis['y_span'] = span
+        mx, mn = amax(self.data, axis=-1), amin(self.data, axis=-1)
+        self.analysis['y_max'] = mx
+        self.analysis['y_min'] = mn
+        self.analysis['y_span'] = mx - mn
         if self.bias_style == 'ramp':
             # Identify bias index of largest response in each column
-            select = span.reshape(self.data_shape[:-1]).max(axis=-2).argmax(axis=0)
+            select = (mx-mn).reshape(self.data_shape[:-1])\
+                .max(axis=-2).argmax(axis=0)
             self.analysis['y_span_select'] = select
         return self.analysis
     
@@ -678,9 +681,74 @@ class SquidData(util.RCData):
             format=format,
             )
 
-class biasRampSummary(util.RCData):
-    pass
+class RampSummary(SquidData):
+    """
+    Base class for summarizing analysis results from, e.g. multiple
+    biases.  For example, after getting V-phi curves at several biases
+    one might like to plot some statistic (such as the peak-to-peak
+    amplitude) vs. bias.
+
+    This provides initialization and plotting facilities, but leaves
+    loading of the data to subclasses.
+    """
+    xlabel = 'BIAS / 1000'
+
+    def __init__(self):
+        SquidData.__init__(self)
+
+    @classmethod
+    def from_biases(cls, parent):
+        # Check parent for compatibility
+        if parent.bias_style != 'ramp':
+            raise ValueError, "parent is not a bias ramp!"
+        # What do we have here
+        n_bias, n_row, n_col, n_fb = parent.data_shape
+        self = cls()
+        self.data_shape = (1, n_row, n_col, n_bias)
+        self.data_origin = parent.data_origin
+        self.tuning = parent.tuning
+        self.cols = parent.cols.copy()
+        self.rows = parent.rows.copy()
+        self.gridded = True
+        self.bias = None
+        self.bias_style = 'select'
+        self.fb = parent.bias.copy()
+        self.data = {}
+        self.ylabels = {}
+        return self
+
+    def add_data(self, name, data, ylabel='Stat'):
+        # Assume incoming data is parent's bias,nrow,ncol shape.
+        n_row, n_col, n_bias = self.data_shape[-3:]
+        self.data[name] = data.reshape(n_bias, n_row, n_col)\
+            .transpose((1,2,0)).reshape(-1, n_bias)
+        self.ylabels[name] = ylabel
+
+    def plot(self, plot_file=None, format=None, data_attr=None):
+        if plot_file == None:
+            plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
+                                         (self.data_origin['basename']))
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format')
+
+        if data_attr == None:
+            data_attr = self.data.keys()[0] # you asked for it.
+        data = self.data[data_attr]
     
+        # Plot plot plot
+        return plot(
+            self.fb, data, self.data_shape[-3:-1],
+            self.analysis, plot_file,
+            shape=(4, 2),
+            slopes=False,
+            lock_levels=False,
+            set_points=True,
+            title=self.data_origin['basename'],
+            xlabel=self.xlabel,
+            ylabel=self.ylabels[data_attr],
+            format=format,
+            )
+        
 
 if __name__ == '__main__':
     from random import random
