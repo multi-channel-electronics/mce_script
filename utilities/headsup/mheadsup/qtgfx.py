@@ -1,7 +1,7 @@
 from PyQt4 import QtCore, QtGui
 import numpy as np
 
-from mheadsup import 
+from mheadsup import gfx
 
 class tightView(QtGui.QGraphicsView):
     """
