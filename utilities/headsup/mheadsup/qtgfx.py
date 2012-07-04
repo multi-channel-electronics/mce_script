@@ -9,9 +9,13 @@ class tightView(QtGui.QGraphicsView):
     """
     def resizeEvent(self, ev):
         QtGui.QGraphicsView.resizeEvent(self, ev)
-        if self.scene():
-            self.fitInView(self.scene().itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
+        self.rebound()
 
+    def rebound(self):
+        if self.scene():
+            self.fitInView(self.scene().itemsBoundingRect(),
+                           QtCore.Qt.KeepAspectRatio)
+        
 class GridDisplay(QtGui.QGraphicsObject):
     data = None
     def set_data(self, data, channel=None):
@@ -108,6 +112,8 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             self.prepareGeometryChange()
             nrow, ncol = data.shape[:2]
             self.create_blip_grid(nrow, ncol)
+            # This should be a signal!
+            self.scene().views()[0].rebound()
         self.data = data
         self.update_blips(self.data.ravel())
 
@@ -136,18 +142,17 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         if self.blip_cmap == None:
             self.blip_cmap = blipColorMap((0,0,0),(255,255,255))
         idx = (colors*255).astype('int')
+        self.cols = (colors, idx)
         idx[idx<0] = 0
         idx[idx>255] = 255
         for c,i in zip(idx, self.childItems()):
             i.setBrush(self.blip_cmap[c])
 
+
     #
     # Virtual method implementation
     # 
-    temp_bounds = None
     def boundingRect(self):
-        if self.temp_bounds != None:
-            return self.temp_bounds
         return QtGui.QGraphicsItemGroup.boundingRect(self)
 
     def mousePressEvent(self, ev):
@@ -163,7 +168,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
                         [i.pos().y() for i in self.childItems()]),
             'new_pos': (new_x, new_y),
             'step': 0,
-            'n_step': 100,
+            'n_step': 40,
             'timer': None
             }
         timer = QtCore.QTimer()
@@ -171,7 +176,6 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         timer.timeout.connect(self._anim)
         x0,x1,y0,y1 = new_x.min()-2, new_x.max()+2, new_y.min()-2, new_y.max()-2
         self.prepareGeometryChange()
-        self.temp_bounds = self.mapRectToScene(QtCore.QRectF(x0,y0,x1-x0,y1-y0))
         timer.start(t / self._anim_data['n_step'])
     
     def _anim(self):
@@ -184,8 +188,8 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             x, y = (x1[i]-x0[i])*s/n + x0[i], (y1[i]-y0[i])*s/n + y0[i]
             item.setPos(x, y)
         if s == n:
-            self.prepareGeometryChange()
-            self.temp_bounds = None
+            # This should be a signal!
+            self.scene().views()[0].rebound()
             del ad['timer']
 
 if __name__ == '__main__':

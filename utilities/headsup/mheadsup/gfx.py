@@ -6,13 +6,13 @@ def grid_coords(nrow, ncol):
     r = np.arange(nrow)
     x = (c + r[...,None]*0).ravel()
     y = (c*0 + r[...,None]).ravel()
-    return x, y
+    return x - x.mean(), y - y.mean()
     
 def circle_coords(nrow, ncol, spacing=1.4):
     N = nrow*ncol
-    A = spacing*N
-    a = np.arange(float(N))/N * A
-    r = (a/np.pi)**.5
-    R, PHI = np.ceil(r), (r - np.ceil(r))*2*np.pi
+    R = (N/np.pi)**.5
+    a = np.arange(float(N))/N
+    r = a**.5 * R
+    R, PHI = spacing * (np.floor(r)+1), (r - np.floor(r))*2*np.pi
     return R*np.cos(PHI), R*np.sin(PHI)
 

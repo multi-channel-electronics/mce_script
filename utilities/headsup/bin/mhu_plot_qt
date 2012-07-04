@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from mheadsup import clients, util, plotters, qtgfx
+from mheadsup import clients, util, plotters, qtgfx, gfx
 
 import sys, os, time
 import subprocess
@@ -97,7 +97,7 @@ class qtgPlotter(plotters.displayClient):
         ##data = (data - black) / (white-black)
         ##data[data<0] = 0
         ##data[data>1] = 1
-        self._norm_data(data, black, white, mask, mask_val)
+        data = self._norm_data(data, black, white, mask, mask_val)
         img.set_data(data.transpose())
 
     def poll(self):
@@ -160,6 +160,8 @@ class qplotter(QtGui.QWidget):
         self.layout.addWidget(self.view, 0,0)
         self.layout.addWidget(info, 1,0)
         self.scene.addItem(img)
+        self.view.fitInView(self.scene.itemsBoundingRect(),
+                            QtCore.Qt.KeepAspectRatio)
         
 
 
@@ -192,8 +194,8 @@ if __name__ == '__main__':
     win = QtGui.QMainWindow()
     win.resize(400,600)
 
-    img = qtgfx.GridDisplay()
-    #img = qtgfx.BlipDisplay()
+    #img = qtgfx.GridDisplay()
+    img = qtgfx.BlipDisplay()
 
     info = infoSummary()
     qp = qplotter(img, info)
