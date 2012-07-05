@@ -138,7 +138,7 @@ class mce_control(mce):
     """
 
     def init_servo(self):
-        return self.io_rc_syn('flx_lp_init', [1])
+        return self.io_rc_sync('flx_lp_init', 1)
 
     def servo_mode(self, mode=None):
         if mode != None:
@@ -153,7 +153,7 @@ class mce_control(mce):
         return self.io_rc_array_2d('flx_quanta%i', quanta)
 
     def flux_jumping(self, mode=None):
-        return self.io_rc_syn('en_fb_jump')
+        return self.io_rc_sync('en_fb_jump', mode)
 
     def fb_const(self, fb=None):
         return self.io_readwrite('sq1', 'fb_const', fb)
