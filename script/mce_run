@@ -1,4 +1,5 @@
 #!/bin/bash
+# vim: sw=4 ts=4 et tw=80
 
 # Acquires data from the MCE and create or append to a .run file.
 #
@@ -20,6 +21,9 @@ source $MAS_SCRIPT/mas_library.bash
 SCRNAME=mce_run
 
 function usage {
+    # redirect stdout to stderr
+    exec 1>&2
+
     echo "Usage:              $SCRNAME <filename> <numpts> <RC> [options]"
     echo
     echo "     filename   is the filename; \$MAS_DATA will be prepended."
@@ -28,11 +32,15 @@ function usage {
     echo
     echo "Recognized options (must follow the mandatory arguments):"
     echo "     --dirfile       force dirfile data format"
+    echo "     --dir-runfile   add the runfile metadata to the dirfile format"
+    echo "                     file (ignored for non-dirfile formats)"
     echo "     --flatfile      force flatfile data format"
+    echo "     --include=FILE  include the contents of FILE in the dirfile"
+    echo "                     format metadata (ignored for non-dirfile format)"
     echo "     --no-locking    do not check/assert the data driver lock"
-    echo "     --sequence <n>  break output into chunks of size n frames"
+    echo "     --sequence=N    break output into chunks of size N frames"
     echo "     --symlink[=LNK] point a symlink called LNK (\"mas.lnk\" by"
-    echo "                     default to the output data; \$MAS_DATA will"
+    echo "                     default) to the output data; \$MAS_DATA will"
     echo "                     be prepended."
     [ "$1" == "" ] || exit $1
     exit 1
@@ -48,8 +56,10 @@ acq_config_suffix=""
 
 filename=$MAS_DATA/$1
 runfilename=${filename}.run
+mce_status_dirfile=0
 numpts=$2
 rc=$3
+dirfileinc=
 symlink=
 shift 3
 
@@ -59,32 +69,48 @@ fileseq=
 
 while [ "$#" != "0" ]; do 
     case "$1" in
-	"--flatfile")
-	    acq_config_suffix=""
-	    ;;
-	
-	"--dirfile")
-	    acq_config_suffix="_dirfile"
-	    ;;
+        "--flatfile")
+            acq_config_suffix=""
+            ;;
 
-	"--no-locking")
-	    locking=0
-	    ;;
-	
-	"--sequence")
-	    fileseq=$2
-	    shift
-	    ;;
-  --symlink=*)
-      symlink=`expr "x$1" : 'x--symlink=\(.*\)'`
-      ;;
-  "--symlink")
-      symlink="mas.lnk"
-      ;;
-	*)
-	    echo "$SCRNAME : unknown option '$1'"
-	    usage
-	    ;;
+        "--dirfile")
+            acq_config_suffix="_dirfile"
+            ;;
+
+        "--dir-runfile")
+            mce_status_dirfile=1
+            ;;
+
+        --include=*)
+            dirfileinc=`expr "x$1" : 'x--include=\(.*\)'`
+            ;;
+
+        "--no-locking")
+            locking=0
+            ;;
+
+        --sequence=*)
+            fileseq=`expr "x$1" : 'x--sequence=\(.*\)'`
+            ;;
+
+            # backwards compatibility:
+        "--sequence")
+            fileseq=$2
+            shift
+            ;;
+
+        --symlink=*)
+            symlink=`expr "x$1" : 'x--symlink=\(.*\)'`
+            ;;
+
+        "--symlink")
+            symlink="mas.lnk"
+            ;;
+
+        *)
+            echo "$SCRNAME : unknown option '$1'" >&2
+            usage
+            ;;
     esac
     shift
 done
@@ -92,8 +118,8 @@ done
 # Query the data lock state
 if [ "$locking" == "1" ]; then
     if [ "$( command_reply lock_query )" == "1" ]; then
-	echo "$SCRNAME : Data lock is asserted, aborting."
-	exit 1
+        echo "$SCRNAME : Data lock is asserted, aborting." >&2
+        exit 1
     fi
 fi
 
@@ -122,15 +148,53 @@ echo "RUNFILE_NAME=$runfilename"
 # This is my favourite part.
 mce_status >> $runfilename
 if [ "$?" != "0" ]; then
-    echo "$SCRNAME : MCESTATUS action failed!"
+    echo "$SCRNAME : mce_status failed!" >&2
     exit 1
+fi
+
+need_dirfileinc=0
+if [ "x$acq_config_suffix" = "x_dirfile" ]; then
+    tempinc=$MAS_TEMP/`whoami`__mce_run_inc$MAS_MCE_DEV.temp
+    #truncate
+    echo "" > $tempinc
+
+    # This part isn't bad, either.
+    if [ $mce_status_dirfile = "1" ]; then
+        echo "# 'mce_status -d' output follows:" > $tempinc
+        echo >> $tempinc
+        mce_status -d >> $tempinc
+        if [ "$?" != "0" ]; then
+            echo "$SCRNAME : mce_status -d failed!" >&2
+            exit 1
+        fi
+        echo >> $tempinc
+        echo "# End of 'mce_status -d' output." >> $tempinc
+        echo >> $tempinc
+        need_dirfileinc=1
+    fi
+
+    # copy the user's extra metadata into the temp include file, if given
+    if [ "x$dirfileinc" != "x" ]; then
+        if [ ! -r $dirfileinc ]; then
+            echo "$SCRNAME : couldn't read $dirfileinc!" >&2
+            exit 1
+        fi
+        echo "# Extra configuration from " `realpath $dirfileinc`: >> $tempinc
+        echo >> $tempinc
+        cat $dirfileinc >> $tempinc
+        if [ "$?" != "0" ]; then
+            echo "$SCRNAME : error catting $dirfileinc!" >&2
+            exit 1
+        fi
+        need_dirfileinc=1
+    fi
 fi
 
 # Apply frameacq stamp
 
 frameacq_stamp $rc ${filename} $numpts >> $runfilename
 if [ "$?" != "0" ]; then
-    echo "$SCRNAME : frameacq_stamp failed!"
+    echo "$SCRNAME : frameacq_stamp failed!" >&2
     exit 1
 fi
 
@@ -147,13 +211,17 @@ echo "" > $tempfile
 [ "$fileseq" != "" ] && acq_config_suffix=${acq_config_suffix}_fs
 
 [ "x$symlink" == "x" ] || echo "acq_link $MAS_DATA/$symlink" >> $tempfile
+
+[ "$need_dirfileinc" == "1" ] && echo "acq_option dirfile include $tempinc" >> $tempfile
+
 echo "acq_config${acq_config_suffix} $filename rc$rc $fileseq" >> $tempfile
 echo "acq_go $numpts" >> $tempfile
 
+cat $tempfile
 mce_cmd -q -o / -f $tempfile
 
 if [ "$?" != "0" ]; then
-    echo "$SCRNAME : mce_cmd returned error"
+    echo "$SCRNAME : mce_cmd returned error" >&2
     exit 1
 fi
 

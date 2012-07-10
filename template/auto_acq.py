@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 USAGE="""
-%prog [options] filename n_frames
+%prog [options] n_frames
 
 Acquires data, possibly to multiple files, according to some data
 acquisition profile.
@@ -48,7 +48,7 @@ n_frames = int(args[0])
 
 acq_desc = [
     {
-        # Example of flatfile acquisition, with static symlink
+        # Example of flatfile acquisition, with static symlink:
         'type': 'flatfile',
         'sequencing_interval': -1,
         'filename': '%(data_dir)s/%(ctime)s_dat',
@@ -56,13 +56,20 @@ acq_desc = [
         'runfile': 'create',
         },
     {
+        # Example of sequenced dirfile acquisition, with a few options:
         'type': 'dirfile',
         'sequencing_interval': 200,
         'filename': '%(data_dir)s/%(ctime)s_df',
+        'options': {
+            'include': 'path/to/extra_format',
+            'runfile': 'include',
+            'spf': 400
+            },
         'symlink': None,
         'runfile': 'symlink',
         },
     {
+        # Example of a command which is just executed by this script:
         'type': 'command',
         'command': 'echo FILENAME=%(data_dir)s/%(ctime)s_dat',
         },
@@ -119,24 +126,62 @@ if not opts.no_locking:
 ## Enable multisync, then add acquisitions.
 lines = ['acq_multi_begin']
 
+acq_idx = 0;
 for acq in acq_desc:
     ftype = acq.get('type','flatfile')
     if ftype == 'pass':
         continue
+
     # Update details
     my_det = details.copy()
+    my_det['acq_idx'] = acq_idx;
     my_det['filename'] = acq.get('filename','') % my_det
     my_det['seq_int'] = acq.get('sequencing_interval', 0)
+    my_det['incfile'] = details['temp_root'] + ('inc%(acq_idx)i' % my_det)
+
     # If this is a custom command, execute and continue
     if ftype == 'command':
         os.system(acq['command'] % my_det)
         continue
+
     # Name any symlink
     slink = acq.get('symlink',None)
     if slink == None or slink == '':
         lines.append('acq_link')
     else:
         lines.append('acq_link %s' % (slink % my_det))
+
+    # Process options
+    opts = acq.get('options', None)
+    if opts != None:
+        # handle special options
+        if ftype == 'dirfile':
+            have_incfile = 0
+            if ('runfile' in opts):
+                if (opts['runfile'] == 'include'):
+                    have_incfile = 1
+                    # this truncates incfile
+                    os.system('mce_status -d > %s' % my_det['incfile'])
+                else:
+                    o.error("Unknown 'runfile' option: %s" % opts['runfile'])
+                
+                del opts['runfile']
+            if ('include' in opts):
+                # truncate, if necessary
+                if have_incfile == None:
+                    os.system('echo > %s' % my_det['incfile'])
+                # append included file
+                os.system('cat %s >> %s' % (opts['include'], my_det['incfile']))
+                have_incfile = 1
+
+                del opts['include']
+            if (have_incfile):
+                opts['include'] = my_det['incfile'];
+        
+        # pass any remaining options to mce_cmd
+        for key,val in opts.items():
+            lines.append('acq_option %s %s %s' % (ftype, key, val))
+
     # Construct init line for this output type
     fseq = my_det['seq_int'] > 0
     if ftype == 'flatfile':
@@ -150,6 +195,8 @@ for acq in acq_desc:
     else:
         line += ' %(filename)s %(rc)s' % my_det
     lines.append(line)
+
+    acq_idx = acq_idx + 1;
 
 ## And some frames.
 lines.append('acq_go %(n_frames)i' % details)
