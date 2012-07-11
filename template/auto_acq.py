@@ -168,7 +168,7 @@ for acq in acq_desc:
                 del opts['runfile']
             if ('include' in opts):
                 # truncate, if necessary
-                if have_incfile == None:
+                if have_incfile == 0:
                     os.system('echo > %s' % my_det['incfile'])
                 # append included file
                 os.system('cat %s >> %s' % (opts['include'], my_det['incfile']))
