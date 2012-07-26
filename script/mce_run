@@ -198,6 +198,14 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
+# Put in a dsp_status too?
+dsp=`which dsp_status`
+if [ "$dsp" != "" ]; then
+    # If dsp_status understands --runfile, append output to runfile.
+    dsp_status --runfile &> /dev/null && \
+	dsp_status --runfile >> $runfilename
+fi
+
 # Acquisition
 
 echo "FRAME_BASENAME=$filename"
