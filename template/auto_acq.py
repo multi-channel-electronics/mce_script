@@ -82,9 +82,8 @@ details['data_dir'] = mas_path.data_dir()
 details['n_frames'] = n_frames
 details['rc'] = 'rc%s' % opts.rc
 details['rc_num'] = '%s' % opts.rc
-details['temp_root'] = '%s/%s_%s__' % \
-    (mas_path.temp_dir(), get_output('whoami').strip(),
-     mas_path.__get_path__('fibre-card',[],None))
+details['temp_root'] = '%s/%s_%i__' % \
+    (mas_path.temp_dir(), get_output('whoami').strip(), mas_path.fibre_card())
 
 
 # 1. Runfile generation / linking

@@ -36,7 +36,7 @@ class mas_path:
                 "MAS_MCE_DEV", 0))
 
         if (self.__mas_var__):
-            self.__args__.extend(['-n', fibre_card])
+            self.__args__.extend(['-n', self.__fibre_card__])
 
         #cache
         self.__bin_dir__ = None
