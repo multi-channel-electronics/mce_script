@@ -27,10 +27,16 @@ class mas_path:
             self.__args__ = [self.__mas_var__]
             if (mas_cfg):
                 self.__args__.extend(['-m', mas_cfg])
-            if (fibre_card):
-                self.__args__.extend(['-n', fibre_card])
 
-        self.__fibre_card__ = fibre_card if fibre_card else 0
+        # figure out fibre_card
+        if (fibre_card):
+            self.__fibre_card__ = fibre_card
+        else:
+            self.__fibre_card__ = int(self.__get_path__("fibre-card",
+                "MAS_MCE_DEV", 0))
+
+        if (self.__mas_var__):
+            self.__args__.extend(['-n', fibre_card])
 
         #cache
         self.__bin_dir__ = None
@@ -121,6 +127,9 @@ class mas_path:
                 self.__exp_cfg__ = os.path.join(self.data_dir(),
                         "experiment.cfg")
         return self.__exp_cfg__
+
+    def fibre_card(self):
+        return self.__fibre_card__
 
     def hardware_file(self):
         if not self.__mce_cfg__:
