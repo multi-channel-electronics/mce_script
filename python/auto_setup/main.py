@@ -157,6 +157,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
 
     # Remove flux quantum to bring SA FB into DAC range.
     q = tuning.get_exp_param("sa_flux_quanta")[rc_indices]
+    q[q<=0] = 65536
     tuning.set_exp_param_range("sa_fb", rc_indices, fb % q)
 
     # Maybe the bias and SA offset, too.
@@ -227,6 +228,7 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
 
     # Save SQ2 set-point (SA feedback) and SQ2 feedback
     q = tuning.get_exp_param("sa_flux_quanta")[rc_indices]
+    q[q<=0] = 65536
     tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["lock_y"] % q)
     tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["lock_x"])
 
@@ -304,6 +306,7 @@ def do_sq1_servo(tuning, rc, rc_indices):
     # Determine the SQ2 FB for each column, and if possible for each detector.
     cols = sq.cols
     phi0 = tuning.get_exp_param('sq2_flux_quanta')[cols]
+    phi0[phi0<=0] = 65536 # kill empty flux_quanta
     if super_servo:
         n_row, n_col = sq.data_shape[-3:-1]
         fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col) % phi0
