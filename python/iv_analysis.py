@@ -319,8 +319,10 @@ v_tes = 1e6 * Rshunt.reshape(n_row, n_col,1)* \
     (bias.reshape(1,1,-1)/Rbias.reshape(1,-1,1) - i_tes*1e-6)
 
 # Recompute R_normal, saturation power
-R = v_tes / i_tes
+R = ones(v_tes.shape)  # Dodge zero divides
+iv_data.R_norm[:] = 1.
 for r, c in ok_rc:
+    R[r,c] = v_tes[r,c] / i_tes[r,c]
     i0, i1 = iv_data.norm_idx0[r,c], iv_data.norm_idx1[r,c]+1
     iv_data.R_norm[r,c] = R[r,c,i0:i1].mean()
 
@@ -334,6 +336,7 @@ for r, c in ok_rc:
 
 # Determine saturation power
 perRn = R / iv_data.R_norm.reshape(n_row,n_col,1)
+perRn[perRn==0] = 1.
 for r, c in ok_rc:
     norm_region = (perRn[r,c,:iv_data.super_idx0[r,c]] > 0.5).nonzero()[0]
     if norm_region.shape[-1] == 0:
@@ -369,7 +372,8 @@ for line in range(n_lines):
     select = (bias_lines==line).reshape(1, n_col) * iv_data.ok
     dac = setpoints_dac[0,select]
     select = (dac>0)*(dac < 20000)
-    bias_points_dac[line] = median(dac[select])
+    if select.sum() > 0:
+        bias_points_dac[line] = median(dac[select])
 
 # Round.
 bstep = ar_par['bias_step']
@@ -399,9 +403,10 @@ if opts.with_rshunt_bug:
 else:
     Rshunt_eff = Rshunt
 
+Rbias = set_data.perRn*iv_data.R_norm
+Rbias[Rbias==0] = 1.  # avoid /0
 set_data.resp = di_dfb*dfb_ddac * 1e-6*set_data.v_tes * \
-    (1 - Rshunt_eff/set_data.perRn/iv_data.R_norm)
-set_data.resp[~iv_data.ok] = 0.
+    (1 - Rshunt_eff/Rbias)
 set_data.resp /= ar_par['fb_normalize'][data_cols]
 
 # Cutting, cutting.
@@ -457,6 +462,7 @@ if opts.rf_file != None:
     rf_out.write_array('Bias_Power(pW)_C%i', set_data.p_tes, '%.5f')
     rf_out.write_array('Bias_Voltage(uV)_C%i', set_data.v_tes, '%.6f')
     rf_out.write_array('cut_rec_C%i', (~set_data.keep_rec).astype('int'), '%i')
+    rf_out.write_array('iv_curve_ok_C%i', iv_data.ok,'%i')
     rf_out.write_scalar('/IV','')
     rf_out.close()
     
