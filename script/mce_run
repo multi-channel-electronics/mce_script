@@ -202,7 +202,7 @@ fi
 dsp=`which dsp_status`
 if [ "$dsp" != "" ]; then
     # If dsp_status understands --runfile, append output to runfile.
-    dsp_status --runfile &> /dev/null && \
+    dsp_status --runfile |grep \<dsp_status\> &> /dev/null && \
 	dsp_status --runfile >> $runfilename
 fi
 
