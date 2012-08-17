@@ -1,4 +1,5 @@
 import os, sys, time
+import numpy as np
 import subprocess
 from optparse import OptionParser
 
@@ -63,3 +64,33 @@ def get_type_value_pair(dtype, value):
         return dtype, str(value)
     return dtype, value
 
+def guess_type(x):
+    try:
+        int(x)
+        return int
+    except:
+        try:
+            float(x)
+            return float
+        except:
+            return str
+
+def load_columns(fin, cols=None, skip=0):
+    if isinstance(fin, basestring):
+        fin = open(fin)
+    n_col = None
+    for i in range(skip):
+        fin.readline()
+    data = []
+    for line in fin:
+        line = line.strip()
+        if len(line) == 0 or line[0] == '#':
+            continue
+        w = line.split()
+        if n_col == None:
+            n_col = len(w)
+        if cols == None:
+            data.append(w)
+        else:
+            data.append(w[i] for i in cols)
+    return [np.array(x).astype(guess_type(x[0])) for x in zip(*data)]

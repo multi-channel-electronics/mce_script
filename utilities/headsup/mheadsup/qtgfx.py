@@ -163,6 +163,8 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
 
     # This is dumb.
     def animateMove(self, new_x=None, new_y=None, t=1.):
+        if new_x == None or len(self.childItems()) != len(new_x):
+            return
         self._anim_data = {
             'old_pos': ([i.pos().x() for i in self.childItems()],
                         [i.pos().y() for i in self.childItems()]),
