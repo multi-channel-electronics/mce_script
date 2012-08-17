@@ -27,11 +27,11 @@ class mceFileFollower(clients.dataProducer):
         self.delay = .03
         self.options = {'delay': .03,
                         'step': 10,
-                        'watch': .1,
+                        'watch': False,
                         'filename': None,
                         'trigger_exit': False,
                         'seek_tail': False,
-                        'control_forever': True,
+                        'control_forever': False,
                         'control_active': False,
                         'status_looping': False,
                         'trigger_reinit': False,
@@ -143,11 +143,11 @@ if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_option('--data-field')
     # For playback of existing file
-    o.add_option('--once', action='store_true')
     o.add_option('--loop', action='store_true')
     o.add_option('--step', type=int, default=10)
     # For following a file on the fly
-    o.add_option('--live', action='store_true')
+    o.add_option('--tail', '-F', action='store_true')
+    o.add_option('--follow', action='store_true')
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults)
 
@@ -159,14 +159,14 @@ if __name__ == '__main__':
     mp = mceFileFollower(opts.server, opts.name,
                          field=opts.data_field)
 
-    if opts.live:
+    if opts.tail:
+        opts.follow = True
         mp.options['seek_tail'] = True
+
+    if opts.follow:
+        mp.options['control_forever'] = True
         mp.options['delay'] = .01
         mp.options['watch'] = .01
-
-    if opts.once:
-        mp.options['control_forever'] = False
-        mp.options['watch'] = False
     
     while True:
         mp.playback(flatfile, background=defaults['threaded'])
