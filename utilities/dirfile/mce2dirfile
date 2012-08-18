@@ -1,0 +1,49 @@
+#!/usr/bin/python
+
+USAGE="""
+%prog flatfile dirfile
+
+Converts MCE flatfile to a dirfile.  Currently just extracts the raw
+data (as int32) and channelizes it.  It would be easy to make this a
+little bit smarter.
+"""
+
+from mce_data import MCEFile
+from optparse import OptionParser
+import os
+
+class formatFileWriter(file):
+    casts = {
+        'int32': 'S',
+        'uint32': 'U',
+        }
+    def write_raw_field(self, name, dtype, spf):
+        line = '%s RAW %s %i\n' % (name, self.casts[str(dtype)], spf)
+        self.write(line)
+
+
+o = OptionParser(usage=USAGE)
+opts, args = o.parse_args()
+
+# Validate options...
+if len(args) != 2:
+    o.error("Give source flatfile and destination dirfile.")
+
+# Process
+infile, outfile = args
+infiles = [args[0]]
+outfiles = [args[1]]
+
+for ifile, ofile in zip(infiles, outfiles):
+    m = MCEFile(ifile)
+    d = m.Read(row_col=True, do_extract=False)
+    if not os.path.exists(ofile):
+        os.makedirs(ofile)
+    fmt = formatFileWriter(ofile+'/format', 'w')
+    rows, cols = d.channels
+    for r in rows:
+        for c in cols:
+            name, data = 'tesdatar%02ic%02i' % (r,c), d.data[r,c].astype('int32')
+            fmt.write_raw_field(name, data.dtype, 1)
+            data.tofile(file=open(ofile+'/'+name, 'w'))
+    del fmt
