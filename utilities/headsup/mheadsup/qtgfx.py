@@ -121,7 +121,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         for i in self.childItems():
             self.removeFromGroup(i)
         x, y = gfx.grid_coords(nrow, ncol)
-        self.create_blips(x, y)
+        self.create_blips(x-x.mean(), y-y.mean())
 
     def create_blips(self, x, y, w=1., h=1., form='rect', constructor=None):
         if constructor == None:

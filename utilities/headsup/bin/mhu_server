@@ -84,6 +84,7 @@ class dataDistributor:
     def serve(self):
         try:
             self.server = thServer(self.addr, dataHandler)
+            self.server.daemon_threads = True
             self.server.serve_forever()
         except socket.error as err:
             print "Failed to start server, error %i (%s)" % err.args[:2]
@@ -174,6 +175,8 @@ class dataDistributor:
                 info = self.clients[c]
                 if info.get('type') == 'sink':
                     self.resend_frame(c, data)
+        elif cmd == 'ping':
+            self.post_action(conn, 'send', 'pong')
         else:
             print 'Whatever, "%s"' % data[:4]
 

@@ -10,8 +10,6 @@ class dataClient:
     controls = {}
     data = []
     def __init__(self, addr=None, name=None):
-        self._tag = 0
-        self.tagged_replies = {}
         self.connected = False
         if name != None:
             self.name = name
@@ -47,10 +45,17 @@ class dataClient:
         self.sock.close()
         self.sock = None
     def send(self, data):
-        send_dahi(self.sock, data, self._tag)
-        self._tag
+        if not self.sock:
+            return False
+        ok,_ = send_dahi(self.sock, data)
+        if not ok:
+            self.close()
+        return ok
     def recv(self, block=False):
-        return recv_dahi(self.sock, block=block)
+        msg = recv_dahi(self.sock, block=block)
+        if msg == None:
+            self.close()
+        return msg
     def set_client_var(self, name, value, dtype=None):
         if dtype == None:
             dtype = util.get_type(value)

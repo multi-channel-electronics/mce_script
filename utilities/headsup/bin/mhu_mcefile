@@ -9,7 +9,7 @@ import mce_data
 
 import threading
 import time
-import os
+import os, sys
 
 defaults = util.defaults.copy()
 defaults.update({
@@ -24,7 +24,6 @@ class mceFileFollower(clients.dataProducer):
         clients.dataProducer.__init__(self, addr, name)
         self.dshape, self.dmode = None, None
         self.field = field
-        self.delay = .03
         self.options = {'delay': .03,
                         'step': 10,
                         'watch': False,
@@ -116,6 +115,10 @@ class mceFileFollower(clients.dataProducer):
                 self.post_data(d.data[...,-1])
                 n += dn
                 time.sleep(opts['delay'])
+                if not self.connected:
+                    print 'Server disconnect, exiting.'
+                    opts['control_forever'] = False
+                    break
             # Try again?
             if not opts['control_forever']:
                 break
@@ -158,6 +161,8 @@ if __name__ == '__main__':
 
     mp = mceFileFollower(opts.server, opts.name,
                          field=opts.data_field)
+    if not mp.connected:
+        sys.exit(2)
 
     if opts.tail:
         opts.follow = True
@@ -170,7 +175,7 @@ if __name__ == '__main__':
     
     while True:
         mp.playback(flatfile, background=defaults['threaded'])
-        if not opts.loop:
+        if not opts.loop or not mp.connected:
             break
     
 

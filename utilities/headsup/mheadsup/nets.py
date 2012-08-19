@@ -6,7 +6,7 @@ import numpy
 import errno
 import json
 
-def send_dahi(sock, data, tag=None):
+def send_dahi(sock, data):
     n = len(data)
     pre = 'dahi' + array.array('i', [n]).tostring()
     # Great
@@ -14,7 +14,10 @@ def send_dahi(sock, data, tag=None):
     n = 0
     while n < len(data):
         try:
-            n += sock.send(data[n:])
+            dn = sock.send(data[n:])
+            if dn == 0:
+                return False, 'fail'
+            n += dn
         except socket.error as err:
             return False, err
     return True, 0
@@ -30,6 +33,8 @@ def recv_wrapped(sock, n):
         data = sock.recv(n)
         if data == '':
             ok = False
+    except socket.timeout as err:
+        return True, 0, ''
     except socket.error as err:
         if err.args[0] != errno.EAGAIN:
             ok = False
