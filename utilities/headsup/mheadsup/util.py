@@ -22,7 +22,23 @@ defaults = {
     'server_host': 'localhost',
     'server_port': 12354,
     'mcefile': '/data/cryo/flatfile',
+    'host_var': 'MHU_SERVER',
     }
+
+def get_defaults(target=None):
+    if target == None:
+        target = {}
+    target.update(defaults)
+    if defaults.get('host_var') and os.getenv(defaults['host_var']):
+        # host_var should be of the form server:port or server.
+        # if server or port are trivial, they are ignored, which allows
+        # one to override the default port or host independently.
+        host_port = os.getenv(defaults['host_var']).split(':')
+        if host_port[0] != '':
+            target['server_host'] = host_port[0]
+        if len(host_port) > 1 and host_port[1] != '':
+            target['server_port'] = int(host_port[1])
+    return target
 
 class upOptionParser(OptionParser):
     def add_standard(self, defaults):
@@ -33,7 +49,7 @@ class upOptionParser(OptionParser):
         self.add_option('--name',
                          default=defaults['client_name'])
 
-    def parse_args(self, defaults):
+    def parse_args(self, defaults=None):
         opts, args = OptionParser.parse_args(self)
         opts.server = '%s:%i' % (opts.host, opts.port)
         return opts, args

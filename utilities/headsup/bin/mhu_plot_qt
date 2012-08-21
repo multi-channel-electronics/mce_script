@@ -9,7 +9,7 @@ import numpy as np
 from PyQt4 import QtCore, QtGui
 
 
-defaults = util.defaults.copy()
+defaults = util.get_defaults()
 defaults.update({
     'client_name': 'qtg',
     })

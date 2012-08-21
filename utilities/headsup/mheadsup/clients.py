@@ -24,7 +24,7 @@ class dataClient:
     def connect(self, addr=None):
         if addr != None:
             self.addr = addr
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.sock.connect(decode_address(self.addr))
         except socket.error as err:
@@ -52,6 +52,8 @@ class dataClient:
             self.close()
         return ok
     def recv(self, block=False):
+        if not self.sock:
+            return None
         msg = recv_dahi(self.sock, block=block)
         if msg == None:
             self.close()
@@ -128,8 +130,8 @@ class dataProducer(dataClient):
         
 if __name__ == '__main__':
     o = util.upOptionParser()
-    o.add_standard(util.defaults)
-    opts, args = o.parse_args(util.defaults)
+    o.add_standard(util.get_defaults())
+    opts, args = o.parse_args()
 
     disp = dataProducer(opts.server, 'client')
     print 'I am disp'

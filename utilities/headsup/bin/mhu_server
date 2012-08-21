@@ -26,7 +26,7 @@ Then:
   'serv'        <- set server variable
 """
 
-defaults = util.defaults.copy()
+defaults = util.get_defaults()
 defaults.update({
     'client_name': 'server',
     })

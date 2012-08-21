@@ -11,7 +11,7 @@ import threading
 import time
 import os, sys
 
-defaults = util.defaults.copy()
+defaults = util.get_defaults()
 defaults.update({
     'client_name': 'flatfile',
     'mcefile': '/data/cryo/flatfile',

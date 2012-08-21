@@ -28,8 +28,8 @@ class dataAnalyzer(clients.dataConsumer):
 
 if __name__ == '__main__':
     o = util.upOptionParser()
-    o.add_standard(util.defaults)
-    opts, args = o.parse_args(util.defaults)
+    o.add_standard(util.get_defaults())
+    opts, args = o.parse_args()
 
     pp = dataAnalyzer(opts.server)
     pp.go()

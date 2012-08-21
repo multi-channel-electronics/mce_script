@@ -8,7 +8,7 @@ from mheadsup import clients, util
 import pymce
 import time
 
-defaults = util.defaults.copy()
+defaults = util.get_defaults()
 defaults.update({
     'client_name': 'mce',
     })

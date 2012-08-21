@@ -13,7 +13,7 @@ import os
 import sys
 import subprocess
 
-defaults = util.defaults.copy()
+defaults = util.get_defaults()
 defaults.update({
     'client_name': 'pylab',
     'mark_masked': True,

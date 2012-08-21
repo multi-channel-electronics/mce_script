@@ -9,7 +9,7 @@ try:
 except ImportError:
     has_mce = False
 
-defaults = util.defaults.copy()
+defaults = util.get_defaults()
 defaults.update({
     'client_name': 'control',
     })
