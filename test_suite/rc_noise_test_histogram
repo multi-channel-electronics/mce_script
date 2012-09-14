@@ -66,14 +66,14 @@ if (acquire):
   system("set_directory")
 
   try:
-    mkdir(mas_data_dir + rc_dir)
+    mkdir(path.join(mas_data_dir, rc_dir))
   except OSError:
     print "The directory already exist.  Cowardly refusing to continue."
     print "Delete the directory, if you really meant to store the data in"
-    print mas_data_dir + rc_dir
+    print path.join(mas_data_dir, rc_dir)
     exit(1)
 
-  print "Created directory:",mas_data_dir + rc_dir
+  print "Created directory:", path.join(mas_data_dir, rc_dir)
 
   print "\nExecuting: mce_cmd -x mce_reset"
   system("mce_cmd -x mce_reset")
@@ -87,14 +87,14 @@ stdev=zeros(8, dtype=double)
 for ch in range(ch_start,ch_end):
   ch_dir = "%s/ch%1i" % (rc_dir, ch)
   if (acquire):
-    mkdir(mas_data_dir + ch_dir)
+    mkdir(path.join(mas_data_dir, ch_dir))
     command = 'mce_raw_acq_1col %i %i "" "" %s ""' % (rc, ch, ch_dir)
     print "\nExecuting: ", command
     for it in range(0,num_files):
       system(command)
 
   print "\nComputing data for rc", rc, "channel", ch
-  files=glob(mas_data_dir + ch_dir + "/*_raw")
+  files=glob(path.join(mas_data_dir, ch_dir) + "/*_raw")
 
   alldata = array([], dtype=int16)
   n=zeros(16384, dtype=int32)
@@ -132,9 +132,9 @@ for ch in range(ch_start,ch_end):
     text(0.7 * xw + xmin, (0.9 - bt * 0.05) * yw + ymin, "bit %02i: %.3f" % (bt,
         b[bt]/alldata.shape[0]))
 
-  psname = "/%s_bits_ch%1i.ps" % (rc_dir, ch)
-  print "Historgram written on", mas_data_dir + rc_dir + psname
-  savefig(mas_data_dir + rc_dir + psname)
+  psname = "%s_bits_ch%1i.ps" % (rc_dir, ch)
+  print "Historgram written on", path.join(mas_data_dir, rc_dir, psname)
+  savefig(path.join(mas_data_dir, rc_dir, psname))
   show()
 
 all_ok = 1;
