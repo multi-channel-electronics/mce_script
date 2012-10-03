@@ -112,7 +112,7 @@ for ch in range(ch_start,ch_end):
   for bt in range(0,14):
     bit = 2**bt
     for d in alldata:
-      if (d & bit):
+      if (int(d) & bit):
         b[bt]  += 1
     #print "bit ", bt, b[bt]/alldata.shape[0]
 
