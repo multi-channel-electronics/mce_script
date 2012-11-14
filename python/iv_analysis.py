@@ -318,6 +318,9 @@ Rbias = ar_par['Rbias_arr'][ar_par['bias_lines'][data_cols]]  # per-column
 v_tes = 1e6 * Rshunt.reshape(n_row, n_col,1)* \
     (bias.reshape(1,1,-1)/Rbias.reshape(1,-1,1) - i_tes*1e-6)
 
+# Get the power while we're at it
+p_tes = i_tes * v_tes
+
 # Recompute R_normal, saturation power
 R = ones(v_tes.shape)  # Dodge zero divides
 iv_data.R_norm[:] = 1.
@@ -512,7 +515,7 @@ if opts.plot_dir != None and not opts.summary_only:
                     fr.ylabel = 'P_TES (pW)'
                 idx = arange(0, iv_data.super_idx0[r,c])
                 if len(idx) == 0: continue
-                x, y = v_tes[r,c,idx], i_tes[r,c,idx]
+                x, y = v_tes[r,c,idx], p_tes[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
             elif pc == 1:
                 if fr != None:
@@ -523,7 +526,7 @@ if opts.plot_dir != None and not opts.summary_only:
                     continue
                 idx = arange(0, iv_data.super_idx0[r,c])
                 if len(idx) == 0: continue
-                x, y = v_tes[r,c,idx]*i_tes[r,c,idx], v_tes[r,c,idx]/i_tes[r,c,idx]
+                x, y = p_tes[r,c,idx], v_tes[r,c,idx]/i_tes[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
             elif pc == 2:
                 if fr != None:
