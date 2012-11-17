@@ -1,3 +1,5 @@
+import os
+
 import subprocess as sp
 import numpy as np
 
