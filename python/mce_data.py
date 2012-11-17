@@ -47,9 +47,10 @@ class BitField(object):
         self.count = count
         self.scale = scale
         self.signed = signed
+        self.unwrap_period = 2**(self.count)
         return self
 
-    def extract(self, data, do_scale=True):
+    def extract(self, data, do_scale=True, do_unwrap=False):
         """
         Extracts bit field from a numpy array of 32-bit signed integers.
         Assumes a two's complement architecture!
@@ -65,6 +66,8 @@ class BitField(object):
         else:
             # For unsigned fields, bit operations should be used
             data = (data >> self.start) & ((1 << self.count)-1)
+        if do_unwrap:
+            data = unwrap(data, self.unwrap_period)
         if not do_scale:
             return data
         return data.astype('float') * self.scale
@@ -469,7 +472,7 @@ class SmallMCEFile:
                 for rc in range(self.n_rc):
                     r = row + row_index[rc]
                     for col in range(self.n_cols):
-                        c = rc*MCE_COL + col + col_index[rc]
+                        c = col + col_index[rc]
                         names.append((r, c))
         return names
                     
@@ -532,7 +535,7 @@ class SmallMCEFile:
              do_extract=True, do_scale=True, data_mode=None,
              field=None, fields=None, row_col=False,
              raw_frames=False, cc_indices=False,
-             n_frames=None, unfilter=False):
+             n_frames=None, unfilter=False, do_unwrap=False):
         """
         Read MCE data, and optionally extract the MCE signals.
 
@@ -559,6 +562,8 @@ class SmallMCEFile:
                     not sample indices.  Default is False.
         unfilter    If True, deconvolve the MCE low pass filter from filtered data.
                     If set to 'DC', divide out the DC gain of the filter only.
+        do_unwrap   If True, remove effects of digital windowing to restore full dynamic 
+                    range of signal.  (Only works if fields are extracted.)
         """
         if n_frames != None:
             print 'Warning: Use of n_frames in Read() is deprecated, please use '\
@@ -647,7 +652,7 @@ class SmallMCEFile:
         # Extract each field and store
         for f in fields:
             # Use BitField.extract to get each field
-            new_data = dm_data[f].extract(data, do_scale=do_scale)
+            new_data = dm_data[f].extract(data, do_scale=do_scale, do_unwrap=do_unwrap)
             if row_col:
                 new_data.shape = (self.n_rows, self.n_cols*self.n_rc, -1)
             # Filter?
@@ -805,7 +810,7 @@ def unwrap(data, period, in_place=False):
     ups = (ddata >  period/2).astype('int').cumsum(axis=-1)
     dns = (ddata < -period/2).astype('int').cumsum(axis=-1)
     if not in_place:
-        data = data.copy()
+        data = data.astype('float')
     data[...,1:] += float(period) * (dns - ups)
     return data
 
