@@ -184,6 +184,7 @@ if opts.rf_file != None:
     rf_out.write_scalar('iv_curves_found', iv_data.ok.sum(), '%i')
     rf_out.write_scalar('detectors_within_cut', set_data.keep_rec.sum(), '%i')
     rf_out.write_array('Responsivity(W/DACfb)_C%i', set_data.resp, '%0.5e')
+    rf_out.write_array('Rn_C%i', iv_data.R_norm, '%.5e')
     rf_out.write_array('Percentage_Rn_C%i', set_data.perRn, '%.6f')
     rf_out.write_array('Bias_Power(pW)_C%i', set_data.p_tes, '%.5f')
     rf_out.write_array('Bias_Voltage(uV)_C%i', set_data.v_tes, '%.6f')
@@ -266,12 +267,16 @@ if opts.plot_dir != None and not opts.summary_only:
                     _x = [x[reg[0]], x[reg[1]]]
                     p.add(bg.FillAbove(_x, [y.min(), y.min()], color=col))
                 # IV curve
-                p.add(bg.Curve(x, y))
-                yl = (y.min(), y.max())
+                ## Make the normal branch cross the center line.
+                yl = y.min(), y.max()
+                if valid:
+                    y_norm = y[iv_data.norm_idx0[r,c]], y[iv_data.norm_idx1[r,c]]
+                    y_norm = min(*y_norm), max(*y_norm)
+                    yl = max(yl[0], 2*y_norm[0]-y_norm[1]), \
+                        min(yl[1], 2*y_norm[1]-y_norm[0])
                 # Selected bias value
-                x = bias_points_dac[bias_lines[c]] / 1000.
-                p.add(bg.Curve([x,x],yl,type='dashed'))
-                x = None
+                xb = bias_points_dac[bias_lines[c]] / 1000.
+                p.add(bg.Curve([xb,xb],yl,type='dashed'))
             elif pc == 9:
                 # Shunt I vs shunt V (super-cond)
                 idx = arange(iv_data.super_idx0[r,c], n_pts)
@@ -301,10 +306,10 @@ def get_R_crossing(i):
     """
     # Look up fraction Rn
     RR = filedata.tes_fracRn[:,:,i].copy()
-    # Flag superconductin
-    RR[i<=iv_data.trans_idx] = 1.
     # Flag normal
-    RR[i>iv_data.super_idx0] = 1.
+    RR[i<=iv_data.trans_idx] = 1.
+    # Flag superconducting
+    RR[i>iv_data.super_idx0] = 0.
     return RR
 
 
