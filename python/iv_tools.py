@@ -3,7 +3,8 @@ import os
 import subprocess as sp
 import numpy as np
 
-from mce_data import MCEFile, unwrap
+from auto_setup.util import mas_path
+from mce_data import MCEFile
 
 from auto_setup import config
 
