@@ -60,6 +60,8 @@ fi
 
 if [ "$#" -gt "7" ]; then
     bias_normal=$8
+fi
+if [ "$#" -gt "8" ]; then
     normal_time=$9
 fi
 
