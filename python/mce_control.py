@@ -1,52 +1,46 @@
 import numpy as np
 
-try:
-    # Way of the future
-    import pymce
-    from pymce import MCE as mce
-except:
-    from mce import mce
+import pymce
+from pymce import BasicMCE as MCE
 
 MCE_CHANS = 8
 
-class mce_control(mce):
+class mce_control(MCE):
     def __init__(self, do_init=True, *args, **kwargs):
-        mce.__init__(self, *args, **kwargs)
+        MCE.__init__(self, *args, **kwargs)
         if do_init:
             self.init()
 
     def init(self):
+        # try to only load static parameters here, such as the number
+        # of configured readout cards.  Setting like the number of
+        # rows are subject to change so it's better not to store them.
         self.n_rc = len(self.read('rca', 'fw_rev'))
-        self.n_row = 41 # Fix me
-        self.n_chan = MCE_CHANS # Fix me?
-        self.n_col = self.n_chan * self.n_rc
-        # The col_map might need tweaking depending on what rcs are present.
-        self.col_map = range(self.n_rc*self.n_chan)
+        self.n_chan = MCE_CHANS  # whatever.
         self.rc_list = ['rc%i'%(i+1) for i in range(self.n_rc)]
 
     """
-    Data acquisition, numpified.
+    Data acquisition.
     """
 
-    def read_data(self, count=None, data_only=True):
-        _count = count
-        if _count == None: _count = 1
-        data = np.array(self.read_frames(_count, data_only=data_only))
-        if count ==None:
-            data.shape = (self.n_row, self.n_col)
-        else:
-            data.shape = (-1, self.n_row, self.n_col)
-        return data
-
     def read_row(self, n=None, avg=False):
+        """
+        Reads n frames and returns either row 0 only, or the average
+        over all rows if avg=True.
+
+        If n==None, returned data have dimensions [n_col].  Otherwise
+        they are [n_col, n].
+        """
         _n = n
         if _n == None:
             _n = 1
-        d = np.array(self.read_frames(_n, data_only=True))[:,:self.n_rc*MCE_CHANS]
-        if n==None:
-            return d[0]
+        d = self.read_data(_n, row_col=True).data
         if avg:
-            return d.mean(axis=0)
+            d = d.mean(axis=0)
+        else:
+            d = d[0]
+        if n==None:
+            return d[:,0]
         return d
 
     """

@@ -1,47 +1,93 @@
-from numpy import *
-from mce_control import *
+#!/usr/bin/python
+
+import numpy as np
+from mce_control import mce_control
 import time
 
-def check_lock():
-    dm = mce.data_mode()
-    mce.data_mode(0)
-    nf = 30
-    data = mce.read_data(nf)[:,ROW,:].astype('float')
-    err, derr = data.mean(axis=0), data.std(axis=0)
-    mce.data_mode(dm)
-    return abs(err) < derr*2, err, derr
+USAGE="""
+%prog [options] stage
 
-ROW = 0
+Configure the MCE for open loop noise measurements.  Basically:
+ - turns off a bunch of biases
+ - disables the servo
+ - disables muxing
+ - for SQ1 measurements, sets a fixed feedback at the current lock point.
 
+The "stage" argument indicates the highest stage you want to leave
+biased.  I.e.:
+
+   sa   - turn off sq2 biases.
+   sq2  - turn off muxing, sq1 biases.
+   sq1  - turn off muxing.  Requires a --row argument.
+
+This program is not good at turning things on carefully.  It is mostly
+for turning things off.  So you probably want to run mce_reconfig
+before you run this, or pass "--reconfig" to have the program pre-run
+it for you.
+"""
+
+from optparse import OptionParser
+o = OptionParser(usage=USAGE)
+o.add_option('--row', default=None, type=int)
+o.add_option('--reconfig', action='store_true')
+o.add_option('--frames', default=30, type=int)
+opts, args = o.parse_args()
+
+if len(args) != 1 or args[0] not in ['sa', 'sq2', 'sq1']:
+    o.error("Provide a single stage argument (sa, sq2, sq1).")
+
+stage = args[0]
+if stage == 'sq1' and opts.row == None:
+    o.error("The sq1 stage requires a --row argument.")
+
+# Reconfigure?
+if opts.reconfig:
+    import os
+    os.system('mce_reconfig')
+
+# Get MCE
 mce = mce_control()
 
-print check_lock()[0]
-
-if 0:
-    # Zong all squids except row 0.
-    sq1_bias = mce.read('ac', 'on_bias')
-    mce.write('ac', 'on_bias', sq1_bias[:1] + ([0]*40))
-    mce.write('ac', 'off_bias', sq1_bias[:1] + ([0]*40))
-    time.sleep(.1) # update...
-    #mce.write('ac', 'row_order', [0]*41)
+if stage == 'sq1':
+    # Check lock:
+    print 'Columns that appear locked:'
+    mce.data_mode(0)
+    data = mce.read_data(opts.frames, row_col=True).data[opts.row,:,:]
+    err, derr = data.mean(axis=-1), data.std(axis=-1)
+    print (abs(err) < derr*2).astype('int')
+    # Measure the feedback.
+    mce.data_mode(1)
+    data = mce.read_data(opts.frames, row_col=True).extract('fb')[opts.row,:,:]
+    fb, dfb = data.mean(axis=-1), data.std(axis=-1)
+    print 'Locking feedback:'
+    print fb.astype('int')
+    # Kill servo and set fb_const
+    mce.fb_const(fb.astype('int'))
+    mce.servo_mode(0)
+    # There can be only one.  One row.
+    sq1_bias = np.array(mce.read('ac', 'on_bias'))
+    my_bias = sq1_bias[opts.row]
+    sq1_bias[:] = 0
+    sq1_bias[opts.row] = my_bias
+    mce.write('ac', 'on_bias', sq1_bias)
+    mce.write('ac', 'off_bias', sq1_bias)
+    # Sleep for a bit to let those biases get written, then disable mux.
     time.sleep(.1)
     mce.write('ac', 'enbl_mux', [0])
 
-# Check lock
-#print check_lock()[0]
+if stage in ['sq2' or 'sa']:
+    # Kill the SQ1 bias and disable mux.
+    sq1_bias = mce.read('ac', 'on_bias')
+    mce.write('ac', 'on_bias', np.zeros(len(sq1_bias), 'int'))
+    mce.write('ac', 'off_bias', np.zeros(len(sq1_bias), 'int'))
+    time.sleep(.1)
+    mce.write('ac', 'enbl_mux', [0])
 
-# Measure feedback
-mce.data_mode(1)
-data_gain = 2**12
-NF = 10
-data = mce.read_data(NF)[:,ROW,:].astype('float') / data_gain
-fb, dfb = data.mean(axis=0), data.std(axis=0)
+if stage == 'sa':
+    # Kill the SQ2 bias
+    sq2_bias = mce.read('sq2', 'bias')
+    mce.write('sq2', 'bias', np.zeros(len(sq2_bias), 'int'))
 
-# Set this as the feedback.
-print mce.io_rc_array_1d('fb_const')
-mce.io_rc_array_1d('fb_const', fb.astype('int'))
-print mce.io_rc_array_1d('fb_const')
-mce.servo_mode(0)
+# You will probably want error mode data.
+mce.data_mode(0)
 
-# Check "lock"
-print check_lock()[0]

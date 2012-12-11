@@ -27,6 +27,7 @@ stage_map = {
     'sq1_fb': ('sq1', 'fb_const'),
     'sq1_bias': ('ac', 'on_bias'),
     'tes_bias': ('tes', 'bias'),
+    'heater': ('heater', 'bias'),
 }
 
 

@@ -12,7 +12,7 @@ MCE_COL = 8
 MCE_DWORD = 4
 
 # This block read maximum (bytes) is to keep memory usage reasonable.
-MAX_READ_SIZE = int(1e8)
+MAX_READ_SIZE = int(1e9)
 
 class HeaderFormat:
     """
