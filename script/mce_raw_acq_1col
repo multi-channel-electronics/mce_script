@@ -75,6 +75,10 @@ use_sync=`command_reply rb cc use_sync`
 use_dv=`command_reply rb cc use_dv`
 mce_cmd -qX "wb cc use_sync 0" -X "wb cc use_dv 0"
 
+# Store column index and data mode...
+orig_col_index=`command_reply rb rc$rc_cmd readout_col_index`
+orig_data_mode=`command_reply rb rc$rc_cmd data_mode`
+
 # Get/set frame structure
 num_cols_rep=8
 if [ "$change_num_rows" == "1" ]; then
@@ -113,3 +117,9 @@ mce_cmd -q \
 mce_cmd -q -X "wb cc use_sync $use_sync" -X "wb cc use_dv $use_dv"
 [ "$change_num_rows" == "1" ] && \
     mce_cmd -qx wb cc num_rows_reported $old_num_rows_rep
+
+# Restore data_mode and col_index
+mce_cmd -q \
+    -X "wb rc$rc_cmd readout_col_index $orig_col_index" \
+    -X "wb rc$rc_cmd data_mode $orig_data_mode"
+
