@@ -61,9 +61,8 @@ if stage == 'sq1':
     fb, dfb = data.mean(axis=-1), data.std(axis=-1)
     print 'Locking feedback:'
     print fb.astype('int')
-    # Kill servo and set fb_const
+    # Set fb_const (kill the servo below)
     mce.fb_const(fb.astype('int'))
-    mce.servo_mode(0)
     # There can be only one.  One row.
     sq1_bias = np.array(mce.read('ac', 'on_bias'))
     my_bias = sq1_bias[opts.row]
@@ -88,6 +87,7 @@ if stage == 'sa':
     sq2_bias = mce.read('sq2', 'bias')
     mce.write('sq2', 'bias', np.zeros(len(sq2_bias), 'int'))
 
-# You will probably want error mode data.
+# You will probably want error mode data, with the servo off.
+mce.servo_mode(1)
 mce.data_mode(0)
 
