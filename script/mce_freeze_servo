@@ -16,9 +16,11 @@ Configure the MCE for open loop noise measurements.  Basically:
 The "stage" argument indicates the highest stage you want to leave
 biased.  I.e.:
 
-   sa   - turn off sq2 biases.
-   sq2  - turn off muxing, sq1 biases.
-   sq1  - turn off muxing.  Requires a --row argument.
+   preamp - turn off sa biases and sa offsets.
+   sa     - turn off sq2 biases.
+   sq2    - turn off muxing, sq1 biases.
+   sq1    - turn off muxing, tes biases.  Requires a --row argument.
+   tes    - turn off muxing.  Requires a --row argument.
 
 This program is not good at turning things on carefully.  It is mostly
 for turning things off.  So you probably want to run mce_reconfig
@@ -28,17 +30,36 @@ it for you.
 
 from optparse import OptionParser
 o = OptionParser(usage=USAGE)
-o.add_option('--row', default=None, type=int)
-o.add_option('--reconfig', action='store_true')
+o.add_option('--row', default=None, type=int,
+             help="specify row to lock (for sq1 and tes stages).")
+o.add_option('--reconfig', action='store_true',
+             help="run mce_reconfig before setting up open loop.")
 o.add_option('--frames', default=30, type=int)
+o.add_option('--no-reinit', action='store_true',
+             help="for tes and sq1 stages, do not re-init the servo before "
+             "measuring the locking feedback.")
 opts, args = o.parse_args()
 
-if len(args) != 1 or args[0] not in ['sa', 'sq2', 'sq1']:
-    o.error("Provide a single stage argument (sa, sq2, sq1).")
+STAGES = ['preamp', 'sa', 'sq2', 'sq1', 'tes']
+
+if len(args) != 1 or args[0] not in STAGES:
+    o.error("Provide a single stage argument (%s)." % ','.join(STAGES))
 
 stage = args[0]
-if stage == 'sq1' and opts.row == None:
-    o.error("The sq1 stage requires a --row argument.")
+if stage in ['sq1','tes'] and opts.row == None:
+    o.error("The %s stage requires a --row argument." % stage)
+
+# A useful function...
+
+def read_and_zero(mce, card, param):
+    """
+    Read values from card,param.  Set them to zero in the MCE.  Return
+    the read values.
+    """
+    vals = mce.read(card, param)
+    mce.write(card, param, np.zeros(len(vals), 'int'))
+    return vals
+
 
 # Reconfigure?
 if opts.reconfig:
@@ -49,6 +70,13 @@ if opts.reconfig:
 mce = mce_control()
 
 if stage == 'sq1':
+    read_and_zero(mce, 'tes', 'bias')
+
+if stage in ['sq1', 'tes']:
+    # Re-lock
+    if not opts.no_reinit:
+        mce.init_servo()
+        time.sleep(0.1)
     # Check lock:
     print 'Columns that appear locked:'
     mce.data_mode(0)
@@ -86,9 +114,8 @@ if stage == 'sq1':
 
 if stage in ['sq2' or 'sa']:
     # Kill the SQ1 bias and disable mux.
-    sq1_bias = mce.read('ac', 'on_bias')
-    mce.write('ac', 'on_bias', np.zeros(len(sq1_bias), 'int'))
-    mce.write('ac', 'off_bias', np.zeros(len(sq1_bias), 'int'))
+    read_and_zero(mce, 'ac', 'on_bias')
+    read_and_zero(mce, 'ac', 'off_bias')
     time.sleep(.1)
     mce.write('ac', 'enbl_mux', [0])
     # Also disable SQ2 muxing.  Hope you chose a good sq2 fb.
@@ -98,8 +125,11 @@ if stage in ['sq2' or 'sa']:
 
 if stage == 'sa':
     # Kill the SQ2 bias
-    sq2_bias = mce.read('sq2', 'bias')
-    mce.write('sq2', 'bias', np.zeros(len(sq2_bias), 'int'))
+    read_and_zero(mce, 'sq2', 'bias')
+
+if stage == 'preamp':
+    read_and_zero(mce, 'sa', 'bias')
+    read_and_zero(mce, 'sa', 'offset')
 
 # You will probably want error mode data, with the servo off.
 mce.servo_mode(1)
