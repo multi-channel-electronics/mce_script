@@ -73,6 +73,16 @@ if stage == 'sq1':
     # Sleep for a bit to let those biases get written, then disable mux.
     time.sleep(.1)
     mce.write('ac', 'enbl_mux', [0])
+    # If fast-switching, set up the SQ2 FB to match the chosen row.
+    # Also disable SQ2 muxing.  Hope you chose a good sq2 fb.
+    sq2_mux = mce.read('sq2', 'enbl_mux')
+    if np.any(sq2_mux):
+        sq2_fb = []
+        for c in range(len(sq2_mux)):
+            sq2_fb.append(mce.read('sq2', 'fb_col%i'%c)[opts.row])
+        # Set feedback and disable muxing.
+        mce.write('sq2', 'fb', sq2_fb)
+        mce.write('sq2', 'enbl_mux', np.zeros(len(sq2_mux)))
 
 if stage in ['sq2' or 'sa']:
     # Kill the SQ1 bias and disable mux.
@@ -81,6 +91,10 @@ if stage in ['sq2' or 'sa']:
     mce.write('ac', 'off_bias', np.zeros(len(sq1_bias), 'int'))
     time.sleep(.1)
     mce.write('ac', 'enbl_mux', [0])
+    # Also disable SQ2 muxing.  Hope you chose a good sq2 fb.
+    sq2_mux = mce.read('sq2', 'enbl_mux')
+    if np.any(sq2_mux):
+        mce.write('sq2', 'enbl_mux', np.zeros(len(sq2_mux)))
 
 if stage == 'sa':
     # Kill the SQ2 bias
