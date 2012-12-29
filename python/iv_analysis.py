@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import os, sys, time
 from numpy import *
 from mce_data import MCEFile, unwrap
@@ -360,7 +362,7 @@ for tes_idx in range(ar_par['n_bias_lines']):
     pl.clf()
     for i,t in enumerate(targets):
         pl.subplot(ntarg, 1, 1+i)
-        y = RR[i][ok]
+        y = RR[i][s]
         pl.hist(y.ravel(), bins=arange(0., 1.01, .05))
         y0 = pl.ylim()[1]
         pl.text(0.5, y0*.9, 'BIAS = %5i' % t,
