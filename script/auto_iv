@@ -85,17 +85,23 @@ last_iv_link = '/data/cryo/last_iv.out'
 if do_stage('ramp'):
     if not opts.ramp_file:
         opts.ramp_file = '%i_iv' % (time.time())
-    ## Fix me: check error...
-    os.system('ramp_tes_bias %s %s' % (opts.ramp_file, opts.rc))
+    err = os.system('ramp_tes_bias %s %s' % (opts.ramp_file, opts.rc))
+    if err != 0:
+        print
+        print 'auto_iv: ramp stage failed, exiting.'
+        o.exit(1)
     opts.ramp_file = '%s/%s' % (mas_path.data_dir(), opts.ramp_file)
 
 #
 #  Analyze the IV curve?
 #
 if do_stage('analysis'):
-    ## Fix me: abort if analysis fails.
-    os.system('python %s/iv_analysis.py %s' % 
+    err = os.system('python %s/iv_analysis.py %s' % 
               (mas_path.python_dir(), opts.ramp_file))
+    if err != 0:
+        print
+        print 'auto_iv: analysis stage failed, exiting.'
+        o.exit(1)
     # Link it
     link_exists = True
     if not os.path.exists(last_iv_link): # could be a broken link...
@@ -116,4 +122,8 @@ if do_stage('bias'):
     rf = MCERunfile(opts.analysis_file)
     biases = rf.Item('IV', 'rec_biases', type='int', array=True)
     cmd = 'bias_tess ' + ' '.join(['%i' % x for x in biases])
-    os.system(cmd)
+    err = os.system(cmd)
+    if err != 0:
+        print
+        print 'auto_iv: biasing stage failed.'
+        o.exit(1)
