@@ -5,7 +5,28 @@
 #
 # Could also be used to patch DSP firmware, and so on.
 
+import sys
 import time
+from optparse import OptionParser
+
+
+o = OptionParser()
+o.add_option('--quiet','-q',action='store_true')
+o.add_option('--check',action='store_true')
+opts, args = o.parse_args()
+
+verbosity = 2
+if opts.quiet:
+    verbosity = 0
+
+def talk(text, level=0, err=False):
+    if err:
+        fout = sys.stderr
+    else:
+        fout = sys.stdout
+    if level <= verbosity:
+        fout.write(text)
+
 
 from mce_control import MCE
 mce = MCE()
@@ -14,7 +35,8 @@ mce = MCE()
 # on power on.  If this is the case, mce_new_power=True.
 
 mce_new_power = sum([x!=0 for x in mce.read('cc', 'scratch')]) == 0
-
+if not mce_new_power:
+    talk('No power cycle detected.', 1)
 
 # BC (revF) bias register must be explicitly set to 0.
 #
@@ -27,20 +49,20 @@ mce_new_power = sum([x!=0 for x in mce.read('cc', 'scratch')]) == 0
 # zeroed before being used.
 
 if mce_new_power:
-    print 'Writing bc bias RAM to 0.'
+    talk('Writing bc bias RAM to 0.', 1)
     for bc in ['bc1', 'bc2', 'bc3']:
         try:
             z = [0 for x in mce.read(bc, 'bias')]
             if not mce.write(bc, 'bias', z):
                 raise
         except:
-            print ' -- failed on %s' % bc
+            talk(' -- failed on %s' % bc, 1)
 
 
 # Update scratch to indicate MCE is now initialized.
 #
 # I guess we'll put the current time in there.
 if not mce.write('cc','scratch', [int(time.time())]):
-    print 'Failed to update scratch register!'
+    talk('Failed to update scratch register!', 1)
     sys.exit(1)
 

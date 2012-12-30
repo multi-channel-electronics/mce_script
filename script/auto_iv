@@ -83,6 +83,9 @@ last_iv_link = '/data/cryo/last_iv.out'
 #  Run a ramp?
 #
 if do_stage('ramp'):
+    # Check for MCE re-init to be safe
+    os.system('mce_check_init -q')
+    # Make a filename
     if not opts.ramp_file:
         opts.ramp_file = '%i_iv' % (time.time())
     err = os.system('ramp_tes_bias %s %s' % (opts.ramp_file, opts.rc))

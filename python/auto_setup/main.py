@@ -19,6 +19,10 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
     # initialise the squid tuning results file
     tuning.write_sqtune(link=True)
 
+    # Check the MCE initialization state -- in case of recent power
+    # cycle.
+    tuning.run(["mce_check_init", "-q"])
+
     # check whether the SSA and SQ2 biases have already been set
     on_bias = False
     if (check_bias):
