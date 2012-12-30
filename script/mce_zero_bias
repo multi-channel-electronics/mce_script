@@ -12,6 +12,11 @@ source $MAS_SCRIPT/mas_library.bash
 
 expt=$MAS_DATA/experiment.cfg
 
+## Check for MCE wake-up state and perform any necessary additional
+## initialization.
+mce_check_init
+
+
 # This first command prints the bias levels and also checks that MCE
 # is responding
 echo -n "Reading TES biases: "

@@ -1,0 +1,46 @@
+#!/usr/bin/python
+#
+# Check for weird MCE states, such as recent power on.  Perform
+# necessary actions to leave MCE in reasonable state.
+#
+# Could also be used to patch DSP firmware, and so on.
+
+import time
+
+from mce_control import MCE
+mce = MCE()
+
+# Check for MCE wake-up state.  The scratch register will be all zeros
+# on power on.  If this is the case, mce_new_power=True.
+
+mce_new_power = sum([x!=0 for x in mce.read('cc', 'scratch')]) == 0
+
+
+# BC (revF) bias register must be explicitly set to 0.
+#
+# When revF bias cards power on, the bias DACs will output 0V but the
+# corresponding registers will read back at 32768 (which is MCE
+# internal 0, adjusted by software).
+# 
+# This can be hazardous in cases where TES and heater biases are
+# interleaved in the bc bias registers.  They need to be explicitly
+# zeroed before being used.
+
+if mce_new_power:
+    print 'Writing bc bias RAM to 0.'
+    for bc in ['bc1', 'bc2', 'bc3']:
+        try:
+            z = [0 for x in mce.read(bc, 'bias')]
+            if not mce.write(bc, 'bias', z):
+                raise
+        except:
+            print ' -- failed on %s' % bc
+
+
+# Update scratch to indicate MCE is now initialized.
+#
+# I guess we'll put the current time in there.
+if not mce.write('cc','scratch', [int(time.time())]):
+    print 'Failed to update scratch register!'
+    sys.exit(1)
+
