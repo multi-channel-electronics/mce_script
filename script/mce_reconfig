@@ -18,6 +18,8 @@ if [ ! -e $CONFIG ]; then
     exit 1
 fi
 
+mce_check_init
+
 echo Running $CONFIG
 $CONFIG
 
