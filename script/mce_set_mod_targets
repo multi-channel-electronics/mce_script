@@ -1,0 +1,125 @@
+#!/usr/bin/python
+
+"""
+Assist with selection of register subsets for ramping using the bias
+card "mod_val" parameter. (BC fw_rev 5.3.1 and later.)
+"""
+
+import sys
+import numpy as np
+import mce_internal as mcei
+from mce_control import mce_control
+
+from optparse import OptionParser
+o = OptionParser()
+o.add_option('--select', nargs=2)
+o.add_option('--guess',
+             help="like select, except only the card needs to be given")
+o.add_option('--runfile')
+o.add_option('--runfile-truncate')
+o.add_option('--script-mode', action='store_true')
+opts, args = o.parse_args()
+
+if len(args) < 2:
+    o.error('Provide target card and parameter (e.g. tes bias)')
+
+target_str = args[0]+' '+args[1]
+
+reg_map = mcei.configAnalysis()
+for c in reg_map.virt:
+    if c.card + ' ' + c.param == target_str:
+        target = c
+        break
+else:
+    o.error("Could not find '%s' in the virtual map." % target_str)
+
+# Identify unique card, param pairs.
+pairs = sorted(list(set([(a[2],a[3]) for a in target.maps])))
+if opts.select == None:
+    if opts.script_mode:
+        o.error("--script-mode requires target selection with --select.")
+    print 'Physical targets for "%s" (use --select ... to configure one):' %\
+        target_str
+    for a,b in pairs:
+        print '  %s %s' % (a,b)
+    o.exit(0)
+
+reg_str = ' '.join(opts.select)
+
+# Identify the selected elements.
+selected = mcei.virtualMap('','',[])
+
+for m in target.maps:
+    if m[2]+' '+m[3] == reg_str:
+        # Split up any multi-element registers into singles
+        for i in range(m[1]):
+            selected.maps.append((m[0]+i, 1, m[2], m[3], m[4]+i))
+
+if not opts.script_mode:
+    print "Identified %i elements of '%s' in '%s'" % \
+        (len(selected.maps), target_str, reg_str)
+
+# Get the:
+## Virtual map offsets
+virt_ofs = np.array([m[0] for m in selected.maps])
+virt_ofs_str = ' '.join(['%i'%i for i in virt_ofs])
+## Physical register offsets
+reg_ofs = np.array([m[4] for m in selected.maps])
+reg_ofs_str = ' '.join(['%i'%i for i in reg_ofs])
+## Physical card, param
+reg_card, reg_param = reg_str.split()
+
+# This only works on bias cards by the way:
+if reg_card not in ['bc1','bc2','bc3']:
+    o.error("Target does not resolve to a bias card.")
+if reg_param not in ['bias', 'flux_fb']:
+    o.error("Target does not resolve to the bias or flux_fb register.")
+
+## Information:
+if not opts.script_mode:
+    print
+    print "The values ramped correspond to '%s' elements %s" % \
+        (target_str, virt_ofs_str.replace(' ', ','))
+    print
+
+RF_BLOCK = """<ramp_selections>
+  <virtual_target> %s
+  <virtual_offsets> %s
+  <physical_target> %s
+  <physical_offsets> %s
+</ramp_selections>
+""" % (target_str, virt_ofs_str, reg_str, reg_ofs_str)
+
+rf_out = None
+if opts.script_mode:
+    rf_out = open(sys.stdout, 'w')
+elif opts.runfile != None:
+    rf_out = open(opts.runfile, 'a')
+elif opts.runfile_truncate != None:
+    rf_out = open(opts.runfile, 'w')
+
+if rf_out != None:
+    # Write RF_BLOCK somewhere.
+    rf_out.write(RF_BLOCK)
+    del rf_out
+
+# Ready to write.
+mce = mce_control()
+
+## Set up mod registers
+bias_mod = np.zeros(len(mce.read(reg_card, 'enbl_bias_mod')), int)
+flux_mod = np.zeros(len(mce.read(reg_card, 'enbl_flux_fb_mod')), int)
+if reg_param == 'bias':
+    bias_mod[reg_ofs] = 1
+if reg_param == 'flux_fb':
+    flux_mod[reg_ofs] = 1
+
+## Zero the mod_val and set the flux/bias mod.
+mce.write(reg_card, 'mod_val', [0])
+mce.write(reg_card, 'enbl_bias_mod', bias_mod)
+mce.write(reg_card, 'enbl_flux_fb_mod', flux_mod)
+
+if not opts.script_mode:
+    print "MCE is configured; you can now run a ramp/wave on target '%s %s'" % \
+        (reg_card, 'mod_val')
+    print
