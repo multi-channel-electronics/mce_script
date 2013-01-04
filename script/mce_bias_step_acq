@@ -4,9 +4,6 @@
 #
 # Uses bc# mod_val -- make sure your firmware supports this.
 #
-# The enbl_*_mod parameter must be properly configured to target the
-# appropriate registers in bc# bias or bc# flux_fb before running this
-# program.
 
 #initialise environment
 if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
@@ -18,7 +15,13 @@ fi
 
 source $MAS_SCRIPT/mas_library.bash
 
-bc=$1
+case $1 in
+    1|2|3)
+	bc=$1
+	;;
+    *)
+	bc=
+esac
 
 n_points=10000
 step_depth=50
@@ -27,8 +30,7 @@ step_period=1003200
 if [ "$bc" == "" ]; then
     echo "----------------------------------------"
     echo "Usage: $0 bc [ n_frames depth time ]"
-    echo "where:        line           is the bias line to ramp (1,2, or 3)"
-    echo "              bc             is the readout card to target (1,2 or 3)"
+    echo "where:        bc             is the bias card to target (1,2 or 3)"
     echo "              n_frames       is the number of data points to acquire (default $n_points)"
     echo "              depth          is the amplitude of the bias stepping (default $step_depth)"
     echo "              time           is the dwell time (in us) on each bias value (default $step_period)"
@@ -48,6 +50,11 @@ fi
 [ "$2" != "" ] && n_points=$3
 [ "$3" != "" ] && step_depth=$4
 [ "$4" != "" ] && step_period=$5
+
+
+# Zero mod_val and set the mod_val targets:
+mce_cmd -qx wb bc$bc mod_val 0
+mce_set_mod_targets tes bias --select bc$bc bias
 
 # The card and parameter to step can, in principal be extracted from
 # mce_status -g output.  For now, we hard code them :O
@@ -83,8 +90,11 @@ half_step=$(( $step_depth / 2 ))
 #    exit 1
 #fi
 
-bias_lo=$(( $centre_bias - $half_step ))
-bias_hi=$(( $centre_bias + $half_step ))
+#bias_lo=$(( $centre_bias - $half_step ))
+#bias_hi=$(( $centre_bias + $half_step ))
+
+bias_lo=0
+bias_hi=$step_depth
 
 # Disable MCE internal commanding
 mce_cmd -qx wb cc internal_cmd_mode 0
@@ -109,12 +119,12 @@ mce_cmd -qx wb rca data_mode 1
 # Enable the ramp and acquire
 mce_cmd -qx wb cc internal_cmd_mode 2
 
-update_userword $rc
-mce_run $filename $n_points $rc
+#update_userword s
+mce_run $filename $n_points s
 
 # Disable ramp, write mod_val to 0 to restore bias.
 mce_cmd -qx wb cc internal_cmd_mode 0
-sleep 50000
+mce_cmd -qx sleep 50000
 mce_cmd -qx wb bc$bc mod_val 0
 
 # Restore data_mode
