@@ -19,7 +19,9 @@ verbosity = 2
 if opts.quiet:
     verbosity = 0
 
-def talk(text, level=0, err=False):
+def talk(text, level=0, err=False, no_cr=False):
+    if not text.endswith('\n') and not no_cr:
+        text = text + '\n'
     if err:
         fout = sys.stderr
     else:
