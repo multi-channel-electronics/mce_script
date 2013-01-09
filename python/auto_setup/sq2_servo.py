@@ -146,12 +146,12 @@ class SQ2Servo(servo.SquidData):
         self.data = self.data.reshape(-1, n_fb)
         self.error = self.error.reshape(-1, n_fb)
 
-    def reduce(self, slope=None, lock_amp=True):
+    def reduce(self, slope=None, lock_amp=True, x_adjust=None):
         self.reduce1()
-        self.reduce2(slope=slope, lock_amp=lock_amp)
+        self.reduce2(slope=slope, lock_amp=lock_amp, x_adjust=x_adjust)
         return self.analysis
 
-    def reduce2(self, slope=None, lock_amp=True):
+    def reduce2(self, slope=None, lock_amp=True, x_adjust=None):
         """
         Special reduction steps for SQ2 servo.
         """
@@ -172,9 +172,14 @@ class SQ2Servo(servo.SquidData):
             slope = z
         else:
             slope = slope[0]
+
+        if x_adjust == None:
+            x_adjust = self.tuning.get_exp_param('sq2_servo_sq2fb_adjust')[self.cols]
+
         n_fb = len(self.fb)
         an = servo.get_lock_points(self.data, scale=n_fb/40,
-                                   lock_amp=lock_amp, slope=slope)
+                                   lock_amp=lock_amp, slope=slope,
+                                   x_adjust=x_adjust/self.d_fb)
         # Add feedback keys
         for k in ['lock', 'left', 'right']:
             an[k+'_x'] = self.fb[an[k+'_idx']]

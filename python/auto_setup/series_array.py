@@ -133,7 +133,7 @@ class SARamp(servo.SquidData):
         self.reduce2(slope=slope)
         return self.analysis
 
-    def reduce2(self, slope=None):
+    def reduce2(self, slope=None, x_adjust=None):
         """
         Special analysis steps for SA ramp.
         """
@@ -154,13 +154,17 @@ class SARamp(servo.SquidData):
         else:
             slope = slope[0]
 
+        if x_adjust == None:
+            x_adjust = self.tuning.get_exp_param('sa_ramp_safb_adjust')[self.cols]
+
         # Smooth SA data; use kernel with odd width or the lag is non-integral.
         n_fb = len(self.fb)
         scale = max([8 * n_fb / 800, 0])
         y = servo.smooth(self.data, scale*2+1)
 
         # Analyze all SA curves for lock-points
-        an = servo.get_lock_points(y, start=0, slope=slope)
+        an = servo.get_lock_points(y, start=0, slope=slope,
+                                   x_adjust=x_adjust/self.d_fb)
 
         # Add feedback keys, with shift to counteract smoothing
         for k in ['lock', 'left', 'right']:

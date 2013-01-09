@@ -95,7 +95,8 @@ def get_curve_regions(y, extremality=0.8,
 
 
 def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
-                    start=None, stop=None, extremality=0.9):
+                    start=None, stop=None, extremality=0.9,
+                    x_adjust=None):
     # By default, we characterize the extrema ignoring the beginning
     # of the curve, since the servo may still be settling.
     if start == None:
@@ -149,6 +150,10 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
         lock_idx = array([a + argmin(abs(yy[a:b+1]-t)) for \
                           a,b,t,yy in zip(i_left, i_right, target, y)]) \
                           .astype('int')
+        # User may need to move the setpoint around, for whatever reason.
+        if x_adjust != None and not all(x_adjust==0):
+            lock_idx += x_adjust
+            target = array([yy[i] for yy,i in zip(y, lock_idx)])
         # Compute lock slopes and sub-sample the locking X-values.
         lock_slope, dx = get_slopes(y-target.reshape(-1,1),
                                     lock_idx, intercept='x', n_points=scale,
@@ -156,6 +161,8 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
         lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
     else:  # x
         lock_idx = (i_left + i_right)/2
+        if x_adjust != None:
+            lock_idx += x_adjust
         lock_slope, lock_y = get_slopes(y, lock_idx, intercept='y',
                                         n_points=scale,
                                         min_index=i_left, max_index=i_right)
