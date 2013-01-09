@@ -155,7 +155,10 @@ class SARamp(servo.SquidData):
             slope = slope[0]
 
         if x_adjust == None:
-            x_adjust = self.tuning.get_exp_param('sa_ramp_safb_adjust')[self.cols]
+            x_adjust = self.tuning.get_exp_param('sa_ramp_safb_adjust',
+                                                 default=0)
+            if hasattr(x_adjust, '__getitem__'):
+                x_adjust = x_adjust[self.cols]
 
         # Smooth SA data; use kernel with odd width or the lag is non-integral.
         n_fb = len(self.fb)

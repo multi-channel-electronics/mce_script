@@ -643,7 +643,8 @@ class SquidData(util.RCData):
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
         if format == None:
-            format = self.tuning.get_exp_param('tuning_plot_format')
+            format = self.tuning.get_exp_param('tuning_plot_format',
+                                               default='png')
 
         # Is this a multi-bias ramp?  If so, split down
         if self.bias_style == 'ramp':
@@ -736,7 +737,8 @@ class RampSummary(SquidData):
             plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
                                          (self.data_origin['basename']))
         if format == None:
-            format = self.tuning.get_exp_param('tuning_plot_format')
+            format = self.tuning.get_exp_param('tuning_plot_format',
+                                               default='png')
 
         if data_attr == None:
             data_attr = self.data.keys()[0] # you asked for it.

@@ -174,7 +174,10 @@ class SQ2Servo(servo.SquidData):
             slope = slope[0]
 
         if x_adjust == None:
-            x_adjust = self.tuning.get_exp_param('sq2_servo_sq2fb_adjust')[self.cols]
+            x_adjust = self.tuning.get_exp_param('sq2_servo_sq2fb_adjust',
+                                                 default=0)
+            if hasattr(x_adjust, '__getitem__'):
+                x_adjust = x_adjust[self.cols]
 
         n_fb = len(self.fb)
         an = servo.get_lock_points(self.data, scale=n_fb/40,
