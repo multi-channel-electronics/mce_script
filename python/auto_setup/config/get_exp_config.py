@@ -232,9 +232,11 @@ class configFile(dict):
         for n in self.names:
             self.read_param(n)
 
-    def get_param(self, name, missing_ok=False):
-        if missing_ok and not name in self:
-            return None
+    def get_param(self, name, missing_ok=False, default=None):
+        if not name in self:
+            if missing_ok or default != None:
+                return default
+            raise ValueError, "key '%s' not found in config file." % name
         if hasattr(self[name], '__copy__'):
             # Don't expose references to mutable objects (arrays)
             return self[name].copy()

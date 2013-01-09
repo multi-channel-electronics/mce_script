@@ -69,8 +69,8 @@ class tuningData:
         os.mkdir(self.data_dir)
         os.mkdir(self.plot_dir)
 
-    def get_exp_param(self, key, missing_ok=False):
-        return self.exptfile.get_param(key, missing_ok=missing_ok)
+    def get_exp_param(self, key, missing_ok=False, default=None):
+        return self.exptfile.get_param(key, missing_ok=missing_ok, default=default)
         #return config.get_exp_param(self.exp_file, key, missing_ok=missing_ok)
 
     def set_exp_param(self, key, value):
