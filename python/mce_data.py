@@ -660,7 +660,8 @@ class SmallMCEFile:
                 if unfilter == 'DC':
                     new_data /= filt.gain()
                 elif unfilter == True:
-                    raise RuntimeError, "full deconvolution not implemented"
+                    new_data = filt.apply_filter(new_data, inverse=True,
+                                                 decimation=self.divid)
             if data_out.data_is_dict:
                 data_out.data[f] = new_data
             else:
@@ -820,7 +821,13 @@ def unwrap(data, period, in_place=False):
 #
 
 class MCEFilter:
-    pass
+    @staticmethod
+    def from_runfile(runfile):
+        """
+        Return a filter object based on the runfile information.
+        """
+        # It's probably a Butterworth.
+        return MCEButterworth.from_runfile(runfile)
 
 class MCEButterworth(MCEFilter):
     def __init__(self, params):
