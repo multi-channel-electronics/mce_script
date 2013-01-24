@@ -50,11 +50,13 @@ class BitField(object):
         self.unwrap_period = 2**(self.count)
         return self
 
-    def extract(self, data, do_scale=True, do_unwrap=False):
+    def extract(self, data, rescale=True, unwrap=False, **kwargs):
         """
         Extracts bit field from a numpy array of 32-bit signed integers.
         Assumes a two's complement architecture!
         """
+        rescale = deprecate_arg(rescale, kwargs, 'rescale', 'do_scale')
+        unwrap = deprecate_arg(unwrap, kwargs, 'unwrap', 'do_unwrap')
         if self.signed:
             # Integer division preserves sign
             right = 32 - self.count
@@ -66,11 +68,21 @@ class BitField(object):
         else:
             # For unsigned fields, bit operations should be used
             data = (data >> self.start) & ((1 << self.count)-1)
-        if do_unwrap:
-            data = unwrap(data, self.unwrap_period)
-        if not do_scale:
+        if unwrap:
+            data = unwrap_array(data, self.unwrap_period)
+        if not rescale:
             return data
         return data.astype('float') * self.scale
+
+deprecation_warnings = True
+
+def deprecate_arg(new_val, kwargs, new_arg, old_arg):
+    if old_arg in kwargs:
+        if deprecation_warnings:
+            print 'Use of argument "%s" is deprecated, the new word is "%s".' % \
+                (old_arg, new_arg)
+        return kwargs[old_arg]
+    return new_val
 
 
 class DataMode(dict):
@@ -531,44 +543,49 @@ class SmallMCEFile:
             data[n_cols*rci:n_cols*(rci+1),:] = x.transpose()
         return data
 
-    def Read(self, count=None, start=0, dets=None,
-             do_extract=True, do_scale=True, data_mode=None,
+    def Read(self, count=None, start=0,
+             extract=True, rescale=True, data_mode=None,
              field=None, fields=None, row_col=False,
              raw_frames=False, cc_indices=False,
-             n_frames=None, unfilter=False, do_unwrap=False):
+             n_frames=None, unfilter=False, unwrap=False,
+             **kwargs):
         """
         Read MCE data, and optionally extract the MCE signals.
 
-        dets        Pass a list of (row,col) tuples of detectors to extract (None=All)
         count       Number of samples to read per channel (default=None,
                     which means all of them).  Negative numbers are taken
                     relative to the end of the file.
         start       Index of first sample to read (default=0).
-        do_extract  If True, extract signal bit-fields using data_mode from runfile
-        do_scale    If True, rescale the extracted bit-fields to match a reference
-                    data mode.
-        data_mode   Overrides data_mode from runfile, or can provide data_mode if no
-                    runfile is used.
-        field       A single field to extract.  The output data will contain an array
-                    containing the extracted field.  (If None, the default field is used.)
-        fields      A list of fields of interest to extract, or 'all' to get all fields.
-                    This overrides the value of field, and the output data will contain
-                    a dictionary with the extracted field data.
-        row_col     If True, detector data is returned as a 3-D array with indices (row,
-                    column, frame).
-        raw_frames  If True, return a 2d array containing raw data (including header
-                    and checksum), with indices (frame, index_in_frame).
-        cc_indices  If True, count and start are interpreted as readout frame indices and
-                    not sample indices.  Default is False.
-        unfilter    If True, deconvolve the MCE low pass filter from filtered data.
-                    If set to 'DC', divide out the DC gain of the filter only.
-        do_unwrap   If True, remove effects of digital windowing to restore full dynamic 
-                    range of signal.  (Only works if fields are extracted.)
+        extract     If True, extract signal bit-fields using data_mode.  You
+                    actually can't turn this off.
+        rescale     If True, rescale the extracted bit-fields to match a
+                    reference data_mode.
+        data_mode   Overrides data_mode from runfile, or can provide data_mode
+                    if no runfile is used.
+        field       A single field to extract.  The output data will contain
+                    an array containing the extracted field.  (If None, the
+                    default field is used.)
+        fields      A list of fields of interest to extract, or 'all' to get
+                    all fields.  Output will contain a dictionary will all
+                    extracted fields.  Takes precedence over field argument.
+        row_col     If True, detector data is returned as a 3-D array with
+                    indices (row, column, frame).
+        raw_frames  If True, return a 2d array containing raw data (including
+                    header and checksum), with indices (frame, index_in_frame).
+        cc_indices  If True, count and start are interpreted as readout frame
+                    indices and not sample indices.  Default is False.
+        unfilter    If True, deconvolve the MCE low pass filter from filtered
+                    data.  If set to 'DC', divide out the DC gain only.
+        unwrap      If True, remove effects of digital windowing to restore
+                    full dynamic range of signal.  (Only works if fields are
+                    extracted.)
         """
-        if n_frames != None:
-            print 'Warning: Use of n_frames in Read() is deprecated, please use '\
-                'the "count=" argument.'
-            count = n_frames
+        # Deprecated args...
+        extract = deprecate_arg(extract, kwargs, 'extract', 'do_extract')
+        rescale = deprecate_arg(rescale, kwargs, 'rescale', 'do_scale')
+        unwrap = deprecate_arg(unwrap, kwargs, 'unwrap', 'do_unwrap')
+        count = deprecate_arg(count, kwargs, 'count', 'n_frames')
+
         # When raw_frames is passed, count and start are passed directly to ReadRaw.
         if raw_frames:
             return self.ReadRaw(count=count, start=start, raw_frames=True)
@@ -652,7 +669,7 @@ class SmallMCEFile:
         # Extract each field and store
         for f in fields:
             # Use BitField.extract to get each field
-            new_data = dm_data[f].extract(data, do_scale=do_scale, do_unwrap=do_unwrap)
+            new_data = dm_data[f].extract(data, rescale=rescale, unwrap=unwrap)
             if row_col:
                 new_data.shape = (self.n_rows, self.n_cols*self.n_rc, -1)
             # Filter?
@@ -798,7 +815,7 @@ def runfile_break(s):
 # second routine that interprets the MCEData structure directly, to
 # lookup period from data_mode or whatever.
 
-def unwrap(data, period, in_place=False):
+def unwrap_array(data, period, in_place=False):
     """
     Removes jumps (due to fixed bit-width windowing, or something)
     from a data array.  "data" should be an array of signed values,
@@ -815,6 +832,14 @@ def unwrap(data, period, in_place=False):
     data[...,1:] += float(period) * (dns - ups)
     return data
 
+def unwrap(*args, **kwargs):
+    """
+    This in a alias for unwrap_array, which you should use now.
+    """
+    if deprecation_warnings:
+        print 'Use of "unwrap" function is deprecated, the new name '\
+            ' is "unwrap_array".'
+    return unwrap_array(*args, **kwargs)
 
 #
 # MCE low-pass filters
