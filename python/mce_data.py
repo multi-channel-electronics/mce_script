@@ -678,7 +678,7 @@ class SmallMCEFile:
                     new_data /= filt.gain()
                 elif unfilter == True:
                     new_data = filt.apply_filter(new_data, inverse=True,
-                                                 decimation=self.divid)
+                                                 decimation=1./self.divid)
             if data_out.data_is_dict:
                 data_out.data[f] = new_data
             else:
