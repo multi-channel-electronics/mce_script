@@ -679,6 +679,11 @@ class SmallMCEFile:
                 elif unfilter == True:
                     new_data = filt.apply_filter(new_data, inverse=True,
                                                  decimation=1./self.divid)
+                elif unfilter == False:
+                    pass
+                else:
+                    raise ValueError, \
+                        "unexpected value for unfilter= argument to MCEFile.Read"
             if data_out.data_is_dict:
                 data_out.data[f] = new_data
             else:
