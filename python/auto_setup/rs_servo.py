@@ -26,36 +26,18 @@ def go(tuning, rc, filename=None):
     return lock_points
 
 
-def acquire(tuning, rc, filename=None):
-
-    # File defaults
-    if filename == None:
-        filename, acq_id = tuning.filename(rc=rc, action='rsservo')
-    else:
-        try:
-            acq_id = str(int(filename.split('_')[0]))
-        except ValueError:
-            acq_id = str(time.time())
-
-    cmd = [os.path.join(tuning.bin_path, 'rs_servo'), '-p', 50, rc, filename]
-
-    status = tuning.run(cmd)
-    if status != 0:
-        return False, {'error': 'command failed: %s' % str(cmd)}
-
-    # Register this acquisition, taking nframes from runfile.
-    fullname = os.path.join(tuning.base_dir, filename)
-    rf = MCERunfile(fullname + ".run")
-    n_frames = rf.Item('par_ramp', 'par_step loop1 par1', type='int')[2] * \
-        rf.Item('par_ramp', 'par_step loop2 par1', type='int')[2]
-    
-    tuning.register(acq_id, 'tune_servo', fullname, n_frames)
-    
-    return True, {'basename': acq_id,
-                  'filename': fullname }
-
 
 class RSServo(servo.SquidData):
+    """
+    In mux11d tuning, there is one row select (RS) SQUID per detector.
+    These are used to mix in a chosen SQ1 at each mux step.
+    Optimization involves choosing an SQ1 bias, and finding
+    appropriate values for the feedback.
+
+    The bias is shared, per column, and thus can be fast-switched.  So
+    it is optimized on a per-column basis.  The feedback is shared
+    across rows.
+    """
     stage_name = 'RSServo'
     xlabel = 'SQ1 FB / 1000'
     ylabels = {'data': 'RS flux / 1000',
@@ -169,9 +151,19 @@ class RSServo(servo.SquidData):
                 for j in [0,1]:
                     s = sel_in[j][bias_idx[r],r,col_idx]
                     sel[j, r] = np.median(s[ok[r]])
-            # Store those
-            self.analysis['sel_idx_row'] = sel[0]
-            self.analysis['desel_idx_row'] = sel[1]
+        else:
+            # Reduce those the sel/desel_idx to one per row:
+            n_row, n_col = self.data_shape[:2]
+            sel1, sel0, ok = [self.analysis[k].reshape(n_row,n_col)
+                              for k in ['sel_idx', 'desel_idx', 'ok']]
+            sel = zeros((2,n_row),'int')
+            for r in range(n_row):
+                if any(ok[r]):
+                    # Just take left-most valid value...
+                    sel[:,r] = sel1[r,ok[r]][0], sel0[r,ok[r]][0]
+        # Store those 
+        self.analysis['sel_idx_row'] = sel[0]
+        self.analysis['desel_idx_row'] = sel[1]
         return self.analysis
 
     def reduce(self, slope=None):

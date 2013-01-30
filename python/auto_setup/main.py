@@ -510,14 +510,26 @@ IDL auto_setup_squids."""
     if (tune_data == None):
         return 1
 
-    stages = ['sa_ramp',
-              'sq2_servo',
-              'sq1_servo',
-              'sq1_ramp',
-              'sq1_ramp_check',
-              'sq1_ramp_tes',
-              'operate']
-    
+    if tuning.get_exp_param("hardware_mux11d") == 1:
+        # mux11d tuning
+        stages = ['sa_ramp',
+                  'rs_servo',
+                  'sq1_servo_sa',
+                  'sq1_ramp',
+                  'sq1_ramp_check',
+                  'sq1_ramp_tes',
+                  'operate']
+        mux11d.do_init_mux11d()
+    else:
+        # Standard tuning
+        stages = ['sa_ramp',
+                  'sq2_servo',
+                  'sq1_servo',
+                  'sq1_ramp',
+                  'sq1_ramp_check',
+                  'sq1_ramp_tes',
+                  'operate']
+        
     # ramp tes bias and see open loop response?
     if tuning.get_exp_param("sq1_ramp_tes_bias") == 0 or short != 0:
         stages.remove('sq1_ramp_tes')
@@ -557,6 +569,12 @@ IDL auto_setup_squids."""
             e = do_sq1_servo(tuning, c, rc_indices)
             if (e != 0):
                 return e
+
+    if 'rs_servo' in stages:
+        rs = mux11d.do_rs_servo(tuning, rcs, tune_data)
+
+    if 'sq1_servo_sa' in stages:
+        sq1 = mux11d.do_sq1_servo_sa(tuning, rcs, tune_data)
 
     if 'sq1_ramp' in stages:
         # sq1 ramp

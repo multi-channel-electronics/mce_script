@@ -550,26 +550,33 @@ class SquidData(util.RCData):
         pair.  Returns an object of the same type.
         """
         if self.bias_style == 'select':
+            # This object does not contain per-bias data.
             return None # or self?
         
         n_bias, n_row, n_col, n_fb = self.data_shape
         sh = n_bias, n_row, n_col, -1   # intermediate shape
 
-        # How many biases are we selecting here?
+        # How many biases are we selecting here?  This is described
+        # bias self.bias_assoc, declared by each subclass.  We will
+        # use this to shuffle the array dimensions around so that
+        # axis=1 is the axis over which bias will be optimized.
         if assoc == None:
             assoc = self.bias_assoc
 
+        
         if assoc == 'rowcol':
             sh = n_bias, n_row*n_col, 1, -1
+                             # put rows and cols into axis 1.
             ax = (0,1,2,3)
         elif assoc == 'col':
             ax = (0,2,1,3)   # target the col axis
         elif assoc == 'row':
-            ax = (0,1,2,3)
+            ax = (0,1,2,3)   # leave row axis as target.
         else:
             raise ValueError, "cannot select_bias with assoc='%'" % assoc
 
-        # If no bias_idx, try to find it in analysis
+        # If the user has not passed in the desired indices into the
+        # bias array, try to find it in the analysis.
         if bias_idx == None:
             k = 'select_%s_sel'%assoc
             if not k in self.analysis:
