@@ -7,12 +7,15 @@ import series_array
 import sq2_servo
 import sq1_servo
 import sq1_ramp
+import rs_servo
 import frame_test
 
 import os
 import time
 import shutil
 from numpy import *
+
+from mce_data import MCERunfile
 
 def do_init_mux11d(tuning, tune_data):
     tuning.copy_exp_param("default_row_select", "row_select")
@@ -24,14 +27,14 @@ def acquire(tuning, rc, filename=None,
 
     # File defaults
     if filename == None:
-        filename, acq_id = tuning.filename(rc=rc, action='rsservo')
+        filename, acq_id = tuning.filename(rc=rc, action=action_name)
     else:
         try:
             acq_id = str(int(filename.split('_')[0]))
         except ValueError:
             acq_id = str(time.time())
 
-    cmd = [os.path.join(tuning.bin_path, 'rs_servo'), '-p', 50, rc, filename]
+    cmd = [os.path.join(tuning.bin_path, bin_name), '-p', 50, rc, filename]
 
     status = tuning.run(cmd)
     if status != 0:
@@ -60,15 +63,19 @@ def do_rs_servo(tuning, rc, rc_indices):
     tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
     tuning.set_exp_param("config_adc_offset_all", 0)
     tuning.set_exp_param("config_fast_sq1_bias", 0)
+    tuning.set_exp_param("config_fast_sa_fb", 1)
     tuning.write_config()
 
-    ok, servo_data = acquire_servo(tuning, rc, action_name='rsservo_sa',
-                                   bin_name='rsservo_sa')
+    if len(rc) != 1:
+        raise ValueError, "this module does not support weird multi-rc tunes"
+
+    ok, servo_data = acquire(tuning, rc[0], action_name='rsservo',
+                             bin_name='rs_servo')
 
     if not ok:
         raise RuntimeError, servo_data['error']
 
-    sq = sq1_servo.RSServo(servo_data['filename'], tuning=tuning)
+    sq = rs_servo.RSServo(servo_data['filename'], tuning=tuning)
     bias_ramp = sq.bias_style == 'ramp'
 
     # If multi-bias, plot each one.
@@ -82,7 +89,7 @@ def do_rs_servo(tuning, rc, rc_indices):
         sq.reduce1()
         sq = sq.select_biases() # best bias?
 
-    sq1_data = sq.reduce()
+    sq_data = sq.reduce()
     if tuning.get_exp_param('tuning_do_plots'):
         plot_out = sq.plot()
         tuning.register_plots(*plot_out['plot_files'])
@@ -92,18 +99,18 @@ def do_rs_servo(tuning, rc, rc_indices):
     # Primary purpose here is to set the row select feedbacks
     new_rsel1 = sq.fb[sq_data['sel_idx_row']]
     new_rsel0 = sq.fb[sq_data['desel_idx_row']]
-    tuning.set_exp_param('row_select', rsel1)
-    tuning.set_exp_param('row_deselect', rsel0)
+    tuning.set_exp_param('row_select', new_rsel1)
+    tuning.set_exp_param('row_deselect', new_rsel0)
 
     # May as well also set the SQ1 bias.
-    nr = tuning.get_exp_param('array_width')
-    bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, fb_nr).\
+    nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
+    bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, nr).\
         transpose() # r,c
 
     # Update per-det SQ1 biases with chosen values from this run
     cols = sq.cols
     new_bias = sq.bias.reshape(sq.data_shape[:2])
-    bias_set[:,cols] = new_bias
+    bias_set[:new_bias.shape[0],cols] = new_bias
 
     # Enable fast switching.
     tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
@@ -124,10 +131,14 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
     tuning.set_exp_param("config_adc_offset_all", 0)
     tuning.set_exp_param("config_fast_sq1_bias", 0)
+    tuning.set_exp_param("config_fast_sa_fb", 1)
     tuning.write_config()
 
-    ok, servo_data = acquire_servo(tuning, rc, action_name='sq1servo_sa',
-                                   bin_name='sq1servo_sa')
+    if len(rc) != 1:
+        raise ValueError, "this module does not support weird multi-rc tunes"
+
+    ok, servo_data = acquire(tuning, rc[0], action_name='sq1servo_sa',
+                             bin_name='sq1servo_sa')
 
     if not ok:
         raise RuntimeError, servo_data['error']
@@ -155,14 +166,14 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
 
 
     # Load existing bias choices
-    nr = tuning.get_exp_param('array_width') # number of rows in sq2_fb_set
-    bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, fb_nr).\
+    nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
+    bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, nr).\
         transpose() # r,c
 
     # Update per-det SQ1 biases with chosen values from this run
     cols = sq.cols
     new_bias = sq.bias.reshape(sq.data_shape[:2])
-    bias_set[:,cols] = new_bias
+    bias_set[:new_bias.shape[0],cols] = new_bias
 
     # Enable fast switching.
     tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())

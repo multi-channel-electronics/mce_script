@@ -39,8 +39,8 @@ class RSServo(servo.SquidData):
     across rows.
     """
     stage_name = 'RSServo'
-    xlabel = 'SQ1 FB / 1000'
-    ylabels = {'data': 'RS flux / 1000',
+    xlabel = 'RS flux / 1000'
+    ylabels = {'data': 'SA FB / 1000',
                'error': 'Error / 1000'}
     bias_assoc = 'rowcol'
 

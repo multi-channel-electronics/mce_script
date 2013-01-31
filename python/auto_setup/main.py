@@ -4,6 +4,7 @@ import sq2_servo
 import sq1_servo
 import sq1_ramp
 import frame_test
+import mux11d
 
 import os
 import time
@@ -519,7 +520,7 @@ IDL auto_setup_squids."""
                   'sq1_ramp_check',
                   'sq1_ramp_tes',
                   'operate']
-        mux11d.do_init_mux11d()
+        mux11d.do_init_mux11d(tuning,tune_data)
     else:
         # Standard tuning
         stages = ['sa_ramp',
