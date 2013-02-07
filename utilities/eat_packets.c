@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <asm/types.h>
+#include <stdint.h>
 
 #include "mce_header.h"
 
@@ -12,7 +12,7 @@
 #define FRAME_SEQ_OFS 0x01
 #define SYNC_DV_OFS 0x0A
 
-#define u32 __u32
+#define u32 uint32_t
 
 int checksum(u32 *data, int frame_size) {
   int sum = 0;

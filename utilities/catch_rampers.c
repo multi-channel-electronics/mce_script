@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include <linux/types.h>
+#include <stdint.h>
 #include <assert.h>
 
 #define RAMP_AMP 6000
@@ -12,17 +12,17 @@
 #define __i32 int
 #endif
 
-__u32* extract_bitfield(__u32 *data, int count, int bit_start, int bit_count,
-			int signed_out, int in_place, __u32 *_data_out)
+uint32_t* extract_bitfield(uint32_t *data, int count, int bit_start, int bit_count,
+			int signed_out, int in_place, uint32_t *_data_out)
 {
 	int i;
-	__u32 *data_out = data;
+	uint32_t *data_out = data;
 	int left_shift = 32 - bit_start - bit_count;
 	int right_shift = 32 - bit_count;
 
 	if (!in_place) {
 		if (_data_out == NULL) {
-			data_out = malloc(count * sizeof(__u32));
+			data_out = malloc(count * sizeof(uint32_t));
 		} else {
 			data_out = _data_out;
 		}
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	
-	__u32 data[4096];
+	uint32_t data[4096];
 
 	float rescale = 1./128. * 8;
 

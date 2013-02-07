@@ -1,6 +1,6 @@
 /* #include <stdio.h> */
 /* #include <stdlib.h> */
-#include <asm/types.h>
+#include <stdint.h>
 
 /* #include <math.h> */
 /* #include <string.h> */
@@ -10,7 +10,7 @@
 /* #include <sys/ioctl.h> */
 
 #ifndef u32
-#define u32 __u32
+#define u32 uint32_t
 #endif
 
 struct sequence_analyser {

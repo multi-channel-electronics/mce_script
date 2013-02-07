@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include <linux/types.h>
+#include <stdint.h>
 
 int main(int argc, char **argv)
 {
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	
-	__u32 data[4096];
+	uint32_t data[4096];
 	for (; frame_count > 0; frame_count--) {
 		if ( fread(data, frame_size, 1, fin) != 1) {
 			fprintf(stderr, "Failed with %i frames left!\n", frame_count);
