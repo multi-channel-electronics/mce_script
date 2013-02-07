@@ -1,15 +1,27 @@
 SHELL=/bin/bash
 
-# subdirectories; if the subdirectory contains a Makefile, it will be used,
-# otherwise these are simply installed verbatim by the install rule below,
-# recursively descending into subdirectories and preserving symlinks
-SUBDIRS=idl_pro python script template test_suite utilities
+# subdirectories; if the subdirectory contains a Makefile and/or configure
+# script and/or configure.ac file, they will be handled.  If none of these
+# are present, the contents of the directory are simply installed verbatim by
+# the install rule below, recursively descending into subdirectories and
+# preserving symlinks
+SUBDIRS:=idl_pro python script template test_suite utilities
+
+# conditionalise defile-mas on whether the defile program is insalled
+DEFILE=$(shell which defile)
+ifneq (${DEFILE},)
+SUBDIRS:=defile-mas ${SUBDIRS}
+endif
 
 all clean:
 	for d in $(SUBDIRS); do \
 		if [ -e $$d/Makefile ]; then \
 			( cd $$d && make $@ ); \
-		fi \
+		elif [ -e $$d/configure ]; then \
+			( cd $$d && ./configure && make $@ ) \
+		elif [ -e $$d/configure.ac ]; then \
+		  ( cd $$d && autoreconf -vifs && ./configure && make $@ ); \
+		fi; \
 	done
 
 # The identity file; because "make install" is usually run via sudo, we
