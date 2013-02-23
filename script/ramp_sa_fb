@@ -95,6 +95,7 @@ else
     # Offset is a multiple of the bias
     offset_step=`float_multiply $bias_step $cable_offset_sa_bias_ratio`
     offset_start=`float_multiply $bias_start $cable_offset_sa_bias_ratio`
+    [ "$offset_start" == "" ] && offset_start=0
 
 fi
 
