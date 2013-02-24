@@ -352,6 +352,10 @@ class SQ1ServoSA(SQ1Servo):
 
     bias_assoc = 'rowcol'
 
+    def __init__(self, filename=None, tuning=None):
+        SQ1Servo.__init__(self, filename=filename, tuning=tuning)
+        self.super_servo = None
+
     def read_data(self, filename):
         """
         Loads an sq1servo_sa data set.
@@ -369,6 +373,16 @@ class SQ1ServoSA(SQ1Servo):
 
         # Attempt load after counting bias/fb steps
         self._read_super_bias(filename)
+
+        # If not super-servoing, our bias data is per-column
+        if not self.super_servo:
+            self.bias_assoc = 'col'
+
+    def split(self):
+        sq = SquidData.split(self)
+        for s in sq:
+            s.super_servo = self.super_servo
+        return sq
 
     def reduce1(self, slope=None):
         """

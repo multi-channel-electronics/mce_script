@@ -18,9 +18,7 @@ from numpy import *
 from mce_data import MCERunfile
 
 def do_init_mux11d(tuning, tune_data):
-    tuning.copy_exp_param("default_row_select", "row_select")
-    tuning.copy_exp_param("default_row_deselect", "row_deselect")
-    tuning.write_config()
+    pass
 
 def acquire(tuning, rc, filename=None,
             action_name='', bin_name=None):
@@ -99,9 +97,13 @@ def do_rs_servo(tuning, rc, rc_indices):
     # Primary purpose here is to set the row select feedbacks
     new_rsel1 = sq.fb[sq_data['sel_idx_row']]
     new_rsel0 = sq.fb[sq_data['desel_idx_row']]
+    if not sq.super_servo:
+        n_rs = len(tuning.get_exp_param('row_select'))
+        new_rsel1 = [new_rsel1[0]] * n_rs
+        new_rsel0 = [new_rsel0[0]] * n_rs
     tuning.set_exp_param('row_select', new_rsel1)
     tuning.set_exp_param('row_deselect', new_rsel0)
-
+        
     # May as well also set the SQ1 bias.
     nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
     bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, nr).\
@@ -109,8 +111,12 @@ def do_rs_servo(tuning, rc, rc_indices):
 
     # Update per-det SQ1 biases with chosen values from this run
     cols = sq.cols
-    new_bias = sq.bias.reshape(sq.data_shape[:2])
-    bias_set[:new_bias.shape[0],cols] = new_bias
+    if sq.super_servo:
+        new_bias = sq.bias.reshape(sq.data_shape[:2])
+        bias_set[:new_bias.shape[0],cols] = new_bias
+    else:
+        # write this single bias for each column to all rows
+        bias_set[:,cols] = sq.bias
 
     # Enable fast switching.
     tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
@@ -127,11 +133,15 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     """
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
-    tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
-    tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
+#    tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
+#    tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
     tuning.set_exp_param("config_adc_offset_all", 0)
-    tuning.set_exp_param("config_fast_sq1_bias", 0)
+#    tuning.set_exp_param("config_fast_sq1_bias", 0)
     tuning.set_exp_param("config_fast_sa_fb", 1)
+    # If we're to ramp the bias, turn off fast biasing.
+    if tuning.get_exp_param("sq1_servo_bias_ramp") == 1:
+        tuning.set_exp_param("config_fast_sq1_bias", 0)
+
     tuning.write_config()
 
     if len(rc) != 1:
@@ -172,8 +182,12 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
 
     # Update per-det SQ1 biases with chosen values from this run
     cols = sq.cols
-    new_bias = sq.bias.reshape(sq.data_shape[:2])
-    bias_set[:new_bias.shape[0],cols] = new_bias
+    if sq.super_servo:
+        new_bias = sq.bias.reshape(sq.data_shape[:2])
+        bias_set[:new_bias.shape[0],cols] = new_bias
+    else:
+        # write this single bias for each column to all rows
+        bias_set[:,cols] = sq.bias
 
     # Enable fast switching.
     tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())

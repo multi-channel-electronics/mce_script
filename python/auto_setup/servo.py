@@ -368,6 +368,8 @@ class SquidData(util.RCData):
         util.RCData.__init__(self)
         self.data = None
         self.analysis = None
+        if isinstance(tuning, basestring):
+            tuning = util.tuning.tuningData(exp_file=tuning)
         self.tuning = tuning
 
     @classmethod
@@ -469,7 +471,14 @@ class SquidData(util.RCData):
         # even though it usually wasn't
         bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', \
                                  array=False).strip().endswith('bias'))
-        
+
+        ## This helps a bit... or does it.  When this key exists and
+        ## is set, it means that that loop1 should be ignored.
+        bias_ramp_active = rf.Item('par_ramp', 'par_active loop1 par1',
+                                   array=False, type='int')
+        if bias_ramp_active == None:
+            bias_ramp_active = bias_ramp
+
         if bias_ramp:
             bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1',
                                             type='int')
@@ -482,12 +491,18 @@ class SquidData(util.RCData):
                                       type='int')
             n_bias = 1
         # This should just extend the else; the second clause is a bug work-around
-        if not bias_ramp or (servo_par_bug and (bias_ramp and n_bias == 1)):
+        if not bias_ramp or \
+                (servo_par_bug and (bias_ramp and n_bias == 1)) or \
+                not bias_ramp_active:
             self.bias_style = 'select'
             self.bias = array(rf.Item('HEADER', bias_key, type='int'))[self.cols]
 
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
+
+        # New block!  Ya.
+        self.super_servo = rf.Item('servo_params', 'super_servo',
+                                   array=False, type='int')
 
     def _read_super_bias(self, filename):
         """
@@ -662,7 +677,7 @@ class SquidData(util.RCData):
                 _format = 'svg'
             for i,s in enumerate(ss):
                 s.reduce()
-                p = s.plot(plot_file=plot_file+'_%02i'%i, format=_format,
+                p = s.plot(plot_file=plot_file+'_b%02i'%i, format=_format,
                            data_attr=data_attr)
                 plot_files += p['plot_files']
             # collate into pdf?

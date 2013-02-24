@@ -45,11 +45,14 @@ class RSServo(servo.SquidData):
     bias_assoc = 'rowcol'
 
     def __init__(self, filename=None, tuning=None):
-        util.RCData.__init__(self)
+        if tuning == None and filename != None:
+            srcdir = os.path.split(filename)[0]
+            tuning = os.path.join(srcdir, 'experiment.cfg')
+            if not os.path.exists(tuning):
+                tuning = None
+        servo.SquidData.__init__(self, tuning=tuning)
+        self.super_servo = None
         self.data_attrs.append('error')
-        self.data = None
-        self.analysis = None
-        self.tuning = tuning
         if filename != None:
             self.read_data(filename)
 
@@ -72,6 +75,15 @@ class RSServo(servo.SquidData):
 
         # Attempt load after counting bias/fb steps
         self._read_super_bias(filename)
+
+        if not self.super_servo:
+            self.bias_assoc = 'col'
+
+    def split(self):
+        sq = servo.SquidData.split(self)
+        for s in sq:
+            s.super_servo = self.super_servo
+        return sq
 
     def reduce1(self, slope=None):
         self._check_data()
@@ -153,7 +165,7 @@ class RSServo(servo.SquidData):
                     sel[j, r] = np.median(s[ok[r]])
         else:
             # Reduce those the sel/desel_idx to one per row:
-            n_row, n_col = self.data_shape[:2]
+            n_row, n_col = self.data_shape[-3:-1]
             sel1, sel0, ok = [self.analysis[k].reshape(n_row,n_col)
                               for k in ['sel_idx', 'desel_idx', 'ok']]
             sel = zeros((2,n_row),'int')

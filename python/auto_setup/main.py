@@ -56,6 +56,10 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
         for i,x in enumerate(cfg_tes_bias_idle):
             tuning.cmd("wra tes bias %i %s" % (i, x))
 
+    # FIXME: you should not clobber the biases here, and also call
+    # this routine whenever auto_setup starts.  Because, e.g., you
+    # should be allowed to tune the SQ2 without changing the SA bias.
+
     # Load squid biases from config file default parameters
     sq2_bias = tuning.get_exp_param("default_sq2_bias")
     sq1_bias = tuning.get_exp_param("default_sq1_bias")
@@ -131,10 +135,17 @@ def prepare_sa_ramp(tuning, cols=None):
     tuning.set_exp_param_range("sa_bias", cols, def_sa_bias[cols])
     tuning.set_exp_param_range("sa_offset", cols, def_sa_offset[cols])
 
+    # Make sure that, in mux11d mode, we aren't muxing the SA FB
+    is_mux11d = tuning.get_exp_param("hardware_mux11d") == 1
+    if is_mux11d:
+        tuning.set_exp_param('config_fast_sa_fb', 0)
+        
     # Update settings.
     tuning.write_config()
 
 def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
+
+    # Acquire
     ok, ramp_data = series_array.acquire(tuning, rc,
                                          do_bias=ramp_sa_bias)
     if not ok:
