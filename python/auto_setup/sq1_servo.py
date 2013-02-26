@@ -367,6 +367,9 @@ class SQ1ServoSA(SQ1Servo):
 
         # Determine columns, biases, feedbacks involved in servo
         self.load_ramp_params('RB sq1 bias')
+        # Biases will be one-per-column if it's a ramp
+        if self.bias_style == 'ramp':
+            self.bias_assoc = 'col'
 
         # Prime
         self.data_shape = (-1, 1, len(self.cols), len(self.fb))
@@ -379,9 +382,11 @@ class SQ1ServoSA(SQ1Servo):
             self.bias_assoc = 'col'
 
     def split(self):
-        sq = SquidData.split(self)
+        sq = SQ1Servo.split(self)
         for s in sq:
             s.super_servo = self.super_servo
+            s.tuning = self.tuning
+            s.bias_assoc = self.bias_assoc
         return sq
 
     def reduce1(self, slope=None):

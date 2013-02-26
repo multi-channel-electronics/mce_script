@@ -55,6 +55,17 @@ def do_rs_servo(tuning, rc, rc_indices):
     Do necessary (but not sufficient) setup so that rsservo will
     work.  Run it, analyze, update experiment.cfg
     """
+
+    # Load the default_row_select.  Someone has to, at some point.
+    tuning.copy_exp_param('default_row_select', 'row_select')
+    tuning.copy_exp_param('default_row_deselect', 'row_deselect')
+
+    optimize = tuning.get_exp_param('optimize_rowsel_servo')
+    if optimize == -1:
+        # Don't even run it.
+        return
+
+    # Prepare for servo
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
     tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
@@ -101,8 +112,10 @@ def do_rs_servo(tuning, rc, rc_indices):
         n_rs = len(tuning.get_exp_param('row_select'))
         new_rsel1 = [new_rsel1[0]] * n_rs
         new_rsel0 = [new_rsel0[0]] * n_rs
-    tuning.set_exp_param('row_select', new_rsel1)
-    tuning.set_exp_param('row_deselect', new_rsel0)
+
+    if optimize == 1:
+        tuning.set_exp_param('row_select', new_rsel1)
+        tuning.set_exp_param('row_deselect', new_rsel0)
         
     # May as well also set the SQ1 bias.
     nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
@@ -111,15 +124,19 @@ def do_rs_servo(tuning, rc, rc_indices):
 
     # Update per-det SQ1 biases with chosen values from this run
     cols = sq.cols
-    if sq.super_servo:
+    if sq.bias_assoc == 'rowcol':
         new_bias = sq.bias.reshape(sq.data_shape[:2])
         bias_set[:new_bias.shape[0],cols] = new_bias
-    else:
+    elif sq.bias_assoc == 'col':
         # write this single bias for each column to all rows
         bias_set[:,cols] = sq.bias
+    else:
+        raise HowDidThisHappen
+
+    if optimize == 1:
+        tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
 
     # Enable fast switching.
-    tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
     tuning.set_exp_param("config_fast_sq1_bias", 1)
 
     tuning.write_config()
@@ -165,7 +182,7 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
 
     if bias_ramp:
         sq.reduce1()
-        sq = sq.select_biases() # best bias?
+        sq = sq.select_biases(assoc='rowcol') # best bias?
 
     sq1_data = sq.reduce()
     if tuning.get_exp_param('tuning_do_plots'):
@@ -182,12 +199,14 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
 
     # Update per-det SQ1 biases with chosen values from this run
     cols = sq.cols
-    if sq.super_servo:
+    if sq.bias_assoc == 'rowcol':
         new_bias = sq.bias.reshape(sq.data_shape[:2])
         bias_set[:new_bias.shape[0],cols] = new_bias
-    else:
+    elif sq.bias_assoc == 'col':
         # write this single bias for each column to all rows
         bias_set[:,cols] = sq.bias
+    else:
+        raise HowDidThisHappen
 
     # Enable fast switching.
     tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())

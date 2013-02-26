@@ -578,7 +578,8 @@ class SquidData(util.RCData):
         if assoc == None:
             assoc = self.bias_assoc
 
-        
+        self.analysis['select_assoc'] = assoc
+
         if assoc == 'rowcol':
             sh = n_bias, n_row*n_col, 1, -1
                              # put rows and cols into axis 1.
@@ -605,6 +606,7 @@ class SquidData(util.RCData):
         s = self.split()[0]
         s.bias_style = 'select'
         s.bias = self.bias[bias_idx]
+        s.bias_assoc = assoc
         s.data.shape = s.data_shape
 
         # Function for collapsing dimensions 0 and 1 of data (after a

@@ -69,7 +69,9 @@ class RSServo(servo.SquidData):
 
         # Determine columns, biases, feedbacks involved in servo
         self.load_ramp_params('RB sq1 bias')
-
+        if self.bias_style == 'select':
+            self.bias_assoc = 'col'
+        
         # Prime
         self.data_shape = (-1, 1, len(self.cols), len(self.fb))
 
@@ -83,6 +85,7 @@ class RSServo(servo.SquidData):
         sq = servo.SquidData.split(self)
         for s in sq:
             s.super_servo = self.super_servo
+            s.tuning = self.tuning
         return sq
 
     def reduce1(self, slope=None):
