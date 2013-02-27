@@ -60,6 +60,17 @@ def do_rs_servo(tuning, rc, rc_indices):
     tuning.copy_exp_param('default_row_select', 'row_select')
     tuning.copy_exp_param('default_row_deselect', 'row_deselect')
 
+    # Also load default sq1_bias and make sure it will apply in
+    # fast-switching mode as well.
+    sq1_bias = tuning.get_exp_param('default_sq1_bias')
+    nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
+    bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, nr).\
+        transpose() # r,c
+    nc = min(len(sq1_bias), bias_set.shape[1])
+    bias_set[:,:nc] = sq1_bias[:nc]
+    tuning.set_exp_param('sq1_bias', sq1_bias)
+    tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
+
     optimize = tuning.get_exp_param('optimize_rowsel_servo')
     if optimize == -1:
         # Don't even run it.
@@ -117,11 +128,6 @@ def do_rs_servo(tuning, rc, rc_indices):
         tuning.set_exp_param('row_select', new_rsel1)
         tuning.set_exp_param('row_deselect', new_rsel0)
         
-    # May as well also set the SQ1 bias.
-    nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
-    bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, nr).\
-        transpose() # r,c
-
     # Update per-det SQ1 biases with chosen values from this run
     cols = sq.cols
     if sq.bias_assoc == 'rowcol':
