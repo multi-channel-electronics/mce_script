@@ -1,10 +1,10 @@
 #!/usr/bin/python
+# -*- mode: python -*-
 
 """
 Watch an MCE flatfile for new data, send it out.
 """
 
-import test_path
 from mheadsup import clients, util, geometries
 import mce_data
 

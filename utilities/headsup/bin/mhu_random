@@ -4,7 +4,6 @@
 Look, this is how easy it is.
 """
 
-import test_path
 from mheadsup import clients, util, geometries
 
 import numpy
