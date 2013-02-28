@@ -1,4 +1,7 @@
-#!/usr/bin/python
+#!/Library/Frameworks/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python
+# -*- mode: python -*-
+
+import test_path
 
 import os
 import sys
@@ -8,7 +11,7 @@ import array
 import errno
 import SocketServer
 
-from mheadsup import nets, util, clients
+from mheadsup import nets, util, clients, streams, constants
 
 
 """
@@ -41,17 +44,23 @@ client_info_defaults = ({
         'frame_t0': 0,
         'monitor_controls': False,
         'poll_controls': False,
+        'packet_format': 0,
         })
 
 
 class dataHandler(SocketServer.BaseRequestHandler):
+    """
+    Client thread.
+    """
     def handle(self):
         me = self.request
-        dd.add(me)
+        master = self.server.master
+        master.add(me)
         me.setblocking(0)
         while True:
+            # Actions to perform on this thread?
             while True:
-                op, data = dd.get_action(me)
+                op, data = master.get_action(me)
                 if op == None:
                     break
                 if op == 'send':
@@ -66,28 +75,37 @@ class dataHandler(SocketServer.BaseRequestHandler):
             if data == '':
                 time.sleep(.01)
                 continue
-            dd.data(me, data)
-        dd.remove(me)
+            master.data(me, data)
+        master.remove(me)
 
 class thServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
 class dataDistributor:
-    def __init__(self, addr=None):
+    def __init__(self, addr=None, verbosity=0):
         if addr != None:
             self.addr = nets.decode_address(addr)
         self.clients = {}
         self.actions = {}
         self._id = 0
         self.controls = {}
+        # New internal vars...
+        self.stream_list_stream = streams.StreamListStream(name='stream_list',
+                                                           provider='_local',
+                                                           type='notify')
+        self.stream_list_stream.add_stream(self.stream_list_stream)
+        self.log = util.logger(prefix='mhu_server ',
+                               verbosity=verbosity)
 
     def serve(self):
+        self.log('Entering server loop', 1)
         try:
             self.server = thServer(self.addr, dataHandler)
+            self.server.master = self
             self.server.daemon_threads = True
             self.server.serve_forever()
         except socket.error as err:
-            print "Failed to start server, error %i (%s)" % err.args[:2]
+            self.log("Failed to start server, error %i (%s)" % err.args[:2], -1)
 
     def post_action(self, conn, act, data=None, quick=False):
         """
@@ -98,6 +116,14 @@ class dataDistributor:
             self.actions[conn].insert(0, data)
         else:
             self.actions[conn].append(data)
+
+    def post_info(self, conn, json_data):
+        encoder = nets.packetFormatV1
+        client = self.clients[conn]
+        ok, p = encoder.encode_packet('notify', '_server', 'this_server',
+                                      client['name'], json_data=json_data)
+        if ok:
+            self.post_action(conn, 'send', p)
 
     #
     # Callbacks for the TCPServer threads
@@ -110,15 +136,28 @@ class dataDistributor:
         self._id += 1
         self.clients[conn] = client_info_defaults.copy()
         self.clients[conn].update({'conn': conn, 'id': self._id})
+        cname = 'client%i' % self._id
+        self.clients[conn]['name'] = cname
+        self.log('connected %s' % cname, 1)
         self.actions[conn] = []
+        # Tell the client it is registered.
+        self.post_info(conn, {'message_class': 'connection_status',
+                              'connection_standing': 'accepted',
+                              'client_name': cname,
+                              })
 
     def remove(self, conn):
         """
         Remove socket conn from list of clients.
         """
+        client_name = self.clients[conn]['name']
+        self.log('disconnect %s' % client_name, 1)
+        self.stream_list_stream.remove_subscriber_all(conn)
+        if self.stream_list_stream.remove_provider(client_name, client_name) > 0:
+            self.update_local_subscribers()
         self.actions.pop(conn)
         self.clients.pop(conn)
-
+        
     def get_action(self, conn):
         """
         If there is outstanding data for conn to write, provide it.
@@ -128,12 +167,55 @@ class dataDistributor:
         except:
             return None, None
 
+    def process_data(self, conn, packet):
+        """
+        Route / process v1 packets from clients
+        """
+        info = self.clients[conn]
+        encoder = nets.packetFormatV1
+        ok, addr, data = encoder.decode_packet(packet, dahi_header=False)
+        if not ok:
+            print 'Packet decode failure.'
+            return
+        # Route the packet.
+        if addr.type == 'notify':
+            # This is a broadcast on a stream, send to all subscribers.
+            print 'Recieved notify packet on stream %s' % addr.name
+            return self.redistribute(addr.name, packet)
+        elif addr.type == 'control':
+            # Is this a message for us?
+            if addr.name == '_server':
+                return self.process_server_request(conn, data)
+            # This is a write to a single end-point; route accordingly.
+            return self.route_control(addr, packet)
+        elif addr.type == 'data':
+            return self.redistribute_data(addr.name, packet)
+
+    def shutdown(self, graceful=True):
+        if graceful:
+            # Inform clients
+            encoder = nets.packetFormatV1
+            ok, packet = encoder.encode_packet(
+                'notify', constants.CLIENT_CONTROL_STREAM, '', '',
+                {'message_class': 'pink_slip'})
+            for client in self.clients.keys():
+                self.actions[client] = []
+                self.post_action(client, 'send', packet)
+                self.post_action(client, 'close')
+        self.server.shutdown()
+        
+
     def data(self, conn, data):
         """
         Process the data packet from conn.
         """
         info = self.clients[conn]
+        if info['packet_format'] == 1:
+            # New packet format
+            return self.process_data(conn, data)
         cmd = data[:4]
+        if cmd == 'setv':
+            info['packet_format'] = 1
         if cmd == 'diex':
             for client in self.clients.keys():
                 self.actions[client] = []
@@ -180,6 +262,141 @@ class dataDistributor:
         else:
             print 'Whatever, "%s"' % data[:4]
 
+    def update_local_subscribers(self, streams=None, clients=None):
+        if streams == None:
+            streams = [self.stream_list_stream]
+        if self.stream_list_stream in streams:
+            # Data to send
+            json_data = self.stream_list_stream.render()
+            encoder = nets.packetFormatV1
+            if clients == None:
+                clients = self.stream_list_stream.subscribers
+            for c in clients:
+                if not c in self.clients:
+                    continue
+                client_name = self.clients[c]['name']
+                ok, p = encoder.encode_packet('notify', 'stream_list', 'this_server',
+                                              client_name, json_data=json_data,
+                                              dahi_header=False)
+                self.post_action(c, 'send', p)
+
+    def redistribute(self, stream_name, packet):
+        # find that stream in our list
+        for stream in self.stream_list_stream.streams:
+            if stream.name == stream_name:
+                break
+        else:
+            print ' ... unknown stream'
+            return
+        self.log('redistributing notification on stream %s to '\
+                     'to %i subscribers' % \
+                     (stream_name, len(stream.subscribers)))
+        for sub in stream.subscribers:
+            if sub in self.clients:
+                self.post_action(sub, 'send', packet)
+
+    def redistribute_data(self, stream_name, packet):
+        # find that stream in our list
+        for stream in self.stream_list_stream.streams:
+            if stream.name == stream_name:
+                break
+        else:
+            print ' ... unknown stream'
+            return
+        for sub in stream.subscribers:
+            if sub in self.clients:
+                sd = stream.subscriber_data[sub]
+                rm = sd.get('rate_management', None)
+                ok = False
+                if rm == None:
+                    ok = True
+                elif rm == 'decimate':
+                    sd['n'] = sd.get('n',0) + 1
+                    if sd['n'] >= sd.get('decimation', 10):
+                        sd['n'] = 0
+                        ok = True
+                elif rm == 'rate':
+                    pass
+                if ok:
+                    self.post_action(sub, 'send', packet)
+
+    def route_control(self, addr, packet):
+        self.log('control packet on %s' % addr.name, 2)
+        # Match in stream list
+        for stream in self.stream_list_stream.streams:
+            if stream.name == addr.name:
+                break
+        else:
+            self.log('unknown control stream %s' % addr.name, 0)
+            return
+        # Who provides this stream?
+        ## only local streams right now...
+        for c,i in self.clients.items():
+            if i['name'] == stream.local_provider:
+                self.post_action(c, 'send', packet)
+                break
+        else:
+            self.log('could not identify local provider for %s' % addr.name, 0)
+        # Fix me, implement server chain.
+
+    #
+    # Subscription management
+    #
+
+    def process_server_request(self, conn, data):
+        req = data.json_data['request']
+        if req == 'register_streams':
+            return self.handle_register_streams(conn, data)
+        elif req == 'subscribe':
+            return self.handle_subscribe(conn, data)
+        elif req == 'unsubscribe':
+            return self.handle_unsubscribe(conn, data)
+        elif req == 'die':
+            return self.shutdown()
+        else:
+            self.log('unknown server request "%s"' % req, 0)
+        
+
+    def handle_subscribe(self, conn, data):
+        sn = data.json_data['stream_name']
+        self.log('subscription request: %s.' % (sn), 2)
+        # validate...
+        for stream in self.stream_list_stream.streams:
+            if stream.name == sn:
+                break
+        else:
+            self.log('subscription to unknown stream %s' % sn, 1)
+            return
+        stream.add_subscriber(conn)
+        self.log('stream subscribers are now: %s' % stream.subscribers, 2)
+        # Trigger immediate notification for local lists
+        self.update_local_subscribers(streams=[stream], clients=[conn])
+        
+    def handle_unsubscribe(self, conn, data):
+        sn = data.json_data['stream_name']
+        self.log('unsubscription request: %s.' % (sn), 2)
+        # validate...
+        for stream in self.stream_list_stream.streams:
+            if stream.name == sn:
+                break
+        else:
+            self.log('unsubscription to unknown stream %s' % sn, 1)
+            return
+        stream.remove_subscriber(conn)
+        self.log('stream subscribers are now: %s' % stream.subscribers, 2)
+        # Trigger immediate notification for local lists
+        self.update_local_subscribers(streams=[stream], clients=[conn])
+        
+    def handle_register_streams(self, conn, data):
+        client_name = self.clients[conn]['name']
+        for stream_info in data.json_data['streams']:
+            if stream_info.get('provider','') == '':
+                stream_info['provider'] = client_name
+            stream_info['local_provider'] = client_name
+            new_stream = streams.HeadsupStream(**stream_info)
+            self.stream_list_stream.add_stream(new_stream)
+        self.update_local_subscribers(streams=[self.stream_list_stream])
+
     def resend_frame(self, conn, data):
         """
         Check rate info of the client, and if it is time then send some data.
@@ -197,10 +414,12 @@ class dataDistributor:
                 t1 = t0 + elapsed
             info['frame_t0'] = t1
 
+
 if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_standard(defaults)
     o.add_option('--kill',action='store_true')
+    o.add_option('-v','--verbosity',default=0,type=int)
     o.add_option('--tunnel')
     opts, args = o.parse_args(defaults)
     
@@ -214,5 +433,8 @@ if __name__ == '__main__':
         killer.send('diex')
         sys.exit(0)
 
-    dd = dataDistributor(opts.server)
+    if opts.port_file:
+        open(opts.port_file, 'w').write('%i' % opts.port)
+
+    dd = dataDistributor(opts.server, opts.verbosity)
     dd.serve()

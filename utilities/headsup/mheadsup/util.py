@@ -3,20 +3,6 @@ import numpy as np
 import subprocess
 from optparse import OptionParser
 
-class rateTracker:
-    def __init__(self, report=10):
-        self.t0 = time.time()
-        self.n = 0
-        self.report = report
-    def record(self, dn=1):
-        self.n += dn
-        t1 = time.time()
-        dt = t1 - self.t0
-        if dt > self.report:
-            print 'Frames per sec: %6.3f' % (self.n / dt)
-            self.n = 0
-            self.t0 = t1
-
 defaults = {
     'client_name': 'flatfile',
     'server_host': 'localhost',
@@ -25,11 +11,14 @@ defaults = {
     'host_var': 'MHU_SERVER',
     }
 
+_defaults = defaults
+
 def get_defaults(target=None):
     if target == None:
         target = {}
     target.update(defaults)
-    if defaults.get('host_var') and os.getenv(defaults['host_var']):
+    if defaults.get('host_var') and \
+            os.getenv(defaults['host_var']) not in ['',None]:
         # host_var should be of the form server:port or server.
         # if server or port are trivial, they are ignored, which allows
         # one to override the default port or host independently.
@@ -41,13 +30,14 @@ def get_defaults(target=None):
     return target
 
 class upOptionParser(OptionParser):
-    def add_standard(self, defaults):
+    def add_standard(self, defaults=_defaults):
         self.add_option('--host',
                         default=defaults['server_host'])
         self.add_option('--port', type=int,
                          default=defaults['server_port'])
         self.add_option('--name',
                          default=defaults['client_name'])
+        self.add_option('--port-file', default=None)
 
     def parse_args(self, defaults=None):
         opts, args = OptionParser.parse_args(self)
@@ -110,3 +100,30 @@ def load_columns(fin, cols=None, skip=0):
         else:
             data.append(w[i] for i in cols)
     return [np.array(x).astype(guess_type(x[0])) for x in zip(*data)]
+
+
+
+class logger:
+    def __init__(self, default_priority=0, verbosity=0,
+                 prefix=''):
+        self.default_priority = default_priority
+        self.streams = [(sys.stdout, verbosity)]
+        self.prefix = ''
+
+    def set_verbosity(self, verbosity, stream=None):
+        for i in range(len(self.streams)):
+            if stream==None or i==stream:
+                self.streams[i] = (s, verbosity)
+
+    def log(self, msg, priority=None):
+        if priority == None:
+            priority = self.default_priority
+        prefix = self.prefix + '(%i):' %(os.getpid()) + ' '*priority
+        for s, v in self.streams:
+            if priority <= v:
+                for n in msg.split('\n'):
+                    s.write(prefix+n+'\n')
+    
+    def __call__(self, msg, priority=None):
+        return self.log(msg, priority=priority)
+

@@ -3,10 +3,112 @@ import numpy as np
 
 from mheadsup import gfx
 
+#
+# Useful widgets
+#
+
+class simpleCombo(QtGui.QComboBox):
+    private_data = None
+    def __init__(self, labels=None, items=None):
+        self.private_data = []
+        QtGui.QComboBox.__init__(self)
+        self.set_items(labels=labels, items=items)
+    def get_item(self, index):
+        return self.private_data[index][1]
+    def set_items(self, labels=None, items=None, selection=None):
+        self.clear()
+        self.private_data = []
+        if labels != None:
+            for v in labels:
+                self.addItem(QtCore.QString(v))
+                self.private_data.append((v,v))
+        if items != None:
+            for k, v in items:
+                self.addItem(QtCore.QString(v))
+                self.private_data.append((k,v))
+        if selection != None:
+            self.setCurrentIndex(selection)
+    def update_items(self, labels=None, items=None):
+        """
+        Update the items with as little disruption as possible.
+        """
+        current_names = [p[0] for p in self.private_data]
+        keepers = [False for i in range(len(current_names))]
+        new_data = []
+        if labels != None:
+            for v in labels:
+                if v in current_names:
+                    keepers[current_names.index(v)] = True
+                else:
+                    new_data.append((v,v))
+        if items != None:
+            for k, v in items:
+                if v in current_names:
+                    keepers[current_names.index(v)] = True
+                else:
+                    new_data.append((k,v))
+        # Remove dead items
+        for i in reversed([i for i,ok in enumerate(keepers) if not ok]):
+            self.removeItem(i)
+            self.private_data.pop(i)
+        # Append new items
+        for d in new_data:
+            self.private_data.append(d)
+            self.addItem(d[0])
+
+
+class infoSummary(QtGui.QWidget):
+    """
+    Generic grid of Label: Data items.
+    """
+    def __init__(self):
+        QtGui.QWidget.__init__(self)
+        layout = QtGui.QGridLayout()
+        self.setLayout(layout)
+        self.items = {}
+        self._order = []
+        layout.setColumnMinimumWidth(0, 100)
+        layout.setColumnMinimumWidth(0, 200)
+
+    def set_text(self, name, text):
+        if name in self.items:
+            self.items[name][1].setText(text)
+
+    def add_item(self, name, label, value=None):
+        n = len(self._order)
+        l1 = QtGui.QLabel(label)
+        l2 = QtGui.QLabel(value)
+        l2.setAlignment(QtCore.Qt.AlignRight)
+        self.items[name] = (l1, l2)
+        self._order.append(name)
+        self.layout().addWidget(l1, n, 0)
+        self.layout().addWidget(l2, n, 1)
+
+    def fromTextItemList(self, pltexts):
+        # Steal these
+        for i in pltexts['_order']:
+            t = pltexts[i]
+            self.add_item(t.name, t.label)
+
+
+class mutexHolder:
+    def __init__(self, mutex):
+        self.mutex = mutex
+    def __enter__(self):
+        return self
+    def __exit__(self, type, value, traceback):
+        self.mutex.unlock()
+
+    
 class tightView(QtGui.QGraphicsView):
     """
     This magic keeps the items perfectly bounded in the window.
     """
+    def __init__(self):
+        QtGui.QGraphicsView.__init__(self)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
+
     def resizeEvent(self, ev):
         QtGui.QGraphicsView.resizeEvent(self, ev)
         self.rebound()
@@ -15,7 +117,8 @@ class tightView(QtGui.QGraphicsView):
         if self.scene():
             self.fitInView(self.scene().itemsBoundingRect(),
                            QtCore.Qt.KeepAspectRatio)
-        
+    
+   
 class GridDisplay(QtGui.QGraphicsObject):
     data = None
     def set_data(self, data, channel=None):
@@ -66,6 +169,7 @@ class GridDisplay(QtGui.QGraphicsObject):
         x, y = ev.pos().x(), ev.pos().y()
         x, y = int(np.floor(x-x0)), int(np.floor(y-y0))
         self.last_click = x, y
+        print x, y
 
 
 class blipColorMap:
@@ -103,7 +207,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     configurations.
     """
     blip_pen = QtGui.QPen(QtCore.Qt.NoPen)
-    blip_brush = QtGui.QBrush(QtGui.QColor(128,128,128))
+    blip_brush0 = QtGui.QBrush(QtGui.QColor(128,128,128))
     blip_cmap = None
     data = None
 
@@ -112,31 +216,42 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             self.prepareGeometryChange()
             nrow, ncol = data.shape[:2]
             self.create_blip_grid(nrow, ncol)
-            # This should be a signal!
             self.scene().views()[0].rebound()
         self.data = data
         self.update_blips(self.data.ravel())
 
     def create_blip_grid(self, nrow, ncol):
-        for i in self.childItems():
-            self.removeFromGroup(i)
         x, y = gfx.grid_coords(nrow, ncol)
         self.create_blips(x-x.mean(), y-y.mean())
 
-    def create_blips(self, x, y, w=1., h=1., form='rect', constructor=None):
+    def create_blips(self, x, y, w=1., h=1., form='rect', constructor=None,
+                     clear=True, rotation=0.):
+        for i in self.childItems():
+            self.removeFromGroup(i)
         if constructor == None:
             if form == 'ellipse':
                 constructor = QtGui.QGraphicsEllipseItem
             elif form == 'rect':
                 constructor = QtGui.QGraphicsRectItem
             else:
-                raise
+                print ' Unknown shape %s, using rect.'
+                constructor = QtGui.QGraphicsRectItem
         for i in range(len(x)):
-            item = constructor(0., 0., w, h)
+            item = constructor(-w/2, -h/2, w, h)
+            item.setRotation((rotation+x*0)[i])
             item.setPos(x[i], y[i])
             item.setPen(self.blip_pen)
-            item.setBrush(self.blip_brush)
+            item.setBrush(self.blip_brush0)
             self.addToGroup(item)
+        self.prepareGeometryChange()
+        self.scene().views()[0].rebound()
+
+    def create_blips_from_geometry(self, geom):
+        x, y = geom.coords
+        form = geom.props.get('shape', 'rect')
+        colormap = (0,0,0),(255,0,255) #geom.colormap()
+        self.blip_cmap = blipColorMap(*colormap)
+        return self.create_blips(x, y, form=form)
 
     def update_blips(self, colors):
         if self.blip_cmap == None:
@@ -148,6 +263,11 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         for c,i in zip(idx, self.childItems()):
             i.setBrush(self.blip_cmap[c])
 
+    def update_last_click(self, item):
+        for i,it in enumerate(self.childItems()):
+            if it == item:
+                self.last_click = i
+                break
 
     #
     # Virtual method implementation
@@ -156,10 +276,10 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         return QtGui.QGraphicsItemGroup.boundingRect(self)
 
     def mousePressEvent(self, ev):
-        x0,y0,x1,y1 = self.boundingRect().getCoords()
         x, y = ev.pos().x(), ev.pos().y()
-        x, y = int(np.floor(x-x0)), int(np.floor(y-y0))
-        self.last_click = x, y
+        item = self.scene().itemAt(x, y)
+        if item != None:
+            self.update_last_click(item)
 
     # This is dumb.
     def animateMove(self, new_x=None, new_y=None, t=1.):
@@ -177,7 +297,6 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         self._anim_data['timer'] = timer
         timer.timeout.connect(self._anim)
         x0,x1,y0,y1 = new_x.min()-2, new_x.max()+2, new_y.min()-2, new_y.max()-2
-        self.prepareGeometryChange()
         timer.start(t / self._anim_data['n_step'])
     
     def _anim(self):
@@ -191,8 +310,8 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             item.setPos(x, y)
         if s == n:
             # This should be a signal!
-            self.scene().views()[0].rebound()
             del ad['timer']
+            self.scene().views()[0].rebound()
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])

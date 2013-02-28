@@ -15,14 +15,18 @@ def mask_to_list(ar):
 
 
 
-class displayClient(clients.dataConsumer):
+class displayClient(clients.HeadsupDataConsumer):
     """
     Base class for plotters.
+
+    Handles basic messages related to displaying of data.
+    Implementation of data display is left to subclasses.
     """
     def __init__(self, addr=None, name=None):
-        clients.dataConsumer.__init__(self, addr, name)
+        clients.HeadsupDataConsumer.__init__(self, addr, name)
         self.data_mask = None
         self.last_data = None
+        self.controls = {}
         self.controls.update(display_defaults)
         self.texts = textItemList()
         self.texts.append('time_now', 'Time:')
@@ -33,6 +37,12 @@ class displayClient(clients.dataConsumer):
         self.texts.append('zrange_hi', '')
 
     def _get_scale(self, data, update_texts=True):
+        # Decide how to convert project the data into the [0,1] range
+        # consumed by plotters.  Returns
+        #     auto, black, white
+        # where auto indicates full autoscale mode; black is the level
+        # that should project to 0, white is the data level that
+        # should project to 1.
         auto = self.controls.get('autoscale', False)
         black, white = self.controls.get('zrange', (None,None))
         if auto or black == None:
@@ -68,8 +78,9 @@ class displayClient(clients.dataConsumer):
 
 class displayController(clients.dataProducer, dict):
     """
-    This class can be used to control a plot window.  The idea is to
-    provide fairly high level control of the display.
+    This class can be used to control a plot window from a client of
+    some kind.  It exposes high-level methods that send display
+    control messages to the display clients.
     """
 
     def __init__(self, addr, name='dispctrl', field=None):
@@ -87,13 +98,22 @@ class displayController(clients.dataProducer, dict):
     # High level display control
     #
 
+    ##
+    ## Scale control
+    ##
     def autoscale(self, value=None):
+        """
+        Toggle autoscaling on the display.
+        """
         if value == None:
             return self['autoscale']
         self['autoscale'] = value
         self.post_some(['autoscale'])
 
     def zrange(self, min=None, max=None):
+        """
+        Set z-range on the display, for when not autoscaling.
+        """
         post = False
         if min != None:
             self['zrange'][0] = min
@@ -104,6 +124,11 @@ class displayController(clients.dataProducer, dict):
         if post:
             self.post_some(['zrange'])
         return self['zrange']
+
+    ##
+    ## Masking is used to remove some array elements from being
+    ## included in autoscaling.  This will change.
+    ##
 
     def set_mask(self, mask=None):
         if mask == None:
@@ -133,6 +158,14 @@ class displayController(clients.dataProducer, dict):
         
     def unmask_area(self, row=None, col=None, shape=None):
         return self.mask_area(row, col, shape, unmask=True)
+
+    ##
+    ## Pixel sets and display maps.
+    ##
+
+    def set_pixel_set(self):
+        pass
+
 
     #
     # Save and restore

@@ -4,7 +4,8 @@
 Watch an MCE flatfile for new data, send it out.
 """
 
-from mheadsup import clients, util
+import test_path
+from mheadsup import clients, util, geometries
 import mce_data
 
 import threading
@@ -19,9 +20,9 @@ defaults.update({
     })
 
 
-class mceFileFollower(clients.dataProducer):
+class mceFileFollower(clients.HeadsupDataSource):
     def __init__(self, addr, name='flatfile', field=None):
-        clients.dataProducer.__init__(self, addr, name)
+        clients.HeadsupDataSource.__init__(self, addr, name)
         self.dshape, self.dmode = None, None
         self.field = field
         self.options = {'delay': .03,
@@ -93,7 +94,7 @@ class mceFileFollower(clients.dataProducer):
                 n = 0
             dmode = '%i (%s)' % (f.data_mode, self.field)
             if self.dmode != dmode:
-                self.post_meta({'data_mode': dmode})
+                self.update_info({'data_mode': dmode})
                 self.dmode = dmode
             # Frame reader loop
             while self._check_thread() and not opts['trigger_reinit']:
@@ -112,6 +113,9 @@ class mceFileFollower(clients.dataProducer):
                 if n == -1:
                     break
                 d = f.Read(start=n, count=dn, row_col=True, field=self.field)
+                # Handle control messages
+                ok, addr, _ = self.do_receive()
+                # Post the data
                 self.post_data(d.data[...,-1])
                 n += dn
                 time.sleep(opts['delay'])
@@ -163,6 +167,12 @@ if __name__ == '__main__':
                          field=opts.data_field)
     if not mp.connected:
         sys.exit(2)
+    mp.register_basic_streams()
+
+    geom = [geometries.pixelSetGeometry.for_grid(8, 2, name='Grid'),
+            geometries.pixelSetGeometry.for_grid(2,8, name='Grid2'),
+            geometries.pixelSetGeometry.circle(16, name='Circle')]
+    mp.set_geometries(geom)
 
     if opts.tail:
         opts.follow = True

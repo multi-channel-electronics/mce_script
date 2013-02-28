@@ -1,6 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/python2.7
+import test_path
 
-from mheadsup import clients, util, plotters, qtgfx, gfx
+from mheadsup import clients, util, plotters, qtgfx, gfx, geometries
 
 import sys, os, time
 import subprocess
@@ -15,53 +16,88 @@ defaults.update({
     })
 
 
-# Text window widget
-class infoSummary(QtGui.QWidget):
-    def __init__(self):
+class qtgPlotter(plotters.displayClient,QtGui.QWidget):
+    def __init__(self, addr, name='qtg', img=None):
+        plotters.displayClient.__init__(self, addr, name)
         QtGui.QWidget.__init__(self)
+        
+        self.mutex = QtCore.QMutex()
+        self.img = []
+
+        self.info = qtgfx.infoSummary()
+        self.info.fromTextItemList(self.texts)
+
+        if img != None:
+            self.img.append((img, 'default'))
+        
+        self.init_gfx()
+
+    def init_gfx(self):
+        self.view = qtgfx.tightView()
+        self.scene = QtGui.QGraphicsScene()
+        self.view.setScene(self.scene)
         layout = QtGui.QGridLayout()
         self.setLayout(layout)
-        self.items = {}
-        self._order = []
-        layout.setColumnMinimumWidth(0, 100)
-        layout.setColumnMinimumWidth(0, 200)
-    def fromTextItemList(self, pltexts):
-        # Steal these
-        for i in pltexts['_order']:
-            t = pltexts[i]
-            self.add_item(t.name, t.label)
-    def set_text(self, name, text):
-        if name in self.items:
-            self.items[name][1].setText(text)
+        layout.addWidget(self.view, 0,0)
+        layout.addWidget(self.info, 1,0)
+        self.streamList = qtgfx.simpleCombo()
+        self.streamList.currentIndexChanged.connect(self.select_stream)
+        self.geomList = qtgfx.simpleCombo()
+        self.geomList.currentIndexChanged.connect(self.select_geom)
+        #w = QtGui.QWidget()
+        w = QtGui.QGridLayout()
+        layout.addLayout(w, 2, 0)
+        for i, (n,c) in enumerate(
+            [('Stream', self.streamList),
+             ('Geometry', self.geomList)]):
+            w.addWidget(QtGui.QLabel(n), i, 0)
+            w.addWidget(c, i, 1, 1, 2)
 
-    def add_item(self, name, label, value=None):
-        n = len(self._order)
-        l1 = QtGui.QLabel(label)
-        l2 = QtGui.QLabel(value)
-        l2.setAlignment(QtCore.Qt.AlignRight)
-        self.items[name] = (l1, l2)
-        self._order.append(name)
-        self.layout().addWidget(l1, n, 0)
-        self.layout().addWidget(l2, n, 1)
+        for img in self.img:
+            self.scene.addItem(img[0])
+        self.view.fitInView(self.scene.itemsBoundingRect(),
+                            QtCore.Qt.KeepAspectRatio)
 
+    # Real Q signal handlers
+    def select_stream(self, *args):
+        idx = args[0]
+        print ' -select_stream', idx
+        if idx < 0:
+            print 'deselected'
+            self.data_handler = None
+        else:
+            stream_name = self.streamList.get_item(idx)
+            self.subscribe_data(stream_name)
+            print 'selected ', stream_name
 
-class mutexHolder:
-    def __init__(self, mutex):
-        self.mutex = mutex
-    def __enter__(self):
-        return self
-    def __exit__(self, type, value, traceback):
-        self.mutex.unlock()
+    def select_geom(self, *args):
+        idx = args[0]
+        print ' -select_geometry', idx
+        if idx < 0:
+            print 'deselected'
+        else:
+            geom_data = self.geomList.get_item(idx)
+            print 'selected ', geom_data['name']
+            self.geom = geometries.pixelSetGeometry.decode(geom_data)
+            #self.img[0][0].animateMove(self.geom.coords[0],
+            #                           self.geom.coords[1])
+            self.img[0][0].create_blips_from_geometry(self.geom)
+            
+            
 
-class qtgPlotter(plotters.displayClient):
-    def __init__(self, addr, name='qtg', texts=None):
-        plotters.displayClient.__init__(self, addr, name)
-        self.img = []
-        self.mutex = QtCore.QMutex()
-        # Replace label manager
-        if texts != None:
-            texts.fromTextItemList(self.texts)
-            self.texts = texts
+    # Not Q signal handlers
+
+    def stream_list_changed(self):
+        new_stream_names = [s.name[:-5] for s in self.stream_list_handler.streams
+                            if s.type == 'data']
+        self.streamList.update_items(labels=new_stream_names)
+
+    def geom_list_changed(self):
+        geoms = [(s['name'], s) for s in self.data_handler.info.
+                 get('geometries', [])]
+        self.geomList.update_items(items=geoms)
+
+    # Imagery
 
     def add_image(self, image, image_name=None):
         self.img.append((image, image_name))
@@ -75,8 +111,6 @@ class qtgPlotter(plotters.displayClient):
         img, _ = self.img[idx]
         if data == None:
             data = self.last_data
-        if data == None or self.controls.get('data_shape', None) == None:
-            return
         # Update zoom to match image?
         self.last_data = data
         # Update data mask?
@@ -92,16 +126,12 @@ class qtgPlotter(plotters.displayClient):
         auto, black, white = self._get_scale(data[mask])
         # Update.
         mask_val = self.controls.get('mask_value', (black+white)/2)
-        ##data[~mask] = mask_val
         # Condition data...
-        ##data = (data - black) / (white-black)
-        ##data[data<0] = 0
-        ##data[data>1] = 1
         data = self._norm_data(data, black, white, mask, mask_val)
         img.set_data(data.transpose())
 
     def poll(self):
-        self.texts.set_text('time_now', '%.1f' % time.time())
+        self.info.set_text('time_now', '%.1f' % time.time())
         if self.controls.get('exit'):
             print 'Exiting on server request.'
             del self.timer
@@ -113,30 +143,62 @@ class qtgPlotter(plotters.displayClient):
                 print 'Exiting on failed reconnect.'
                 app.exit()
         if self.controls.get('poll_controls'):
-            self.set_client_var('poll_controls', 1)
+#            self.set_client_var('poll_controls', 1)
             self.controls['poll_controls'] = 0
         if not self.mutex.tryLock():
             return
-        with mutexHolder(self.mutex):
+        with qtgfx.mutexHolder(self.mutex):
             self.idle_count += 1
-            op, item = self.process()
+            ok, addr, data = self.do_receive()
+            if not ok or addr == None:
+                return
+
+            if False and self.data_handler == None:
+                # Try to connect to a stream?
+                if self.stream_list_handler == None:
+                    # We have nothing going on.
+                    print 'no handler'
+                    return
+                dstreams = [x.name for x in self.stream_list_handler.streams
+                            if x.type == 'data']
+                if len(dstreams) > 0:
+                    self.subscribe_data(dstreams[0][:-5])
+                else:
+                    print 'no dstreams'
+                return
+            if self.stream_list_handler != None:
+                sh = self.stream_list_handler
+                if sh.changes > 0:
+                    self.stream_list_changed()
+                    sh.changes = 0
+            if self.data_handler == None:
+                return
+
+            if self.data_handler.info_update:
+                print 'info_update', self.data_handler.info
+                self.data_handler.info_update = False
+                self.info.set_text('data_mode', 
+                                   self.data_handler.info.get('data_mode', ''))
+                self.geom_list_changed()
+                print self.data_handler.info.keys()
+
+            n_frames = len(self.data_handler.frames)
+            if n_frames > 0:
+                self.info.set_text('time_frame', '%.1f' % time.time())
+                data = self.data_handler.frames.pop(0)
+                self.update_image(data)
+                if self.idle_count == 0 and n_frames > 10:
+                    # Falling behind... change update frequency?
+                    print 'Falling behind...'
+                    self.data_handler.frames = []
+                self.idle_count = 0
+
+        if 0:
             if op == 'ctrl':
                 if 'mask' in item:
                     self.controls['mask_update'] = True
                 if 'data_mode' in item:
-                    self.texts.set_text('data_mode', self.controls['data_mode'])
-            elif op == 'data':
-                self.texts.set_text('time_frame', '%.1f' % time.time())
-                dshape = self.controls.get('data_shape', None)
-                if dshape == None:
-                    return
-                data = self.data.pop(0).reshape(dshape).transpose()
-                self.update_image(data)
-                if self.idle_count == 0 and self.n_frames > 10:
-                    # Falling behind... change update frequency?
-                    pass
-                self.idle_count = 0
-                self.n_frames += 1
+                    self.info.set_text('data_mode', self.controls['data_mode'])
 
     def launch(self, rate=10., refresh_rate=20.):
         self.refresh_rate = refresh_rate
@@ -145,24 +207,8 @@ class qtgPlotter(plotters.displayClient):
         self.timer.timeout.connect(self.poll)
         self.timer.start(1./self.refresh_rate)
         self.frame_t0 = None
-        self.n_frames = 0
         self.idle_count = 0
-        pp.set_client_var('rate', rate)
-
-class qplotter(QtGui.QWidget):
-    def __init__(self, img, info):
-        QtGui.QWidget.__init__(self)
-        self.view = qtgfx.tightView()
-        self.scene = QtGui.QGraphicsScene()
-        self.view.setScene(self.scene)
-        self.layout = QtGui.QGridLayout()
-        self.setLayout(self.layout)
-        self.layout.addWidget(self.view, 0,0)
-        self.layout.addWidget(info, 1,0)
-        self.scene.addItem(img)
-        self.view.fitInView(self.scene.itemsBoundingRect(),
-                            QtCore.Qt.KeepAspectRatio)
-        
+        #pp.set_client_var('rate', rate)
 
 
 if 0: #if not sys.flags.interactive:
@@ -193,17 +239,18 @@ if __name__ == '__main__':
     app = QtGui.QApplication([])
     win = QtGui.QMainWindow()
     win.resize(400,600)
+    win.move(100,100)
 
     #img = qtgfx.GridDisplay()
     img = qtgfx.BlipDisplay()
 
-    info = infoSummary()
-    qp = qplotter(img, info)
-    win.setCentralWidget(qp)
-    win.show()
+    #qp = qplotter(img)
 
-    pp = qtgPlotter(opts.server, opts.name, texts=info)
-    pp.add_image(img)
+    pp = qtgPlotter(opts.server, opts.name, img=img)
+    time.sleep(.1)
+
+    win.setCentralWidget(pp)
+    win.show()
 
     pp.launch(rate=opts.data_rate, refresh_rate=opts.display_rate)
 

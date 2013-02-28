@@ -1,0 +1,71 @@
+#!/usr/bin/python
+
+"""
+Look, this is how easy it is.
+"""
+
+import test_path
+from mheadsup import clients, util, geometries
+
+import numpy
+import time
+
+
+def make_custom_layout(shape):
+    """
+    Create a custom pixel geometry for grid of size shape=(nrow,ncol).
+    """
+    nr, nc = shape
+    xy = []
+    r0,c0 = float(nr-1)/2, float(nc-1)/2
+    R = max(r0,c0)*.5
+    for r in range(nr):
+        for c in range(nc):
+            y, x = (r-r0), (c-c0)
+            R0 = (x**2+y**2)**.5 + 1e-9
+            r1 = (R0/R)**-.2 * 1.2
+            xy.append((x*r1, y*r1))
+    geom = geometries.pixelSetGeometry(shape=shape, name='Bloom')
+    geom.coords = zip(*xy)
+    return geom
+
+
+class randomDataProducer(clients.HeadsupDataSource):
+    def __init__(self, addr, name='random', shape=(5,5)):
+        clients.HeadsupDataSource.__init__(self, addr, name)
+        self.dshape = shape
+        self.rate = 10.
+
+    def go(self):
+        n = 0
+        while True:
+            n+=1
+            time.sleep(1./self.rate)
+            d = numpy.random.random(self.dshape).astype('float32')
+            self.post_data(d)
+            if n == 100:
+                self.update_info({'data_mode': 'entropy'})
+
+            # You should do this.
+            self.do_receive()
+
+
+if __name__ == '__main__':
+
+    o = util.upOptionParser()
+    o.add_standard()
+    opts, args = o.parse_args()
+
+    # To define pixel locations.  Note pixels are 1x1.
+    shape = (9,7)
+    g = make_custom_layout(shape)
+
+    # Necessary.
+    rdp = randomDataProducer(opts.server, shape=shape)
+    rdp.connect()
+    rdp.register_basic_streams()
+
+    rdp.set_geometries([g,
+                        geometries.pixelSetGeometry.circle(8*7, name='Circle')])
+
+    rdp.go()

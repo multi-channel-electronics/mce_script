@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/python2.7
+import test_path
 
 """
 Implement a data consumer using pylab.
@@ -37,16 +38,8 @@ class pylabPlotter(plotters.displayClient):
         """
         Updates the image, or some aspect of it (scale, zoom, ...).
         """
-        im = self.im
-        if data == None:
-            data = self.last_data
-        else:
-            self.last_data = data
-        if data == None or self.controls.get('data_shape', None) == None:
-            return
-        # Update zoom to match image?
-        if self.last_data == None or self.last_data.shape != data.shape:
-            im = None # Start over.
+        if data.shape != self.controls.get('data_shape', None):
+            self.im = None
         # Update data mask?
         if self.controls.get('mask_update'):
             self.data_mask = np.array(self.controls['mask']).astype('bool')
@@ -61,8 +54,9 @@ class pylabPlotter(plotters.displayClient):
         # Update.
         mask_val = self.controls.get('mask_value', (black+white)/2)
         data = self._norm_data(data, black, white, mask, mask_val)
-        if im == None:
+        if self.im == None:
             self.im = pl.imshow(data, vmin=0, vmax=1)
+            self.controls['data_shape'] = data.shape
         else:
             self.im.set_data(data)
             #self.im.set_clim(black, white)
@@ -95,32 +89,49 @@ class pylabPlotter(plotters.displayClient):
         self.im = None
         self.last_data = None
         self.data_mask = None
-        timer = util.rateTracker()
-        self.set_client_var('rate', rate)
-        if self.controls.get('poll_controls'):
+        if 0:
+         self.set_client_var('rate', rate)
+         if self.controls.get('poll_controls'):
             self.set_client_var('poll_controls', 1)
             self.controls['poll_controls'] = 0
-        self.set_client_var('rate', rate)
+         self.set_client_var('rate', rate)
         while self.connected:
             if self.controls.get('exit'):
                 print 'Server issued client kill.'
                 break
-            op, data = self.process()
-            if op == 'ctrl':
-                self.update_image(None)
-            elif op == 'data':
-                self.texts.set_text('time_frame', '%.1f' % time.time())
-                dshape = self.controls.get('data_shape', None)
-                if dshape == None:
-                    continue
-                data = self.data.pop(0).reshape(dshape)
-                self.update_image(data)
-                timer.record(1)
+            stuff = self.poll()
+            if not stuff:
+                time.sleep(.1)
+                self.texts.set_text('time_now', '%.1f' % time.time())
+                self.update_texts()
+
+
+    def poll(self):
+        ok, addr, data = self.do_receive()
+
+        if not ok or addr == None:
+            return False
+
+        if self.data_handler == None:
+            # Try to connect to a stream?
+            if self.stream_list_handler == None:
+                # We have nothing going on.
+                print 'no handler'
+                return True
+            dstreams = [x.name for x in self.stream_list_handler.streams
+                        if x.type == 'data']
+            if len(dstreams) > 0:
+                self.subscribe_data(dstreams[0][:-5])
             else:
-                timer.record(0)
-                time.sleep(.01)
-            self.texts.set_text('time_now', '%.1f' % time.time())
-            self.update_texts()
+                print 'no dstreams'
+        else:
+            n_frames = len(self.data_handler.frames)
+            if n_frames:
+                data = self.data_handler.frames.pop(0)
+                self.texts.set_text('time_frame', '%.1f' % time.time())
+                self.update_image(data)
+                return True
+        return False
 
 class pylabPointPlotter(pylabPlotter):
     point_loc = None
