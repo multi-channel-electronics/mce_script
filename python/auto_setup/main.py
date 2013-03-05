@@ -136,9 +136,10 @@ def prepare_sa_ramp(tuning, cols=None):
     tuning.set_exp_param_range("sa_offset", cols, def_sa_offset[cols])
 
     # Make sure that, in mux11d mode, we aren't muxing the SA FB
-    is_mux11d = tuning.get_exp_param("hardware_mux11d") == 1
+    is_mux11d = tuning.get_exp_param("hardware_mux11d", 0) == 1
     if is_mux11d:
         tuning.set_exp_param('config_fast_sa_fb', 0)
+        tuning.set_exp_param('config_fast_sq1_bias', 0)
         
     # Update settings.
     tuning.write_config()
