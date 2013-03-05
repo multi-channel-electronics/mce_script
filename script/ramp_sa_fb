@@ -78,6 +78,11 @@ expcfg="$MAS_DATA/experiment.cfg"
 # The cable offset to SA bias ratio
 cable_offset_sa_bias_ratio=`mas_param -s $expcfg get sa_offset_bias_ratio`
 
+# Delays between setting bias/feedback and reading a frame, in microsecs.
+settling_delay_us=10000
+[ "$settling_delay_us" == "" ] && settling_delay_us=1
+
+
 # Ramp parameters: should cover the 64k DAC range
 ramp_start=`mas_param -s $expcfg get sa_ramp_flux_start`
 ramp_count=`mas_param -s $expcfg get sa_ramp_flux_count`
@@ -137,6 +142,9 @@ fi
 
 if [ $do_bias_ramp -eq 0 ]; then
 
+    repeat_string "0" $col_count "wra sa fb $col_index" >> $tempfile
+    echo "sleep $settling_delay_us" >> $tempfile
+
     mce_ramp -M "acq_config $datafile rc$rc" \
 	-L $ramp_count  -V 0 $ramp_step \
 	    -P "wra sa fb $col_index" $col_count \
@@ -153,6 +161,7 @@ else
   	    -V $bias_start   $bias_step    -P "wra sa bias $col_index" $col_count \
 	        -L $ramp_count  -V 0 $ramp_step \
              	    -P "wra sa fb $col_index" $col_count \
+	            -P "sleep $settling_delay_us" 0 \
 	            -P "acq_go 1" 0  >> $tempfile
 
    repeat_string "0" $col_count "wra sa bias $col_index" >> $tempfile
