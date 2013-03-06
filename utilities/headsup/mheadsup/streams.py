@@ -195,9 +195,9 @@ class DataHandler:
                 if len(self.frames) > 100:
                     self.frames.pop(0)
             else:
-                print 'yo, stray from %s' % addr.name
+                print 'stray data from %s' % addr.name
         elif addr.type == 'notify' and self.notify_stream == addr.name:
-            print msg
+            #print msg
             if 'info_set' in msg:
                 self.info = msg['info_set']
             elif 'info_update' in msg:

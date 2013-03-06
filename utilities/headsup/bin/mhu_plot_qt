@@ -15,14 +15,28 @@ defaults.update({
     'client_name': 'qtg',
     })
 
+actions = [
+    ('nothing', ''),
+    ('reset_offset', 'Scale: restore natural offset'),
+    ('auto_offset', 'Scale: remove fixed offset'),
+    ('scale_stretch', 'Scale: stretch'),
+    ('scale_follow', 'Scale: follow'),
+    ('show_data', 'Plot: data'),
+    ('show_mask', 'Plot: mask'),
+    ]
+
 
 class qtgPlotter(plotters.displayClient,QtGui.QWidget):
-    def __init__(self, addr, name='qtg', img=None):
+    active_mask = None
+    show_mode = 'data'
+
+    def __init__(self, addr, name='qtg', img=None, horizontal=False):
         plotters.displayClient.__init__(self, addr, name)
         QtGui.QWidget.__init__(self)
         
         self.mutex = QtCore.QMutex()
         self.img = []
+        self.scale_props = plotters.dataScaleProps()
 
         self.info = qtgfx.infoSummary()
         self.info.fromTextItemList(self.texts)
@@ -30,26 +44,42 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         if img != None:
             self.img.append((img, 'default'))
         
-        self.init_gfx()
+        self.init_gfx(horizontal=horizontal)
 
-    def init_gfx(self):
+    def init_gfx(self, horizontal=False):
         self.view = qtgfx.tightView()
         self.scene = QtGui.QGraphicsScene()
         self.view.setScene(self.scene)
+        self.setLayout(QtGui.QGridLayout())
+        self.layout().addWidget(self.view, 0,0)
         layout = QtGui.QGridLayout()
-        self.setLayout(layout)
-        layout.addWidget(self.view, 0,0)
-        layout.addWidget(self.info, 1,0)
+        if horizontal:
+            self.layout().addLayout(layout, 0, 1)
+        else:
+            self.layout().addLayout(layout, 1, 0)
+        layout.addWidget(self.info, 0,0)
         self.streamList = qtgfx.simpleCombo()
         self.streamList.currentIndexChanged.connect(self.select_stream)
         self.geomList = qtgfx.simpleCombo()
         self.geomList.currentIndexChanged.connect(self.select_geom)
+        self.pixelSetList = qtgfx.simpleCombo()
+        self.pixelSetList.currentIndexChanged.connect(self.select_geom)
+        self.maskList = qtgfx.simpleCombo()
+        self.maskList.currentIndexChanged.connect(self.select_mask)
+
+        self.actionList = qtgfx.simpleCombo()
+        self.actionList.set_items(items=actions)
+        self.actionList.currentIndexChanged.connect(self.select_action)
+
         #w = QtGui.QWidget()
         w = QtGui.QGridLayout()
-        layout.addLayout(w, 2, 0)
+        layout.addLayout(w, 1, 0)
         for i, (n,c) in enumerate(
             [('Stream', self.streamList),
-             ('Geometry', self.geomList)]):
+             ('Geometry', self.geomList),
+             ('Sub-group', self.pixelSetList),
+             ('Mask', self.maskList),
+             ('Action', self.actionList)]):
             w.addWidget(QtGui.QLabel(n), i, 0)
             w.addWidget(c, i, 1, 1, 2)
 
@@ -64,7 +94,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         print ' -select_stream', idx
         if idx < 0:
             print 'deselected'
-            self.data_handler = None
+            self.unsubscribe_data()
+            self.data_handler = self.replace_handler(None, self.data_handler)
         else:
             stream_name = self.streamList.get_item(idx)
             self.subscribe_data(stream_name)
@@ -83,7 +114,37 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             #                           self.geom.coords[1])
             self.img[0][0].create_blips_from_geometry(self.geom)
             
-            
+    def select_pixelSet(self, *args):
+        print ' -select_pixelSet'
+        
+    def select_mask(self, *args):
+        idx = args[0]
+        if idx <= 0:
+            print 'mask deselect'
+            self.active_mask = None
+            return
+        print 'mask select'
+        self.active_mask = self.maskList.get_item(idx)
+        
+    def select_action(self, *args):
+        idx = args[0]
+        if idx <= 0:
+            return
+        action_name = self.actionList.get_item(idx)
+        self.actionList.setCurrentIndex(0)
+        print action_name
+        if action_name == 'reset_offset':
+            self.scale_props.clear_offset()
+        elif action_name == 'auto_offset':
+            self.scale_props.set_grab_offset()
+        elif action_name == 'scale_stretch':
+            self.scale_props.set_mode('stretch')
+        elif action_name == 'scale_follow':
+            self.scale_props.set_mode('auto')
+        elif action_name == 'show_data':
+            self.show_mode = 'data'
+        elif action_name == 'show_mask':
+            self.show_mode = 'mask'
 
     # Not Q signal handlers
 
@@ -96,6 +157,14 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         geoms = [(s['name'], s) for s in self.data_handler.info.
                  get('geometries', [])]
         self.geomList.update_items(items=geoms)
+
+    def mask_list_changed(self):
+        masks = [
+            ('None', None),
+            ('Local', self.data_mask),
+            ] + \
+            [(s['name'], s) for s in self.data_handler.info.get('masks', [])]
+        self.maskList.update_items(items=masks)
 
     # Imagery
 
@@ -114,27 +183,31 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         # Update zoom to match image?
         self.last_data = data
         # Update data mask?
-        if self.controls.get('mask_update'):
-            self.data_mask = np.array(self.controls['mask']).astype('bool')
-            self.controls['mask_update'] = False
-        mask = self.data_mask
-        if mask == None or mask.shape != data.shape:
-            mask = np.ones(data.shape, 'bool')
-        if mask.sum() == 0:
-            mask[0,0] = True
-        # Update zrange?
-        auto, black, white = self._get_scale(data[mask])
-        # Update.
-        mask_val = self.controls.get('mask_value', (black+white)/2)
-        # Condition data...
-        data = self._norm_data(data, black, white, mask, mask_val)
-        img.set_data(data.transpose())
+#        if self.controls.get('mask_update'):
+#            self.data_mask = np.array(self.controls['mask']).astype('bool')
+#            self.controls['mask_update'] = False
+        dm = self.data_mask
+        if dm == None or dm.shape != data.shape:
+            self.data_mask = np.ones(data.shape, 'bool')
+            if self.active_mask == dm:
+                self.active_mask = None
+        mask = self.active_mask
+        if mask != None and mask.sum() == 0:
+            mask[0] = True
+        if self.show_mode == 'data':
+            # Get scaled data
+            data = self.scale_props.rescale_data(data, mask=self.active_mask,
+                                                 mask_val=0.5)
+        elif self.show_mode == 'mask':
+            data = mask.astype('int')
+        img.set_data(data)
 
     def poll(self):
         self.info.set_text('time_now', '%.1f' % time.time())
         if self.controls.get('exit'):
             print 'Exiting on server request.'
             del self.timer
+            del self.state_timer
             self.close()
             app.exit()
         if not self.connected:
@@ -152,6 +225,9 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             ok, addr, data = self.do_receive()
             if not ok or addr == None:
                 return
+
+            if addr.type != 'data':
+                print '+ plot_qt gets', addr.name
 
             if False and self.data_handler == None:
                 # Try to connect to a stream?
@@ -175,17 +251,27 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
                 return
 
             if self.data_handler.info_update:
-                print 'info_update', self.data_handler.info
+                print 'info_update', self.data_handler.info.keys()
                 self.data_handler.info_update = False
                 self.info.set_text('data_mode', 
                                    self.data_handler.info.get('data_mode', ''))
                 self.geom_list_changed()
-                print self.data_handler.info.keys()
+                self.mask_list_changed()
 
             n_frames = len(self.data_handler.frames)
             if n_frames > 0:
                 self.info.set_text('time_frame', '%.1f' % time.time())
                 data = self.data_handler.frames.pop(0)
+                if self.data_mask == None or self.data_mask.shape != data.shape:
+                    self.data_mask = np.ones(data.shape, 'bool')
+                    self.mask_list_changed()
+
+                # check for clicks?
+                if self.img[0][0].last_click != None:
+                    idx = self.img[0][0].last_click
+                    mask_view = self.data_mask.ravel()
+                    mask_view[idx] = not mask_view[idx]
+                    self.img[0][0].last_click = None
                 self.update_image(data)
                 if self.idle_count == 0 and n_frames > 10:
                     # Falling behind... change update frequency?
@@ -200,6 +286,12 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
                 if 'data_mode' in item:
                     self.info.set_text('data_mode', self.controls['data_mode'])
 
+    def state_update(self):
+        self.info.set_text('autoscale', self.scale_props.mode)
+        self.info.set_text('zrange_lo', '%f' % self.scale_props.last_limits[0])
+        self.info.set_text('zrange_hi', '%f' % self.scale_props.last_limits[1])
+        
+
     def launch(self, rate=10., refresh_rate=20.):
         self.refresh_rate = refresh_rate
         self.frame_rate = refresh_rate
@@ -210,6 +302,9 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.idle_count = 0
         #pp.set_client_var('rate', rate)
 
+        self.state_timer = QtCore.QTimer()
+        self.state_timer.timeout.connect(self.state_update)
+        self.state_timer.start(1.)
 
 if 0: #if not sys.flags.interactive:
     def sigint(signum, frame):
@@ -221,6 +316,7 @@ if 0: #if not sys.flags.interactive:
 if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_option('-i','--interactive',action='store_true')
+    o.add_option('--horizontal',action='store_true')
     o.add_option('--no-controller',action='store_true')
     o.add_option('--data-rate', type=float, default=10.,
                  help="frame rate to request from server")
@@ -231,6 +327,8 @@ if __name__ == '__main__':
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults=defaults)
 
+    config = util.MainConfig()
+    
     if opts.interactive and not sys.flags.interactive:
         # Uh, ok.
         sys.exit(subprocess.call(['/usr/bin/python','-i'] + sys.argv))
@@ -238,7 +336,10 @@ if __name__ == '__main__':
     # Qt init
     app = QtGui.QApplication([])
     win = QtGui.QMainWindow()
-    win.resize(400,600)
+    if opts.horizontal:
+        win.resize(800,500)
+    else:
+        win.resize(400,600)
     win.move(100,100)
 
     #img = qtgfx.GridDisplay()
@@ -246,7 +347,8 @@ if __name__ == '__main__':
 
     #qp = qplotter(img)
 
-    pp = qtgPlotter(opts.server, opts.name, img=img)
+    pp = qtgPlotter(opts.server, opts.name, img=img,
+                    horizontal=opts.horizontal)
     time.sleep(.1)
 
     win.setCentralWidget(pp)

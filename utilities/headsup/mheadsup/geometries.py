@@ -6,11 +6,14 @@ Classes describing layouts and shape of picture elements.
 Also tracking of multiple layouts, encoding, decoding...
 """
 
+from encoders import arrayInfoEncoder as aie
 
-class pixelSetGeometry:
+class pixelSetGeometry(aie):
     """
     Record positions of a set of pixels.
     """
+    arrayInfo_simple= ['name', 'n_pix', 'n_dim', 'data_shape', 'props']
+    arrayInfo_arrays = ['coords']
 
     def __init__(self, name='geom', shape=None):
         if shape == None:
@@ -20,7 +23,7 @@ class pixelSetGeometry:
         self.n_pix = 1
         for s in shape:
             self.n_pix *= s
-        self.coords = []
+        self.coords = np.zeros(self.data_shape)
         self.name = name
         self.props = {}
 
@@ -30,25 +33,34 @@ class pixelSetGeometry:
         """
         if dims == None:
             dims = [i for i in range(self.n_dim)]
-        return tuple([self.coords[i][idx] for i in dims])
+        if idx == None:
+            return self.coords[dims]
+        return self.coords[dims][:,idx]
 
     """
-    Serialization.
+    Load from files
     """
-
-    def encode(self):
-        data = {}
-        for k in ['name', 'n_pix', 'n_dim', 'data_shape', 'props']:
-            data[k] = getattr(self, k)
-        data['coords'] = [map(float,x) for x in self.coords]
-        return data
-
+    
     @classmethod
-    def decode(cls, data):
-        self = cls()
-        for k in ['name', 'n_pix', 'n_dim', 'data_shape', 'props']:
-            setattr(self, k, data[k])
-        self.coords = [np.array(c) for c in data['coords']]
+    def from_ascii_columns(cls, filename, name='file_geom',
+                           columns={'x': 0, 'y': 1}):
+        casts = {'x': float, 'y': float}
+        data = []
+        for k in casts.keys():
+            if k in columns:
+                data.append((k, columns[k], casts[k], []))
+        
+        for line in open(filename):
+            w = line.split()
+            if len(w) == 0 or w[0][0] == '#':
+                continue
+            for k, col, cst, d in data:
+                d.append(cst(w[col]))
+        vectors = {}
+        for k, _,_, d in data:
+             vectors[k] = np.array(d)
+        self = cls(name=name, shape=(len(vectors['x']),))
+        self.coords = np.array([vectors['x'], vectors['y']])
         return self
 
 
@@ -69,7 +81,7 @@ class pixelSetGeometry:
             y = np.arange(n_row)
         x = np.asarray(x).reshape((1,-1))
         y = np.asarray(y).reshape((-1,1))
-        self.coords = [(x+y*0).ravel(),(y+x*0).ravel()]
+        self.coords = np.array([(x+y*0).ravel(),(y+x*0).ravel()])
         self.size = size
         self.name = name
         return self
@@ -83,6 +95,6 @@ class pixelSetGeometry:
         if radius == None:
             radius = 1.2 * n_pix / 2 / np.pi
         theta = 2 * np.pi * np.arange(n_pix) / n_pix
-        self.coords = [radius*np.cos(theta), radius*np.sin(theta)]
+        self.coords = np.array([radius*np.cos(theta), radius*np.sin(theta)])
         self.name = name
         return self

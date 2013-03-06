@@ -31,8 +31,8 @@ class displayClient(clients.HeadsupDataConsumer):
         self.texts = textItemList()
         self.texts.append('time_now', 'Time:')
         self.texts.append('time_frame', 'Last frame:')
-        self.texts.append('data_mode', 'Data mode:')
-        self.texts.append('autoscale', 'Autoscale:')
+#        self.texts.append('data_mode', 'Data mode:')
+        self.texts.append('autoscale', 'Scaling mode:')
         self.texts.append('zrange_lo', 'Scale:')
         self.texts.append('zrange_hi', '')
 
@@ -233,3 +233,92 @@ class textItemList(dict):
     def set_text(self, name, text):
         if name in self:
             self[name].set_text(text)
+
+
+#
+#
+#
+
+class dataScaleProps:
+    z_offset = None
+    z_range = (None, None)
+
+    # Modes: auto, stretch, fixed
+    mode = 'auto'
+
+    trigger_grab_offset = False
+    trigger_stretch = False
+
+    last_limits = (0., 0.)
+
+    def rescale_data(self, data, mask=None,
+                     clip_vals=None,
+                     mask_val=None):
+        """
+        Transform array data into the range (0,1).
+        """
+        # Are we supposed to do a re-offset?
+        if self.trigger_grab_offset:
+            self.z_offset = data.copy()
+            self.trigger_grab_offset = False
+            if self.mode == 'stretch':
+                self.trigger_stretch = True
+        # Apply one-time offset
+        if self.z_offset != None:
+            if data.shape == self.z_offset.shape:
+                data = data - self.z_offset
+            else:
+                self.z_offset = None
+        # Only masked pixels enter computation
+        if mask != None:
+            data_for_lims = data[mask]
+        else:
+            data_for_lims = data
+        # Data limits; these are used for mode='auto'
+        scale_lo, scale_hi = data_for_lims.min(), data_for_lims.max()
+
+        # Scale reset?
+        if self.trigger_stretch:
+            self.mode = 'stretch'
+            self.trigger_stretch = False
+            self.z_range = scale_lo, scale_hi
+        # Determine hi and lo ends of the color scale
+        if self.mode == 'stretch':
+            # In stretch mode, let the data drag the limits
+            self.z_range = min(scale_lo, self.z_range[0]), \
+                max(scale_hi, self.z_range[1])
+            scale_lo, scale_hi = self.z_range
+        elif self.mode == 'fixed':
+            range_lo, range_hi = self.z_range
+            if range_lo != None:
+                scale_lo = range_lo
+            if range_hi != None:
+                scale_hi = range_hi
+        
+        if scale_hi == scale_lo:
+            scale_hi = scale_lo + 1
+        self.last_limits = (scale_lo, scale_hi)
+        # Transform
+        data = (data-scale_lo)/(scale_hi-scale_lo)
+        if clip_vals == None:
+            clip_vals = (0,1)
+        data[data<0] = clip_vals[0]
+        data[data>1] = clip_vals[1]
+        if mask_val != None and mask != None:
+            data[~mask] = mask_val
+        return data
+    
+    def clear_offset(self):
+        self.z_offset = None
+
+    def set_grab_offset(self):
+        self.trigger_grab_offset = True
+
+    def set_autostretch(self):
+        self.trigger_stretch = True
+
+    def set_mode(self, mode):
+        self.mode = mode
+        if mode == 'stretch':
+            self.trigger_stretch = True
+        

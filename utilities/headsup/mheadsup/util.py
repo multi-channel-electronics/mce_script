@@ -3,15 +3,65 @@ import numpy as np
 import subprocess
 from optparse import OptionParser
 
+
+"""
+Configuration is provided through a config file, which may be
+overridden to various degrees from the command line.
+"""
+
 defaults = {
     'client_name': 'flatfile',
-    'server_host': 'localhost',
-    'server_port': 12354,
+    'host': 'localhost',
+    'port': 12354,
+    'tunnel': None,
     'mcefile': '/data/cryo/flatfile',
     'host_var': 'MHU_SERVER',
+    'config_file': '/etc/mheadsup/main.cfg',
     }
 
 _defaults = defaults
+
+import ConfigParser as cp
+class MainConfig(cp.ConfigParser):
+    filename = _defaults['config_file']
+
+    def __init__(self, filename=None):
+        cp.ConfigParser.__init__(self)
+        if filename != None:
+            self.filename = filename
+        if not os.path.exists(self.filename):
+            print 'Config file %s not found' % self.filename
+        else:
+            self.read(self.filename)
+
+    def get_with_default(self, section, key, default=None):
+        try:
+            cp.ConfigParser.get(self, section, key)
+        except cp.NoOptionError:
+            return default
+        
+    def get_server_config(self, key=None):
+        if not 'Servers' in self.sections():
+            return {}
+        if key == None:
+            key = self.get('Servers', 'default_server')
+        server_list = [x.split() for x in
+                       self.get('Servers', 'server_list').split('\n')]
+        keys, filenames = zip(*[w for w in server_list if len(w) != 0])
+        filename = filenames[keys.index(key)]
+        if filename[0] != '/':
+            filename = os.path.join(os.path.split(self.filename)[0], filename)
+        scfg = cp.ConfigParser()
+        scfg.read(filename)
+        if key in scfg.sections():
+            data = dict(scfg.items(key))
+            if 'port' in data:
+                data['port'] = int(data['port'])
+            if 'tunnel' in data and data['tunnel'] == '':
+                data['tunnel'] = None
+            return data
+        return {}
+
 
 def get_defaults(target=None):
     if target == None:
@@ -24,23 +74,34 @@ def get_defaults(target=None):
         # one to override the default port or host independently.
         host_port = os.getenv(defaults['host_var']).split(':')
         if host_port[0] != '':
-            target['server_host'] = host_port[0]
+            target['host'] = host_port[0]
         if len(host_port) > 1 and host_port[1] != '':
-            target['server_port'] = int(host_port[1])
+            target['port'] = int(host_port[1])
     return target
 
 class upOptionParser(OptionParser):
     def add_standard(self, defaults=_defaults):
-        self.add_option('--host',
-                        default=defaults['server_host'])
-        self.add_option('--port', type=int,
-                         default=defaults['server_port'])
+        self.add_option('--config-file',
+                        default=defaults['config_file'])
         self.add_option('--name',
                          default=defaults['client_name'])
+        self.add_option('--server',default=None)
+        self.add_option('--host', default=None)
+        self.add_option('--port', default=None)
         self.add_option('--port-file', default=None)
 
     def parse_args(self, defaults=None):
         opts, args = OptionParser.parse_args(self)
+        if opts.config_file != None:
+            cfg = MainConfig(opts.config_file)
+            self.server_cfg = defaults.copy()
+            self.server_cfg.update(cfg.get_server_config(opts.server))
+            if opts.port == None:
+                opts.port = self.server_cfg['port']
+            if opts.host == None:
+                opts.host = self.server_cfg['host']
+            if hasattr(opts, 'tunnel') and opts.tunnel == None:
+                opts.tunnel = self.server_cfg['tunnel']
         opts.server = '%s:%i' % (opts.host, opts.port)
         return opts, args
 

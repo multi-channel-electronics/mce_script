@@ -299,7 +299,7 @@ class HeadsupDataSource(HeadsupClient):
         self.info[0] = True
         self.info[1].update(new_info)
         if trigger_notify:
-            print 'sending ', self.info[1]
+            print 'issuing notify', self.info[1].keys()
             self.send_json(self.notify_stream.name, {'info_update': self.info[1]})
 
     def post_data(self, data):
@@ -320,7 +320,6 @@ class HeadsupDataSource(HeadsupClient):
         self.send(data)
 
     def set_geometries(self, geometries):
-        print 'SET GEOM'
         data = {'geometries': [g.encode() for g in geometries]}
         self.update_info(data)
 

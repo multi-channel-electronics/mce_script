@@ -1,4 +1,5 @@
-__all__ = ['analyzer', 'constants', 'clients', 'gfx', 'nets', 'streams', 'plotters', 'util']
+__all__ = ['analyzer', 'constants', 'clients', 'gfx', 'geometries', 'nets',
+           'streams', 'plotters', 'util']
 
 import analyzer
 import clients

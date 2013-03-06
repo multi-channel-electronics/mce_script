@@ -68,6 +68,7 @@ class mceFileFollower(clients.HeadsupDataSource):
             tt.start()
             return tt
         opts = self.options
+        dshape = None
         # Main file watch loop
         while self._check_thread():
             # Inform everyone that we made it to the top
@@ -113,6 +114,19 @@ class mceFileFollower(clients.HeadsupDataSource):
                 if n == -1:
                     break
                 d = f.Read(start=n, count=dn, row_col=True, field=self.field)
+                if dshape == None or d.data.shape[:-1] != dshape:
+                    # Update geometries
+                    dshape = d.data.shape[:-1]
+                    nrow, ncol = dshape
+                    geoms = [
+                            geometries.pixelSetGeometry.for_grid(nrow,ncol,
+                                                                 name='Grid'),
+                            geometries.pixelSetGeometry.for_grid(nrow,ncol,
+                                                                 name='Grid^T'),
+                            ]
+                    geoms[-1].coords = geoms[-1].coords[::-1]
+                    self.set_geometries(geoms)
+                    
                 # Handle control messages
                 ok, addr, _ = self.do_receive()
                 # Post the data
@@ -151,7 +165,7 @@ if __name__ == '__main__':
     o.add_option('--data-field')
     # For playback of existing file
     o.add_option('--loop', action='store_true')
-    o.add_option('--step', type=int, default=10)
+    o.add_option('--step', type=int, default=None)
     # For following a file on the fly
     o.add_option('--tail', '-F', action='store_true')
     o.add_option('--follow', action='store_true')
@@ -169,11 +183,6 @@ if __name__ == '__main__':
         sys.exit(2)
     mp.register_basic_streams()
 
-    geom = [geometries.pixelSetGeometry.for_grid(8, 2, name='Grid'),
-            geometries.pixelSetGeometry.for_grid(2,8, name='Grid2'),
-            geometries.pixelSetGeometry.circle(16, name='Circle')]
-    mp.set_geometries(geom)
-
     if opts.tail:
         opts.follow = True
         mp.options['seek_tail'] = True
@@ -182,6 +191,9 @@ if __name__ == '__main__':
         mp.options['control_forever'] = True
         mp.options['delay'] = .01
         mp.options['watch'] = .01
+
+    if opts.step != None:
+        mp.step = opts.step
     
     while True:
         mp.playback(flatfile, background=defaults['threaded'])

@@ -25,12 +25,14 @@ class simpleCombo(QtGui.QComboBox):
         if items != None:
             for k, v in items:
                 self.addItem(QtCore.QString(v))
-                self.private_data.append((k,v))
+                self.private_data.append((v,k))
         if selection != None:
             self.setCurrentIndex(selection)
     def update_items(self, labels=None, items=None):
         """
         Update the items with as little disruption as possible.
+
+        When items are passed, data will be updated even if label is the same.
         """
         current_names = [p[0] for p in self.private_data]
         keepers = [False for i in range(len(current_names))]
@@ -44,7 +46,9 @@ class simpleCombo(QtGui.QComboBox):
         if items != None:
             for k, v in items:
                 if v in current_names:
-                    keepers[current_names.index(v)] = True
+                    idx = current_names.index(v)
+                    keepers[idx] = True
+                    private_data[idx] = k
                 else:
                     new_data.append((k,v))
         # Remove dead items
@@ -121,6 +125,8 @@ class tightView(QtGui.QGraphicsView):
    
 class GridDisplay(QtGui.QGraphicsObject):
     data = None
+    last_click = None
+
     def set_data(self, data, channel=None):
         # Expects data to be float, 0 to 1.
         data = np.round(data*255).astype('uint8')
@@ -169,8 +175,6 @@ class GridDisplay(QtGui.QGraphicsObject):
         x, y = ev.pos().x(), ev.pos().y()
         x, y = int(np.floor(x-x0)), int(np.floor(y-y0))
         self.last_click = x, y
-        print x, y
-
 
 class blipColorMap:
     def __init__(self, beginColor, endColor, granularity=256):
@@ -210,6 +214,8 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     blip_brush0 = QtGui.QBrush(QtGui.QColor(128,128,128))
     blip_cmap = None
     data = None
+
+    last_click = None
 
     def set_data(self, data):
         if self.data == None or data.shape != self.data.shape:
