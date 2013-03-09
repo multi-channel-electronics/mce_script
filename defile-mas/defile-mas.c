@@ -125,6 +125,7 @@ struct runfile {
 };
 
 /* yay for globals */
+static int fdind = -1;
 static struct df_fdef fdef;
 static int mas_rcs[4];
 static struct runfile_block *mas_rf_header;
@@ -1051,7 +1052,7 @@ static int mas_entry(const struct df_config *config)
   f->type = GD_UINT32;
   f->offset = sizeof(uint32_t) * (nrow * ncol + HEADER_LEN);
   f->cadence = 0;
-  df_add_framedef(&fdef, 1, 0);
+  fdind = df_add_framedef(&fdef, 1, 0);
 
   /* add data_mode derived fields */
   char spec[4096];
@@ -1101,14 +1102,15 @@ static int mas_entry(const struct df_config *config)
   }
 
   /* OK Go */
-  df_ready("checksum");
+  if (df_ready("checksum"))
+    df_exit(1, 1);
 
   /* frame loop */
   char *fr = malloc(fdef.framesize);
   int eof;
   for (;;) {
     for (eof = read_datafile(&fh, fr); !eof; eof = read_datafile(NULL, fr))
-      df_push_frame(0, 1, fr, 1);
+      df_push_frame(fdind, 1, fr, 1);
 
     if (!follow)
       break;

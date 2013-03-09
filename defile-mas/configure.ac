@@ -47,13 +47,10 @@ dnl libtool
 LT_INIT
 
 dnl defile
-AC_SEARCH_LIBS([df_init], [defile])
-AC_CHECK_HEADERS([defile.h],, [AC_MSG_ERROR([required header missing])])
-AC_CHECK_PROGS([DEFILE], [defile], [])
-AC_MSG_CHECKING([the defile library path])
-defiledir=`$DEFILE --lib-dir`
-AC_MSG_RESULT([$moduledir])
-AC_SUBST([defiledir])
+DF_CHECK_DEFILE_H
+DF_CHECK_LIBDEFILE
+DF_CHECK_DEFILE
+DF_PLUGIN_PATH
 
 dnl output
 AC_CONFIG_FILES([Makefile])
