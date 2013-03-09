@@ -19,8 +19,8 @@ all clean:
 			( cd $$d && make $@ ); \
 		elif [ -e $$d/configure ]; then \
 			( cd $$d && ./configure && make $@ ) \
-		elif [ -e $$d/configure.ac ]; then \
-		  ( cd $$d && autoreconf -vifs && ./configure && make $@ ); \
+		elif [ -e $$d/bootstrap.sh ]; then \
+		  ( cd $$d && ./bootstrap.sh && ./configure && make $@ ); \
 		fi; \
 	done
 
