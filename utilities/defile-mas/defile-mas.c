@@ -1088,7 +1088,7 @@ static int mas_entry(const struct df_config *config)
                 derived[data_mode][d].bitnum,
                 derived[data_mode][d].numbits);
             df_add_spec(spec, 0);
-            sprintf(spec, "%s_r%02ic%02i LINCOM INTER_%s_%02ic%02i %lg 0",
+            sprintf(spec, "%s_r%02ic%02i LINCOM INTER_%s_r%02ic%02i %lg 0",
                 derived[data_mode][d].name, j, i,
                 derived[data_mode][d].name, j, i,
                 derived[data_mode][d].scale);
