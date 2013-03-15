@@ -4,7 +4,9 @@
 if [ -e /usr/share/aclocal/defile.m4 ]; then
   true # no special option needed
 elif [ -e /usr/local/share/aclocal/defile.m4 ]; then
-  INCLUDE="-I /usr/local/share/aclocal"
+  # copy to local directory
+  echo "linking file m4/defile.m4";
+  ln -sf /usr/local/share/aclocal/defile.m4 m4/defile.m4
 else
   echo "I can't find defile.m4.  If it's in autoconf's search path, you should"
   echo "be able to just run:"
@@ -19,4 +21,4 @@ else
   exit 1
 fi
 
-autoreconf -vifs $INCLUDE
+autoreconf -vifs
