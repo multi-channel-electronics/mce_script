@@ -883,6 +883,7 @@ static int read_datafile(char *data, size_t *size)
     if (n == 0) {/* eof */
       return 1;
     }
+    *size += n;
     len -= n;
     data += n;
   }
