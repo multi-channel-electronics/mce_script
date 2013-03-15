@@ -863,18 +863,15 @@ static void write_rf_header(void)
   }
 }
 
-/* returns non-zero on EOF */
-static int read_datafile(const struct frame_header *fh, char *data)
+/* given the base pointer to the data buffer and the current amount of stuff
+ * in it; returns non-zero on EOF */
+static int read_datafile(char *data, size_t *size)
 {
-  size_t len = fdef.framesize;
+  size_t len = fdef.framesize - *size;
   ssize_t n;
 
-  /* already read the header */
-  if (fh) {
-    len -= sizeof(uint32_t) * HEADER_LEN;
-    memcpy(data, fh, sizeof(*fh));
-    data += sizeof(*fh);
-  }
+  /* data is always the base pointer, so increment */
+  data += *size;
 
   /* read more */
   while (len > 0) {
@@ -1040,7 +1037,7 @@ static int mas_entry(const struct df_config *config)
     for (j = 0; j < nrow; ++j) {
       f = field + i * nrow + j + NHEADER_FIELDS;
       f->name = malloc(sizeof("tesdatar##c##"));
-      sprintf(f->name, "tesdatar%02ic%02i", i, j);
+      sprintf(f->name, "tesdatar%02ic%02i", j, i);
       f->spf = 1;
       f->type = GD_UINT32;
       f->offset = sizeof(uint32_t) * (i * nrow + j + HEADER_LEN);
@@ -1107,10 +1104,18 @@ static int mas_entry(const struct df_config *config)
 
   /* frame loop */
   char *fr = malloc(fdef.framesize);
+  size_t size;
   int eof;
+
+  /* copy the header to the first frame of data */
+  size = sizeof(fh);
+  memcpy(fr, &fh, size);
+
   for (;;) {
-    for (eof = read_datafile(&fh, fr); !eof; eof = read_datafile(NULL, fr))
+    for (eof = read_datafile(fr, &size); !eof; eof = read_datafile(fr, &size)) {
       df_push_frame(fdind, 1, fr, 1);
+      size = 0; /* reset frame buffer */
+    }
 
     if (!follow)
       break;
