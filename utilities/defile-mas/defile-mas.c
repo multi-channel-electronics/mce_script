@@ -1099,6 +1099,13 @@ static int mas_entry(const struct df_config *config)
       }
   }
 
+  /* add convenience fields */
+  sprintf(spec, "frame_rate CONST FLOAT64 %.16g", rate);
+  df_add_spec(spec, 0);
+  /* this just divides the frame number by the frame rate */
+  sprintf(spec, "acq_seconds LINCOM INDEX %.16g 0", 1. / rate);
+  df_add_spec(spec, 0);
+
   /* OK Go */
   if (df_ready("checksum"))
     df_exit(1, 1);
