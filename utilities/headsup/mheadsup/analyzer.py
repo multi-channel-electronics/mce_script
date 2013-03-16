@@ -5,7 +5,7 @@ Implement a data consumer using pylab.
 import time
 import clients, nets, util
 
-class dataAnalyzer(clients.dataConsumer):
+class x: #dataAnalyzer(clients.dataConsumer):
     def __init__(self, addr=None, name='pylab'):
         clients.dataConsumer.__init__(self, addr, name)
         self.config = {}

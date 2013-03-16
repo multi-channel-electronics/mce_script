@@ -42,7 +42,7 @@ client_info_defaults = ({
         'frame_t0': 0,
         'monitor_controls': False,
         'poll_controls': False,
-        'packet_format': 0,
+        'packet_format': 1,
         })
 
 
@@ -73,7 +73,7 @@ class dataHandler(SocketServer.BaseRequestHandler):
             if data == '':
                 time.sleep(.01)
                 continue
-            master.data(me, data)
+            master.process_data(me, data)
         master.remove(me)
 
 class thServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
@@ -97,6 +97,7 @@ class dataDistributor:
 
     def serve(self):
         self.log('Entering server loop', 1)
+        self.log('Setting up listener on %s:%i' % self.addr, 1)
         try:
             self.server = thServer(self.addr, dataHandler)
             self.server.master = self
@@ -202,64 +203,6 @@ class dataDistributor:
                 self.post_action(client, 'close')
         self.server.shutdown()
         
-
-    def data(self, conn, data):
-        """
-        Process the data packet from conn.
-        """
-        info = self.clients[conn]
-        if info['packet_format'] == 1:
-            # New packet format
-            return self.process_data(conn, data)
-        cmd = data[:4]
-        if cmd == 'setv':
-            info['packet_format'] = 1
-        if cmd == 'diex':
-            for client in self.clients.keys():
-                self.actions[client] = []
-                self.post_action(client, 'send', 'diec')
-                self.post_action(client, 'close')
-                #self.post_action(client, 'close', quick=True)
-            self.server.shutdown()
-        elif cmd == 'cliv':
-            # Set client variables (name, type)
-            key, dtype, value = nets.decode_strings(data[4:])
-            info[key] = util.casts[dtype](value)
-            # Some client variables require immediate action
-            if key == 'poll_controls':
-                # Send full control dict to requester
-                self.post_action(conn, 'send', 'ctrl'+nets.encode_json(self.controls))
-                info[key] = 0
-                
-        elif cmd == 'list':
-            omit_keys = ['conn']
-            list_data = []
-            for c in self.clients.values():
-                d = c.copy()
-                for k in omit_keys:
-                    d.pop(k)
-                list_data.append((c['id'], d))
-            list_data = zip(*sorted(list_data))[1]
-            self.post_action(conn, 'send', 'list'+nets.encode_json(list_data))
-        # Sources send control and data packets, pass them on to
-        # listeners.
-        elif cmd in 'ctrl':
-            # Decode once for us
-            self.controls.update(nets.decode_json(data[4:]))
-            for c in self.clients.keys():
-                info = self.clients[c]
-                if info.get('type') == 'sink' or info.get('monitor_controls'):
-                    self.post_action(c, 'send', data)
-        elif cmd == 'data':
-            for c in self.clients.keys():
-                info = self.clients[c]
-                if info.get('type') == 'sink':
-                    self.resend_frame(c, data)
-        elif cmd == 'ping':
-            self.post_action(conn, 'send', 'pong')
-        else:
-            print 'Whatever, "%s"' % data[:4]
-
     def update_local_subscribers(self, streams=None, clients=None):
         if streams == None:
             streams = [self.stream_list_stream]
@@ -427,8 +370,9 @@ if __name__ == '__main__':
                                (opts.port, opts.host, opts.port, opts.tunnel)))
                   
     if opts.kill:
-        killer = clients.dataClient(opts.server)
-        killer.send('diex')
+        killer = clients.HeadsupClient(opts.server)
+        killer.send_json('_server', {'request': 'die'},
+                         destination='_server', ptype='control')
         sys.exit(0)
 
     if opts.port_file:
@@ -436,3 +380,4 @@ if __name__ == '__main__':
 
     dd = dataDistributor(opts.server, opts.verbosity)
     dd.serve()
+

@@ -41,12 +41,16 @@ class randomDataProducer(clients.HeadsupDataSource):
             n+=1
             time.sleep(1./self.rate)
             d = numpy.random.random(self.dshape).astype('float32')
+
             self.post_data(d)
             if n == 100:
                 self.update_info({'data_mode': 'entropy'})
 
             # You should do this.
             self.do_receive()
+            if not self.connected:
+                print 'Connection dropped.'
+                return
 
 
 if __name__ == '__main__':

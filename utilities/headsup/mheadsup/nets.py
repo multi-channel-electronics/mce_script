@@ -6,6 +6,22 @@ import numpy
 import errno
 import json
 
+def get_socket(address):
+    """
+    Address should be a string with host:port.
+
+    Returns:
+         socket, err_code, err_message
+    """
+    err, msg = 0, ''
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.connect(decode_address(address))
+    except socket.error as err:
+        err, msg = err.args[0], err.args[1]
+    return sock, err, msg
+    
+
 def send_dahi(sock, data):
     n = len(data)
     pre = 'dahi' + array.array('i', [n]).tostring()
@@ -70,24 +86,6 @@ def recv_dahi(sock, block=True):
                 # Payload size
                 n += array.array('i', data[4:])[0]
                 header = True
-            
-def encode_json(d):
-    return 'json\x00' + json.dumps(d)
-
-def decode_json(d):
-    a, b = d.split('\x00')
-    if not a == 'json':
-        raise ValueError, "does not appear to be a jsondict"
-    return json.loads(b)
-
-
-def encode_strings(ss):
-    return '\x00'.join(ss) + '\x00'
-
-def decode_strings(s, n=-1):
-    if n == -1:
-        return s.split('\x00')[:-1]
-    return s.split('\x00', n)
 
 def decode_address(addr):
     if isinstance(addr, basestring):
@@ -96,8 +94,12 @@ def decode_address(addr):
         return (host, port)
     return addr
 
+
 #
-# New encapsulation
+# Packet encoder.  Dahi v 1.
+#
+# Data consists of address block, followed by a data block containing
+# a JSON structure and a binary block.
 #
 
 class packetFormatV1:

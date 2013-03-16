@@ -76,7 +76,11 @@ class displayClient(clients.HeadsupDataConsumer):
 
 
 
-class displayController(clients.dataProducer, dict):
+
+#
+# Needs a rewrite...
+
+class displayController: #(clients.dataProducer, dict):
     """
     This class can be used to control a plot window from a client of
     some kind.  It exposes high-level methods that send display
