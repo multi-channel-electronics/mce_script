@@ -23,6 +23,8 @@ AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4
                
 AM_CPPFLAGS = -Wall
+AM_CFLAGS = -g -O3
+AM_LDFLAGS = -g
 defile_LTLIBRARIES = libdefile-mas.la
 libdefile_mas_la_SOURCES = defile-mas.c
 libdefile_mas_la_LDFLAGS = -module -release $(PACKAGE_VERSION) -shared

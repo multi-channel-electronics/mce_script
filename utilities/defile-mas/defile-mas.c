@@ -28,6 +28,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <errno.h>
+#include <ctype.h>
+#include <libgen.h>
 
 #include <defile.h>
 
@@ -131,6 +134,8 @@ static int mas_rcs[4];
 static struct runfile_block *mas_rf_header;
 static int mas_fd = -1;
 static struct runfile rf = { 0, NULL };
+static char *mas_flatfile = NULL;
+static char *mas_pathname = NULL;
 static struct {
   long rf_vers;
   const char *mas_vers;
@@ -141,6 +146,15 @@ static struct {
   int64_t ctime;
   const char *hostname;
 } frameacq;
+
+static struct {
+  int nrow;
+  int ncol;
+  int data_mode;
+
+  /* derived parameters */
+  double rate;
+} mas_rf_data;
 
 /* public strings; see defile-input(7) */
 #define DEFILE_MAS_COPYRIGHT "Copyright (C) 2013 D. V. Wiebe"
@@ -203,7 +217,7 @@ static int mas_probe(const char *name)
   return 1;
 }
 
-static int mas_clean(void)
+static void mas_close_flatfile(void)
 {
   int i, j;
 
@@ -225,6 +239,19 @@ static int mas_clean(void)
     free(rf.block[i].tag);
   }
   free(rf.block);
+  rf.block = NULL;
+  rf.nblock = 0;
+}
+
+static int mas_clean(void)
+{
+  mas_close_flatfile();
+
+  if (mas_pathname)
+    free(mas_pathname);
+
+  if (mas_flatfile)
+    free(mas_flatfile);
 
   return 0;
 }
@@ -430,7 +457,7 @@ static long runfile_rca_param_long(const char *param)
 
   if (used == -1) {
     df_printf(DF_PRN_ERR, "missing parameter \"%s\" on rca.\n", param);
-    df_exit(1,1);
+    df_exit(1, 1);
   } else if (different) {
     df_printf(DF_PRN_WARN, "parameter \"%s\" varies between RCs.  "
         "Using value reported by rc%i.\n", param, used + 1);
@@ -568,9 +595,23 @@ static int runfile_read(const char *base)
 
   stream = fopen(runfile, "rt");
   if (stream == NULL) {
-    df_printf(DF_PRN_ERR, "Unable to open runfile: %s\n", runfile);
-    free(runfile);
-    return 1;
+    if (errno == ENOENT) { /* not found -- maybe its a sequenced file? */
+      size_t len = strlen(base);
+      
+      /* look for a three digit extension with a preceding '.' */
+      if (len > 4 && isdigit(runfile[len - 1]) && isdigit(runfile[len - 2]) &&
+          isdigit(runfile[len - 3]) && runfile[len - 4] == '.') {
+        /* let's assume it's a sequenced file and try again */
+        strcpy(runfile + len - 3, "run");
+        stream = fopen(runfile, "rt");
+      }
+    }
+    if (stream == NULL) {
+      df_printf(DF_PRN_ERR, "Unable to open runfile: %s: %s\n", runfile,
+          strerror(errno));
+      free(runfile);
+      return 1;
+    }
   }
   free(runfile);
 
@@ -878,7 +919,7 @@ static int read_datafile(char *data, size_t *size)
     n = read(mas_fd, data, len);
     if (n < 0) {
       df_perror(DF_PRN_ERR, "read");
-      df_exit(1,1);
+      df_exit(1, 1);
     }
     if (n == 0) {/* eof */
       return 1;
@@ -891,37 +932,210 @@ static int read_datafile(char *data, size_t *size)
   return 0;
 }
 
-/* the module entry point: this function runs as a separate thread (the input
- * thread) */
-static int mas_entry(const struct df_config *config)
+/* check whether (global) mas_pathname is a symlink;  if it is, reutrn the
+ * canonical name in (global) mas_flatfile, otherwise just copy mas_pathname to
+ * mas_flatfile; returns whether the symlink changed */
+static int mas_check_symlink(int retry)
+{
+  int changed;
+  struct stat stat_buf;
+  char *target = NULL;
+  ssize_t n;
+
+  if (lstat(mas_pathname, &stat_buf) < 0) {
+    df_printf(DF_PRN_ERR, "unable to stat %s: %s", mas_pathname, strerror(errno));
+    df_exit(1, 1);
+  }
+
+  /* not a link -- do nothing.  Weird stuff will happen if someone changes
+   * mas_pathname from a symlink to a real file (or vice-versa) while defile's
+   * running.
+   */
+  if (!S_ISLNK(stat_buf.st_mode))
+    return 0;
+
+  target = malloc(stat_buf.st_size + 1);
+  if (target == NULL) {
+    df_printf(DF_PRN_ERR, "out of memory");
+    df_exit(1, 1);
+  }
+
+  n = readlink(mas_pathname, target, stat_buf.st_size + 1);
+  if (n < 0) {
+    df_perror(DF_PRN_ERR, "readlink");
+    df_exit(1, 1);
+  } else if (n > stat_buf.st_size) {
+    /* symlink changed between stat() and readlink(); try again (once) */
+    free(target);
+    if (!retry)
+      return mas_check_symlink(1);
+    else {
+      df_printf(DF_PRN_ERR, "unable to read unstable symlink: %s\n",
+          mas_pathname);
+      df_exit(1, 1);
+    }
+  }
+  target[stat_buf.st_size] = 0; /* readlink doesn't guarantee NUL-termination */
+
+  /* handle relative paths */
+  if (target[0] != '/') {
+    char *ptr, *c, *dir;
+    c = strdup(mas_pathname); /* dirname may modify its input */
+    if (c == NULL) {
+      df_printf(DF_PRN_ERR, "Out of memory");
+      free(target);
+      df_exit(1, 1);
+    }
+
+    dir = dirname(c);
+    ptr = malloc(strlen(target) + strlen(dir) + 2);
+    if (ptr == NULL) {
+      df_printf(DF_PRN_ERR, "Out of memory");
+      free(c);
+      free(target);
+      df_exit(1, 1);
+    }
+
+    sprintf(ptr, "%s/%s", dir, ptr);
+    free(c);
+    free(target);
+    target = ptr;
+  }
+
+  /* re-stat to ensure kosheritude */
+  if (stat(target, &stat_buf)) {
+    df_printf(DF_PRN_ERR, "unable to stat %s: %s", target, strerror(errno));
+    free(target);
+    df_exit(1, 1);
+  }
+
+  /* changed? */
+  changed = (strcmp(target, mas_flatfile)) ? 1 : 0;
+
+  if (changed) {
+    free(mas_flatfile);
+    mas_flatfile = target;
+  }
+
+  return changed;
+}
+
+static void mas_metadata(void)
 {
   int i, j;
-  int follow;
-  struct frame_header fh;
+
+  /* store the runfile data in a new fragment */
+  write_rf_header();
+
+  /* make the framedef */
+  struct df_fdef_field *field = malloc(sizeof(struct df_fdef_field) *
+      (mas_rf_data.nrow * mas_rf_data.ncol + NHEADER_FIELDS + 1));
+  struct df_fdef_field *f;
+  fdef.framesize = (mas_rf_data.nrow * mas_rf_data.ncol + HEADER_LEN + 1)
+    * sizeof(uint32_t);
+  fdef.n_fields = mas_rf_data.nrow * mas_rf_data.ncol + NHEADER_FIELDS + 1;
+  fdef.field = field;
+  for (i = 0; i < NHEADER_FIELDS; ++i) {
+    f = field + i;
+    f->name = (char*)header_field[i];
+    f->spf = 1;
+    f->type = GD_UINT32;
+    f->offset = i * sizeof(uint32_t);
+    f->cadence = 0;
+  }
+  for (i = 0; i < mas_rf_data.ncol; ++i)
+    for (j = 0; j < mas_rf_data.nrow; ++j) {
+      f = field + i * mas_rf_data.nrow + j + NHEADER_FIELDS;
+      f->name = malloc(sizeof("tesdatar##c##"));
+      sprintf(f->name, "tesdatar%02ic%02i", j, i);
+      f->spf = 1;
+      f->type = GD_UINT32;
+      f->offset = sizeof(uint32_t) * (i * mas_rf_data.nrow + j + HEADER_LEN);
+      f->cadence = 0;
+    }
+  f = field + mas_rf_data.nrow * mas_rf_data.ncol + NHEADER_FIELDS;
+  f->name = "checksum";
+  f->spf = 1;
+  f->type = GD_UINT32;
+  f->offset = sizeof(uint32_t) * (mas_rf_data.nrow * mas_rf_data.ncol
+      + HEADER_LEN);
+  f->cadence = 0;
+  fdind = df_add_framedef(&fdef, 1, 0);
+
+  /* add data_mode derived fields */
+  char spec[4096];
+  int d;
+  for (d = 0; d < 2; ++d) {
+    for (i = 0; i < mas_rf_data.ncol; ++i)
+      for (j = 0; j < mas_rf_data.nrow; ++j) {
+        switch (derived[mas_rf_data.data_mode][d].type) {
+          case DERIV_RAW:
+            /* use an /ALIAS? */
+            sprintf(spec, "%s_r%02ic%02i LINCOM tesdatar%02ic%02i 1 0",
+                derived[mas_rf_data.data_mode][d].name, j, i, j, i);
+            df_add_spec(spec, 0);
+            break;
+          case DERIV_SCALE:
+            sprintf(spec, "%s_r%02ic%02i LINCOM tesdatar%02ic%02i %lg 0",
+                derived[mas_rf_data.data_mode][d].name, j, i, j, i,
+                derived[mas_rf_data.data_mode][d].scale);
+            df_add_spec(spec, 0);
+            break;
+          case DERIV_BIT:
+            sprintf(spec, "%s_r%02ic%02i %sBIT tesdatar%02ic%02i %i %i",
+                derived[mas_rf_data.data_mode][d].name, j, i,
+                derived[mas_rf_data.data_mode][d].sign ? "S" : "", j, i,
+                derived[mas_rf_data.data_mode][d].bitnum,
+                derived[mas_rf_data.data_mode][d].numbits);
+            df_add_spec(spec, 0);
+            break;
+          case DERIV_BITSCALE:
+            sprintf(spec, "INTER_%s_r%02ic%02i %sBIT tesdatar%02ic%02i %i %i",
+                derived[mas_rf_data.data_mode][d].name, j, i,
+                derived[mas_rf_data.data_mode][d].sign ? "S" : "", j, i,
+                derived[mas_rf_data.data_mode][d].bitnum,
+                derived[mas_rf_data.data_mode][d].numbits);
+            df_add_spec(spec, 0);
+            sprintf(spec, "%s_r%02ic%02i LINCOM INTER_%s_r%02ic%02i %lg 0",
+                derived[mas_rf_data.data_mode][d].name, j, i,
+                derived[mas_rf_data.data_mode][d].name, j, i,
+                derived[mas_rf_data.data_mode][d].scale);
+            df_add_spec(spec, 0);
+            break;
+          default:
+            /* skip */
+            break;
+        }
+      }
+  }
+
+  /* add convenience fields */
+  sprintf(spec, "frame_rate CONST FLOAT64 %.16g", mas_rf_data.rate);
+  df_add_spec(spec, 0);
+  /* this just divides the frame number by the frame rate */
+  sprintf(spec, "acq_seconds LINCOM INDEX %.16g 0", 1. / mas_rf_data.rate);
+  df_add_spec(spec, 0);
+}
+
+/* returns nframes; on error exits with error code ret (1 for the first
+ * flatfile; zero when cycling, so that the previous conversion is kept) */
+static long long mas_load_flatfile(struct frame_header *fh, int follow, int ret)
+{
   struct stat stat_buf;
 
-  /* get the input plugin name */
-  const char *name = df_input_name(1);
-
-  /* are we in follow mode? */
-  follow = df_mode() & DF_MODE_FOLLOW;
-
-  /* cleanup function */
-  df_on_abort(mas_clean);
-
   /* read and parse the runfile */
-  if (runfile_read(name))
-    df_exit(1, 1);
+  if (runfile_read(mas_flatfile))
+    df_exit(ret, 1);
 
   /* load the frameacq data from the runfile */
   if (load_frameacq())
-    df_exit(1, 1);
+    df_exit(ret, 1);
 
   /* runfile header */
   mas_rf_header = runfile_find_block("HEADER");
   if (mas_rf_header == NULL) {
     df_printf(DF_PRN_ERR, "missing required HEADER block in runfile.\n");
-    df_exit(1, 1);
+    df_exit(ret, 1);
   }
 
   /* check CC fw_rev */
@@ -929,72 +1143,72 @@ static int mas_entry(const struct df_config *config)
   if (cc_fw_rev < 0x5000000) {
     df_printf(DF_PRN_ERR, "Unsupported clock card firmware revision: 0x%X\n",
         cc_fw_rev);
-    df_exit(1, 1);
+    df_exit(ret, 1);
   }
 
   /* open the data file */
-  mas_fd = open(name, O_RDONLY);
+  mas_fd = open(mas_flatfile, O_RDONLY);
   if (mas_fd < 0) {
     df_perror(DF_PRN_ERR, "open");
-    df_exit(1, 1);
+    df_exit(ret, 1);
   }
 
   /* load the header of the first frame */
-  load_frameheader(&fh, follow);
+  load_frameheader(fh, follow);
 
   /* verify header version */
-  if (fh.vers < 6) {
-    df_printf(DF_PRN_ERR, "Unsupported frame header version: %u\n", fh.vers);
-    df_exit(1,1);
+  if (fh->vers < 6) {
+    df_printf(DF_PRN_ERR, "Unsupported frame header version: %u\n", fh->vers);
+    df_exit(ret, 1);
   }
 
   /* calculate some useful things */
-  int num_rc_present = MAS_FSW_NRC(fh.status);
-  int ncol = MAS_FSW_NCOL(fh.status);
-  mas_rcs[0] = (fh.status & MAS_FSW_RC1_HERE);
-  mas_rcs[1] = (fh.status & MAS_FSW_RC2_HERE);
-  mas_rcs[2] = (fh.status & MAS_FSW_RC3_HERE);
-  mas_rcs[3] = (fh.status & MAS_FSW_RC4_HERE);
+  int num_rc_present = MAS_FSW_NRC(fh->status);
+  int ncol = MAS_FSW_NCOL(fh->status);
+  mas_rcs[0] = (fh->status & MAS_FSW_RC1_HERE);
+  mas_rcs[1] = (fh->status & MAS_FSW_RC2_HERE);
+  mas_rcs[2] = (fh->status & MAS_FSW_RC3_HERE);
+  mas_rcs[3] = (fh->status & MAS_FSW_RC4_HERE);
 
-  int words_per_rc = ncol * fh.nrow_reported;
-  int framesize = sizeof(fh) /* header size */
+  int words_per_rc = ncol * fh->nrow_reported;
+  int framesize = sizeof(*fh) /* header size */
     + words_per_rc * sizeof(uint32_t) * num_rc_present /* frame data */
     + sizeof(uint32_t); /* checksum */
 
   /* in follow mode, nframes can't be reliably calculated */
   long long nframes = 0;
   if (!follow) {
-    if (stat(name, &stat_buf))
+    if (stat(mas_flatfile, &stat_buf))
       df_perror(DF_PRN_WARN, "stat");
     else
       nframes = stat_buf.st_size / framesize;
   }
 
   /* figure out the packing */
-  ncol = runfile_rca_param_long("num_cols_reported");
-  int nrow = runfile_rca_param_long("num_rows_reported");
+  mas_rf_data.ncol = runfile_rca_param_long("num_cols_reported");
+  mas_rf_data.nrow = runfile_rca_param_long("num_rows_reported");
   int data_rate = runfile_param_long("cc", "data_rate", -1);
   if (data_rate <= 0) {
     df_printf(DF_PRN_ERR, "Bad cc parameter \"data_rate\"");
-    df_exit(1,1);
+    df_exit(ret, 1);
   }
-  int data_mode = runfile_rca_param_long("data_mode");
-  if (!mas_data_mode_supported(data_mode)) {
-    df_printf(DF_PRN_ERR, "Unsupported data mode: %i\n", data_mode);
-    df_exit(1,1);
+  mas_rf_data.data_mode = runfile_rca_param_long("data_mode");
+  if (!mas_data_mode_supported(mas_rf_data.data_mode)) {
+    df_printf(DF_PRN_ERR, "Unsupported data mode: %i\n", mas_rf_data.data_mode);
+    df_exit(ret, 1);
   }
 
-  double rate = 50e6;
-  if (data_mode == DATA_MODE_RAW) { /* the easy case */
+  mas_rf_data.rate = 50e6;
+  if (mas_rf_data.data_mode == DATA_MODE_RAW) { /* the easy case */
     if (follow) {
       df_printf(DF_PRN_ERR,
           "RAW mode (data_mode 12) data can't be read in follow mode");
-      df_exit(1,1);
+      df_exit(ret, 1);
     }
-    nrow = 32;
-    ncol = 8;
+    mas_rf_data.nrow = 32;
+    mas_rf_data.ncol = 8;
   } else { /* rectangle mode data */
-    int cc_count = nrow * ncol;
+    int cc_count = mas_rf_data.nrow * mas_rf_data.ncol;
     int rc_count = words_per_rc;
 
     /* sanity checks */
@@ -1007,131 +1221,110 @@ static int mas_entry(const struct df_config *config)
     /* frequency */
     long num_rows = runfile_param_long("cc", "num_rows", 0);
     long row_len = runfile_param_long("cc", "row_len", 0);
-    rate = rate / (num_rows * row_len * data_rate);
+    mas_rf_data.rate = mas_rf_data.rate / (num_rows * row_len * data_rate);
 
     ncol *= num_rc_present;
   }
 
+  return nframes;
+}
+
+/* the module entry point: this function runs as a separate thread (the input
+ * thread) */
+static int mas_entry(const struct df_config *config)
+{
+  struct frame_header fh;
+  char *fr;
+  size_t size;
+  int follow, eof, eof_count;
+
+  /* cleanup function */
+  df_on_abort(mas_clean);
+
+  /* are we in follow mode? */
+  follow = df_mode() & DF_MODE_FOLLOW;
+
+  /* get the input plugin name and handle symlinkery */
+  mas_pathname = strdup(df_input_name(1));
+  if (mas_pathname == NULL) {
+    df_printf(DF_PRN_ERR, "Out of memory");
+    df_exit(1, 1);
+  }
+
+  mas_flatfile = strdup(mas_pathname);
+  if (mas_flatfile == NULL) {
+    df_printf(DF_PRN_ERR, "Out of memory");
+    df_exit(1, 1);
+  }
+  mas_check_symlink(0);
+
+  /* open and verify the input */
+  long long nframes = mas_load_flatfile(&fh, follow, 1);
+
   /* finally, we can spin up defile */
-  df_init(nframes, rate, NULL);
+  if (df_init(nframes, mas_rf_data.rate, mas_flatfile))
+    df_exit(1, 1);
 
-  /* store the runfile data in a new fragment */
-  write_rf_header();
-
-  /* make the framedef */
-  struct df_fdef_field *field = malloc(sizeof(struct df_fdef_field) * (nrow
-      * ncol + NHEADER_FIELDS + 1));
-  struct df_fdef_field *f;
-  fdef.framesize = (nrow * ncol + HEADER_LEN + 1) * sizeof(uint32_t);
-  fdef.framesize = (nrow * ncol + HEADER_LEN + 1) * sizeof(uint32_t);
-  fdef.n_fields = nrow * ncol + NHEADER_FIELDS + 1;
-  fdef.field = field;
-  for (i = 0; i < NHEADER_FIELDS; ++i) {
-    f = field + i;
-    f->name = (char*)header_field[i];
-    f->spf = 1;
-    f->type = GD_UINT32;
-    f->offset = i * sizeof(uint32_t);
-    f->cadence = 0;
-  }
-  for (i = 0; i < ncol; ++i)
-    for (j = 0; j < nrow; ++j) {
-      f = field + i * nrow + j + NHEADER_FIELDS;
-      f->name = malloc(sizeof("tesdatar##c##"));
-      sprintf(f->name, "tesdatar%02ic%02i", j, i);
-      f->spf = 1;
-      f->type = GD_UINT32;
-      f->offset = sizeof(uint32_t) * (i * nrow + j + HEADER_LEN);
-      f->cadence = 0;
-    }
-  f = field + nrow * ncol + NHEADER_FIELDS;
-  f->name = "checksum";
-  f->spf = 1;
-  f->type = GD_UINT32;
-  f->offset = sizeof(uint32_t) * (nrow * ncol + HEADER_LEN);
-  f->cadence = 0;
-  fdind = df_add_framedef(&fdef, 1, 0);
-
-  /* add data_mode derived fields */
-  char spec[4096];
-  int d;
-  for (d = 0; d < 2; ++d) {
-    for (i = 0; i < ncol; ++i)
-      for (j = 0; j < nrow; ++j) {
-        switch (derived[data_mode][d].type) {
-          case DERIV_RAW:
-            /* use an /ALIAS? */
-            sprintf(spec, "%s_r%02ic%02i LINCOM tesdatar%02ic%02i 1 0",
-                derived[data_mode][d].name, j, i, j, i);
-            df_add_spec(spec, 0);
-            break;
-          case DERIV_SCALE:
-            sprintf(spec, "%s_r%02ic%02i LINCOM tesdatar%02ic%02i %lg 0",
-                derived[data_mode][d].name, j, i, j, i,
-                derived[data_mode][d].scale);
-            df_add_spec(spec, 0);
-            break;
-          case DERIV_BIT:
-            sprintf(spec, "%s_r%02ic%02i %sBIT tesdatar%02ic%02i %i %i",
-                derived[data_mode][d].name, j, i,
-                derived[data_mode][d].sign ? "S" : "", j, i,
-                derived[data_mode][d].bitnum,
-                derived[data_mode][d].numbits);
-            df_add_spec(spec, 0);
-            break;
-          case DERIV_BITSCALE:
-            sprintf(spec, "INTER_%s_r%02ic%02i %sBIT tesdatar%02ic%02i %i %i",
-                derived[data_mode][d].name, j, i,
-                derived[data_mode][d].sign ? "S" : "", j, i,
-                derived[data_mode][d].bitnum,
-                derived[data_mode][d].numbits);
-            df_add_spec(spec, 0);
-            sprintf(spec, "%s_r%02ic%02i LINCOM INTER_%s_r%02ic%02i %lg 0",
-                derived[data_mode][d].name, j, i,
-                derived[data_mode][d].name, j, i,
-                derived[data_mode][d].scale);
-            df_add_spec(spec, 0);
-            break;
-          default:
-            /* skip */
-            break;
-        }
-      }
-  }
-
-  /* add convenience fields */
-  sprintf(spec, "frame_rate CONST FLOAT64 %.16g", rate);
-  df_add_spec(spec, 0);
-  /* this just divides the frame number by the frame rate */
-  sprintf(spec, "acq_seconds LINCOM INDEX %.16g 0", 1. / rate);
-  df_add_spec(spec, 0);
+  /* create the metadata */
+  mas_metadata();
 
   /* OK Go */
   if (df_ready("checksum"))
     df_exit(1, 1);
 
   /* frame loop */
-  char *fr = malloc(fdef.framesize);
-  size_t size;
-  int eof;
-
-  /* copy the header to the first frame of data */
-  size = sizeof(fh);
-  memcpy(fr, &fh, size);
+  fr = malloc(fdef.framesize);
 
   for (;;) {
-    for (eof = read_datafile(fr, &size); !eof; eof = read_datafile(fr, &size)) {
-      df_push_frame(fdind, 1, fr, 1);
-      size = 0; /* reset frame buffer */
+    /* copy the header to the first frame of data */
+    eof_count = 0;
+    size = sizeof(fh);
+    memcpy(fr, &fh, size);
+
+    for (;;) {
+      for (eof = read_datafile(fr, &size); !eof; eof = read_datafile(fr, &size))
+      {
+        eof_count = 0;
+        df_push_frame(fdind, 1, fr, 1);
+        size = 0; /* reset frame buffer */
+      }
+
+      if (!follow)
+        goto DONE;
+
+      df_check_abort();
+
+      /* check for a change in symlink */
+      if (eof_count++ > 0) {
+        if (mas_check_symlink(0)) {
+          /* new flatfile */
+          mas_close_flatfile(); 
+
+          /* open and verify the new input */
+          long long nframes = mas_load_flatfile(&fh, follow, 0);
+
+          /* cycle the output */
+          if (df_reinit(nframes, mas_rf_data.rate, mas_flatfile,
+                DF_REINIT_SAVE))
+          {
+            df_exit(1, 1);
+          }
+
+          /* create the metadata */
+          mas_metadata();
+
+          /* and go again */
+          if (df_ready("checksum"))
+            df_exit(1, 1);
+
+          break;
+        }
+      }
+      usleep(10000);
     }
-
-    if (!follow)
-      break;
-
-    usleep(1000);
-    df_check_abort();
   }
 
+DONE:
   mas_clean();
   return 0;
 }
