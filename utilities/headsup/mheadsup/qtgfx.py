@@ -235,13 +235,10 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         for i in self.childItems():
             self.removeFromGroup(i)
         if constructor == None:
-            if form == 'ellipse':
-                constructor = QtGui.QGraphicsEllipseItem
-            elif form == 'rect':
-                constructor = QtGui.QGraphicsRectItem
-            else:
-                print ' Unknown shape %s, using rect.'
-                constructor = QtGui.QGraphicsRectItem
+            constructor = default_shapes.get(form, None)
+            if constructor == None:
+                print ' Unknown shape %s, using rect.' % form
+                constructor = default_shapes['rect']
         for i in range(len(x)):
             item = constructor(-w/2, -h/2, w, h)
             item.setRotation((rotation+x*0)[i])
@@ -318,6 +315,53 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             # This should be a signal!
             del ad['timer']
             self.scene().views()[0].rebound()
+
+
+#
+# Shapes library...
+#
+
+"""
+Triangles -- indices ab refer to up-downness and left-rightness.  So
+00 and 11 are complementary triangles, but I'm not telling you what
+they will actually look like.
+"""
+
+triangle_corners = [(0,0),(1,0),(1,1),(0,1)] * 2
+
+def triangle_00(x0,y0,w,h):
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[0:]]
+    return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
+
+def triangle_01(x0,y0,w,h):
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[1:]]
+    return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
+
+def triangle_11(x0,y0,w,h):
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[2:]]
+    return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
+
+def triangle_10(x0,y0,w,h):
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[3:]]
+    return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
+
+
+"""
+Hash of constructor-like functions for basic shapes.  Defines names of
+basic shapes when specifying data display configurations.
+"""
+
+default_shapes = {
+    'rect': QtGui.QGraphicsRectItem,
+    'square': QtGui.QGraphicsRectItem,
+    'circle': QtGui.QGraphicsEllipseItem,
+    'ellipse': QtGui.QGraphicsEllipseItem,
+    'triangle_00': triangle_00,
+    'triangle_01': triangle_01,
+    'triangle_11': triangle_10,
+    'triangle_10': triangle_10,
+}
+
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])

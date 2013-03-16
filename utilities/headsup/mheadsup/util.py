@@ -94,6 +94,8 @@ class upOptionParser(OptionParser):
         opts, args = OptionParser.parse_args(self)
         if opts.config_file != None:
             cfg = MainConfig(opts.config_file)
+            if defaults == None:
+                defaults = _defaults
             self.server_cfg = defaults.copy()
             self.server_cfg.update(cfg.get_server_config(opts.server))
             if opts.port == None:
