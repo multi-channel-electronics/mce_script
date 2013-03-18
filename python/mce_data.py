@@ -1,4 +1,5 @@
 import numpy
+import sys
 from os import stat
 
 #
@@ -57,6 +58,10 @@ class BitField(object):
         """
         rescale = deprecate_arg(rescale, kwargs, 'rescale', 'do_scale')
         unwrap = deprecate_arg(unwrap, kwargs, 'unwrap', 'do_unwrap')
+        if len(kwargs) > 0:
+            raise TypeError("%s: got an expected keyword argument '%s'" % \
+                                (sys._getframe().f_code.co_name, kwargs.keys()[0]))
+
         if self.signed:
             # Integer division preserves sign
             right = 32 - self.count
@@ -77,11 +82,12 @@ class BitField(object):
 deprecation_warnings = True
 
 def deprecate_arg(new_val, kwargs, new_arg, old_arg):
+    # Note this pops the bad value from kwargs
     if old_arg in kwargs:
         if deprecation_warnings:
             print 'Use of argument "%s" is deprecated, the new word is "%s".' % \
                 (old_arg, new_arg)
-        return kwargs[old_arg]
+        return kwargs.pop(old_arg)
     return new_val
 
 
@@ -585,7 +591,10 @@ class SmallMCEFile:
         rescale = deprecate_arg(rescale, kwargs, 'rescale', 'do_scale')
         unwrap = deprecate_arg(unwrap, kwargs, 'unwrap', 'do_unwrap')
         count = deprecate_arg(count, kwargs, 'count', 'n_frames')
-
+        if len(kwargs) > 0:
+            raise TypeError("%s: got an expected keyword argument '%s'" % \
+                                (sys._getframe().f_code.co_name, kwargs.keys()[0]))
+        
         # When raw_frames is passed, count and start are passed directly to ReadRaw.
         if raw_frames:
             return self.ReadRaw(count=count, start=start, raw_frames=True)
