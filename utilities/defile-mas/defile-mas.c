@@ -62,9 +62,22 @@
 #define HEADER_LEN 43
 /* this is 43 32-bit words */
 struct frame_header {
+  /* twelve words that get stored: */
   uint32_t status, frame_count, row_len, nrow_reported, data_rate, arz_count;
-  uint32_t vers, ramp_val, ramp_adr, nrow, sync, run_id, user_word;
-  uint32_t header[30]; /* other stuff */
+  uint32_t hdr_vers, ramp_val, ramp_adr, nrow, sync, run_id, user_word;
+  uint32_t header[30];
+  /* the other 30 words-worth that we don't write:
+     uint32_t errno1, t_ac_fpga, t_bc1_fpga, t_bc2_fpga, t_bc3_fpga;
+     uint32_t t_rc1_fpga, t_rc2_fpga, t_rc3_fpga, t_rc4_fpga, t_cc_fpga;
+     uint32_t errno2, t_ac_card, t_bc1_card, t_bc2_card, t_bc3_card;
+     uint32_t t_rc1_card, t_rc2_card, t_rc3_card, t_rc4_card, t_cc_card;
+     uint32_t errno3;
+     uint8_t psuc_vers, psuc_fan1, psuc_fan2, psuc_t1, psuc_t2, psuc_t3;
+     uint16_t psuc_adc_off;
+     uint16_t psuc_v1, psuc_v2, psuc_v3, psuc_v4, psuc_v5;
+     uint16_t psuc_i1, psuc_i2, psuc_i3, psuc_i4, psuc_i5;
+     uint32_t errno4, box_temp;
+  */
 };
 
 #define NHEADER_FIELDS 13
@@ -1157,8 +1170,9 @@ static long long mas_load_flatfile(struct frame_header *fh, int follow, int ret)
   load_frameheader(fh, follow);
 
   /* verify header version */
-  if (fh->vers < 6) {
-    df_printf(DF_PRN_ERR, "Unsupported frame header version: %u\n", fh->vers);
+  if (fh->hdr_vers < 6) {
+    df_printf(DF_PRN_ERR, "Unsupported frame header version: %u\n",
+        fh->hdr_vers);
     df_exit(ret, 1);
   }
 
@@ -1223,7 +1237,7 @@ static long long mas_load_flatfile(struct frame_header *fh, int follow, int ret)
     long row_len = runfile_param_long("cc", "row_len", 0);
     mas_rf_data.rate = mas_rf_data.rate / (num_rows * row_len * data_rate);
 
-    ncol *= num_rc_present;
+    mas_rf_data.ncol *= num_rc_present;
   }
 
   return nframes;
