@@ -34,6 +34,9 @@
 
 #include <defile.h>
 
+/* the only runfile version we're willing to deal with */
+#define MAS_RF_VERSION 2
+
 /* frame status word bits */
 #define MAS_FSW_LAST_FRM 0x00000001 /* bit 0 */
 #define MAS_FSW_STOP_BIT 0x00000002 /* bit 1 */
@@ -150,7 +153,7 @@ static struct runfile rf = { 0, NULL };
 static char *mas_flatfile = NULL;
 static char *mas_pathname = NULL;
 static struct {
-  long rf_vers;
+  int rf_vers;
   const char *mas_vers;
   const char *array_id;
   int rc[4];
@@ -774,7 +777,7 @@ static int load_frameacq(void)
 
   /* populate the frameacq struct */
   frameacq.rf_vers = runfile_long(fa_block, "RUNFILE_VERSION", 0, NULL, -1);
-  if (frameacq.rf_vers != 2) {
+  if (frameacq.rf_vers != MAS_RF_VERSION) {
     df_printf(DF_PRN_ERR, "Unsupported RUNFILE_VERSION %i\n", frameacq.rf_vers);
     return 1;
   }
@@ -830,6 +833,20 @@ static int mas_data_mode_supported(int data_mode)
       || data_mode == 12);
 }
 
+/* add a string, with string trucation checking */
+static void mas_add_string(const char *name, const char *value, int frag)
+{
+  char spec[4096];
+  snprintf(spec, 4094, "%s STRING \"%s\"", name, value);
+  /* terminate truncated strings */
+  if (spec[4094]) {
+    spec[4094] = '"';
+    spec[4095] = 0;
+  }
+  if (df_add_spec(spec, frag) < 0)
+    df_exit(1, 1);
+}
+
 /* store the runfile data in the dirfile metadata (similar to 'mce_status -d')
  */
 static void write_rf_header(void)
@@ -865,6 +882,34 @@ static void write_rf_header(void)
   int c, i, j;
 
   int rf_frag = df_add_fragment("format.runfile", 0, 0, 0, NULL, NULL);
+  if (rf_frag < 0)
+    df_exit(1, 1);
+
+  /* write frameacq stuff, if present */
+  if (frameacq.rf_vers == MAS_RF_VERSION) {
+    sprintf(spec, "frameacq_rf_vers CONST UINT16 %i", frameacq.rf_vers);
+    if (df_add_spec(spec, rf_frag) < 0)
+      df_exit(1, 1);
+
+    mas_add_string("frameacq_mas_vers", frameacq.mas_vers, rf_frag);
+    mas_add_string("frameacq_array_id", frameacq.array_id, rf_frag);
+
+    sprintf(spec, "frameacq_rc CARRAY UINT8 %i %i %i %i", frameacq.rc[0],
+        frameacq.rc[1], frameacq.rc[2], frameacq.rc[3]);
+    if (df_add_spec(spec, rf_frag) < 0)
+      df_exit(1, 1);
+
+    sprintf(spec, "frameacq_framecount CONST INT64 %lli",
+        (long long)frameacq.framecount);
+    if (df_add_spec(spec, rf_frag) < 0)
+      df_exit(1, 1);
+
+    sprintf(spec, "frameacq_ctime CONST INT64 %lli", (long long)frameacq.ctime);
+    if (df_add_spec(spec, rf_frag) < 0)
+      df_exit(1, 1);
+
+    mas_add_string("frameacq_hostname", frameacq.hostname, rf_frag);
+  }
 
   for (i = 0; i < mas_rf_header->ntag; ++i) {
     if (mas_rf_header->tag[i].nspec != 2)
