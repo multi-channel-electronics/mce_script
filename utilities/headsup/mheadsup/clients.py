@@ -11,12 +11,13 @@ class HeadsupClient:
     stream_list_handler = None
     encoder = None
     
-    def __init__(self, addr=None, name=None, log=None):
+    def __init__(self, addr=None, name=None, log=None,
+                 verbosity=None):
         self.handlers = []
         self.connected = False
         self.encoder = nets.packetFormatV1
         if log == None:
-            log = util.logger
+            log = util.logger(verbosity=verbosity)
         self.log = log
         if name != None:
             self.name = name
@@ -155,6 +156,10 @@ class HeadsupClient:
             ok, _,_ = handler.handle(addr, data)
             if ok:
                 break
+        if self.client_control_handler != None and \
+                self.client_control_handler.status == 'server_close':
+            self.log('Received termination from server.')
+            self.close()
         return ok, addr, data
 
     def replace_handler(self, new_handler, old_handler):
@@ -167,9 +172,7 @@ class HeadsupClient:
 
 
 class HeadsupDataSource(HeadsupClient):
-    data_stream = None
-    notify_stream = None
-    control_stream = None
+    stream = None
     control_handler = None
     geometries = None
 
@@ -179,16 +182,11 @@ class HeadsupDataSource(HeadsupClient):
 
     def register_basic_streams(self):
         prefix = self.name
-        self.data_stream = streams.HeadsupStream(
-            name=prefix + '_data', type='data')
-        self.control_stream = streams.HeadsupStream(
-            name=prefix + '_control', type='control')
-        self.notify_stream = streams.HeadsupStream(
-            name=prefix + '_notify', type='notify')
-        self.register_streams([self.data_stream, self.control_stream,
-                               self.notify_stream])
+        self.stream = streams.HeadsupStream(name=self.name + '_stream',
+                                            properties={'data_stream': True})
+        self.register_streams([self.stream])
         self.control_handler = self.replace_handler(
-            streams.DataSourceControlHandler(self.control_stream.name),
+            streams.DataSourceControlHandler(self.stream.name),
             self.control_handler)
 
     # For the notify stream...
@@ -198,8 +196,8 @@ class HeadsupDataSource(HeadsupClient):
         self.info[0] = True
         self.info[1].update(new_info)
         if trigger_notify:
-            self.log('issuing notify', self.info[1].keys())
-            self.send_json(self.notify_stream.name, {'info_update': self.info[1]})
+            self.log('issuing notify' + ' '.join(self.info[1].keys()))
+            self.send_json(self.stream.name, {'info_update': self.info[1]})
 
     def post_data(self, data):
         json_data = {'data_packing': 'simple',
@@ -210,7 +208,7 @@ class HeadsupDataSource(HeadsupClient):
         else:
             bin_data = data.tostring()
         
-        ok, data = self.encoder.encode_packet('data', self.data_stream.name,
+        ok, data = self.encoder.encode_packet('data', self.stream.name,
                                               self.name, '',
                                               json_data,
                                               bin_data
@@ -234,44 +232,34 @@ class HeadsupDataSource(HeadsupClient):
 
 
 class HeadsupDataConsumer(HeadsupClient):
-    notify_stream = None
-    control_stream = None
+    stream = None
     data_handler = None
     control_handler = None
 
     def connect(self, *args, **kwargs):
         HeadsupClient.connect(self,*args, **kwargs)
         
-    def subscribe_data(self, prefix=None, data_stream=None,
-                       notify_stream=None, control_stream=None):
+    def subscribe_data(self, stream_name):
         self.unsubscribe_data()
         self.data_handler = \
-            self.replace_handler(streams.DataHandler(prefix, data_stream,
-                                                     notify_stream, control_stream),
+            self.replace_handler(streams.DataHandler(stream_name),
                                  self.data_handler)
-        self.subscribe(self.data_handler.data_stream)
-        self.subscribe(self.data_handler.notify_stream)
-        self.send_json(self.data_handler.control_stream,
+        self.subscribe(self.data_handler.stream_name)
+        self.send_json(self.data_handler.stream_name,
                        {'update': self.name}, ptype='control')
 
     def unsubscribe_data(self):
         if self.data_handler == None:
             return False
-        self.unsubscribe(self.data_handler.data_stream)
-        self.unsubscribe(self.data_handler.notify_stream)
-        self.unsubscribe(self.data_handler.control_stream)
+        self.unsubscribe(self.data_handler.stream_name)
         return True
 
     def register_basic_streams(self):
         prefix = self.name
-        self.control_stream = streams.HeadsupStream(
-            name=prefix + '_control', type='control')
-        self.notify_stream = streams.HeadsupStream(
-            name=prefix + '_notify', type='notify')
-        self.register_streams([self.data_stream, self.control_stream,
-                               self.notify_stream])
+        self.stream = streams.HeadsupStream(name=self.name + '_stream')
+        self.register_streams([self.stream])
         self.control_handler = self.replace_handler(
-            streams.DataDisplayInfoHandler(self.control_stream.name),
+            streams.DataDisplayInfoHandler(self.stream.name),
             self.control_handler)
         
 

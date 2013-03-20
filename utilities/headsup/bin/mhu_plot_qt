@@ -98,8 +98,10 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             self.data_handler = self.replace_handler(None, self.data_handler)
         else:
             stream_name = self.streamList.get_item(idx)
-            self.subscribe_data(stream_name)
-            print 'selected ', stream_name
+            if self.data_handler == None or \
+                    self.data_handler.stream_name != stream_name:
+                self.subscribe_data(stream_name)
+                print 'selected ', stream_name
 
     def select_geom(self, *args):
         idx = args[0]
@@ -149,8 +151,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
     # Not Q signal handlers
 
     def stream_list_changed(self):
-        new_stream_names = [s.name[:-5] for s in self.stream_list_handler.streams
-                            if s.type == 'data']
+        new_stream_names = [s.name for s in self.stream_list_handler.streams
+                            if s.properties.get('data_stream')]
         self.streamList.update_items(labels=new_stream_names)
 
     def geom_list_changed(self):

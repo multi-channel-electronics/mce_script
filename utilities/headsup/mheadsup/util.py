@@ -87,7 +87,7 @@ class upOptionParser(OptionParser):
                          default=defaults['client_name'])
         self.add_option('--server',default=None)
         self.add_option('--host', default=None)
-        self.add_option('--port', default=None)
+        self.add_option('--port', default=None, type=int)
         self.add_option('--port-file', default=None)
 
     def parse_args(self, defaults=None):
@@ -167,8 +167,10 @@ def load_columns(fin, cols=None, skip=0):
 
 
 class logger:
-    def __init__(self, default_priority=0, verbosity=0,
+    def __init__(self, default_priority=0, verbosity=None,
                  prefix=''):
+        if verbosity == None:
+            verbosity = 0
         self.default_priority = default_priority
         self.streams = [(sys.stdout, verbosity)]
         self.prefix = ''

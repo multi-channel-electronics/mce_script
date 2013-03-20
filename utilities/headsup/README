@@ -8,7 +8,7 @@ Client/server based plotting of streaming image data.  To use this,
 you start the server, then connect to it with data producing and data
 consuming clients.  The data producers ("sources") read data from some
 data acquisition device (or a file on disk) and stream it to the
-server.  The server sends the data to the data consumers ("syncs"),
+server.  The server sends the data to the data consumers ("sinks"),
 which plot it, or analyze, or ignore it.
 
 
@@ -27,9 +27,17 @@ To install these scripts, run:
 
 You don't need to install it at the root level to use it.  Just make
 sure that the python module (which ends up in
-builds/lib.xxxxxx-2.x/mheadsup) gets put somewhere that your python will
-look for it; and then you can run the binaries from
+builds/lib.xxxxxx-2.x/mheadsup) gets put somewhere that your python
+will look for it; and then you can run the binaries from
 builds/scripts-2.x.
+
+
+Installation
+============
+
+Run make, sudo make install.  Create /etc/mheadsup and copy
+etc/main.cfg into it.
+
 
 
 Quick start

@@ -53,8 +53,8 @@ class simpleCombo(QtGui.QComboBox):
                     new_data.append((k,v))
         # Remove dead items
         for i in reversed([i for i,ok in enumerate(keepers) if not ok]):
-            self.removeItem(i)
             self.private_data.pop(i)
+            self.removeItem(i)
         # Append new items
         for d in new_data:
             self.private_data.append(d)

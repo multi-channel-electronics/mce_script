@@ -1,10 +1,8 @@
-import sys
 import socket
-import time
 import array
-import numpy
 import errno
 import json
+import time
 
 def get_socket(address):
     """
@@ -111,7 +109,11 @@ class packetFormatV1:
             self.dest = dest
         @classmethod
         def decode(cls, packet):
-            t, n, s, d = packet.split('\x00')[:-1]
+            words = packet.split('\x00')
+            if len(words) != 5:
+                print 'fail address words'
+                return None
+            t, n, s, d = words[:4]
             self = cls(t,n,s,d)
             return self
         def encode(self):
@@ -120,7 +122,13 @@ class packetFormatV1:
     class payloadBlock:
         @classmethod
         def decode(cls, packet):
+            if len(packet) < 8:
+                print 'payload header'
+                return None
             n1, n2 = array.array('i', packet[:8])
+            if len(packet) != n1 + n2 + 8:
+                print 'payload size'
+                return None
             d1, d2 = packet[8:8+n1], packet[8+n1:8+n1+n2]
             self = cls()
             if n1 == 0:
@@ -168,15 +176,23 @@ class packetFormatV1:
     def decode_packet(cls, data, dahi_header=False):
         # Pre-amble
         if dahi_header:
+            if len(data) < 8:
+                print 'header fail'
+                return False, None, None
             code, size = data[:4], array.array('i', data[4:8])[0]
             data = data[8:]
         # Validate...
-        ## ...
+        if len(data) < 8:
+            print 'no data'
+            return False, None, None
         # Addressing
         addr_len = array.array('i', data[0:4])[0]
         addr_data = data[4:4+addr_len]
         # Payload
         payload = data[4+addr_len:]
         # Great.
-        return True, cls.addressBlock.decode(addr_data), \
-            cls.payloadBlock.decode(payload)
+        ablock = cls.addressBlock.decode(addr_data)
+        pblock = cls.payloadBlock.decode(payload)
+        ok = (ablock != None) and (pblock != None)
+        return ok, ablock, pblock
+            

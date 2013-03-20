@@ -13,18 +13,7 @@ from mheadsup import nets, util, clients, streams, constants
 
 
 """
-Implement a server that can pass data from distributors to plotters.
-
-Encapsulating protocol:
-  'dahi' xxxx payload...
-where xxxx is the 32-bit payload size, in bytes.  Probably LSB first.
-
-Then:
-  'type' 'x...' <- register client type (32 bytes)
-  'name' 'x...' <- register client name (32 bytes)
-  'list'        <- request list of clients. (returns parsable string)
-  'diex'        <- exit
-  'serv'        <- set server variable
+Implement a server that can passes data between clients.
 """
 
 defaults = util.get_defaults()
@@ -80,7 +69,8 @@ class thServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
 class dataDistributor:
-    def __init__(self, addr=None, verbosity=0):
+    def __init__(self, addr=None, verbosity=0,
+                 bad_packet_file=None):
         if addr != None:
             self.addr = nets.decode_address(addr)
         self.clients = {}
@@ -94,6 +84,7 @@ class dataDistributor:
         self.stream_list_stream.add_stream(self.stream_list_stream)
         self.log = util.logger(prefix='mhu_server ',
                                verbosity=verbosity)
+        self.bad_packet_file = bad_packet_file
 
     def serve(self):
         self.log('Entering server loop', 1)
@@ -175,11 +166,14 @@ class dataDistributor:
         ok, addr, data = encoder.decode_packet(packet, dahi_header=False)
         if not ok:
             print 'Packet decode failure.'
+            if self.bad_packet_file:
+                open(self.bad_packet_file, 'w').write(packet)
             return
         # Route the packet.
         if addr.type == 'notify':
             # This is a broadcast on a stream, send to all subscribers.
-            print 'Recieved notify packet on stream %s' % addr.name
+            print 'Received notify packet on stream %s' % addr.name
+            print data.json_data
             return self.redistribute(addr.name, packet)
         elif addr.type == 'control':
             # Is this a message for us?
@@ -191,16 +185,17 @@ class dataDistributor:
             return self.redistribute_data(addr.name, packet)
 
     def shutdown(self, graceful=True):
+        self.log('Sending shutdown messages...')
         if graceful:
-            # Inform clients
-            encoder = nets.packetFormatV1
-            ok, packet = encoder.encode_packet(
-                'notify', constants.CLIENT_CONTROL_STREAM, '', '',
-                {'message_class': 'pink_slip'})
             for client in self.clients.keys():
                 self.actions[client] = []
-                self.post_action(client, 'send', packet)
+                self.post_info(client,
+                               {'message_class': 'connection_status',
+                                'connection_standing': 'terminated',
+                                })
                 self.post_action(client, 'close')
+        time.sleep(1)
+        self.log('Exiting.')
         self.server.shutdown()
         
     def update_local_subscribers(self, streams=None, clients=None):
@@ -362,6 +357,7 @@ if __name__ == '__main__':
     o.add_option('--kill',action='store_true')
     o.add_option('-v','--verbosity',default=0,type=int)
     o.add_option('--tunnel')
+    o.add_option('--save-bad-packets')
     opts, args = o.parse_args(defaults)
     
     if opts.tunnel:
@@ -370,7 +366,7 @@ if __name__ == '__main__':
                                (opts.port, opts.host, opts.port, opts.tunnel)))
                   
     if opts.kill:
-        killer = clients.HeadsupClient(opts.server)
+        killer = clients.HeadsupClient(opts.server, verbosity=2)
         killer.send_json('_server', {'request': 'die'},
                          destination='_server', ptype='control')
         sys.exit(0)
@@ -378,6 +374,7 @@ if __name__ == '__main__':
     if opts.port_file:
         open(opts.port_file, 'w').write('%i' % opts.port)
 
-    dd = dataDistributor(opts.server, opts.verbosity)
+    dd = dataDistributor(opts.server, opts.verbosity,
+                         bad_packet_file=opts.save_bad_packets)
     dd.serve()
 

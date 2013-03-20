@@ -15,6 +15,7 @@ def encode_array(data):
     if data == None:
         return None
     return {'dtype': data.dtype.name,
+            'shape': data.shape,
             'data': encode_array_row(data)}
 
 def decode_array(data):

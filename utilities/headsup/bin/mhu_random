@@ -60,7 +60,7 @@ if __name__ == '__main__':
     opts, args = o.parse_args()
 
     # To define pixel locations.  Note pixels are 1x1.
-    shape = (9,7)
+    shape = (9,9)
     g = make_custom_layout(shape)
 
     # Necessary.
@@ -69,6 +69,6 @@ if __name__ == '__main__':
     rdp.register_basic_streams()
 
     rdp.set_geometries([g,
-                        geometries.pixelSetGeometry.circle(8*7, name='Circle')])
-
+                        geometries.pixelSetGeometry.circle(8*7, name='Circle'),
+                        geometries.pixelSetGeometry.for_grid(*shape)])
     rdp.go()

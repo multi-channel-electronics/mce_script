@@ -4,11 +4,14 @@ import util
 import numpy
 
 class HeadsupStream:
-    props = ['name', 'type', 'provider', 'fun_name', 'local_provider']
+    props = ['name', 'provider', 'fun_name', 'local_provider',
+             'properties']
     def __init__(self, **kwargs):
         for k in self.props:
             v = kwargs.get(k, '')
             setattr(self, k, v)
+        if self.properties == '':
+            self.properties = {}
         self.subscribers = []
         self.subscriber_data = {}
     def add_subscriber(self, sub, config={}):
@@ -125,8 +128,9 @@ class ServerMessageHandler:
             self.status = msg['connection_standing']
             if 'client_name' in msg:
                 self.parent.name = msg['client_name']
-        elif msg_class == 'pink_slip':
-            print 'I am fired!'
+            if self.status == 'terminated':
+                self.status = 'server_close'
+        elif msg_class == 'pink_slip':  # deprecated...
             self.status = 'server_close'
         else:
             self.weirds += 1
@@ -168,35 +172,24 @@ class StreamListStreamHandler:
         return True, addr, data
 
 class DataHandler:
-    def __init__(self, stream_prefix=None,
-                 data_stream=None, notify_stream=None, control_stream=None):
+    def __init__(self, stream_name=None):
         self.frames = []
-        # Use prefix to get defaults.
-        if data_stream == None:
-            data_stream = stream_prefix + '_data'
-        if notify_stream == None:
-            notify_stream = stream_prefix + '_notify'
-        if control_stream == None:
-            control_stream = stream_prefix + '_control'
-        # Store
-        self.data_stream = data_stream
-        self.notify_stream = notify_stream
-        self.control_stream = control_stream
-        # Info
+        self.stream_name = stream_name
         self.info = {}
         self.info_update = True
+
     def handle(self, addr, data):
+        if addr.name != self.stream_name:
+            return False, addr, data
         msg = data.json_data
         if addr.type == 'data':
-            if self.data_stream == addr.name:
-                numpy_data = numpy.fromstring(data.bin_data, dtype=msg['data_type']).\
-                    reshape(msg['data_shape'])
-                self.frames.append(numpy_data)
-                if len(self.frames) > 100:
-                    self.frames.pop(0)
-            else:
-                print 'stray data from %s' % addr.name
-        elif addr.type == 'notify' and self.notify_stream == addr.name:
+            numpy_data = numpy.fromstring(data.bin_data,
+                                          dtype=msg['data_type']).\
+                reshape(msg['data_shape'])
+            self.frames.append(numpy_data)
+            if len(self.frames) > 100:
+                self.frames.pop(0)
+        elif addr.type == 'notify':
             #print msg
             if 'info_set' in msg:
                 self.info = msg['info_set']
@@ -220,27 +213,4 @@ class DataSourceControlHandler:
         if 'update' in msg:
             self.do_update = True
         return True, addr, data
-            
-if 0:
-  class DataDisplayInfoHandler:
-    def __init__(self, stream_name=None):
-        self.info = {}
-        self.stream_name = stream_name
-    # For the control stream owner
-    def handle(self, addr, data):
-        if addr.name != self.stream_name:
-            return False, addr, data
-        msg = data.json_data
-        if 'info_set' in msg:
-            self.info = msg['info_set']
-        elif 'info_update' in msg:
-            self.info.update(msg['info_update'])
-    # For producers sending on this stream
-    def set(self, data):
-        self.info = {}
-        self.update(data)
-    def update(self, data):
-        self.info.update(data)
-    def render(self):
-        return self.info
             
