@@ -9,6 +9,18 @@ Configuration is provided through a config file, which may be
 overridden to various degrees from the command line.
 """
 
+#
+# Server configuration defaults.
+#
+# Used to create a server, or to try to connect to one.
+#
+
+_server_defaults = {
+    'host': 'localhost',
+    'port': 12354,
+    'tunnel': None,
+}
+
 defaults = {
     'client_name': 'flatfile',
     'host': 'localhost',
@@ -23,16 +35,20 @@ _defaults = defaults
 
 import ConfigParser as cp
 class MainConfig(cp.ConfigParser):
-    filename = _defaults['config_file']
+    filename = None
 
     def __init__(self, filename=None):
         cp.ConfigParser.__init__(self)
         if filename != None:
             self.filename = filename
-        if not os.path.exists(self.filename):
-            print 'Config file %s not found' % self.filename
         else:
-            self.read(self.filename)
+            if os.path.exists(_defaults['config_file']):
+                self.filename = _defaults['config_file']
+        if self.filename != None:
+            if not os.path.exists(self.filename):
+                print 'Config file %s not found' % self.filename
+            else:
+                self.read(self.filename)
 
     def get_with_default(self, section, key, default=None):
         try:
@@ -48,19 +64,39 @@ class MainConfig(cp.ConfigParser):
         server_list = [x.split() for x in
                        self.get('Servers', 'server_list').split('\n')]
         keys, filenames = zip(*[w for w in server_list if len(w) != 0])
+        if not key in keys:
+            return 'Unknown server_profile %s' % key
         filename = filenames[keys.index(key)]
         if filename[0] != '/':
             filename = os.path.join(os.path.split(self.filename)[0], filename)
         scfg = cp.ConfigParser()
         scfg.read(filename)
-        if key in scfg.sections():
-            data = dict(scfg.items(key))
-            if 'port' in data:
-                data['port'] = int(data['port'])
-            if 'tunnel' in data and data['tunnel'] == '':
-                data['tunnel'] = None
-            return data
-        return {}
+        if not key in scfg.sections():
+            return 'Could not find profile %s' % key
+        data = dict(scfg.items(key))
+        if 'port' in data:
+            data['port'] = int(data['port'])
+        if 'tunnel' in data and data['tunnel'] == '':
+            data['tunnel'] = None
+        return data
+
+
+class ServerConfig(dict):
+    def __init__(self, source=None):
+        dict.__init__(self)
+        self.update(_server_defaults)
+        if source != None:
+            self.update(source)
+    def get_tunnel_cmd(self):
+        if self['tunnel'] == None:
+            return None
+        return ['ssh', '-N',
+                '-L%i:%s:%i' % (self['port'], self['host'], self['port']),
+                self['tunnel']]
+    def get_server(self):
+        if self['tunnel'] != None:
+            return 'localhost:%i' % self['port']
+        return '%s:%i' % (self['host'], self['port'])
 
 
 def get_defaults(target=None):
@@ -85,26 +121,29 @@ class upOptionParser(OptionParser):
                         default=defaults['config_file'])
         self.add_option('--name',
                          default=defaults['client_name'])
-        self.add_option('--server',default=None)
+        self.add_option('--server-profile',default=None)
         self.add_option('--host', default=None)
         self.add_option('--port', default=None, type=int)
         self.add_option('--port-file', default=None)
 
     def parse_args(self, defaults=None):
         opts, args = OptionParser.parse_args(self)
+        opts.server_cfg = ServerConfig()
+        if defaults != None:
+            opts.server_cfg.update(defaults)
         if opts.config_file != None:
             cfg = MainConfig(opts.config_file)
-            if defaults == None:
-                defaults = _defaults
-            self.server_cfg = defaults.copy()
-            self.server_cfg.update(cfg.get_server_config(opts.server))
-            if opts.port == None:
-                opts.port = self.server_cfg['port']
-            if opts.host == None:
-                opts.host = self.server_cfg['host']
-            if hasattr(opts, 'tunnel') and opts.tunnel == None:
-                opts.tunnel = self.server_cfg['tunnel']
-        opts.server = '%s:%i' % (opts.host, opts.port)
+            scfg = cfg.get_server_config(opts.server_profile)
+            if isinstance(scfg, basestring):
+                self.error("Error parsing config %s: %s" % \
+                                (opts.config_file, scfg))
+            opts.server_cfg.update(scfg)
+            if opts.port != None:
+                opts.server_cfg['port'] = opts.port
+            if opts.host != None:
+                opts.server_cfg['host'] = opts.host
+            if hasattr(opts, 'tunnel') and opts.tunnel != None:
+                opts.server_cfg['tunnel'] = opts.tunnel
         return opts, args
 
 

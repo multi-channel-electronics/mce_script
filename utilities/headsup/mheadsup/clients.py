@@ -1,18 +1,19 @@
-from mheadsup import nets, streams, constants
-import util
+from mheadsup import nets, streams, constants, util
 
 import numpy
 
 
 class HeadsupClient:
-    name = None
+    name = ''
     connected = False
     client_control_handler = None
     stream_list_handler = None
     encoder = None
     
-    def __init__(self, addr=None, name=None, log=None,
+    def __init__(self, server=None, name=None, log=None,
                  verbosity=None):
+        if isinstance(server, dict) != None:
+            server = '%s:%i' % (server['host'], server['port'])
         self.handlers = []
         self.connected = False
         self.encoder = nets.packetFormatV1
@@ -21,8 +22,8 @@ class HeadsupClient:
         self.log = log
         if name != None:
             self.name = name
-        if addr != None:
-            self.connect(addr)
+        if server != None:
+            self.connect(server)
 
     def __repr__(self):
         constr = 'connected'

@@ -30,8 +30,8 @@ def make_custom_layout(shape):
 
 
 class randomDataProducer(clients.HeadsupDataSource):
-    def __init__(self, addr, name='random', shape=(5,5)):
-        clients.HeadsupDataSource.__init__(self, addr, name)
+    def __init__(self, server, name='random', shape=(5,5)):
+        clients.HeadsupDataSource.__init__(self, server, name)
         self.dshape = shape
         self.rate = 10.
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     g = make_custom_layout(shape)
 
     # Necessary.
-    rdp = randomDataProducer(opts.server, shape=shape)
+    rdp = randomDataProducer(opts.server_cfg, shape=shape)
     rdp.connect()
     rdp.register_basic_streams()
 

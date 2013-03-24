@@ -1,7 +1,7 @@
 from PyQt4 import QtCore, QtGui
 import numpy as np
 
-from mheadsup import gfx
+from mheadsup import gfx, colormap
 
 #
 # Useful widgets
@@ -176,32 +176,6 @@ class GridDisplay(QtGui.QGraphicsObject):
         x, y = int(np.floor(x-x0)), int(np.floor(y-y0))
         self.last_click = x, y
 
-class blipColorMap:
-    def __init__(self, beginColor, endColor, granularity=256):
-        self.brushes = []
-        def unpack_color(c):
-            if isinstance(c, QtGui.QColor):
-                c = c.getRgb()
-            if len(c)  == 3:
-                (r,g,b),a = c, 255
-            else:
-                r,g,b,a = c
-            return r,g,b,a
-        r0,g0,b0,a0 = unpack_color(beginColor)
-        r1,g1,b1,a1 = unpack_color(endColor)
-        def ramp_colors(a, b, n):
-            return [a + (b-a)*i/(n-1) for i in range(n)]
-        r = ramp_colors(r0, r1, granularity)
-        g = ramp_colors(g0, g1, granularity)
-        b = ramp_colors(b0, b1, granularity)
-        a = ramp_colors(a0, a1, granularity)
-        # Brushes.
-        for row in zip(r,g,b,a):
-            color = QtGui.QColor(*row)
-            self.brushes.append(QtGui.QBrush(color))
-    def __getitem__(self, i):
-        return self.brushes[i]
-    
 
 class BlipDisplay(QtGui.QGraphicsItemGroup):
     """
@@ -212,10 +186,15 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     """
     blip_pen = QtGui.QPen(QtCore.Qt.NoPen)
     blip_brush0 = QtGui.QBrush(QtGui.QColor(128,128,128))
-    blip_cmap = None
     data = None
 
     last_click = None
+    blip_cmap = None
+
+    def __init__(self, *args, **kwargs):
+        QtGui.QGraphicsItemGroup.__init__(self, *args, **kwargs)
+        self.blip_cmap = BlipColorMap.get_builtin('purple', size=256,
+                                                  scale=255).get_brushes()
 
     def set_data(self, data):
         if self.data == None or data.shape != self.data.shape:
@@ -226,25 +205,29 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         self.data = data
         self.update_blips(self.data.ravel())
 
-    def create_blip_grid(self, nrow, ncol):
-        x, y = gfx.grid_coords(nrow, ncol)
-        self.create_blips(x-x.mean(), y-y.mean())
-
-    def create_blips(self, x, y, w=1., h=1., form='rect', constructor=None,
-                     clear=True, rotation=0.):
+    def create_blips(self, x, y, w=1., h=1., form='rect',
+                     rotation=0.):
+        def is_scalar(x):
+            return np.asarray(x).ndim == 0
+        # Clear the list
         for i in self.childItems():
             self.removeFromGroup(i)
-        if constructor == None:
-            constructor = default_shapes.get(form, None)
-            if constructor == None:
-                print ' Unknown shape %s, using rect.' % form
-                constructor = default_shapes['rect']
+        # Blow up any scalar arguments
+        form_mul = 1
+        if isinstance(form, basestring):
+            form_mul = 0
+            form = [form]
+        rotation_mul = 1
+        if is_scalar(rotation):
+            rotation_mul = 0
+            rotation = [rotation]
+        # Create the blips
         for i in range(len(x)):
-            item = constructor(-w/2, -h/2, w, h)
-            item.setRotation((rotation+x*0)[i])
+            con = default_shapes.get(form[i*form_mul])
+            item = con(-w/2, -h/2, w, h)
+            item.setRotation(rotation[i*rotation_mul])
             item.setPos(x[i], y[i])
             item.setPen(self.blip_pen)
-            item.setBrush(self.blip_brush0)
             self.addToGroup(item)
         self.prepareGeometryChange()
         self.scene().views()[0].rebound()
@@ -252,17 +235,17 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     def create_blips_from_geometry(self, geom):
         x, y = geom.coords
         form = geom.props.get('shape', 'rect')
-        colormap = (0,0,0),(255,0,255) #geom.colormap()
-        self.blip_cmap = blipColorMap(*colormap)
         return self.create_blips(x, y, form=form)
 
+    def create_blip_grid(self, nrow, ncol):
+        x, y = gfx.grid_coords(nrow, ncol)
+        self.create_blips(x-x.mean(), y-y.mean())
+
     def update_blips(self, colors):
-        if self.blip_cmap == None:
-            self.blip_cmap = blipColorMap((0,0,0),(255,255,255))
-        idx = (colors*255).astype('int')
-        self.cols = (colors, idx)
+        N = len(self.blip_cmap)
+        idx = np.round(colors*(N-1)).astype('int')
         idx[idx<0] = 0
-        idx[idx>255] = 255
+        idx[idx>=N] = N-1
         for c,i in zip(idx, self.childItems()):
             i.setBrush(self.blip_cmap[c])
 
@@ -315,6 +298,11 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             # This should be a signal!
             del ad['timer']
             self.scene().views()[0].rebound()
+
+
+class BlipColorMap(colormap.ColorMap):
+    def get_brushes(self):
+        return [QtGui.QBrush(QtGui.QColor(*c)) for c in self.colors]
 
 
 #

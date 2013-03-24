@@ -30,8 +30,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
     active_mask = None
     show_mode = 'data'
 
-    def __init__(self, addr, name='qtg', img=None, horizontal=False):
-        plotters.displayClient.__init__(self, addr, name)
+    def __init__(self, server=None, name='qtg', img=None, horizontal=False):
+        plotters.displayClient.__init__(self, server, name)
         QtGui.QWidget.__init__(self)
         
         self.mutex = QtCore.QMutex()
@@ -308,12 +308,6 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.state_timer.timeout.connect(self.state_update)
         self.state_timer.start(1.)
 
-if 0: #if not sys.flags.interactive:
-    def sigint(signum, frame):
-        app.exit()
-    import signal 
-    signal.signal(signal.SIGINT, sigint)
-
 
 if __name__ == '__main__':
     o = util.upOptionParser()
@@ -345,12 +339,9 @@ if __name__ == '__main__':
         win.resize(400,600)
     win.move(100,100)
 
-    #img = qtgfx.GridDisplay()
     img = qtgfx.BlipDisplay()
 
-    #qp = qplotter(img)
-
-    pp = qtgPlotter(opts.server, opts.name, img=img,
+    pp = qtgPlotter(opts.server_cfg, opts.name, img=img,
                     horizontal=opts.horizontal)
     time.sleep(.1)
 
@@ -366,14 +357,4 @@ if __name__ == '__main__':
 
     pp.launch(rate=opts.data_rate, refresh_rate=opts.display_rate)
 
-    if sys.flags.interactive == 1 and not opts.no_controller:
-        disp = plotters.displayController(opts.server, opts.name+'_ctrl')
-        if opts.profile != None:
-            disp.restore(opts.profile)
-        # Since we're so Qt
-        #disp.watch_controls(enable=True)
-        #disp.timer = QtCore.QTimer()
-        #disp.timer.timeout.connect(disp.watch_controls)
-        #disp.timer.start(200.)
-    else:
-        app.exec_()
+    app.exec_()

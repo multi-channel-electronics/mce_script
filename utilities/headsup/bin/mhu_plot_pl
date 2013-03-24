@@ -14,11 +14,11 @@ import os
 import sys
 import subprocess
 
-defaults = util.get_defaults()
-defaults.update({
-    'client_name': 'pylab',
-    'mark_masked': True,
-    })
+#defaults = util.get_defaults()
+#defaults.update({
+#    'client_name': 'pylab',
+#    'mark_masked': True,
+#    })
 
 pl.rcParams.update({
         'image.interpolation': 'nearest',
@@ -118,10 +118,10 @@ class pylabPlotter(plotters.displayClient):
                 # We have nothing going on.
                 print 'no handler'
                 return True
-            dstreams = [x.name for x in self.stream_list_handler.streams
-                        if x.type == 'data']
+            dstreams = [s.name for s in self.stream_list_handler.streams
+                        if s.properties.get('data_stream')]
             if len(dstreams) > 0:
-                self.subscribe_data(dstreams[0][:-5])
+                self.subscribe_data(dstreams[0])
             else:
                 print 'no dstreams'
         else:
@@ -194,12 +194,12 @@ if not sys.flags.interactive:
 
 if __name__ == '__main__':
     o = util.upOptionParser()
-    o.add_standard(defaults)
+    o.add_standard()
     o.add_option('--data-rate', type=float, default=10.,
                  help="frame rate to request from server")
-    opts, args = o.parse_args(defaults=defaults)
+    opts, args = o.parse_args()
 
     #pp = pylabPointPlotter(opts.server, opts.name)
     #pp.set_locations(*gfx.circle_coords(33,16))
-    pp = pylabPlotter(opts.server, opts.name)
+    pp = pylabPlotter(opts.server_cfg, opts.name)
     pp.go(rate=opts.data_rate)

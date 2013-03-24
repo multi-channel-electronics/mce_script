@@ -69,10 +69,12 @@ class thServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
 class dataDistributor:
-    def __init__(self, addr=None, verbosity=0,
+    def __init__(self, config=None, verbosity=0,
                  bad_packet_file=None):
-        if addr != None:
-            self.addr = nets.decode_address(addr)
+        if hasattr(config, 'get_server'):
+            config = config.get_server()
+        if config != None:
+            self.addr = nets.decode_address(config)
         self.clients = {}
         self.actions = {}
         self._id = 0
@@ -353,20 +355,15 @@ class dataDistributor:
 
 if __name__ == '__main__':
     o = util.upOptionParser()
-    o.add_standard(defaults)
+    o.add_standard()
     o.add_option('--kill',action='store_true')
     o.add_option('-v','--verbosity',default=0,type=int)
     o.add_option('--tunnel')
     o.add_option('--save-bad-packets')
-    opts, args = o.parse_args(defaults)
+    opts, args = o.parse_args()
     
-    if opts.tunnel:
-        host, port = nets.decode_address(opts.server)
-        sys.exit(os.system('ssh -N -L%i:%s:%i %s' % \
-                               (opts.port, opts.host, opts.port, opts.tunnel)))
-                  
     if opts.kill:
-        killer = clients.HeadsupClient(opts.server, verbosity=2)
+        killer = clients.HeadsupClient(server=opts.server_cfg, verbosity=2)
         killer.send_json('_server', {'request': 'die'},
                          destination='_server', ptype='control')
         sys.exit(0)
@@ -374,7 +371,12 @@ if __name__ == '__main__':
     if opts.port_file:
         open(opts.port_file, 'w').write('%i' % opts.port)
 
-    dd = dataDistributor(opts.server, opts.verbosity,
+    if opts.server_cfg['tunnel'] != None:
+        tcmd = opts.server_cfg.get_tunnel_cmd()
+        sys.exit(os.system(' '.join(tcmd)))
+                  
+    dd = dataDistributor(config=opts.server_cfg,
+                         verbosity=opts.verbosity,
                          bad_packet_file=opts.save_bad_packets)
     dd.serve()
 
