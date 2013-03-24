@@ -30,6 +30,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
     active_mask = None
     show_mode = 'data'
 
+    frame_counter = (0, 0, 0.)
+
     def __init__(self, server=None, name='qtg', img=None, horizontal=False):
         plotters.displayClient.__init__(self, server, name)
         QtGui.QWidget.__init__(self)
@@ -40,7 +42,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
 
         self.info = qtgfx.infoSummary()
         self.info.fromTextItemList(self.texts)
-
+        self.info.add_item('frame_rate', 'Incoming rate:', '0.')
+        self.info.add_item('display_rate', 'Display rate:', '0.')
         if img != None:
             self.img.append((img, 'default'))
         
@@ -223,32 +226,25 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         if not self.mutex.tryLock():
             return
         with qtgfx.mutexHolder(self.mutex):
-            self.idle_count += 1
-            ok, addr, data = self.do_receive()
-            if not ok or addr == None:
+            # Process all data in the stream, I guess.
+            anything = False
+            while True:
+                ok, addr, data = self.do_receive()
+                if not ok or addr == None:
+                    break
+                anything = True
+                if addr.type != 'data':
+                    break
+            if not anything:
+                self.idle_count += 1
                 return
 
-            if addr.type != 'data':
-                print '+ plot_qt gets', addr.name
-
-            if False and self.data_handler == None:
-                # Try to connect to a stream?
-                if self.stream_list_handler == None:
-                    # We have nothing going on.
-                    print 'no handler'
-                    return
-                dstreams = [x.name for x in self.stream_list_handler.streams
-                            if x.type == 'data']
-                if len(dstreams) > 0:
-                    self.subscribe_data(dstreams[0][:-5])
-                else:
-                    print 'no dstreams'
-                return
             if self.stream_list_handler != None:
                 sh = self.stream_list_handler
                 if sh.changes > 0:
                     self.stream_list_changed()
                     sh.changes = 0
+
             if self.data_handler == None:
                 return
 
@@ -279,6 +275,9 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
                     # Falling behind... change update frequency?
                     print 'Falling behind...'
                     self.data_handler.frames = []
+                self.frame_counter = (self.frame_counter[0]+1,
+                                      self.frame_counter[1]+n_frames,
+                                      self.frame_counter[2])
                 self.idle_count = 0
 
         if 0:
@@ -292,21 +291,29 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.info.set_text('autoscale', self.scale_props.mode)
         self.info.set_text('zrange_lo', '%f' % self.scale_props.last_limits[0])
         self.info.set_text('zrange_hi', '%f' % self.scale_props.last_limits[1])
+        (nd, nf, t0), t1 = self.frame_counter, time.time()
+        if (t1-t0) >= 2:
+            frate = nf/(t1-t0)
+            drate = nd/(t1-t0)
+            self.frame_counter = (0, 0, t1)
+            self.info.set_text('frame_rate', '%f' % frate)
+            self.info.set_text('display_rate', '%f' % drate)
         
 
-    def launch(self, rate=10., refresh_rate=20.):
+    def launch(self, rate=10., refresh_rate=10.):
         self.refresh_rate = refresh_rate
         self.frame_rate = refresh_rate
         self.timer = QtCore.QTimer()
+        print self.refresh_rate
         self.timer.timeout.connect(self.poll)
-        self.timer.start(1./self.refresh_rate)
+        self.timer.start(max(1,int(round(1000./self.refresh_rate))))
         self.frame_t0 = None
         self.idle_count = 0
         #pp.set_client_var('rate', rate)
 
         self.state_timer = QtCore.QTimer()
         self.state_timer.timeout.connect(self.state_update)
-        self.state_timer.start(1.)
+        self.state_timer.start(100.)
 
 
 if __name__ == '__main__':
@@ -316,7 +323,7 @@ if __name__ == '__main__':
     o.add_option('--no-controller',action='store_true')
     o.add_option('--data-rate', type=float, default=10.,
                  help="frame rate to request from server")
-    o.add_option('--display-rate', type=float, default=100.,
+    o.add_option('--display-rate', type=float, default=11.,
                  help="rate at which to update the display")
     o.add_option('--profile',
                  help="load a plotting profile file")

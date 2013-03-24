@@ -26,14 +26,15 @@ def make_custom_layout(shape):
             xy.append((x*r1, y*r1))
     geom = geometries.pixelSetGeometry(shape=shape, name='Bloom')
     geom.coords = zip(*xy)
+    geom.forms = 'circle'
     return geom
 
 
 class randomDataProducer(clients.HeadsupDataSource):
-    def __init__(self, server, name='random', shape=(5,5)):
+    def __init__(self, server, name='random', shape=(5,5), rate=10.):
         clients.HeadsupDataSource.__init__(self, server, name)
         self.dshape = shape
-        self.rate = 10.
+        self.rate = rate
 
     def go(self):
         n = 0
@@ -57,18 +58,29 @@ if __name__ == '__main__':
 
     o = util.upOptionParser()
     o.add_standard()
+    o.add_option('--geometry-file')
+    o.add_option('--geometry-name', default='geometry')
+    o.add_option('--rate', default=10., type=float)
     opts, args = o.parse_args()
 
+    if opts.geometry_file == None:
+        shape = (9,9)
+        g0 = make_custom_layout(shape)
+        g1 = geometries.pixelSetGeometry.for_grid(name='Grid', *shape)
+        geoms = [g0, g1]
+    else:
+        # Load geometry from a file, randomize the data.
+        geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,
+                                                     opts.geometry_name)]
+        shape = (1, geoms[0].n_pix)
+        
+
     # To define pixel locations.  Note pixels are 1x1.
-    shape = (9,9)
-    g = make_custom_layout(shape)
 
     # Necessary.
-    rdp = randomDataProducer(opts.server_cfg, shape=shape)
+    rdp = randomDataProducer(opts.server_cfg, shape=shape, rate=opts.rate)
     rdp.connect()
     rdp.register_basic_streams()
 
-    rdp.set_geometries([g,
-                        geometries.pixelSetGeometry.circle(8*7, name='Circle'),
-                        geometries.pixelSetGeometry.for_grid(*shape)])
+    rdp.set_geometries(geoms)
     rdp.go()

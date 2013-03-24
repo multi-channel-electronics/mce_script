@@ -189,24 +189,22 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     data = None
 
     last_click = None
-    blip_cmap = None
-
-    def __init__(self, *args, **kwargs):
-        QtGui.QGraphicsItemGroup.__init__(self, *args, **kwargs)
-        self.blip_cmap = BlipColorMap.get_builtin('purple', size=256,
-                                                  scale=255).get_brushes()
+    blip_palette = None
 
     def set_data(self, data):
-        if self.data == None or data.shape != self.data.shape:
+        if self.blip_palette == None or \
+                (self.data != None and data.shape != self.data.shape):
             self.prepareGeometryChange()
             nrow, ncol = data.shape[:2]
             self.create_blip_grid(nrow, ncol)
+            self.blip_palette = BlipColorPalette()
+            self.blip_palette.set_channel_families(['purple']*(nrow*ncol))
             self.scene().views()[0].rebound()
         self.data = data
         self.update_blips(self.data.ravel())
 
     def create_blips(self, x, y, w=1., h=1., form='rect',
-                     rotation=0.):
+                     rotation=0., color='purple'):
         def is_scalar(x):
             return np.asarray(x).ndim == 0
         # Clear the list
@@ -229,25 +227,34 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             item.setPos(x[i], y[i])
             item.setPen(self.blip_pen)
             self.addToGroup(item)
+        # Make a color scheme
+        self.blip_palette = BlipColorPalette()
+        if isinstance(color, basestring):
+            color = [color for i in range(len(x))]
+        self.blip_palette.set_channel_families(color)
+        # Inform the view that the situation has changed.
         self.prepareGeometryChange()
         self.scene().views()[0].rebound()
 
     def create_blips_from_geometry(self, geom):
         x, y = geom.coords
-        form = geom.props.get('shape', 'rect')
-        return self.create_blips(x, y, form=form)
+        form = geom.forms
+        rotation = geom.rotations
+        color = geom.colors
+        return self.create_blips(x, y, form=form, rotation=rotation,
+                                 color=color)
 
     def create_blip_grid(self, nrow, ncol):
         x, y = gfx.grid_coords(nrow, ncol)
         self.create_blips(x-x.mean(), y-y.mean())
 
     def update_blips(self, colors):
-        N = len(self.blip_cmap)
+        N = self.blip_palette.N
         idx = np.round(colors*(N-1)).astype('int')
         idx[idx<0] = 0
         idx[idx>=N] = N-1
-        for c,i in zip(idx, self.childItems()):
-            i.setBrush(self.blip_cmap[c])
+        for i,(c,item) in enumerate(zip(idx, self.childItems())):
+            item.setBrush(self.blip_palette.get_brush(i,c))
 
     def update_last_click(self, item):
         for i,it in enumerate(self.childItems()):
@@ -300,10 +307,29 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             self.scene().views()[0].rebound()
 
 
-class BlipColorMap(colormap.ColorMap):
-    def get_brushes(self):
-        return [QtGui.QBrush(QtGui.QColor(*c)) for c in self.colors]
+class BlipColorPalette:
+    # Manages a multi-color brush set; e.g. 'red' and 'blue' colormaps
+    # from 0 to 255.
+    def __init__(self, resolution=256, scale=255.):
+        self.brush_maps = {}
+        self.N = resolution
+        self.scale = scale
+        self.channel_maps = []
 
+    def set_channel_families(self, families):
+        self.brush_sets = {}
+        self.channel_maps = []
+        for f in families:
+            if not f in self.brush_sets:
+                cmap = colormap.ColorMap.get_builtin(f, size=self.N,
+                                                     scale=self.scale)
+                brushes = [QtGui.QBrush(QtGui.QColor(*c)) for c in cmap.colors]
+                self.brush_sets[f] = brushes
+            self.channel_maps.append(self.brush_sets[f])
+
+    def get_brush(self, channel, index):
+        return self.channel_maps[channel][index]
+        
 
 #
 # Shapes library...
@@ -315,23 +341,38 @@ Triangles -- indices ab refer to up-downness and left-rightness.  So
 they will actually look like.
 """
 
+def polygonate(coords):
+    points = [QtCore.QPointF(x,y) for (x,y) in coords]
+    return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
+
+
 triangle_corners = [(0,0),(1,0),(1,1),(0,1)] * 2
 
 def triangle_00(x0,y0,w,h):
-    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[0:]]
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[0:3]]
     return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
 
 def triangle_01(x0,y0,w,h):
-    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[1:]]
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[1:4]]
     return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
 
 def triangle_11(x0,y0,w,h):
-    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[2:]]
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[2:5]]
     return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
 
 def triangle_10(x0,y0,w,h):
-    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[3:]]
+    points = [QtCore.QPointF(x*w+x0,y*h+y0) for x,y in triangle_corners[3:6]]
     return QtGui.QGraphicsPolygonItem(QtGui.QPolygonF(points))
+
+bowtie_corners = [(0,0),(0,1),(1,0),(1,1),(0,0)]
+
+def bowtie_0(x0,y0,w,h):
+    points = [(x*w+x0, y*h+y0) for (x,y) in bowtie_corners]
+    return polygonate(points)
+
+def bowtie_1(x0,y0,w,h):
+    points = [(x*w+x0, y*h+y0) for (y,x) in bowtie_corners]
+    return polygonate(points)
 
 
 """
@@ -346,8 +387,10 @@ default_shapes = {
     'ellipse': QtGui.QGraphicsEllipseItem,
     'triangle_00': triangle_00,
     'triangle_01': triangle_01,
-    'triangle_11': triangle_10,
+    'triangle_11': triangle_11,
     'triangle_10': triangle_10,
+    'bowtie_0': bowtie_0,
+    'bowtie_1': bowtie_1,
 }
 
 

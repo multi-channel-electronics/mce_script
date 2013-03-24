@@ -6,17 +6,26 @@ Encoding of arrays as json members.
 json has support for arbitrary object reconstruction...
 """
 
-def encode_array_row(data):
+def encode_array_row(data, cast):
     if data.ndim == 1:
-        return map(float, data)
-    return [encode_array_row(d) for d in data]
+        return map(cast, data)
+    return [encode_array_row(d, cast) for d in data]
 
 def encode_array(data):
     if data == None:
         return None
-    return {'dtype': data.dtype.name,
+    dtype = data.dtype.name
+    if dtype.startswith('string'):
+        cast = str
+        dtype = 'string'
+    elif dtype.startswith('int'):
+        cast = int
+    else:
+        cast = float
+    return {'dtype': dtype,
             'shape': data.shape,
-            'data': encode_array_row(data)}
+            'data': encode_array_row(data, cast),
+            '_class': 'ndarray'}
 
 def decode_array(data):
     if data == None:
@@ -38,7 +47,11 @@ class arrayInfoEncoder:
         output = {}
         if self.arrayInfo_simple != None:
             for k in self.arrayInfo_simple:
-                output[k] = getattr(self, k)
+                v = getattr(self, k)
+                if isinstance(v, np.ndarray):
+                    v = encode_array(v)
+                output[k] = v
+        # Old array support, remove this soon...
         if self.arrayInfo_arrays != None:
             out_ar = {}
             for k in self.arrayInfo_arrays:
@@ -52,7 +65,12 @@ class arrayInfoEncoder:
         self = cls()
         if self.arrayInfo_simple != None:
             for k in self.arrayInfo_simple:
-                setattr(self, k, data[k])
+                v = data[k]
+                if isinstance(v, dict) and '_class' in v:
+                    if v['_class'] == 'ndarray':
+                        v = decode_array(v)
+                setattr(self, k, v)
+        # Old array support
         if self.arrayInfo_arrays != None:
             for k in self.arrayInfo_arrays:
                 d = decode_array(data['_arrays'][k])
