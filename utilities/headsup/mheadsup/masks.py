@@ -70,11 +70,11 @@ class pixelMask(aie):
                 data[:,i] = val
             else:
                 print 'unknown command %s on line %i of %s' % \
-                    (cmd,line_num,filename)B
+                    (cmd,line_num,filename)
                 continue
             if len(w) > 0 and w[0][0] != '#':
                 print 'stray stuff on line %i of %s' % \
-                    (line_num,filename)B
+                    (line_num,filename)
         # Enough states?
         i_max = data.max()
         while len(states) <= i_max:

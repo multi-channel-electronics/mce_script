@@ -169,8 +169,8 @@ class pixelSetGeometry(aie):
             x = np.arange(n_col)
         if y == None:
             y = np.arange(n_row)
-        x = np.asarray(x).reshape((1,-1))
-        y = np.asarray(y).reshape((-1,1))
+        x = np.asarray(x).reshape((1,-1)).astype('float')
+        y = np.asarray(y).reshape((-1,1)).astype('float')
         x -= x.mean()
         y -= y.mean()
         self.coords = np.array([(x+y*0).ravel(),(y+x*0).ravel()])
