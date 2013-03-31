@@ -177,7 +177,7 @@ if __name__ == '__main__':
     else:
         flatfile = defaults['mcefile']
 
-    mp = mceFileFollower(opts.server, opts.name,
+    mp = mceFileFollower(opts.server_cfg, opts.name,
                          field=opts.data_field)
     if not mp.connected:
         sys.exit(2)
