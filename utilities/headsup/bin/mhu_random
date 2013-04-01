@@ -59,7 +59,7 @@ if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_standard()
     o.add_option('--geometry-file')
-    o.add_option('--geometry-name', default='geometry')
+    o.add_option('--geometry-name', action='append')
     o.add_option('--rate', default=10., type=float)
     opts, args = o.parse_args()
 
@@ -70,8 +70,11 @@ if __name__ == '__main__':
         geoms = [g0, g1]
     else:
         # Load geometry from a file, randomize the data.
-        geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,
-                                                     opts.geometry_name)]
+        if opts.geometry_name == None:
+            opts.geometry_name = \
+                geometries.pixelSetGeometry.get_cp_list(opts.geometry_file)
+        geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,k)
+                 for k in opts.geometry_name]
         shape = (1, geoms[0].n_pix)
         
 

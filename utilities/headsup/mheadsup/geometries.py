@@ -14,8 +14,7 @@ class pixelSetGeometry(aie):
     Record positions of a set of pixels.
     """
     arrayInfo_simple= ['name', 'n_pix', 'n_dim', 'data_shape', 'props',
-                       'coords', 'forms', 'rotations', 'colors']
-#    arrayInfo_arrays = ['coords', 'forms', 'rotations']
+                       'coords', 'forms', 'rotations', 'colors', 'mask']
 
     def __init__(self, name='geom', shape=None):
         if shape == None:
@@ -27,6 +26,7 @@ class pixelSetGeometry(aie):
         self.rotations = 0.
         self.name = name
         self.props = {}
+        self.mask = True
 
     def set_shape(self, shape):
         try:
@@ -65,26 +65,30 @@ class pixelSetGeometry(aie):
     """
 
     def read_ascii_columns(self, filename,
-                           columns={'x': 0, 'y': 1}):
+                           columns={'x': 0, 'y': 1},
+                           translators={}):
         casts = {'x': float,
                  'y': float,
                  'forms': str,
                  'rotations': float,
                  'colors': str,
+                 'mask': bool,
                  }
         data = []
         for k in casts.keys():
             if k in columns:
-                data.append((k, columns[k], casts[k], []))
+                data.append((k, columns[k],
+                             casts[k], translators.get(k,{}),
+                             []))
         
         for line in open(filename):
             w = line.split()
             if len(w) == 0 or w[0][0] == '#':
                 continue
-            for k, col, cst, d in data:
-                d.append(cst(w[col]))
+            for k, col, cst, trans, d in data:
+                d.append(cst(trans.get(w[col], w[col])))
         vectors = {}
-        for k, _,_, d in data:
+        for k, _,_,_, d in data:
              vectors[k] = np.array(d)
         self.coords = np.array([vectors['x'], vectors['y']])
         if 'forms' in columns:
@@ -93,6 +97,8 @@ class pixelSetGeometry(aie):
             self.rotations = np.array(vectors['rotations'])
         if 'colors' in columns:
             self.colors = np.array(vectors['colors'])
+        if 'mask' in columns:
+            self.mask = np.array(vectors['mask'])
         return self
 
     @classmethod
@@ -102,6 +108,13 @@ class pixelSetGeometry(aie):
         self.read_ascii_columns(filename, columns)
         self.set_shape(self.coords.shape[0])
         return self
+
+    @staticmethod
+    def get_cp_list(filename):
+        from ConfigParser import ConfigParser
+        cp = ConfigParser()
+        cp.read(filename)
+        return cp.sections()
 
     @classmethod
     def from_cp(cls, filename, section='geometry'):
@@ -114,6 +127,24 @@ class pixelSetGeometry(aie):
             self.form = cp.get(section, 'form')
         if cp.has_option(section, 'color'):
             self.form = cp.get(section, 'color')
+        # Load column translation information before file load
+        def get_trans_table(lines):
+            return dict([x.split() for x in lines.split('\n')
+                         if len(x) > 0])
+        translators = {}
+        ## Aliases for form names
+        if cp.has_option(section, 'form_aliases'):
+            translators['forms'] = get_trans_table(
+                cp.get(section, 'form_aliases'))
+        ## Color aliases
+        if cp.has_option(section, 'color_aliases'):
+            translators['colors'] = get_trans_table(
+                cp.get(section, 'color_aliases'))
+        ## Mask aliases
+        if cp.has_option(section, 'mask_aliases'):
+            translators['mask'] = get_trans_table(
+                cp.get(section, 'mask_aliases'))
+
         # Load the per-pixel data, which is probably in a separate file.
         words = cp.get(section, 'source').split()
         src_type = words.pop(0)
@@ -126,26 +157,15 @@ class pixelSetGeometry(aie):
                     break
                 field, column = words.pop(0), words.pop(0)
                 col_defs[field] = int(column)
-            self.read_ascii_columns(geo_file, columns=col_defs)
+            self.read_ascii_columns(geo_file, columns=col_defs,
+                                    translators=translators)
+
         # Rescale pixel coordinates?
         if cp.has_option(section, 'rescale'):
             rescale = map(float, cp.get(section, 'rescale').split())
             for i in range(len(rescale)):
                 self.coords[i] *= rescale[i]
-        # Translate form data?
-        if cp.has_option(section, 'form_aliases') and \
-                not isinstance(self.forms, basestring):
-            translator = dict([x.split() for x in
-                               cp.get(section, 'form_aliases').split('\n')
-                               if len(x) > 0])
-            self.forms = [translator.get(x,x) for x in self.forms]
-        # Translate color data?
-        if cp.has_option(section, 'color_aliases') and \
-                not isinstance(self.colors, basestring):
-            translator = dict([x.split() for x in
-                               cp.get(section, 'color_aliases').split('\n')
-                               if len(x) > 0])
-            self.colors = [translator.get(x,x) for x in self.colors]
+
         # Read the data shape, or set it to a reasonable thing
         if cp.has_option(section, 'shape'):
             self.set_shape(map(int, cp.get(section, 'shape').split()))

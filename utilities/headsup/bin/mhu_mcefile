@@ -37,6 +37,7 @@ class mceFileFollower(clients.HeadsupDataSource):
                         'trigger_reinit': False,
                         }
         self.threads = {}
+
     def cleanup(self):
         expires = time.time() + 2.
         while True:
@@ -125,7 +126,8 @@ class mceFileFollower(clients.HeadsupDataSource):
                                                                  name='Grid^T'),
                             ]
                     geoms[-1].coords = geoms[-1].coords[::-1]
-                    self.set_geometries(geoms)
+                    # Pass update=True to not trash user's command line choice
+                    self.set_geometries(geoms, update=True)
                     
                 # Handle control messages
                 ok, addr, _ = self.do_receive()
@@ -169,6 +171,10 @@ if __name__ == '__main__':
     # For following a file on the fly
     o.add_option('--tail', '-F', action='store_true')
     o.add_option('--follow', action='store_true')
+    # For specifying display layout
+    o.add_option('--geometry-file')
+    o.add_option('--geometry-name', default=None)
+
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults)
 
@@ -177,11 +183,20 @@ if __name__ == '__main__':
     else:
         flatfile = defaults['mcefile']
 
+    # Load geometries based on cmd line opts
+    if opts.geometry_name == None:
+        opts.geometry_name = \
+            geometries.pixelSetGeometry.get_cp_list(opts.geometry_file)
+    geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,k)
+             for k in opts.geometry_name]
+
+
     mp = mceFileFollower(opts.server_cfg, opts.name,
                          field=opts.data_field)
     if not mp.connected:
         sys.exit(2)
     mp.register_basic_streams()
+    mp.set_geometries(geoms)
 
     if opts.tail:
         opts.follow = True

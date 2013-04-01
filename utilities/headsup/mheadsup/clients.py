@@ -201,6 +201,9 @@ class HeadsupDataSource(HeadsupClient):
             self.log('issuing notify' + ' '.join(self.info[1].keys()))
             self.send_json(self.stream.name, {'info_update': self.info[1]})
 
+    def get_info(self):
+        return self.info[1]
+
     def post_data(self, data):
         json_data = {'data_packing': 'simple',
                      'data_shape': data.shape,
@@ -217,9 +220,14 @@ class HeadsupDataSource(HeadsupClient):
                                               )
         self.send(data)
 
-    def set_geometries(self, geometries):
-        data = {'geometries': [g.encode() for g in geometries]}
-        self.update_info(data)
+    def set_geometries(self, geometries, update=False):
+        if update:
+            geoms = self.get_info().get('geometries', [])
+        else:
+            geoms = []
+        for g in geometries:
+            geoms.append(g.encode())
+        self.update_info({'geometries': geoms})
 
     def do_receive(self):
         ok, addr, data = HeadsupClient.do_receive(self)
