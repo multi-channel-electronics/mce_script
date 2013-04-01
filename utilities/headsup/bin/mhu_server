@@ -174,8 +174,8 @@ class dataDistributor:
         # Route the packet.
         if addr.type == 'notify':
             # This is a broadcast on a stream, send to all subscribers.
-            print 'Received notify packet on stream %s' % addr.name
-            print data.json_data
+            self.log('Received notify packet on stream %s' % addr.name, 1)
+            self.log('Data was: %s' % repr(data.json_data), 2)
             return self.redistribute(addr.name, packet)
         elif addr.type == 'control':
             # Is this a message for us?
