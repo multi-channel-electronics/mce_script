@@ -65,7 +65,7 @@ class arrayInfoEncoder:
         self = cls()
         if self.arrayInfo_simple != None:
             for k in self.arrayInfo_simple:
-                v = data[k]
+                v = data.get(k, None)
                 if isinstance(v, dict) and '_class' in v:
                     if v['_class'] == 'ndarray':
                         v = decode_array(v)

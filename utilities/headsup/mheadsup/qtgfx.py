@@ -126,6 +126,7 @@ class tightView(QtGui.QGraphicsView):
 class GridDisplay(QtGui.QGraphicsObject):
     data = None
     last_click = None
+    last_hover = None
 
     def set_data(self, data, channel=None):
         # Expects data to be float, 0 to 1.
@@ -181,7 +182,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     """
     This can display plotting elements in arbitrary locations.  When
     run as a close-packed grid it should act just like a GridDisplay.
-    But slower.  So it's main advantage is for non-rectangular array
+    But slower.  So its main advantage is for non-rectangular array
     configurations.
     """
     blip_pen = QtGui.QPen(QtCore.Qt.NoPen)
@@ -190,7 +191,18 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     data_mask = None
 
     last_click = None
+    last_hover = None
     blip_palette = None
+
+    channel_names = None
+
+    def reset(self):
+        self.data = None
+        self.data_mask = None
+        self.last_click = None
+        self.last_hover = None
+        self.blip_palette = None
+        self.channel_names = None
 
     def set_data(self, data):
         """
@@ -285,8 +297,26 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
                 self.last_click = i
                 break
 
+    def update_last_hover(self, item):
+        for i,it in enumerate(self.childItems()):
+            if it == item:
+                self.last_hover = i
+                break
+        else:
+            self.last_hover = None
+
     def get_mask(self):
         return self.data_mask
+
+    def get_status_text(self):
+        if self.last_hover == None:
+            return 'none'
+        idx = self.last_hover
+        if self.channel_names != None:
+            name = self.channel_names[idx]
+        else:
+            name = 'channel %i' % idx
+        return name
 
     #
     # Virtual method implementation
@@ -299,6 +329,15 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         item = self.scene().itemAt(x, y)
         if item != None:
             self.update_last_click(item)
+
+    def hoverMoveEvent(self, ev):
+        x, y = ev.pos().x(), ev.pos().y()
+        item = self.scene().itemAt(x, y)
+        if item != None:
+            self.update_last_hover(item)
+
+    def hoverLeaveEvent(self, ev):
+        self.last_hover = None
 
     # This is dumb.
     def animateMove(self, new_x=None, new_y=None, t=1.):

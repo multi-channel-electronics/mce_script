@@ -11,6 +11,7 @@ import mce_data
 import threading
 import time
 import os, sys
+import numpy
 
 defaults = util.get_defaults()
 defaults.update({
@@ -119,6 +120,10 @@ class mceFileFollower(clients.HeadsupDataSource):
                     # Update geometries
                     dshape = d.data.shape[:-1]
                     nrow, ncol = dshape
+                    geoms = self.get_info().get('geometries', [])
+                    for g in geoms:
+                        if g['name'] == 'Grid' or g['name'] == 'Grid^T':
+                            geoms.remove(g)
                     geoms = [
                             geometries.pixelSetGeometry.for_grid(nrow,ncol,
                                                                  name='Grid'),
@@ -126,6 +131,8 @@ class mceFileFollower(clients.HeadsupDataSource):
                                                                  name='Grid^T'),
                             ]
                     geoms[-1].coords = geoms[-1].coords[::-1]
+                    for g in geoms:
+                        g.channel_names = get_channel_names(nrow, ncol)
                     # Pass update=True to not trash user's command line choice
                     self.set_geometries(geoms, update=True)
                     
@@ -162,6 +169,12 @@ class mceFileFollower(clients.HeadsupDataSource):
         else:
             self.go(background=background)
 
+def get_channel_names(nrow, ncol):
+    return numpy.array(['r%02ic%02i' % (r,c)
+                        for r in range(nrow)
+                        for c in range(ncol)])
+
+
 if __name__ == '__main__':
     o = util.upOptionParser()
     o.add_option('--data-field')
@@ -184,12 +197,14 @@ if __name__ == '__main__':
         flatfile = defaults['mcefile']
 
     # Load geometries based on cmd line opts
-    if opts.geometry_name == None:
-        opts.geometry_name = \
-            geometries.pixelSetGeometry.get_cp_list(opts.geometry_file)
-    geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,k)
-             for k in opts.geometry_name]
-
+    if opts.geometry_file != None:
+        if opts.geometry_name == None:
+            opts.geometry_name = \
+                geometries.pixelSetGeometry.get_cp_list(opts.geometry_file)
+        geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,k)
+                 for k in opts.geometry_name]
+    else:
+        geoms = []
 
     mp = mceFileFollower(opts.server_cfg, opts.name,
                          field=opts.data_field)

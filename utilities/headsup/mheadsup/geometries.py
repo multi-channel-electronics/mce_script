@@ -14,7 +14,8 @@ class pixelSetGeometry(aie):
     Record positions of a set of pixels.
     """
     arrayInfo_simple= ['name', 'n_pix', 'n_dim', 'data_shape', 'props',
-                       'coords', 'forms', 'rotations', 'colors', 'mask']
+                       'coords', 'forms', 'rotations', 'colors', 'mask',
+                       'channel_names']
 
     def __init__(self, name='geom', shape=None):
         if shape == None:
@@ -27,6 +28,7 @@ class pixelSetGeometry(aie):
         self.name = name
         self.props = {}
         self.mask = True
+        self.channel_names = None
 
     def set_shape(self, shape):
         try:
@@ -73,6 +75,7 @@ class pixelSetGeometry(aie):
                  'rotations': float,
                  'colors': str,
                  'mask': int,
+                 'names': str,
                  }
         data = []
         for k in casts.keys():
@@ -99,6 +102,8 @@ class pixelSetGeometry(aie):
             self.colors = np.array(vectors['colors'])
         if 'mask' in columns:
             self.mask = np.array(vectors['mask']).astype('bool')
+        if 'names' in columns:
+            self.channel_names = np.array(vectors['names'])
         return self
 
     @classmethod

@@ -30,6 +30,7 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
     active_mask = None
     show_mode = 'data'
 
+    trigger_geom = False
     frame_counter = (0, 0, 0.)
 
     def __init__(self, server=None, name='qtg', img=None, horizontal=False,
@@ -103,6 +104,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             if self.data_handler == None or \
                     self.data_handler.stream_name != stream_name:
                 self.subscribe_data(stream_name)
+        self.img[0][0].reset()
+        self.geom_list_changed()
 
     def select_geom(self, *args):
         idx = args[0]
@@ -112,6 +115,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             #self.img[0][0].animateMove(self.geom.coords[0],
             #                           self.geom.coords[1])
             self.img[0][0].create_blips_from_geometry(self.geom)
+            if self.geom.channel_names != None:
+                self.img[0][0].channel_names = self.geom.channel_names
             self.geom_mask = self.img[0][0].get_mask()
             
     def select_mask(self, *args):
@@ -151,6 +156,11 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         geoms = [(s['name'], s) for s in self.data_handler.info.
                  get('geometries', [])]
         self.geomList.update_items(items=geoms)
+        if len(geoms) == 0:
+            self.trigger_geom = True
+        elif self.trigger_geom:
+            self.trigger_geom = False
+            self.select_geom(0)
 
     def mask_list_changed(self):
         masks = [
@@ -278,6 +288,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.info.set_text('autoscale', self.scale_props.mode)
         self.info.set_text('zrange_lo', '%f' % self.scale_props.last_limits[0])
         self.info.set_text('zrange_hi', '%f' % self.scale_props.last_limits[1])
+        # hover text?
+        self.info.set_text('status', self.img[0][0].get_status_text())
         (nd, nf, t0), t1 = self.frame_counter, time.time()
         if (t1-t0) >= 2:
             frate = nf/(t1-t0)
@@ -301,6 +313,10 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.state_timer.timeout.connect(self.state_update)
         self.state_timer.start(100.)
 
+class PlotQTWindow(QtGui.QMainWindow):
+    pass
+#    def my_handler(self, *args):
+#        print 'ding', args
 
 if __name__ == '__main__':
     o = util.upOptionParser()
@@ -325,7 +341,8 @@ if __name__ == '__main__':
     # Qt init
     app = QtGui.QApplication([])
 
-    win = QtGui.QMainWindow()
+    #win = QtGui.QMainWindow()
+    win = PlotQTWindow()
     if opts.horizontal:
         win.resize(800,500)
     else:
@@ -333,6 +350,7 @@ if __name__ == '__main__':
     win.move(100,100)
 
     img = qtgfx.BlipDisplay()
+    img.setAcceptHoverEvents(True)
 
     pp = qtgPlotter(opts.server_cfg, opts.name, img=img,
                     horizontal=opts.horizontal)
@@ -341,10 +359,18 @@ if __name__ == '__main__':
     win.setCentralWidget(pp)
 
     exitAction = QtGui.QAction(app)
+    exitAction.setText('Exit')
     exitAction.setShortcut('Ctrl+Q')
     exitAction.setStatusTip('Exit application')
+
     exitAction.triggered.connect(QtGui.qApp.quit)
+    #exitAction.triggered.connect(win.my_handler)
     win.addAction(exitAction)
+
+    # Menus...
+    menubar = win.menuBar()
+    fileMenu = menubar.addMenu('&File')
+    fileMenu.addAction(exitAction)
 
     win.show()
 

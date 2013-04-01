@@ -29,6 +29,7 @@ class displayClient(clients.HeadsupDataConsumer):
         self.controls = {}
         self.controls.update(display_defaults)
         self.texts = textItemList()
+        self.texts.append('status', 'Channel name:')
         self.texts.append('time_now', 'Time:')
         self.texts.append('time_frame', 'Last frame:')
 #        self.texts.append('data_mode', 'Data mode:')
