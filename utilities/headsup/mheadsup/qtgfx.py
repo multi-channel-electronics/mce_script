@@ -187,11 +187,19 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     blip_pen = QtGui.QPen(QtCore.Qt.NoPen)
     blip_brush0 = QtGui.QBrush(QtGui.QColor(128,128,128))
     data = None
+    data_mask = None
 
     last_click = None
     blip_palette = None
 
     def set_data(self, data):
+        """
+        Driving application posts array data using this function.
+
+        data must be a numpy array of floats between 0 and 1.  These
+        will be translated into an image based on the active geometry
+        description.
+        """
         if self.blip_palette == None or \
                 (self.data != None and data.shape != self.data.shape):
             self.prepareGeometryChange()
@@ -201,10 +209,15 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             self.blip_palette.set_channel_families(['purple']*(nrow*ncol))
             self.scene().views()[0].rebound()
         self.data = data
-        self.update_blips(self.data.ravel())
+        if self.data_mask == None:
+            self.update_blips(self.data.ravel())
+        else:
+            self.update_blips(self.data.ravel()[self.data_mask])
+
 
     def create_blips(self, x, y, w=1., h=1., form='rect',
-                     rotation=0., color='purple'):
+                     rotation=0., color='purple',
+                     mask=None):
         def is_scalar(x):
             return np.asarray(x).ndim == 0
         # Clear the list
@@ -220,7 +233,13 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             rotation_mul = 0
             rotation = [rotation]
         # Create the blips
-        for i in range(len(x)):
+        if mask == None:
+            self.data_mask = None
+            indices = range(len(x))
+        else:
+            self.data_mask = mask
+            indices = mask.nonzero()[0]
+        for i in indices:
             con = default_shapes.get(form[i*form_mul])
             item = con(-w/2, -h/2, w, h)
             item.setRotation(rotation[i*rotation_mul])
@@ -241,8 +260,12 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         form = geom.forms
         rotation = geom.rotations
         color = geom.colors
-        return self.create_blips(x, y, form=form, rotation=rotation,
-                                 color=color)
+        mask = geom.mask
+        if not isinstance(geom.mask, np.ndarray):
+            mask = None
+        self.create_blips(x, y, form=form, rotation=rotation,
+                          color=color, mask=mask)
+
 
     def create_blip_grid(self, nrow, ncol):
         x, y = gfx.grid_coords(nrow, ncol)
@@ -261,6 +284,9 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             if it == item:
                 self.last_click = i
                 break
+
+    def get_mask(self):
+        return self.data_mask
 
     #
     # Virtual method implementation

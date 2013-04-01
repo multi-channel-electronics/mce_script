@@ -118,6 +118,7 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             #self.img[0][0].animateMove(self.geom.coords[0],
             #                           self.geom.coords[1])
             self.img[0][0].create_blips_from_geometry(self.geom)
+            self.geom_mask = self.img[0][0].get_mask()
             
     def select_pixelSet(self, *args):
         print ' -select_pixelSet'
@@ -185,26 +186,25 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         img, _ = self.img[idx]
         if data == None:
             data = self.last_data
-        # Update zoom to match image?
+
         self.last_data = data
-        # Update data mask?
-#        if self.controls.get('mask_update'):
-#            self.data_mask = np.array(self.controls['mask']).astype('bool')
-#            self.controls['mask_update'] = False
-        dm = self.data_mask
-        if dm == None or dm.shape != data.shape:
-            self.data_mask = np.ones(data.shape, 'bool')
-            if self.active_mask == dm:
-                self.active_mask = None
-        mask = self.active_mask
-        if mask != None and mask.sum() == 0:
-            mask[0] = True
+
+        # Data selection mask
+        mask = np.ones(data.shape, 'bool')
+        if self.active_mask != None:
+            mask *= self.active_mask
+        if self.geom_mask != None:
+            mask *= self.geom_mask
+        #if not np.any(mask):
+        #    mask[...,0] = True
+
         if self.show_mode == 'data':
             # Get scaled data
-            data = self.scale_props.rescale_data(data, mask=self.active_mask,
+            data = self.scale_props.rescale_data(data, mask=mask,
                                                  mask_val=0.5)
         elif self.show_mode == 'mask':
             data = mask.astype('int')
+
         img.set_data(data)
 
     def poll(self):

@@ -72,7 +72,7 @@ class pixelSetGeometry(aie):
                  'forms': str,
                  'rotations': float,
                  'colors': str,
-                 'mask': bool,
+                 'mask': int,
                  }
         data = []
         for k in casts.keys():
@@ -98,7 +98,7 @@ class pixelSetGeometry(aie):
         if 'colors' in columns:
             self.colors = np.array(vectors['colors'])
         if 'mask' in columns:
-            self.mask = np.array(vectors['mask'])
+            self.mask = np.array(vectors['mask']).astype('bool')
         return self
 
     @classmethod

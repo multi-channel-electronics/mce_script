@@ -278,8 +278,12 @@ class dataScaleProps:
             data_for_lims = data[mask]
         else:
             data_for_lims = data
+
         # Data limits; these are used for mode='auto'
-        scale_lo, scale_hi = data_for_lims.min(), data_for_lims.max()
+        if len(data_for_lims) > 0:
+            scale_lo, scale_hi = data_for_lims.min(), data_for_lims.max()
+        else:
+            scale_lo, scale_hi = 0, 1
 
         # Scale reset?
         if self.trigger_stretch:
