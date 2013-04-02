@@ -1103,12 +1103,12 @@ static void mas_metadata(void)
   }
   for (i = 0; i < mas_rf_data.ncol; ++i)
     for (j = 0; j < mas_rf_data.nrow; ++j) {
-      f = field + i * mas_rf_data.nrow + j + NHEADER_FIELDS;
+      f = field + j * mas_rf_data.ncol + i + NHEADER_FIELDS;
       f->name = malloc(sizeof("tesdatar##c##"));
       sprintf(f->name, "tesdatar%02ic%02i", j, i);
       f->spf = 1;
       f->type = GD_UINT32;
-      f->offset = sizeof(uint32_t) * (i * mas_rf_data.nrow + j + HEADER_LEN);
+      f->offset = sizeof(uint32_t) * (j * mas_rf_data.ncol + i + HEADER_LEN);
       f->cadence = 0;
     }
   f = field + mas_rf_data.nrow * mas_rf_data.ncol + NHEADER_FIELDS;
