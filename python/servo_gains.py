@@ -30,8 +30,11 @@ if opts.stage == None:
 
 for target in args:
     fs = aset.util.FileSet(target)
+    tuning = aset.util.tuningData(exp_file=fs.get('cfg_file'), data_dir='')
+
     if 'sa_ramp' in opts.stage:
         sa = aset.SARamp.join([aset.SARamp(f) for f in fs.stage_all('sa_ramp')])
+        sa.tuning = tuning
         sa.reduce(slope=1)
         s2s_gains = 1./sa.analysis['lock_slope']
         print 'SQ2 servo critical gain: '
@@ -40,6 +43,7 @@ for target in args:
     if 'sq2_servo' in opts.stage:
         sq2 = aset.SQ2Servo.join([aset.SQ2Servo(f) \
                                       for f in fs.stage_all('sq2_servo')])
+        sq2.tuning = tuning
     for s in [-1, +1]:
         sq2.reduce(slope=s)
         s1s_gains = 1./sq2.analysis['lock_slope'] / s2s_gains
