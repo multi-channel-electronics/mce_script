@@ -74,6 +74,10 @@ for cmd in fw_rev fpga_temp card_temp card_id slot_id card_type; do
   echo "**************************"
 done
 
+a=`command_reply rb cc box_id`
+echo "subrack box_id $a"
+echo "**************************"
+
 # report power status
 psc_status
 
