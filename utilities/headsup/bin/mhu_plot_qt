@@ -266,7 +266,8 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
                 # check for clicks?
                 if self.img[0][0].last_click != None:
                     idx = self.img[0][0].last_click
-                    idx = self.img[0][0].get_mask().nonzero()[0][idx]
+                    if self.geom_mask != None:
+                        idx = self.geom_mask.nonzero()[0][idx]
                     mask_view = self.data_mask.ravel()
                     mask_view[idx] = not mask_view[idx]
                     self.img[0][0].last_click = None
