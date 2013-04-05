@@ -47,9 +47,9 @@ if [ "$bc" == "" ]; then
 fi
 
 # Cheap argument processing...
-[ "$2" != "" ] && n_points=$3
-[ "$3" != "" ] && step_depth=$4
-[ "$4" != "" ] && step_period=$5
+[ "$2" != "" ] && n_points=$2
+[ "$3" != "" ] && step_depth=$3
+[ "$4" != "" ] && step_period=$4
 
 
 # Zero mod_val and set the mod_val targets:
@@ -63,7 +63,7 @@ bias_card=$(( $bc + 6 ))
 bias_para=0x27
 
 ct=`print_ctime`
-filename="${ct}_bc$(( $line + 1 ))_step"
+filename="${ct}_bc${bc}_step"
 
 acq_register $ct bias_step $MAS_DATA/$filename $n_points "$MAS_LOGID"
 
