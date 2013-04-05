@@ -186,7 +186,7 @@ if __name__ == '__main__':
     o.add_option('--follow', action='store_true')
     # For specifying display layout
     o.add_option('--geometry-file')
-    o.add_option('--geometry-name', default=None)
+    o.add_option('--geometry-name', default=None, action='append')
 
     o.add_standard(defaults)
     opts, args = o.parse_args(defaults)

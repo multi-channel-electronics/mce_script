@@ -255,13 +255,15 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             con = default_shapes.get(form[i*form_mul])
             item = con(-w/2, -h/2, w, h)
             item.setRotation(rotation[i*rotation_mul])
-            item.setPos(x[i], y[i])
+            item.setPos(x[i], -y[i])
             item.setPen(self.blip_pen)
             self.addToGroup(item)
         # Make a color scheme
         self.blip_palette = BlipColorPalette()
         if isinstance(color, basestring):
-            color = [color for i in range(len(x))]
+            color = [color for i in indices]
+        else:
+            color = np.array(color)[indices]
         self.blip_palette.set_channel_families(color)
         # Inform the view that the situation has changed.
         self.prepareGeometryChange()
@@ -313,7 +315,10 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             return 'none'
         idx = self.last_hover
         if self.channel_names != None:
-            name = self.channel_names[idx]
+            if self.data_mask != None:
+                name = self.channel_names[self.data_mask][idx]
+            else:
+                name = self.channel_names[idx]
         else:
             name = 'channel %i' % idx
         return name
