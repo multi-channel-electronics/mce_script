@@ -190,7 +190,7 @@ class SARamp(servo.SquidData):
                     ylabel='Amplitude (/1000)')
         rs.add_data('y_max', self.analysis['y_max'],
                     ylabel='Max error (/1000)')
-        rs.add_data('y_max', self.analysis['y_max'],
+        rs.add_data('y_min', self.analysis['y_min'],
                     ylabel='Min error (/1000)')
         # Turn bias indices into biases; store as analysis.
         idx = self.analysis['y_span_select']
