@@ -59,6 +59,21 @@ class mce_control(MCE):
         else:
             return self.write(card, param, data)
 
+    def io_sys_sync(self, param, data=None):
+        """
+        Read/write a "synced" parameter from/to all cards.  This kind
+        of parameter should be the same accross all cards;
+        e.g. row_len and num_rows.  Writes/returns a single value.
+        """
+        if data == None:
+            vals = np.array(self.read('sys', param))
+            if not np.all(vals==vals[0]):
+                print '(Warning: inconsistent data for "%s" across sys.)' % \
+                    param
+            return vals[0]
+        else:
+            self.write('sys', param, data)
+
     def io_rc_sync(self, param, data=None):
         """
         Read/write a "synced" parameter from/to all RCs.  This kind of
@@ -128,6 +143,20 @@ class mce_control(MCE):
         return self.io_rc_sync('sample_dly', num)
 
     """
+    Timing and readout parameters.
+    """
+
+    def row_len(self, row_len=None):
+        return self.io_sys_sync('cc', 'row_len', row_len)
+
+    def num_rows(self, num_rows=None):
+        return self.io_sys_sync('cc', 'row_len', num_rows)
+
+    def data_rate(self, data_rate=None):
+        return self.io_readwrite('cc', 'data_rate', data_rate)
+
+
+    """
     Servo loop control.
     """
 
@@ -161,4 +190,12 @@ class mce_control(MCE):
         nr, dr, rl = [self.read('cc', k)[0] for k in 
                       ['num_rows', 'data_rate', 'row_len']]
         return float(nr * dr * rl) / 5e7
+
+    def mux_rate(self):
+        return pymce.const.FREQ / self.row_len() / self.num_rows()
+
+    def readout_rate(self):
+        return self.mux_rate() / self.data_rate()
+
+    
 
