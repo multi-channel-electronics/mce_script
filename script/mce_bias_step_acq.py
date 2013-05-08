@@ -15,7 +15,7 @@ the MAS_LOGID environment variable or pass --log-note=xxxx.
 """
 
 from mce_control import mce_control as MCE
-import subprocess as sp
+import os
 import time
 
 from auto_setup.util import mas_path
