@@ -85,7 +85,7 @@ if opts.log_note == None:
 #
 
 mce = MCE()
-ctime0 = time.time()
+ctime0 = int(time.time())
 data_mode_before = mce.data_mode()
 
 ## Get timing and stuff.
@@ -149,8 +149,8 @@ for bc in opts.bc:
     bc = 'bc' + bc
     this_data = {
         'bias_card': 'bc'+bc,
-        'ctime': time.time(),
-        'ctime0': ctime0,
+        'ctime': str(int(time.time())),
+        'ctime0': str(ctime0),
         'n_frames': opts.frames,
         'log': opts.
         }
