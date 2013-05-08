@@ -48,7 +48,9 @@ export MAS_LOGID="$note"
 
 # Start auto_setup
 
-PYTHON_TUNING=( `mas_param get python_tuning` )
+## MFH hotwire
+##PYTHON_TUNING=( `mas_param get python_tuning` )
+PYTHON_TUNING=( 1 )
 if [ "${PYTHON_TUNING[0]}" == "1" ]; then
     NOTEARGS=
     [ "$note" != "" ] && NOTEARGS="--reg-note \"${note}\""
