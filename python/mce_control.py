@@ -131,10 +131,6 @@ class mce_control(MCE):
 
     def data_mode(self, mode=None):
         return self.io_rc_sync('data_mode', mode)
-        if mode == None:
-            return self.read('rca', 'data_mode')[0]
-        else:
-            self.write('rca', 'data_mode', [mode])
 
     def sample_num(self, num=None):
         return self.io_rc_sync('sample_num', num)
@@ -147,10 +143,10 @@ class mce_control(MCE):
     """
 
     def row_len(self, row_len=None):
-        return self.io_sys_sync('cc', 'row_len', row_len)
+        return self.io_sys_sync('row_len', row_len)
 
     def num_rows(self, num_rows=None):
-        return self.io_sys_sync('cc', 'row_len', num_rows)
+        return self.io_sys_sync('num_rows', num_rows)
 
     def data_rate(self, data_rate=None):
         return self.io_readwrite('cc', 'data_rate', data_rate)
