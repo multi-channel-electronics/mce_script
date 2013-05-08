@@ -1,5 +1,40 @@
 #!/usr/bin/python
 
+USAGE="""%prog [options]
+%prog operation filename ...
+
+This program does some combination of:
+  - ramp      : acquire an IV curve
+  - analysis  : analyze an IV curve
+  - bias      : write the recommended biases to the MCE
+
+By default, it does all of those things.  To only do the ramp and
+analysis, pass --no-bias.  You can also do each thing individually.
+Like this:
+
+  %prog ramp [iv_filename]
+
+        This will acquire an IV curve.  iv_filename is optional;
+        <ctime>_iv is the default.
+
+  %prog analysis [iv_filename]
+
+        This will analyze the data in the iv file provided, producing
+        plots and the .out analysis output.  Additional options:
+
+           --do-plots=0     suppress plotting
+
+           --do-analysis=0  suppress analysis (don't rewrite the .out
+                            file)
+
+  %prog bias [iv_analysis]
+
+        Read the recommended TES biases from an IV analysis file and apply
+        them.  This also creates the symbolic link "/data/cryo/last_iv.out",
+        which is appended to subsequent runfiles, if you're lucky.
+
+"""
+
 import os, sys, time
 
 from optparse import OptionParser
@@ -38,7 +73,7 @@ def true_path(linked_path, recursion=0):
     return os.path.join(true_path(a, recursion+1), b)
 
 
-o = OptionParser()
+o = OptionParser(usage=USAGE)
 o.add_option('--first-stage')
 o.add_option('--last-stage')
 o.add_option('--stage')
@@ -52,12 +87,18 @@ o.add_option('--no-bias',action='store_true')
 o.add_option('--bias-only',action='store_true')
 
 o.add_option('--do-plots', type=int, default=1)
+o.add_option('--do-analysis', type=int, default=1)
+o.add_option('--do-link', type=int, default=1)
 
 opts, args = o.parse_args()
 
 # Let "args" do some obvious things
 if len(args) > 0:
     opts.stage = args[0]
+    # Weird ones...
+    if opts.stage == 'plot':
+        opts.stage = 'analysis'
+        opts.do_analysis = 0
     if opts.stage == 'go':
         opts.stage = None  # trigger full thing
         if len(args) > 1:
@@ -104,23 +145,24 @@ if do_stage('ramp'):
 #  Analyze the IV curve?
 #
 if do_stage('analysis'):
+    iva_opts = ''
+    if opts.do_plots == 0:
+        # Do not produce any plots.
+        iva_opts += ' --plot-dir=none'
+    if opts.analysis_file == None:
+        opts.analysis_file = opts.ramp_file + '.out'
+    if opts.do_analysis == 0:
+        # Do not regenerate .out analysis file.
+        iva_opts += ' --rf-file=none'
+    else:
+        iva_opts += ' --rf-file=%s' % opts.analysis_file
     err = os.system('python %s/iv_analysis.py %s' % 
-              (mas_path.python_dir(), opts.ramp_file))
+              (mas_path.python_dir(), opts.ramp_file) +
+                    iva_opts)
     if err != 0:
         print
         print 'auto_iv: analysis stage failed, exiting.'
         o.exit(1)
-    # Link it
-    link_exists = True
-    if not os.path.exists(last_iv_link): # could be a broken link...
-        try:
-            os.readlink(last_iv_link)
-        except OSError:
-            link_exists = False
-    if link_exists:
-        os.remove(last_iv_link)
-    opts.analysis_file = opts.ramp_file + '.out'
-    os.symlink(true_path(opts.analysis_file), last_iv_link)
 
 #
 #  Apply the lastest biases?
@@ -135,3 +177,14 @@ if do_stage('bias'):
         print
         print 'auto_iv: biasing stage failed.'
         o.exit(1)
+    # Link it?
+    if opts.do_link:
+        link_exists = True
+        if not os.path.exists(last_iv_link): # could be a broken link...
+            try:
+                os.readlink(last_iv_link)
+            except OSError:
+                link_exists = False
+        if link_exists:
+            os.remove(last_iv_link)
+        os.symlink(true_path(opts.analysis_file), last_iv_link)
