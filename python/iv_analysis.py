@@ -292,87 +292,90 @@ if opts.plot_dir != None and not opts.summary_only:
                 if xl != None: p.xrange = xl
                 if yl != None: p.yrange = yl
 
-printv('Generating summary plots', 1)
+if opts.plot_dir != None:
+    printv('Generating summary plots', 1)
 
-import matplotlib
-matplotlib.use('agg')
-import pylab as pl
+    import matplotlib
+    matplotlib.use('agg')
+    import pylab as pl
 
-def get_R_crossing(i):
-    """
-    Scan the R/Rnormal data to return R/Rnormal at index ramp index i
-    for each detector.
+    def get_R_crossing(i):
+        """
+        Scan the R/Rnormal data to return R/Rnormal at index ramp index i
+        for each detector.
 
-    Checks that i is actually insider the transition, returning
-    1. (normal) or 0. (superconducting) for out-of-range points.
-    """
-    # Look up fraction Rn
-    RR = filedata.tes_fracRn[:,:,i].copy()
-    # Flag normal
-    RR[i<=iv_data.trans_idx] = 1.
-    # Flag superconducting
-    RR[i>iv_data.super_idx0] = 0.
-    return RR
+        Checks that i is actually insider the transition, returning
+        1. (normal) or 0. (superconducting) for out-of-range points.
+        """
+        # Look up fraction Rn
+        RR = filedata.tes_fracRn[:,:,i].copy()
+        # Flag normal
+        RR[i<=iv_data.trans_idx] = 1.
+        # Flag superconducting
+        RR[i>iv_data.super_idx0] = 0.
+        return RR
 
 
-# Loop over bias lines.
-for tes_idx in range(ar_par['n_bias_lines']):
-    
-    # First summary plot:
-    #  Count of dets on transition vs. bias
-    s = ok * (bias_lines == tes_idx)
-    r0,r1 = ar_par['per_Rn_cut']
-    n = []
-    bi = arange(0, len(filedata.bias_dac), 10)
-    for b in bi:
-        RR = get_R_crossing(b)
-        n.append((s * (r0 <= RR) * (RR < r1)).sum())
-    n = array(n)
-    pl.figure()
-    pl.plot(filedata.bias_dac[bi], n)
-    # Show the chosen bias too
-    pl.axvline(bias_points_dac[tes_idx], color='k', ls='dashed')
-    pl.xlabel('TES BIAS (DAC)')
-    pl.ylabel('N_DETS ON TRANSITION')
-    pl.title('%s - bias line %i' % (filename, tes_idx))
-    pl.savefig(os.path.join(opts.plot_dir, 'IV_det_count_%02i.png' % tes_idx))
+    # Loop over bias lines.
+    for tes_idx in range(ar_par['n_bias_lines']):
 
-    # Second summary plot:
-    #  For interesting biases, show %Rn distribution.
-    if n.max() == 0:
-        continue
+        # First summary plot:
+        #  Count of dets on transition vs. bias
+        s = ok * (bias_lines == tes_idx)
+        r0,r1 = ar_par['per_Rn_cut']
+        n = []
+        bi = arange(0, len(filedata.bias_dac), 10)
+        for b in bi:
+            RR = get_R_crossing(b)
+            n.append((s * (r0 <= RR) * (RR < r1)).sum())
+        n = array(n)
+        pl.figure()
+        pl.plot(filedata.bias_dac[bi], n)
+        # Show the chosen bias too
+        pl.axvline(bias_points_dac[tes_idx], color='k', ls='dashed')
+        pl.xlabel('TES BIAS (DAC)')
+        pl.ylabel('N_DETS ON TRANSITION')
+        pl.title('%s - bias line %i' % (filename, tes_idx))
+        pl.savefig(os.path.join(opts.plot_dir, 'IV_det_count_%02i.png' % tes_idx))
 
-    targets = ar_par.get('perRn_plot_target_bins')
-    if targets == None:
-        # Base targets on the dets-on-transition results.
-        lo, hi = (n > n.max() / 10).nonzero()[0][[-1,0]]
-        lo, hi = filedata.bias_dac[bi[lo]], filedata.bias_dac[bi[hi]]
-        targets = (lo, hi, (hi-lo) / 4.99)
+        # Second summary plot:
+        #  For interesting biases, show %Rn distribution.
+        if n.max() == 0:
+            continue
 
-    # To a range
-    targets = arange(*targets)
+        targets = ar_par.get('perRn_plot_target_bins')
+        if targets == None:
+            # Base targets on the dets-on-transition results.
+            lo, hi = (n > n.max() / 10).nonzero()[0][[-1,0]]
+            lo, hi = filedata.bias_dac[bi[lo]], filedata.bias_dac[bi[hi]]
+            targets = (lo, hi, (hi-lo) / 4.99)
 
-    # Convert targets to ramp index
-    targetb = [(filedata.bias_dac <= t).nonzero()[0][0] for t in targets]
-    ntarg = len(targets)
+        # To a range
+        targets = arange(*targets)
 
-    # Get percent Rn
-    RR = [get_R_crossing(t) for t in targetb]
+        # Convert targets to ramp index
+        targetb = [(filedata.bias_dac <= t).nonzero()[0][0] for t in targets]
+        ntarg = len(targets)
 
-    pl.clf()
-    for i,t in enumerate(targets):
-        pl.subplot(ntarg, 1, 1+i)
-        y = RR[i][s]
-        pl.hist(y.ravel(), bins=arange(0., 1.01, .05))
-        y0 = pl.ylim()[1]
-        pl.text(0.5, y0*.9, 'BIAS = %5i' % t,
-                va='top', ha='center', fontsize=11)
-        if i==0:
-            pl.title('%s - bias line %i (best bias = %i)' % \
-                         (filename, tes_idx, bias_points_dac[tes_idx]))
+        # Get percent Rn
+        RR = [get_R_crossing(t) for t in targetb]
 
-    pl.gcf().set_size_inches(5., 10.)
-    pl.savefig(os.path.join(opts.plot_dir, 'IV_det_hist_%02i.png' % (tes_idx)))
-    pl.clf()
+        pl.clf()
+        for i,t in enumerate(targets):
+            pl.subplot(ntarg, 1, 1+i)
+            y = RR[i][s]
+            pl.hist(y.ravel(), bins=arange(0., 1.01, .05))
+            y0 = pl.ylim()[1]
+            pl.text(0.5, y0*.9, 'BIAS = %5i' % t,
+                    va='top', ha='center', fontsize=11)
+            if i==0:
+                pl.title('%s - bias line %i (best bias = %i)' % \
+                             (filename, tes_idx, bias_points_dac[tes_idx]))
 
-printv('Plotting complete (%8.3f)' % (time.time() - t0), 1)
+        pl.gcf().set_size_inches(5., 10.)
+        pl.savefig(os.path.join(opts.plot_dir, 'IV_det_hist_%02i.png' % (tes_idx)))
+        pl.clf()
+
+    printv('Plotting complete (%8.3f)' % (time.time() - t0), 1)
+
+printv('Exiting (%8.3f)' % (time.time() - t0), 1)
