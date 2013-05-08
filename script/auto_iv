@@ -5,7 +5,7 @@ USAGE="""%prog [options]
 
 This program does some combination of:
   - ramp      : acquire an IV curve
-  - analysis  : analyze an IV curve
+  - analyze   : analyze an IV curve
   - bias      : write the recommended biases to the MCE
 
 By default, it does all of those things.  To only do the ramp and
@@ -17,6 +17,8 @@ Like this:
         This will acquire an IV curve.  iv_filename is optional;
         <ctime>_iv is the default.
 
+  %prog analyze [iv_filename]
+  or
   %prog analysis [iv_filename]
 
         This will analyze the data in the iv file provided, producing
@@ -42,7 +44,7 @@ from optparse import OptionParser
 from auto_setup.util import mas_path
 mas_path = mas_path()
 
-stages = ['ramp', 'analysis', 'bias']
+stages = ['ramp', 'analyze', 'bias']
 
 def get_stage(stage):
     return stages.index(stage)
@@ -97,8 +99,10 @@ if len(args) > 0:
     opts.stage = args[0]
     # Weird ones...
     if opts.stage == 'plot':
-        opts.stage = 'analysis'
+        opts.stage = 'analyze'
         opts.do_analysis = 0
+    elif opts.stage == 'analysis':
+        opts.stage = 'analyze' # translate
     if opts.stage == 'go':
         opts.stage = None  # trigger full thing
         if len(args) > 1:
@@ -106,7 +110,7 @@ if len(args) > 0:
     elif opts.stage == 'ramp':
         if len(args) > 1:
             opts.ramp_file = args[1]
-    elif opts.stage == 'analysis':
+    elif opts.stage == 'analyze':
         opts.ramp_file = args[1]
     elif opts.stage =='bias':
         opts.analysis_file = args[1]
@@ -144,7 +148,7 @@ if do_stage('ramp'):
 #
 #  Analyze the IV curve?
 #
-if do_stage('analysis'):
+if do_stage('analyze'):
     iva_opts = ''
     if opts.do_plots == 0:
         # Do not produce any plots.
