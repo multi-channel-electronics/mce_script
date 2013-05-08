@@ -22,7 +22,7 @@ from auto_setup.util import mas_path
 mas_path = mas_path()
 
 from optparse import OptionParser
-o = OptionParser(help=USAGE)
+o = OptionParser(usage=USAGE)
 o.add_option('--filename',help=
              "Filename. If multiple bias cards will be "\
                  "used, the filename must contain one of '%(bias_card)s' or "\
@@ -42,7 +42,7 @@ o.add_option('--frames', type=int, help=
              "Number of frames to acquire.")
 o.add_option('--log-note', help=
              "Data to pass to acquisition register.")
-o.add_option('--readout-rounding', action='store_true', help=
+o.add_option('--readout-rounding', default=False, action='store_true', help=
              "Round the stepping rate to be a multiple of the readout rate.")
 o.add_option('--data-mode', type=int, default=1, help=
              "Specify data_mode.  Defaults to 1 (unfiltered feedback only). "\
@@ -53,6 +53,9 @@ opts, args = o.parse_args()
 # Check and convert options.
 if opts.bc == None:
     opts.bc = ['bc1', 'bc2', 'bc3']
+
+#for bc in opts.bc:
+#    if bc not in ['bc1', 'bc2'
 
 if opts.filename == None:
     opts.filename = '%(ctime0)s_%(bias_card)s_step'
@@ -97,12 +100,13 @@ print 'Readout rate is %.3f Hz' % readout_rate
 
 dwell_cycles = int(round(opts.dwell * mux_rate))
 print 'Requested switching every %i mux cycles' % dwell_cycles
+print 'Dwell time is %.4f' % (dwell_cycles / mux_rate)
 
-if opts.round_readout:
+if opts.readout_rounding:
     data_period = mce.data_rate()
     dwell_cycles = int(round(opts.dwell * readout_rate)) * data_period
     print 'Rounding to %i mux cycles to match data_rate=%i' % \
-        (data_cycles, data_period)
+        (dwell_cycles, data_period)
 
 # Disable MCE internal commanding
 #mce_cmd -qx wb cc internal_cmd_mode 0
@@ -129,7 +133,7 @@ mce.write('cc', 'internal_cmd_mode', 0)
 for k, v in [
     #('ramp_card_addr', int(bc[2]) + 6),
     ('ramp_param_id', 0x27),
-    ('ramp_step_period', step_cycles),
+    ('ramp_step_period', dwell_cycles),
     ('ramp_min_val', 0),
     ('ramp_max_val', opts.depth),
     ('ramp_step_size', opts.depth),
@@ -146,13 +150,12 @@ mce.data_mode(opts.data_mode)
 # 
 
 for bc in opts.bc:
-    bc = 'bc' + bc
     this_data = {
-        'bias_card': 'bc'+bc,
+        'bias_card': bc,
         'ctime': str(int(time.time())),
         'ctime0': str(ctime0),
         'n_frames': opts.frames,
-        'log': opts.
+        'log': opts.log_note,
         }
     this_data['filename'] = opts.filename % this_data
 
@@ -160,19 +163,20 @@ for bc in opts.bc:
     #mce_cmd -qx wb bc$bc mod_val 0
     #mce_set_mod_targets tes bias --select bc$bc bias
     mce.write(bc, 'mod_val', [0])
-    os.system('mce_set_mod_targets tes bias --select %s bias' % bias)
+    os.system('mce_set_mod_targets tes bias --select %s bias' % bc)
     
     # Register the acquisition
     #acq_register $ct bias_step $MAS_DATA/$filename $n_points "$MAS_LOGID"
     os.system('acq_register %(ctime)s bias_step %(filename)s '
-              '%(n_frames) "%(log)s"' %
+              '%(n_frames)i "%(log)s"' %
               this_data)
     
     mce.write('cc', 'ramp_card_addr', int(bc[2]) + 6)
 
 
     # Enable the ramp and acquire
-    mce_cmd -qx wb cc internal_cmd_mode 2
+    #mce_cmd -qx wb cc internal_cmd_mode 2
+    mce.write('cc', 'internal_cmd_mode', 2)
 
     #update_userword s
     # Acquire.
@@ -188,7 +192,7 @@ for bc in opts.bc:
     
 # Restore data_mode
 #mce_cmd -qx wb rca data_mode ${last_data_mode[0]}
-mce.data_mode(data_mode_before)
+mce.data_mode(int(data_mode_before))
 
 print 'Finished'
 
