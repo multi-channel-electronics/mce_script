@@ -1,0 +1,148 @@
+#!/usr/bin/python
+
+USAGE="""
+ %prog [options] <ctime> <acq_type> <filename> [<n_frames> <log_msg>]
+
+Perform additional operations associated with MCE data acquisition.
+This includes things like appending the most recent tuning and IV
+analysis to the runfile, or executing a custom script to register all
+the datafiles in some database or something.
+
+Configurable stuff can be specified in a config file (probably
+$MAS_CONFIG/acq_register.cfg).  The basic idea there is that you set
+up certain acq_types with certain behavior profiles.
+
+Parameters:
+
+    <ctime>     - ctime of the acq.  This is not strictly required unless you
+                  want it for a database or something.
+
+    <acq_type>  - string identifying the acquisition type; different actions
+                  are taken for different acq_types.  Types we understand:
+%(type_list)s
+
+    <filename>  - full path to the main data file.
+
+    <n_frames>  - number of frames for DB registration.
+
+    <log_msg>   - private data for DB registration.
+
+"""
+
+import sys
+import os
+
+from auto_setup.util import mas_path
+mas_path = mas_path()
+
+from ConfigParser import SafeConfigParser
+from optparse import OptionParser
+
+simple_delist = lambda x: x.split()
+
+class DefaultingConfig(SafeConfigParser):
+    default_section = 'default'
+    active_section = None
+    # This actually isn't that much smarter.
+    def __init__(self, filename=None):
+        SafeConfigParser.__init__(self)
+        if filename != None:
+            self.read(filename)
+    def get_type(self, type_caster, key, default=None):
+        for section in [self.active_section, self.default_section]:
+            if self.has_section(section) and self.has_option(section, key):
+                return type_caster(self.get(section, key))
+        if default != None:
+            return default
+        raise ValueError, 'Unknown config parameter %s:%s' % \
+            (section, key)
+    def getfloat(self, key, default=None):
+        return self.get_type(float, key, default)
+    def getint(self, key, default=None):
+        return self.get_type(int, key, default)
+    def getstr(self, key, default=None):
+        return self.get_type(str, key, default)
+    def getlist(self, key, default=None):
+        return self.get_type(simple_delist, key, default)
+
+def printv(msg):
+    if opts.verbose:
+        print msg
+
+def printe(msg):
+    print msg
+
+
+o = OptionParser(usage=USAGE)
+o.add_option('--config-file', help=
+             "Specify config file from which to get defaults.")
+o.add_option('--verbose', action='store_true')
+opts, args = o.parse_args()
+
+file_data = {}
+file_data.update(zip(
+        ['ctime', 'acq_type', 'filename', 'n_frames', 'log_note'],
+        args))
+
+# Load that cfg file!
+cfg = DefaultingConfig()
+cfg.default_section = 'default'
+cfg.active_section = file_data['acq_type']
+if opts.config_file == None:
+    opts.config_file = os.path.join(mas_path.config_dir(),
+                                    'mce_acq_reg.cfg')
+if os.path.exists(opts.config_file):
+    printv('Loading config from %s' % opts.config_file)
+    cfg.read(opts.config_file)
+elif opts.verbose:
+    printv('Config file %s not found' % opts.config_file)
+
+##
+## Runfile prep
+##
+
+file_data['runfilename'] = file_data['filename'] + '.run'
+
+# Sensible defaults
+last_tune_file = os.path.join(mas_path.data_root(), 'last_squid_tune')
+last_iv_file = os.path.join(mas_path.data_root(), 'last_iv_det_data')
+
+last_tune_file = cfg.getstr('last_tune_file', last_tune_file)
+last_iv_file = cfg.getstr('last_iv_file', last_tune_file)
+
+if cfg.getint('add_tune_block', 0):
+    if os.path.exists(last_tune_file):
+        err = os.system('cat "%s" >> %s' %
+                        (last_tune_file, file_data['runfilename']))
+        if err != 0:
+            printe('add_tune_block failed')
+
+if cfg.getint('add_iv_block', 0):
+    if os.path.exists(last_iv_file):
+        err = os.system('cat "%s" >> %s' %
+                        (last_iv_file, file_data['runfilename']))
+        if err != 0:
+            printe('add_iv_block failed')
+
+##
+## Links?
+##
+
+link_dirs = cfg.getlist('link_dirs', [])
+if len(link_dirs) > 0:
+    suffixes = [''] + cfg.getlist('extension_set')
+    for ldir in link_dirs:
+        for sfx in suffixes:
+            fn = file_data['filename'] + sfx
+            err = os.system('ln "%s" "%s"' % (fn, ldir))
+            printe('link failed (%s->%s)' % (fn, ldir))
+
+##
+## Custom script run?
+##
+
+reg_scr = cfg.getstr('register_script', '')
+if reg_scr != '':
+    cmd = reg_scr % file_data
+    err = os.system(cmd)
+    printe('custom register script failed: "%s"' % cmd)
