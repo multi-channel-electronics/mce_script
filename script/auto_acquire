@@ -1,53 +1,285 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-#initialise environment
-if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
-  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
-  exit 1
-else
-  eval $(${MAS_VAR} -s)
-fi
+USAGE="""
+%prog [options] n_frames
 
-source $MAS_SCRIPT/mas_library.bash
+Acquires data, possibly to multiple files, according to some data
+acquisition profile.
 
-AUTO_LOG=$MAS_DATA/auto_log.txt
-LOGGER="tee -a $AUTO_LOG"
+Also support sequence cloning.
+"""
 
-SCRNAME="auto_acquire"
-ERRPREF="ERROR : $SCRNAME :"
+import os, sys
+import glob
+import time
+import subprocess
+import mce_auto_assist as maa
 
-start_time=`date`
-start_ctime=`print_ctime`
+from optparse import OptionParser
 
-echo "START : $SCRNAME : $start_time" | $LOGGER
-echo "ARGS  : $SCRNAME : $@" | $LOGGER
+from auto_setup.util.mas_path import mas_path
+mas_path = mas_path()
 
-#Process arguments
 
-if [ $# -lt 2 ]; then
-    echo "Usage:     auto_acquire <filename> <n_frames> [<log_id>]"
-    echo $ERRPREF "wrong number of arguments" | $LOGGER
-    exit 1
-fi
+FRAME_RATE=398.724
+MAX_INDEX=1000
 
-acq_name=${start_ctime}_$1
-n_frames=$2
-note="$3"
+def get_output(cmd):
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    value = p.communicate()[0]
+    return value
 
-# Register acquisition
-acq_register $start_ctime auto $MAS_DATA/$acq_name $n_frames "$note"
+def is_and_is_symlink(linkname):
+    try:
+        os.readlink(linkname)
+    except:
+        return False
+    return True
 
-# args are file_prefix, frame count, card (1,2,3,4,s)
-NICECMD='nice -10'
-ACQ="$NICECMD mce_run $acq_name $n_frames s"
-ACQ_TARGET=0
+def link_file(source, dest):
+    p = subprocess.Popen('ln "%s" "%s"' % (source, dest), shell=True)
+    output = p.communicate()
+    s = p.returncode
+    if s != 0:
+        print 'WARNING: Failed to link %s to %s [status=%i]'%(source, dest, s)
+    return s == 0
 
-# Start acquisition
-$ACQ
-if [ "$?" != "$ACQ_TARGET" ]; then
-    echo $ERRPREF "'$ACQ' returned error!" | $LOGGER
-    exit 1
-fi
+#def register_file(filename, frame_count, t, index, opts):
+def register_file(ctime, filename, n_frames,
+                  note='', reg_type='auto'):
+    s, o = getstatusoutput('mce_acq_register %i %s %s %i "%s"' % \
+                               (ctime, reg_type, filename, n_frames, note))
+    if s != 0:
+        print 'WARNING: DB registration failed for %s'%filename
+    return s == 0
 
-delta_ctime=`print_elapsed $start_ctime`
-echo "STOP  : $SCRNAME : time elapsed = $delta_ctime" | $LOGGER
+class Cloner:
+    expire_time = None
+    update_interval = 60
+    suffix = 'dat'
+    digits = 3
+    block_size = 240000
+    frame_rate = FRAME_RATE
+    note = ''
+    acq_reg = False
+    output_dir = '/data/cryo/current_data/'
+
+    def __init__(self, n_frames, filename, **kwargs):
+        for k, v in kwargs.items():
+            if not hasattr(self, k):
+                raise ValueError, 'unexpected argument %s' % k
+            setattr(self, k, v)
+        if self.expire_time == None:
+            # Two minutes frace
+            self.expire_time = self.block_size / self.frame_rate + 120
+        self.n_frames = n_frames
+        self.basename = filename
+        self.n_block = (n_frames + self.block_size - 1) / self.block_size
+        self.template = '%s.%%0%ii' % (self.basename, self.digits)
+        
+    def new_filename(self, start, index):
+        # Get a filename and ctime for the link that has a realistic ctime stamp.
+        t = int(start + self.block_size * index / self.frame_rate)
+        # Loop is to make sure we never generate the same filename twice.
+        while True:
+            candidate = '%s/%010i_%s' % (self.output_dir, t, self.suffix), t
+            if len(glob.glob(candidate[0])) == 0:
+                break
+            t = t + 1
+        return candidate
+
+    def go(self):
+        """
+        Enter a loop that waits for the expected sequence of files,
+        creates the appropriate links as they appear, and exits.
+        """
+        # Get start time, kick it by 1 so it's not the same as the base ctime.
+        start = time.time() + 1
+        index = -1  # first time trigger
+        idleness = 0
+        
+        # Main loop
+        done = False
+        while not done:
+            if index < 0:
+                files = glob.glob('%s.run'%self.basename)
+            else:
+                files = glob.glob(self.template % index)
+            if len(files) > 1:
+                print 'ERROR: Multiple matches to "%s" at index %i'%\
+                    (self.basename, index)
+                index += 1
+            elif len(files) == 1:
+                if index < 0:
+                    runfile = files[0]
+                else:
+                    filename, t = self.new_filename(start, index)
+                    link_file(files[0],filename)
+                    link_file(runfile,filename+'.run')
+                    n_reg = min(self.block_size, self.n_frames - index*self.block_size)
+                    if self.acq_reg:
+                        print 'regin', index, n_reg
+                        register_file(t, filename, n_reg, note=self.note, reg_type='clone')
+                idleness = 0
+                index += 1
+            else:
+                # Delay before checking again round.
+                time.sleep(self.update_interval)
+                idleness += self.update_interval
+            done = idleness > self.expire_time or index >= self.n_block
+
+def auto_acq(cfg, n_frames, rc, reg_note):
+    # Generate filename and stuff
+    temp_dir = mas_path.temp_dir()
+    if cfg.getstr('temp_dir', '') != '':
+        temp_dir = cfg.getstr('temp_dir')
+
+    details = {}
+    details['ctime'] = '%i' % int(time.time())
+    details['data_dir'] = mas_path.data_dir()
+    details['n_frames'] = n_frames
+    details['rc'] = 'rc%s' % rc
+    details['rc_num'] = '%s' % rc
+    details['temp_base'] = '%s/%s_%i__' % \
+        (temp_dir, get_output('whoami').strip(), mas_path.fibre_card())
+
+    # Generate lines for mce_cmd script that runs the acq.
+    lines = ['lock_down']
+
+    cfg_suffix = ''
+    acq_type = cfg.getstr('type', 'flatfile')
+    acq_seq = cfg.getint('sequence_interval', 0)
+    
+    acq_command = 'acq_config' + \
+      {'flatfile': '',
+       'dirfile': '_dirfile'}.get(acq_type, 'error1')
+
+    if acq_seq > 0:
+        details['seq_arg'] = str(acq_seq)
+        acq_command = acq_command + '_fs'
+    else:
+        details['seq_arg'] = ''
+
+    details['acq_cmd'] = acq_command
+    details['filename_template'] = cfg.getstr('filename','%(ctime)s_dat') % details
+    details['filename'] = details['filename_template'] % details
+    details['runfilename'] = '%(filename)s.run' % details
+    details['script_name'] = '%(temp_base)sauto_acq.scr' % details
+
+    lines.append('%(acq_cmd)s %(filename)s %(rc)s %(seq_arg)s' % details)
+    lines.append('acq_go %(n_frames)i' % details)
+
+    # Create mce script
+    fout = open(details['script_name'], 'w')
+    [fout.write(line + '\n') for line in lines]
+    del fout
+
+    # Generate / update runfile
+    if cfg.getint('runfile') != 0:
+        # Append to runfile
+        os.system('touch %(runfilename)s' % details)
+        if cfg.getint('simulate', 0):
+            os.system('echo runfile runfile runfile > %(runfilename)s' % details)
+        else:
+            os.system('mce_status > %(runfilename)s' % details)
+
+    #
+    # If file-sequencing, optionally fork a clone_sequencer to generate hard links
+    #
+    if cfg.getint('clone_sequence', 0) == 1:
+        if os.fork() == 0:
+            #print 'Cloner process begins'
+            cloner = Cloner(details['n_frames'], details['filename'],
+                            output_dir=os.path.split(details['filename'])[0],
+                            update_interval=1,
+                            block_size=acq_seq,
+                            note=reg_note,
+                            acq_reg=(cfg.getint('register', 0)))
+            cloner.go()
+            #print 'Cloner process exits'
+            return 'clone'
+
+    #
+    # Launch the acquisition
+    # 
+    if cfg.getint('simulate', 0):
+        delay = 3
+        if acq_seq > 0:
+            n = 0
+            while n*acq_seq < details['n_frames']:
+                ofile = ('%(filename)s.%%03i' % details) % n
+                print 'Faking %s...' % ofile
+                os.system('echo "this is %s" >> %s'%(ofile,ofile))
+                n += 1
+                time.sleep(delay)
+        else:
+            ofile = details['filename']
+            os.system('echo "this is %s" >> %s'%(ofile,ofile))
+            time.sleep(delay)
+
+    else:
+        # For real
+        os.system('mce_cmd -f %(script_name)s' % details)
+
+if __name__ == '__main__':
+    
+    default_config_file = os.path.join(mas_path.config_dir(), 'mce_auto_acq.cfg')
+
+    o = OptionParser(usage=USAGE)
+    o.add_option('--config-file', default=default_config_file,
+                 help="Select alternate config file (default: %s)" %
+                 default_config_file)
+    o.add_option('--profile', default=None,
+                 help="Select profile (from those defined in config file).")
+    o.add_option('--list-profiles', action='store_true',
+                 help="Show a list of profiles in the config file and exit.")
+    o.add_option('--rc', default='s',
+                 help="Select an RC from 1, 2, 3, 4, or s (default: s).")
+    o.add_option('--reg-note', default=None,
+                 help="Log note to pass to mce_acq_register.")
+    opts, args = o.parse_args()
+
+    # Load config file
+    if not os.path.exists(opts.config_file):
+        print 'Config file %s not found, defaulting.' % opts.config_file
+        opts.config_file = None
+    cfg = maa.DefaultingConfig(opts.config_file)
+    cfg.default_section = 'defaults'
+
+    if opts.list_profiles:
+        if not 'defaults' in cfg.sections():
+            print 'Warning: config file does not have "defaults" block.'
+        print 'Sections:'
+        for k in cfg.sections():
+            if k != 'defaults':
+                print '   ', k
+        #return 0
+        sys.exit(0)
+
+    # Load profile
+    if opts.profile == None:
+        opts.profile = cfg.getstr('default_profile')
+    cfg.active_section = opts.profile
+
+    # Check args
+    if len(args) < 1:
+        o.error('Provide a frame count.')
+
+    n_frames = int(args[0])
+
+    if cfg.getstr('auto_log', '') != '':
+        logger = maa.AutoLogger(cfg.getstr('auto_log'), 'auto_acquire')
+    else:
+        logger = maa.AutoLogger('/dev/null', 'auto_acquire')
+
+    logger.start_msg()
+    logger.write('n_frames=%i profile=%s' % (n_frames, opts.profile),
+                 'INFO')
+
+    try:
+        ret_val = auto_acq(cfg, n_frames, opts.rc, opts.reg_note)
+    except:
+        logger.write('exception during auto_acq!', 'ERROR')
+        raise
+    if ret_val != 'clone':
+        logger.stop_msg()
