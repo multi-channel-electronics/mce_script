@@ -41,6 +41,7 @@ import os, sys, time
 
 from optparse import OptionParser
 
+from mce_data import MCERunfile
 from auto_setup.util import mas_path
 mas_path = mas_path()
 
@@ -86,11 +87,12 @@ o.add_option('--ramp-file')
 o.add_option('--analysis-file')
 
 o.add_option('--no-bias',action='store_true')
-o.add_option('--bias-only',action='store_true')
 
 o.add_option('--do-plots', type=int, default=1)
 o.add_option('--do-analysis', type=int, default=1)
 o.add_option('--do-link', type=int, default=1)
+
+o.add_option('--reg-note', default='')
 
 opts, args = o.parse_args()
 
@@ -136,14 +138,20 @@ if do_stage('ramp'):
     # Check for MCE re-init to be safe
     os.system('mce_check_init -q')
     # Make a filename
+    ctime = time.time()
     if not opts.ramp_file:
-        opts.ramp_file = '%i_iv' % (time.time())
+        opts.ramp_file = '%i_iv' % ctime
     err = os.system('ramp_tes_bias %s %s' % (opts.ramp_file, opts.rc))
     if err != 0:
         print
         print 'auto_iv: ramp stage failed, exiting.'
         o.exit(1)
     opts.ramp_file = '%s/%s' % (mas_path.data_dir(), opts.ramp_file)
+    # Register acquisition
+    #rf = MCERunfile(opts.ramp_file+'.run')
+    #n_frames = rf.Item('FRAMEACQ', 'DATA_FRAMECOUNT', array=False, type='int')
+    #os.system('mce_acq_register %i iv %s %i "%s"' % \
+    #              (ctime, opts.ramp_file, n_frames, opts.reg_note))
 
 #
 #  Analyze the IV curve?
