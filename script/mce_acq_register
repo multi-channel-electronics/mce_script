@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 USAGE="""
  %prog [options] <ctime> <acq_type> <filename> [<n_frames> <log_msg>]
@@ -145,4 +145,5 @@ reg_scr = cfg.getstr('register_script', '')
 if reg_scr != '':
     cmd = reg_scr % file_data
     err = os.system(cmd)
-    printe('custom register script failed: "%s"' % cmd)
+    if err != 0:
+        printe('custom register script failed [%i]: "%s"' % (err, cmd))

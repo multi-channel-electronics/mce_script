@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # Check for weird MCE states, such as recent power on.  Perform
 # necessary actions to leave MCE in reasonable state.

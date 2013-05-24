@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 USAGE_MSG="""
  %prog [options...] command
