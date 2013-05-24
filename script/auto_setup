@@ -2,6 +2,7 @@
 # vi: ts=4:sw=4:et
 
 import auto_setup as ast
+import mce_auto_assist as maa
 
 import subprocess
 from optparse import OptionParser
@@ -54,7 +55,15 @@ o.add_option('--set-directory', default=1, type='int',
              'set_directory before tuning')
 
 o.add_option('--reg-note', default=None)
+o.add_option('--auto-log', default=None)
+
 opts, args = o.parse_args()
+
+if opts.auto_log == None and opts.reg_note == None:
+    opts.auto_log = '/dev/null'
+
+alog = maa.AutoLogger(opts.auto_log, 'auto_setup')
+alog.start_msg()
 
 # Process...
 if opts.interactive:
@@ -67,13 +76,20 @@ if (len(opts.rc) == 0) or ('s' in opts.rc):
 else:
     opts.rc = [int(x) for x in opts.rc]
 
-# set_directory?
-if opts.set_directory:
-    if subprocess.call(['set_directory']) != 0:
-        print "set_directory failed!"
-        sys.exit(1)
-
 # Tune.
-ast.auto_setup(rcs=opts.rc, short=opts.shortness, reg_note=opts.reg_note,
-               first_stage=opts.first_stage, last_stage=opts.last_stage,
-               check_bias=opts.check_bias, debug=opts.debug)
+try:
+    # set_directory?
+    if opts.set_directory:
+        if subprocess.call(['set_directory']) != 0:
+            print "set_directory failed!"
+            alog.write('set_directory failed', 'ERROR')
+            sys.exit(1)
+
+    ast.auto_setup(rcs=opts.rc, short=opts.shortness, reg_note=opts.reg_note,
+                   first_stage=opts.first_stage, last_stage=opts.last_stage,
+                   check_bias=opts.check_bias, debug=opts.debug)
+except:
+    alog.write('exception in ast.auto_setup', 'ERROR')
+    raise
+
+alog.stop_msg()
