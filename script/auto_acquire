@@ -128,7 +128,7 @@ class Cloner:
                 idleness += self.update_interval
             done = idleness > self.expire_time or index >= self.n_block
 
-def auto_acq(cfg, n_frames, rc, reg_note):
+def auto_acq(cfg, n_frames, rc, reg_note, suffix):
     # Generate filename and stuff
     temp_dir = mas_path.temp_dir()
     if cfg.getstr('temp_dir', '') != '':
@@ -136,6 +136,7 @@ def auto_acq(cfg, n_frames, rc, reg_note):
 
     details = {}
     details['ctime'] = '%i' % int(time.time())
+    details['suffix'] = suffix
     details['data_dir'] = mas_path.data_dir()
     details['n_frames'] = n_frames
     details['rc'] = 'rc%s' % rc
@@ -194,6 +195,7 @@ def auto_acq(cfg, n_frames, rc, reg_note):
                             update_interval=1,
                             block_size=acq_seq,
                             note=reg_note,
+                            suffix=suffix,
                             acq_reg=(cfg.getint('register', 0)))
             cloner.go()
             #print 'Cloner process exits'
@@ -235,6 +237,8 @@ if __name__ == '__main__':
                  help="Show a list of profiles in the config file and exit.")
     o.add_option('--rc', default='s',
                  help="Select an RC from 1, 2, 3, 4, or s (default: s).")
+    o.add_option('--suffix', default='dat',
+                 help="Specify filename suffix, for <ctime>_<suffix> form.")
     o.add_option('--reg-note', default=None,
                  help="Log note to pass to mce_acq_register.")
     opts, args = o.parse_args()
@@ -277,7 +281,7 @@ if __name__ == '__main__':
                  'INFO')
 
     try:
-        ret_val = auto_acq(cfg, n_frames, opts.rc, opts.reg_note)
+        ret_val = auto_acq(cfg, n_frames, opts.rc, opts.reg_note, opts.suffix)
     except:
         logger.write('exception during auto_acq!', 'ERROR')
         raise
