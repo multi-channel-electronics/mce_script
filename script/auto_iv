@@ -41,6 +41,7 @@ import os, sys, time
 
 from optparse import OptionParser
 
+import mce_auto_assist as maa
 from mce_data import MCERunfile
 from auto_setup.util import mas_path
 mas_path = mas_path()
@@ -75,6 +76,12 @@ def true_path(linked_path, recursion=0):
     a, b = os.path.split(linked_path)
     return os.path.join(true_path(a, recursion+1), b)
 
+def printe(err_msg):
+    alog.write(err_msg, 'ERROR')
+    print
+    print 'auto_iv error : ', err_msg
+    print
+
 
 o = OptionParser(usage=USAGE)
 o.add_option('--first-stage')
@@ -93,8 +100,16 @@ o.add_option('--do-analysis', type=int, default=1)
 o.add_option('--do-link', type=int, default=1)
 
 o.add_option('--reg-note', default='')
+o.add_option('--auto-log', default=None)
 
 opts, args = o.parse_args()
+
+# Use reg-note as an indicator that we should auto-log
+if opts.auto_log == None and opts.reg_note == '':
+    opts.auto_log = '/dev/null'
+
+alog = maa.AutoLogger(opts.auto_log, 'auto_iv')
+alog.start_msg()
 
 # Let "args" do some obvious things
 if len(args) > 0:
@@ -143,8 +158,7 @@ if do_stage('ramp'):
         opts.ramp_file = '%i_iv' % ctime
     err = os.system('ramp_tes_bias %s %s' % (opts.ramp_file, opts.rc))
     if err != 0:
-        print
-        print 'auto_iv: ramp stage failed, exiting.'
+        printe('ramp_tes_bias failed [%i], exiting' % err)
         o.exit(1)
     opts.ramp_file = '%s/%s' % (mas_path.data_dir(), opts.ramp_file)
     # Register acquisition
@@ -172,8 +186,7 @@ if do_stage('analyze'):
               (mas_path.python_dir(), opts.ramp_file) +
                     iva_opts)
     if err != 0:
-        print
-        print 'auto_iv: analysis stage failed, exiting.'
+        printe('analysis stage failed [%i], exiting.' % err)
         o.exit(1)
 
 #
@@ -186,8 +199,7 @@ if do_stage('bias'):
     cmd = 'bias_tess ' + ' '.join(['%i' % x for x in biases])
     err = os.system(cmd)
     if err != 0:
-        print
-        print 'auto_iv: biasing stage failed.'
+        printe('biasing stage failed [%i], exiting.' % err)
         o.exit(1)
     # Link it?
     if opts.do_link:
@@ -200,3 +212,5 @@ if do_stage('bias'):
         if link_exists:
             os.remove(last_iv_link)
         os.symlink(true_path(opts.analysis_file), last_iv_link)
+
+alog.stop_msg()
