@@ -59,8 +59,7 @@ class RSServo(servo.SquidData):
 
     def read_data(self, filename):
         """
-        Loads an sq1servo data set.  Can probably figure out if there is
-        multi-row data present and do The Right Thing.
+        Loads an rs_servo data set.
         """
         rf = MCERunfile(filename+'.run')
         self.rf = rf
@@ -106,14 +105,14 @@ class RSServo(servo.SquidData):
             z = zeros(self.data.shape[:-1]).reshape(-1, len(slope))
             slope = (z + slope).ravel()
         else:
-            slope = slope[0]
+            slope = slope[0:1]
 
         # Categorize curve into hi, and lo regions.
-        self.reg = [servo.get_curve_regions(y*slope, extrema=True)
-                    for y in self.data]
+        self.reg = [servo.get_curve_regions(y, extrema=True)
+                    for y in self.data*slope[:,None]]
         # Identify first valley, first subsequent peak.
         pairs, oks = [], []
-        for r, y in zip(self.reg, self.data*slope):
+        for r, y in zip(self.reg, self.data*slope[:,None]):
             lo, hi, ok = None, None, False
             while len(r) > 0:
                 if r[1][1] > r[1][0]:

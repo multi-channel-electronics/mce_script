@@ -30,6 +30,9 @@ if len(args) == 2:
 
 source_dir = args[0]
 basename = source_dir.strip('/').split('/')[-1]
+if basename.startswith('.') or basename == '':
+    basename = 'tuning'
+
 # Try '/home/data/act/2010/startup/1269227063/'
 
 if opts.interactive:

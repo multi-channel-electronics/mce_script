@@ -387,6 +387,7 @@ class SquidData(util.RCData):
         synth.fb = args[0].fb.copy()
         synth.d_fb = args[0].d_fb
         synth.bias_style = args[0].bias_style
+        synth.bias_assoc = args[0].bias_assoc
         if synth.bias_style == 'select':
             synth.bias = np.hstack([a.bias for a in args])
         else:
