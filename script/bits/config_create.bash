@@ -225,18 +225,22 @@ fi
 # kicked once after enbl_mux is turned off.
 
 # For biasing address card, set the correct mux_mode and row_order
-if [ "$hardware_fast_sq2" == "1" ]; then
-    echo "wb bac row_order ${row_order[@]}" >> $mce_script
-    echo "wb bac enbl_mux 2" >> $mce_script
-fi
+# But only if we're not mux11d.
+if [ "$hardware_mux11d" == "0" ]; then
 
-# For new bias card in fast_sq2 mode, set enbl_mux for all columns
-if [ "$hardware_fast_sq2" == "2" ]; then
-    for rc in 1 2 3 4; do
-	[ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
-	ch_ofs=$(( ($rc-1)*8 ))
-	echo "wra sq2 enbl_mux $ch_ofs `repeat_string $config_fast_sq2 8`" >> $mce_script
-    done
+    if [ "$hardware_fast_sq2" == "1" ]; then
+	echo "wb bac row_order ${row_order[@]}" >> $mce_script
+	echo "wb bac enbl_mux 2" >> $mce_script
+    fi
+
+    # For new bias card in fast_sq2 mode, set enbl_mux for all columns
+    if [ "$hardware_fast_sq2" == "2" ]; then
+	for rc in 1 2 3 4; do
+	    [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+	    ch_ofs=$(( ($rc-1)*8 ))
+	    echo "wra sq2 enbl_mux $ch_ofs `repeat_string $config_fast_sq2 8`" >> $mce_script
+	done
+    fi
 fi
 
 #Still only write the relevant columns depending on readout card configuration
