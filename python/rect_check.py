@@ -150,7 +150,7 @@ if __name__ == '__main__':
     opts, args = o.parse_args()
 
     if opts.mce: 
-	from mce import mce
+	from mce_control import MCE as mce
 	if len(args) > 0:
             print 'Pass runfiles or --mce, not both!'
             sys.exit(1)
