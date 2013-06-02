@@ -47,8 +47,11 @@ def link_file(source, dest):
 #def register_file(filename, frame_count, t, index, opts):
 def register_file(ctime, filename, n_frames,
                   note='', reg_type='auto'):
-    s, o = getstatusoutput('mce_acq_register %i %s %s %i "%s"' % \
-                               (ctime, reg_type, filename, n_frames, note))
+    p = subprocess.Popen('mce_acq_register %i %s %s %i "%s"' % \
+                               (ctime, reg_type, filename, n_frames, note),
+                         shell=True)
+    output = p.communicate()
+    s = p.returncode
     if s != 0:
         print 'WARNING: DB registration failed for %s'%filename
     return s == 0
@@ -200,6 +203,11 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
             cloner.go()
             #print 'Cloner process exits'
             return 'clone'
+    elif cfg.getint('register', 0):
+        # Register (unless cloner will do it)
+        register_file(int(details['ctime']), details['filename'],
+                      details['n_frames'], note=reg_note,
+                      reg_type=details['suffix'])
 
     #
     # Launch the acquisition
@@ -221,7 +229,7 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
 
     else:
         # For real
-        os.system('mce_cmd -f %(script_name)s' % details)
+        os.system('mce_cmd -qf %(script_name)s' % details)
 
 if __name__ == '__main__':
     

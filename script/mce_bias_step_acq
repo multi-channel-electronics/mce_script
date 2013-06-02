@@ -71,7 +71,7 @@ o.add_option('--dwell', type=float, help=
              "Dwell time of each level, in seconds.")
 o.add_option('--frames', type=int, help=
              "Number of frames to acquire.")
-o.add_option('--log-note', help=
+o.add_option('--reg-note', help=
              "Data to pass to acquisition register.")
 o.add_option('--readout-rounding', type=int, default=None, help=
              "Specify whether the stepping rate should be rounded to be an "
@@ -245,6 +245,7 @@ for bc in opts.bc:
     #mce_cmd -qx wb cc internal_cmd_mode 0
     #mce_cmd -qx sleep 50000
     #mce_cmd -qx wb bc$bc mod_val 0
+    time.sleep(.05)
     mce.write('cc', 'internal_cmd_mode', 0)
     time.sleep(.05)
     mce.write(bc, 'mod_val', 0)

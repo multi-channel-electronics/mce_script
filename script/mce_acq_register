@@ -134,9 +134,12 @@ if len(link_dirs) > 0:
     for ldir in link_dirs:
         for sfx in suffixes:
             fn = file_data['filename'] + sfx
-            err = os.system('ln "%s" "%s"' % (fn, ldir))
-            printe('link failed (%s->%s)' % (fn, ldir))
-
+            if not os.path.exists(fn):
+                os.system('touch %s' % fn)
+            err = os.system('ln %s %s/' % (fn, ldir))
+            if err != 0:
+                printe('link failed (%s->%s)' % (fn, ldir))
+            
 ##
 ## Custom script run?
 ##
