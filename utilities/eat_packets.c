@@ -37,13 +37,18 @@ int main(int argc, char **argv) {
   FILE *src = stdin;
   char filename[1024];
   int check_dv = 1;
+  int check_seq = 1;
 
   int option;
-  while ( -1 != (option = getopt(argc, argv, "s:f:n:N:a:d:"))) {
+  while ( -1 != (option = getopt(argc, argv, "s:f:n:N:a:d:c:"))) {
     switch(option) {
 
     case 'd':
       check_dv = strtol(optarg, NULL, 0);
+      break;
+
+    case 'c':
+      check_seq = strtol(optarg, NULL, 0);
       break;
 
     case 's':
@@ -77,6 +82,7 @@ int main(int argc, char **argv) {
              "     -N frame_size   in dwords\n"
 	     "     -a max_frames   in frames\n"
 	     "     -d [1|0]        to check the sync dv number, or not\n"
+	     "     -c [1|0]        to check the CC frame counter, or not\n"
              "     -f filename     otherwise data is read from stdin\n"
 	     );
     }
@@ -135,7 +141,7 @@ int main(int argc, char **argv) {
     char seq_msg[1024];
     char dv_msg[1024];
     int err_chk = checksum(packet, frame_size);
-    int err_seq = sequence(&seq, packet, seq_msg);
+    int err_seq = (check_seq ? sequence(&seq, packet, seq_msg): 0);
     int err_dv  = (check_dv ? sequence(&dv , packet, dv_msg) : 0 );
 
     if (err_chk || err_seq || err_dv) {
