@@ -80,6 +80,8 @@ if ar_par['use_Rshunt_file'] != 0:
         cols = map(int, fmt[1:])
         Rshunt = iv_tools.TESShunts.from_columns_file((n_col,n_row), ar_par['Rshunt_filename'])
         Rshunt.R[~Rshunt.ok] = ar_par['default_Rshunt']
+        printv('Read %i shunt resistances from %s' % \
+                   (Rshunt.ok.sum(), ar_par['Rshunt_filename']), 2)
     elif fmt[0] == 'act_srdp':
         Rshunt = iv_tools.TESShunts.for_act((n_col,n_row), ar_par['Rshunt_filename'])
     else:
@@ -88,8 +90,6 @@ else:
     Rshunt = iv_tools.TESShunts((n_row, n_col))
     Rshunt.R[:,:] = ar_par['default_Rshunt']
     Rshunt.ok[:,:] = True
-
-print Rshunt.R[:,0]
 
 printv('Analyzing...', 1)
 iv_data = iv_tools.IVBranches((n_row, n_col))
