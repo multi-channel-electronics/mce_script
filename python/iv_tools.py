@@ -226,6 +226,18 @@ class TESShunts:
         self.ok = np.zeros(shape, 'bool')
 
     @classmethod
+    def from_columns_file(cls, shape, filename, data_cols=[0,1,2]):
+        self = cls(shape)
+        for line in open(filename):
+            w = line.split()
+            if len(w) == 0 or w[0][0] == '#':
+                continue
+            col, row, R = [cast(w[i]) for cast,i in zip((int,int,float), data_cols)]
+            self.R[row,col] = R
+            self.ok[row,col] = True
+        return self
+
+    @classmethod
     def from_srdp_files(cls, shape, filename_template, data_cols):
         self = cls(shape)
         for c in data_cols:
@@ -279,10 +291,6 @@ def load_array_params(filename=None, array_name=None):
     cfg['Rbias_arr_total'] = cfg['Rbias_arr'] +  cfg['Rbias_cable']
     ## Include 50 ohms from RC.
     cfg['Rfb_total'] = cfg['Rfb'] + 50.
-    # Yuck, fix me.
-    if cfg['use_srdp_Rshunt']:
-        cfg['jshuntfile'] = os.getenv('MAS_SCRIPT')+'/srdp_data/'+cfg['array']+ \
-            '/johnson_res.dat.C%02i'
     return cfg
 
 

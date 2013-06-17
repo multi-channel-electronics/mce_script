@@ -71,17 +71,25 @@ filedata.compute_physical(ar_par)
 # The size of the problem
 n_row, n_col, n_pts = filedata.mcedata.shape
 
-# Read shunt data
-if ar_par['use_srdp_Rshunt']:
-    # ACT specific.
-    Rshunt = iv_tools.TESShunts.for_act((n_col,n_row), ar_par['jshuntfile'])
+# Read shunt data?
+if ar_par['use_Rshunt_file'] != 0:
+    # Split format string into tokens
+    fmt = ar_par['Rshunt_format'].split()
+    if fmt[0] == 'detector_list':
+        # Args are column indices (col, row, Rshunt)
+        cols = map(int, fmt[1:])
+        Rshunt = iv_tools.TESShunts.from_columns_file((n_col,n_row), ar_par['Rshunt_filename'])
+        Rshunt.R[~Rshunt.ok] = ar_par['default_Rshunt']
+    elif fmt[0] == 'act_srdp':
+        Rshunt = iv_tools.TESShunts.for_act((n_col,n_row), ar_par['Rshunt_filename'])
+    else:
+        raise ValueError, "unknown shunt_format = '%s'" % fmt[0]
 else:
-    # Fill template with default value.
     Rshunt = iv_tools.TESShunts((n_row, n_col))
     Rshunt.R[:,:] = ar_par['default_Rshunt']
-    # I guess they're all equally good...
     Rshunt.ok[:,:] = True
 
+print Rshunt.R[:,0]
 
 printv('Analyzing...', 1)
 iv_data = iv_tools.IVBranches((n_row, n_col))
