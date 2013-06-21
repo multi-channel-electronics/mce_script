@@ -935,10 +935,17 @@ static void write_rf_header(void)
       long v = strtol(mas_rf_header->tag[i].data[0], &endptr, 10);
 
       if (*endptr) {
-        df_printf(DF_PRN_ERR, "Couldn't interpret parameter \"%s\" of "
-            "%s as integer.\n", mas_rf_header->tag[i].spec[0],
-            mas_rf_header->tag[i].spec[0]);
-        df_exit(1, 1);
+        if (strcmp(mas_rf_header->tag[i].data[0], "ERROR") == 0) {
+          df_printf(DF_PRN_WARN, "'ERROR' found where integer expected for "
+              "\"%s %s\".  Dropped.\n", mas_rf_header->tag[i].spec[0],
+              mas_rf_header->tag[i].spec[1]);
+          continue;
+        } else {
+          df_printf(DF_PRN_ERR, "Couldn't interpret parameter \"%s\" of "
+              "%s as integer.\n", mas_rf_header->tag[i].spec[1],
+              mas_rf_header->tag[i].spec[0]);
+          df_exit(1, 1);
+        }
       }
       sprintf(spec, "%s/%s CONST INT32 %li", mas_rf_header->tag[i].spec[0],
           mas_rf_header->tag[i].spec[1], v);
@@ -947,13 +954,20 @@ static void write_rf_header(void)
           mas_rf_header->tag[i].spec[0], mas_rf_header->tag[i].spec[1]);
       for (j = 0; j < mas_rf_header->tag[i].ndata; ++j) {
         char *endptr;
-        long v = strtol(mas_rf_header->tag[i].data[0], &endptr, 10);
+        long v = strtol(mas_rf_header->tag[i].data[j], &endptr, 10);
 
         if (*endptr) {
-          df_printf(DF_PRN_ERR, "Couldn't interpret element %i of parameter "
-              "\"%s\" of %s as integer.\n", j, mas_rf_header->tag[i].spec[0],
-              mas_rf_header->tag[i].spec[0]);
-          df_exit(1, 1);
+          if (strcmp(mas_rf_header->tag[i].data[j], "ERROR") == 0) {
+            df_printf(DF_PRN_WARN, "'ERROR' found where integer expected for "
+                "element %i of \"%s %s\".  Replaced with 0.\n",
+                mas_rf_header->tag[i].spec[0], mas_rf_header->tag[i].spec[1]);
+            v = 0;
+          } else {
+            df_printf(DF_PRN_ERR, "Couldn't interpret element %i of parameter "
+                "\"%s\" of %s as integer.\n", j, mas_rf_header->tag[i].spec[1],
+                mas_rf_header->tag[i].spec[0]);
+            df_exit(1, 1);
+          }
         }
         pos += sprintf(spec + pos, " %li", v);
       }
