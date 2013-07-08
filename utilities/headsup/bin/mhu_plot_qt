@@ -155,8 +155,11 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.streamList.update_items(labels=new_stream_names)
 
     def geom_list_changed(self):
-        geoms = [(s['name'], s) for s in self.data_handler.info.
-                 get('geometries', [])]
+        if self.data_handler == None:
+            geoms = []
+        else:
+            geoms = [(s['name'], s) for s in self.data_handler.info.
+                     get('geometries', [])]
         self.geomList.update_items(items=geoms)
         if len(geoms) == 0:
             self.trigger_geom = True

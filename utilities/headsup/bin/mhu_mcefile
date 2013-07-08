@@ -116,6 +116,9 @@ class mceFileFollower(clients.HeadsupDataSource):
                 if n == -1:
                     break
                 d = f.Read(start=n, count=dn, row_col=True, field=self.field)
+                if d.n_frames == 0:
+                    time.sleep(opts['watch'])
+                    continue
                 if dshape == None or d.data.shape[:-1] != dshape:
                     # Update geometries
                     dshape = d.data.shape[:-1]
@@ -223,7 +226,7 @@ if __name__ == '__main__':
         mp.options['watch'] = .01
 
     if opts.step != None:
-        mp.step = opts.step
+        mp.options['step'] = opts.step
     
     while True:
         mp.playback(flatfile, background=defaults['threaded'])

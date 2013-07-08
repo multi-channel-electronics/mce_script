@@ -436,6 +436,8 @@ class SmallMCEFile:
         if len(a) != count*f_dwords:
             print 'Warning: read problem, only %i of %i requested frames were read.'% \
                   (len(a)/f_dwords, count)
+        # Trim and reshape
+        a = a[:n_frames*f_dwords]
         a.shape = (n_frames, f_dwords)
         if raw_frames:
             # Return all data (i.e. including header and checksum)
@@ -500,11 +502,12 @@ class SmallMCEFile:
         according to data content parameters.
         """
         # Input data should have dimensions (n_cc_frames x self.size_ro*self.n_rc)
-        n_ro = data_in.shape[0]
+        n_ro, n_chan = data_in.shape
 
         # Reshape data_in to (cc_frame, cc_row, cc_col) so we can work
         # with each RC's data one-by-one
-        data_in.shape = (n_ro, -1, self.n_rc * self.rc_step)
+        cc_cols = self.n_rc * self.rc_step
+        data_in.shape = (n_ro, n_chan / cc_cols, cc_cols)
 
         # Probably should leave the type the same, oops.
         if dtype == None:
@@ -515,6 +518,9 @@ class SmallMCEFile:
         p = self.size_ro / f                 # CC/RC packing multiplier
         data = numpy.zeros((self.n_rows, self.n_rc, self.n_cols, n_ro * p),
                            dtype=dtype)
+
+        if n_ro == 0:
+            return data.reshape(self.n_rc*f, 0)
 
         # The only sane way to do this is one RC at a time
         for rci in range(self.n_rc):
