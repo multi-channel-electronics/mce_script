@@ -1,6 +1,6 @@
 import auto_setup as aset
 from auto_setup.util import mas_path
-from pylab import *
+import numpy as np
 import os, sys
 
 from optparse import OptionParser
@@ -103,7 +103,7 @@ elif out_format == 'array':
         for c in range(0,n_col):
             _s = periods[:,c]!=0
             if _s.sum() > 0:
-                periods[~_s,c] = int(round(median(periods[_s,c])))
+                periods[~_s,c] = int(round(np.median(periods[_s,c])))
     # Danger time
     pad = ','.join(['0' for x in range(41-n_row)])
     
