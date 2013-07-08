@@ -151,6 +151,25 @@ class SQ2Servo(servo.SquidData):
         self.reduce2(slope=slope, lock_amp=lock_amp, x_adjust=x_adjust)
         return self.analysis
 
+    def reduce1(self, slope=None):
+        """
+        Compute peak-to-peak response, store in self.analysis.  If
+        this is a bias ramp, determine an optimal bias based on max
+        amplitude.
+        """
+        self._check_data()
+        self._check_analysis(existence=True)
+        mx, mn = self.data.max(axis=-1), self.data.min(axis=-1)
+        self.analysis['y_max'] = mx
+        self.analysis['y_min'] = mn
+        self.analysis['y_span'] = mx - mn
+        if self.bias_style == 'ramp':
+            # Identify bias index of largest response in each column
+            select = (mx-mn).reshape(self.data_shape[:-1])\
+                .max(axis=-2).argmax(axis=0)
+            self.analysis['select_col_sel'] = select
+        return self.analysis
+    
     def reduce2(self, slope=None, lock_amp=True, x_adjust=None):
         """
         Special reduction steps for SQ2 servo.
@@ -195,6 +214,16 @@ class SQ2Servo(servo.SquidData):
         self.analysis = an
         return an
 
+    def select_biases(self, bias_idx=None, assoc=None, ic_factor=None):
+        """
+        See servo.SquidData.select_biases for description.
+        """
+        if ic_factor == None:
+            ic_factor = self.tuning.get_exp_param(
+                'sq2_servo_ic_factor', missing_ok=True, default=None)
+        return servo.SquidData.select_biases(
+            self, bias_idx=bias_idx, assoc=assoc, ic_factor=ic_factor)
+        
     def plot_error(self, *args, **kwargs):
         if not 'data_attr' in kwargs:
             kwargs['data_attr'] = 'error'
@@ -216,7 +245,7 @@ class SQ2Servo(servo.SquidData):
         rs.add_data('y_min', self.analysis['y_min'],
                     ylabel='Min error (/1000)')
         # Turn bias indices into biases; store as analysis.
-        idx = self.analysis['y_span_select']
+        idx = self.analysis['select_col_sel']
         rs.analysis = {'lock_x': self.bias[idx]}
         return rs
 

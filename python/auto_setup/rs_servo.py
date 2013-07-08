@@ -149,7 +149,7 @@ class RSServo(servo.SquidData):
             span = span.reshape(n_bias, -1)
             ok = self.analysis['ok'].reshape((n_bias,-1))
             n_ok = ok.sum(axis=0)
-            self.analysis['y_span_select'] = np.argmax(span*ok,axis=0)
+            self.analysis['select_rowcol_sel'] = np.argmax(span*ok,axis=0)
             # Now from those biases, identify row_sel and row_desel
             # values for each row.  Exclude failed analyses, then take
             # a median.
@@ -159,7 +159,7 @@ class RSServo(servo.SquidData):
             sel = np.zeros((2, n_row))
             sel_in = self.analysis['sel_idx'].reshape(n_bias, n_row, n_col), \
                 self.analysis['desel_idx'].reshape(n_bias, n_row, n_col)
-            bias_idx = self.analysis['y_span_select'].reshape(n_row, n_col)
+            bias_idx = self.analysis['select_rowcol_sel'].reshape(n_row, n_col)
             col_idx = np.arange(n_col)
             for r in n_ok.nonzero()[0]:
                 for j in [0,1]:

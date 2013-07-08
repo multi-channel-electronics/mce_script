@@ -189,6 +189,7 @@ class plotGridder:
         ('stacked', True),
         ('rowcol_labels', False),
         ('col_labels', False),
+        ('row_labels', False),
         ('force_vlabel', False),
         ('force_hlabel', False),
         ('target_shape', (4,4)),
@@ -198,7 +199,6 @@ class plotGridder:
 
     def __init__(self, shape, filename, **kwargs):
         self.filename = filename
-        self.shape = shape
 
         for k, v in self.props:
             setattr(self, k, v)
@@ -212,9 +212,11 @@ class plotGridder:
         # Dimensions of target space
         nr, nc = shape
         if nc % 8 != 0:
-            raise ValueError, 'give me n_columns = 0 mod 8'
+            nc = (nc+7) / 8 * 8
+        self.shape = (nr, nc)
+
         M, N = self.target_shape[-1::-1]
-        S = max(M*N / nc, 1)
+        S = max(M*N/nc, 1)
         H = _div_up(nc, M*N)
         V = _div_up(nr, S)
 
@@ -257,6 +259,8 @@ class plotGridder:
                 page[0,i].title = 'Row %2i  Cols %2i-%2i' % (r, c1, c2)
             if self.col_labels:
                 page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
+            if self.row_labels:
+                page[0,i].title = 'Rows %2i-%2i' % (c1, c2) # :P
         if self.title != None:
             page.title = self.title
         return page

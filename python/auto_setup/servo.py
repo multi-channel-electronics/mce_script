@@ -559,11 +559,17 @@ class SquidData(util.RCData):
             output.append(s)
         return output
 
-    def select_biases(self, bias_idx=None, assoc=None):
+    def select_biases(self, bias_idx=None, assoc=None, ic_factor=None):
         """
         Reduce bias-ramp V-phi data to bias-select data, by selecting
         a particular bias index for each row, column, or (row,col)
         pair.  Returns an object of the same type.
+
+        If ic_factor != 1., the chosen bias will be the peak bias
+        scaled by ic_factor, though limited to be within the bias
+        range of the ramp.  The resulting V-phi data in this case is
+        an interpolation between the curves of the nearest bias
+        points.
         """
         if self.bias_style == 'select':
             # This object does not contain per-bias data.
@@ -596,32 +602,47 @@ class SquidData(util.RCData):
         # bias array, try to find it in the analysis.
         if bias_idx == None:
             k = 'select_%s_sel'%assoc
-            if not k in self.analysis:
-                k = 'y_span_select' # ya, it's been a long road.
             bias_idx = self.analysis[k]
-
-        idx0, idx1 = bias_idx, np.arange(len(bias_idx))
-        # assert len(select) == sh[ax]
 
         # Get a cheap single-bias servo
         s = self.split()[0]
         s.bias_style = 'select'
-        s.bias = self.bias[bias_idx]
         s.bias_assoc = assoc
-        s.data.shape = s.data_shape
+        #s.data.shape = s.data_shape
 
-        # Function for collapsing dimensions 0 and 1 of data (after a
-        # transposition maybe), with selections idx.
-        def ar_select(data):
-            data = data.reshape(sh).transpose(ax)
-            data = data[idx0,idx1].copy()
-            return data
+        if ic_factor == None:
+            # This is the easy one.
+            idx0, idx1 = bias_idx, np.arange(len(bias_idx))
+            s.bias = self.bias[bias_idx]
+            # Loop over identified data attributes
+            for k in self.data_attrs:
+                d = getattr(self, k).reshape(sh).transpose(ax)
+                d = d[idx0,idx1].copy()
+                setattr(s, k, d.reshape(-1,n_fb))
+        else:
+            # Allocate space for reduced data curves
+            for k in self.data_attrs:
+                setattr(s, k, np.zeros((sh[1], sh[2], n_fb)))
 
-        # Loop over identified data attributes
-        for k in self.data_attrs:
-            d = getattr(self, k).reshape(sh)
-            d = ar_select(d)
-            setattr(s, k, d.reshape(-1,n_fb))
+            # It's a bit tricky so do them one by one...
+            for i in range(s.bias.shape[0]):
+                # Keep bias in range
+                bias = self.bias[bias_idx][i] * ic_factor
+                s.bias[i] = max(self.bias[0], min(bias, self.bias[-1]))
+                idx0 = (self.bias[:-1] <= bias).nonzero()[0][-1]
+                frac = float(s.bias[i] - self.bias[idx0]) / \
+                    (self.bias[idx0+1] - self.bias[idx0])
+
+                # Interpolate between two curves
+                for k in self.data_attrs:
+                    # Get data with shape [n_bias, n_assoc, n_not_assoc, n_fb]
+                    d = getattr(self, k).reshape(sh).transpose(ax)
+                    # Interpolate
+                    d = d[idx0,i]*(1-frac) + d[idx0+1,i]*frac
+                    # Assign to n_assoc
+                    getattr(s, k)[i] = d.reshape(-1, n_fb)
+            for k in self.data_attrs:
+                getattr(s, k).shape = (-1, n_fb)
 
         return s
 
@@ -657,7 +678,8 @@ class SquidData(util.RCData):
             # Identify bias index of largest response in each column
             select = (mx-mn).reshape(self.data_shape[:-1])\
                 .max(axis=-2).argmax(axis=0)
-            self.analysis['y_span_select'] = select
+            # Scale by ic_factor.  I guess we have to round it.
+            self.analysis['select_col_sel'] = select
         return self.analysis
     
     def reduce2(self, slope=None):
@@ -745,6 +767,7 @@ class RampSummary(SquidData):
         self.gridded = True
         self.bias = None
         self.bias_style = 'select'
+        self.bias_assoc = parent.bias_assoc
         self.fb = parent.bias.copy()
         self.data = {}
         self.ylabels = {}
@@ -766,7 +789,7 @@ class RampSummary(SquidData):
                                                default='png')
 
         if data_attr == None:
-            data_attr = self.data.keys()[0] # you asked for it.
+            data_attr = 'y_span'
         data = self.data[data_attr]
     
         # Plot plot plot
