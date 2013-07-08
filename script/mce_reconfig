@@ -21,7 +21,7 @@ fi
 mce_check_init
 
 echo Running $CONFIG
-$CONFIG
+$CONFIG || exit 1
 
 # Only mess with TES if tes_bias_do_reconfig=1.
 do_tes=`mas_param -s $EXPT get tes_bias_do_reconfig`

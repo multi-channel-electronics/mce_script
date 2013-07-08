@@ -1,5 +1,10 @@
 #!/bin/bash
 
+#override MAS_DATA_ROOT, if an argument was given
+if [ ! -z $1 ]; then
+  export MAS_DATA_ROOT=$1
+fi
+
 #initialise environment
 if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
   echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
@@ -73,7 +78,7 @@ if [ ! -e analysis ]; then
     chmod g+s analysis
 fi
 
-[ -e experiment.cfg ] || cp $MAS_CONFIG/$exp_cfg experiment.cfg
+[ -e experiment.cfg ] || cp $MAS_CONFIG/$exp_cfg experiment.cfg || exit 1
 
 # Create an mce config script
 
