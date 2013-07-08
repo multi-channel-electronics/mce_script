@@ -20,6 +20,18 @@ defaults.update({
     'threaded': False,
     })
 
+def find_runfile(filename):
+    runfile = filename + '.run'
+    if os.path.exists(runfile):
+        return runfile
+    filename = os.path.realpath(filename)
+    runfile = filename + '.run'
+    if os.path.exists(runfile):
+        return runfile
+    runfile = '.'.join(filename.split('.')[:-1]) + '.run'
+    if os.path.exists(runfile):
+        return runfile
+    return False
 
 class mceFileFollower(clients.HeadsupDataSource):
     def __init__(self, addr, name='flatfile', field=None):
@@ -87,7 +99,12 @@ class mceFileFollower(clients.HeadsupDataSource):
                 time.sleep(opts['watch'] * 5)
                 continue
             # We appear to have some data to process.
-            f = mce_data.MCEFile(filename)
+            ## Try to find runfile
+            filename = filename
+            runfilename = find_runfile(filename)
+            if runfilename == False:
+                print 'Warning, could not find runfile for %s' % filename
+            f = mce_data.MCEFile(filename, runfile=runfilename)
             self.mcefile = f
             if opts['seek_tail']:
                 # Go to almost end
@@ -115,10 +132,11 @@ class mceFileFollower(clients.HeadsupDataSource):
                         break
                 if n == -1:
                     break
-                d = f.Read(start=n, count=dn, row_col=True, field=self.field)
+                d = f.Read(start=n, count=1, row_col=True, field=self.field)
                 if d.n_frames == 0:
-                    time.sleep(opts['watch'])
-                    continue
+                    #time.sleep(opts['watch'])
+                    #continue
+                    break
                 if dshape == None or d.data.shape[:-1] != dshape:
                     # Update geometries
                     dshape = d.data.shape[:-1]
