@@ -594,6 +594,8 @@ class SQ1ServoSummary(servo.RampSummary):
             if 'lock_x' in an:
                 ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
 
-        del pl
+        return {
+            'plot_files': pl.plot_files,
+            }
 
                       

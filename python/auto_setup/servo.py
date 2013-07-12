@@ -574,10 +574,10 @@ class SquidData(util.RCData):
         if self.bias_style == 'select':
             # This object does not contain per-bias data.
             return None # or self?
-        
-        n_bias, n_row, n_col, n_fb = self.data_shape
-        sh = n_bias, n_row, n_col, -1   # intermediate shape
 
+        if ic_factor == None:
+            ic_factor = 1.0;
+        
         # How many biases are we selecting here?  This is described
         # bias self.bias_assoc, declared by each subclass.  We will
         # use this to shuffle the array dimensions around so that
@@ -586,15 +586,16 @@ class SquidData(util.RCData):
             assoc = self.bias_assoc
 
         self.analysis['select_assoc'] = assoc
+        n_bias, n_row, n_col, n_fb = self.data_shape
 
+        transpose_row_col = False
         if assoc == 'rowcol':
-            sh = n_bias, n_row*n_col, 1, -1
-                             # put rows and cols into axis 1.
-            ax = (0,1,2,3)
+            n_group, n_member = n_row*n_col, 1
         elif assoc == 'col':
-            ax = (0,2,1,3)   # target the col axis
+            n_group, n_member = n_col, n_row
+            transpose_row_col = True
         elif assoc == 'row':
-            ax = (0,1,2,3)   # leave row axis as target.
+            n_group, n_member = n_row, n_col
         else:
             raise ValueError, "cannot select_bias with assoc='%'" % assoc
 
@@ -608,41 +609,37 @@ class SquidData(util.RCData):
         s = self.split()[0]
         s.bias_style = 'select'
         s.bias_assoc = assoc
-        #s.data.shape = s.data_shape
 
-        if ic_factor == None:
-            # This is the easy one.
-            idx0, idx1 = bias_idx, np.arange(len(bias_idx))
-            s.bias = self.bias[bias_idx]
-            # Loop over identified data attributes
-            for k in self.data_attrs:
-                d = getattr(self, k).reshape(sh).transpose(ax)
-                d = d[idx0,idx1].copy()
-                setattr(s, k, d.reshape(-1,n_fb))
-        else:
-            # Allocate space for reduced data curves
-            for k in self.data_attrs:
-                setattr(s, k, np.zeros((sh[1], sh[2], n_fb)))
+        def get_curves(key, idx0, idx1):
+            d = getattr(self, key).reshape(n_bias, n_row, n_col, n_fb)
+            if transpose_row_col:
+                d = d.transpose((0,2,1,3))
+            return d[idx0,idx1].reshape(n_member, n_fb)
 
-            # It's a bit tricky so do them one by one...
-            for i in range(s.bias.shape[0]):
-                # Keep bias in range
-                bias = self.bias[bias_idx][i] * ic_factor
-                s.bias[i] = max(self.bias[0], min(bias, self.bias[-1]))
-                idx0 = (self.bias[:-1] <= bias).nonzero()[0][-1]
-                frac = float(s.bias[i] - self.bias[idx0]) / \
-                    (self.bias[idx0+1] - self.bias[idx0])
+        # Reduced V-phi data
+        for k in self.data_attrs:
+            setattr(s, k, np.zeros((n_group, n_member, n_fb)))
 
-                # Interpolate between two curves
-                for k in self.data_attrs:
-                    # Get data with shape [n_bias, n_assoc, n_not_assoc, n_fb]
-                    d = getattr(self, k).reshape(sh).transpose(ax)
-                    # Interpolate
-                    d = d[idx0,i]*(1-frac) + d[idx0+1,i]*frac
-                    # Assign to n_assoc
-                    getattr(s, k)[i] = d.reshape(-1, n_fb)
+        for i in range(n_group):
+            # Keep bias in range
+            bias = self.bias[bias_idx][i] * ic_factor
+            s.bias[i] = max(self.bias[0], min(bias, self.bias[-1]))
+            idx0 = (self.bias[:-1] <= bias).nonzero()[0][-1]
+            frac = float(s.bias[i] - self.bias[idx0]) / \
+                (self.bias[idx0+1] - self.bias[idx0])
+
+            # Interpolate between two curves
             for k in self.data_attrs:
-                getattr(s, k).shape = (-1, n_fb)
+                d0 = get_curves(k, idx0, i)
+                d1 = get_curves(k, idx0+1, i)
+                getattr(s, k)[i] = d0*(1-frac) + d1*frac
+
+        # Possibly transpose and reshape
+        for k in self.data_attrs:
+            d = getattr(s, k)
+            if transpose_row_col:
+                d = d.transpose((1,0,2))
+            setattr(s, k, d.reshape(-1, n_fb))
 
         return s
 

@@ -230,8 +230,6 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
 
     if bias_ramp:
         sq.reduce1()
-        sq2_summary = sq.ramp_summary()
-        sq2_summary.plot()
         sq = sq.select_biases() # best bias?
 
     sq2_data = sq.reduce()
@@ -242,6 +240,10 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
         tuning.register_plots(*plot_out['plot_files'])
         plot_out = sq.plot_error()
         tuning.register_plots(*plot_out['plot_files'])
+        if bias_ramp:
+            rs = sq.ramp_summary()
+            plot_out = rs.plot()
+            tuning.register_plots(*plot_out['plot_files'])
 
     # Save SQ2 set-point (SA feedback) and SQ2 feedback
     q = tuning.get_exp_param("sa_flux_quanta")[rc_indices]
@@ -314,6 +316,10 @@ def do_sq1_servo(tuning, rc, rc_indices):
         tuning.register_plots(*plot_out['plot_files'])
         plot_out = sq.plot_error()
         tuning.register_plots(*plot_out['plot_files'])
+        if bias_ramp:
+            rs = sq.ramp_summary()
+            plot_out = rs.plot()
+            tuning.register_plots(*plot_out['plot_files'])
 
     # Load existing FB choices
     fb_nr = tuning.get_exp_param('array_width') # number of rows in sq2_fb_set
