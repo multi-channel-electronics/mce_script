@@ -20,19 +20,6 @@ defaults.update({
     'threaded': False,
     })
 
-def find_runfile(filename):
-    runfile = filename + '.run'
-    if os.path.exists(runfile):
-        return runfile
-    filename = os.path.realpath(filename)
-    runfile = filename + '.run'
-    if os.path.exists(runfile):
-        return runfile
-    runfile = '.'.join(filename.split('.')[:-1]) + '.run'
-    if os.path.exists(runfile):
-        return runfile
-    return False
-
 class mceFileFollower(clients.HeadsupDataSource):
     def __init__(self, addr, name='flatfile', field=None):
         clients.HeadsupDataSource.__init__(self, addr, name)
@@ -99,12 +86,7 @@ class mceFileFollower(clients.HeadsupDataSource):
                 time.sleep(opts['watch'] * 5)
                 continue
             # We appear to have some data to process.
-            ## Try to find runfile
-            filename = filename
-            runfilename = find_runfile(filename)
-            if runfilename == False:
-                print 'Warning, could not find runfile for %s' % filename
-            f = mce_data.MCEFile(filename, runfile=runfilename)
+            f = mce_data.MCEFile(filename)
             self.mcefile = f
             if opts['seek_tail']:
                 # Go to almost end

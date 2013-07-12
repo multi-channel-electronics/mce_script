@@ -1,5 +1,6 @@
 import numpy
 import sys
+import os
 from os import stat
 
 #
@@ -201,7 +202,7 @@ class SmallMCEFile:
 
         # Set runfile name
         if (filename != None) and (runfile == True):
-            self.runfilename = filename+'.run'
+            self.runfilename = MCERunfile.FindRunfile(filename)
         else:
             self.runfilename = runfile
 
@@ -805,6 +806,28 @@ class MCERunfile:
 
     def __getitem__(self, key):
         return self.data[key]
+
+    @staticmethod
+    def FindRunfile(filename, follow_links=None):
+        """
+        Try to find a runfile for the flat file filename.  Can cope with:
+            filename     ->    filename.run
+            filename.xxx ->    filename.run
+
+        If those fail, and filename is a symlink, it will follow the
+        symlink and check the real file too.
+        """
+        if follow_links is True:
+            filename = os.path.realpath(filename)
+        runfile = filename + '.run'
+        if os.path.exists(runfile):
+            return runfile
+        runfile = os.path.splitext(filename)[0] + '.run'
+        if os.path.exists(runfile):
+            return runfile
+        if follow_links is None:
+            return MCERunfile.FindRunfile(filename, follow_links=True)
+        return None
 
 
 def runfile_break(s):
