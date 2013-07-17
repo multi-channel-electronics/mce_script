@@ -248,7 +248,8 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     # Save SQ2 set-point (SA feedback) and SQ2 feedback
     q = tuning.get_exp_param("sa_flux_quanta")[rc_indices]
     q[q<=0] = 65536
-    tuning.set_exp_param_range("sa_fb", rc_indices, sq2_data["lock_y"] % q)
+    tuning.set_exp_param_range("sa_fb", rc_indices,
+        sq2_data["lock_y"].astype(int) % q)
     tuning.set_exp_param_range("sq2_fb", rc_indices, sq2_data["lock_x"])
 
     # Write the sq2 bias choice too?
