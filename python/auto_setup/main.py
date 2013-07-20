@@ -163,7 +163,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
     if bias_ramp:
         sa.reduce1()
         sa_summary = sa.ramp_summary()
-        if (tuning.get_exp_param('tuning_do_plots'):
+        if tuning.get_exp_param('tuning_do_plots'):
             sa_summary.plot()
         sa = sa.select_biases() # replace with best bias version
 
