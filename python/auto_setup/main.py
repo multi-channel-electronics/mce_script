@@ -561,7 +561,7 @@ IDL auto_setup_squids."""
 
     # skip sq1 ramp check unless requested:
     if tuning.get_exp_param("sq1_ramp_check", missing_ok = True,
-            default = 1) == 1:
+            default = 1) == 0:
         stages.remove('sq1_ramp_check')
         
     if first_stage == None:
