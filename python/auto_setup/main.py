@@ -537,9 +537,8 @@ IDL auto_setup_squids."""
         ramp_sa_bias = bool(tuning.get_exp_param('sa_ramp_bias'))
     if check_bias == None:
         check_bias = bool(tuning.get_exp_param('tuning_check_bias'))
-    if write_default_bias == None:
-        write_default_bias = bool(tuning.get_exp_param('write_default_bias',
-            missing_ok = 1, default = 0))
+    write_default_bias = bool(tuning.get_exp_param('write_default_bias',
+        missing_ok = 1, default = 0))
     
     # initialise the auto setup
     tune_data = do_init(tuning, rcs, check_bias, ramp_sa_bias, note)
