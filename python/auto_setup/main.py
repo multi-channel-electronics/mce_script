@@ -259,6 +259,7 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     # Write the sq2 bias choice too?
     if bias_ramp:
         tuning.set_exp_param_range("sq2_bias", rc_indices, sq.bias)
+        tune_data["sq2_bias"][rc_indices] = sq.bias
         if write_default:
             tuning.copy_exp_param("sq2_bias", "default_sq2_bias")
 
@@ -289,7 +290,7 @@ def prepare_sq1_servo(tuning):
     tuning.write_config()
 
 
-def do_sq1_servo(tuning, rc, rc_indices, write_default=False):
+def do_sq1_servo(tuning, rc, rc_indices, tune_data, write_default=False):
    
     # super_servo means collecting all-row servo data for fast sq2 switching
     fast_sq2 = tuning.get_exp_param('config_fast_sq2')
@@ -352,6 +353,7 @@ def do_sq1_servo(tuning, rc, rc_indices, write_default=False):
     # Write the sq1 bias choice too?
     if bias_ramp:
         tuning.set_exp_param("sq1_bias", sq.bias)
+        tune_data["sq1_bias"] = sq.bias
         if write_default:
             tuning.copy_exp_param("sq1_bias", "default_sq1_bias")
 
@@ -608,7 +610,7 @@ IDL auto_setup_squids."""
                 return s2_dict["status"]
         if 'sq1_servo' in stages:
             prepare_sq1_servo(tuning)
-            e = do_sq1_servo(tuning, c, rc_indices,
+            e = do_sq1_servo(tuning, c, rc_indices, tune_data,
                              write_default=write_default_bias)
             if (e != 0):
                 return e
