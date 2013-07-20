@@ -1,3 +1,4 @@
+# vim: ts=4 sw=4 et
 import util
 import series_array
 import sq2_servo
@@ -28,9 +29,9 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
     on_bias = False
     if (check_bias):
         if str(rcs[0]) == "s":
-            check_rcs = tuning.rc_list();
+            check_rcs = tuning.rc_list()
         else:
-            check_rcs = rcs;
+            check_rcs = rcs
 		
         for c in check_rcs:
             exit_status = tuning.run(["check_zero", "rc%i" % (c), "sa_bias"])
@@ -144,7 +145,7 @@ def prepare_sa_ramp(tuning, cols=None):
     # Update settings.
     tuning.write_config()
 
-def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
+def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False, write_default=False):
 
     # Acquire
     ok, ramp_data = series_array.acquire(tuning, rc,
@@ -184,6 +185,8 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
         tuning.set_exp_param_range("sa_bias", rc_indices, sa.bias)
         tuning.set_exp_param_range("sa_offset", rc_indices,
                                    (offset_ratio * sa.bias).astype('int'))
+        if write_default:
+            tuning.copy_exp_param("sa_bias","default_sa_bias")
 
     tuning.write_config()
 
@@ -195,7 +198,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
     return {"status": 0, "column_adc_offset": target}
 
 
-def do_sq2_servo(tuning, rc, rc_indices, tune_data):
+def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     # Sets the initial SA fb (found in the previous step or set to mid-range)
     # for the SQ2 servo
     sa_fb_init = tuning.get_exp_param('sa_fb')
@@ -256,6 +259,8 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data):
     # Write the sq2 bias choice too?
     if bias_ramp:
         tuning.set_exp_param_range("sq2_bias", rc_indices, sq.bias)
+        if write_default:
+            tuning.copy_exp_param("sq2_bias", "default_sq2_bias")
 
     # For SQ2 fast-switching, write the big FB array
     tu_nr = tuning.get_exp_param('default_num_rows') # number of rows
@@ -284,7 +289,7 @@ def prepare_sq1_servo(tuning):
     tuning.write_config()
 
 
-def do_sq1_servo(tuning, rc, rc_indices):
+def do_sq1_servo(tuning, rc, rc_indices, write_default=False):
    
     # super_servo means collecting all-row servo data for fast sq2 switching
     fast_sq2 = tuning.get_exp_param('config_fast_sq2')
@@ -347,6 +352,8 @@ def do_sq1_servo(tuning, rc, rc_indices):
     # Write the sq1 bias choice too?
     if bias_ramp:
         tuning.set_exp_param("sq1_bias", sq.bias)
+        if write_default:
+            tuning.copy_exp_param("sq1_bias", "default_sq1_bias")
 
     # Save results, but remove flux quantum
     tuning.set_exp_param('sq2_fb', fb_col)
@@ -528,6 +535,9 @@ IDL auto_setup_squids."""
         ramp_sa_bias = bool(tuning.get_exp_param('sa_ramp_bias'))
     if check_bias == None:
         check_bias = bool(tuning.get_exp_param('tuning_check_bias'))
+    if write_default_bias == None:
+        write_default_bias = bool(tuning.get_exp_param('write_default_bias',
+            missing_ok = 1, default = 0))
     
     # initialise the auto setup
     tune_data = do_init(tuning, rcs, check_bias, ramp_sa_bias, note)
@@ -563,7 +573,7 @@ IDL auto_setup_squids."""
     if tuning.get_exp_param("sq1_ramp_check", missing_ok = True,
             default = 1) == 0:
         stages.remove('sq1_ramp_check')
-        
+
     if first_stage == None:
         if short == 1:
             first_stage = 'sq1_servo'
@@ -589,14 +599,17 @@ IDL auto_setup_squids."""
         if 'sa_ramp' in stages:
             prepare_sa_ramp(tuning, cols=rc_indices)
             sa_dict = do_sa_ramp(tuning, c, rc_indices,
-                                 ramp_sa_bias=ramp_sa_bias)
+                                 ramp_sa_bias=ramp_sa_bias,
+                                 write_default=write_default_bias)
         if 'sq2_servo' in stages:
-            s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data)
+            s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data,
+                                   write_default=write_default_bias)
             if (s2_dict["status"] != 0):
                 return s2_dict["status"]
         if 'sq1_servo' in stages:
             prepare_sq1_servo(tuning)
-            e = do_sq1_servo(tuning, c, rc_indices)
+            e = do_sq1_servo(tuning, c, rc_indices,
+                             write_default=write_default_bias)
             if (e != 0):
                 return e
 
