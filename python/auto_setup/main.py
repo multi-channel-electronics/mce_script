@@ -163,7 +163,8 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False):
     if bias_ramp:
         sa.reduce1()
         sa_summary = sa.ramp_summary()
-        sa_summary.plot()
+        if (tuning.get_exp_param('tuning_do_plots'):
+            sa_summary.plot()
         sa = sa.select_biases() # replace with best bias version
 
     lock_points = sa.reduce()
@@ -342,7 +343,11 @@ def do_sq1_servo(tuning, rc, rc_indices):
         fb_col[cols] = sq1_data['lock_y'] % phi0
         n_row = tuning.get_exp_param("default_num_rows")
         fb_set[:,cols] = sq1_data['lock_y'] % phi0
-        
+
+    # Write the sq1 bias choice too?
+    if bias_ramp:
+        tuning.set_exp_param("sq1_bias", sq.bias)
+
     # Save results, but remove flux quantum
     tuning.set_exp_param('sq2_fb', fb_col)
     tuning.set_exp_param('sq2_fb_set', fb_set.transpose().ravel())
@@ -553,6 +558,11 @@ IDL auto_setup_squids."""
     # ramp tes bias and see open loop response?
     if tuning.get_exp_param("sq1_ramp_tes_bias") == 0 or short != 0:
         stages.remove('sq1_ramp_tes')
+
+    # skip sq1 ramp check unless requested:
+    if tuning.get_exp_param("sq1_ramp_check", missing_ok = True,
+            default = 1) == 1:
+        stages.remove('sq1_ramp_check')
         
     if first_stage == None:
         if short == 1:
