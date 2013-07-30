@@ -13,6 +13,7 @@ If output_directory is ommitted, ./ is used.
 o = OptionParser(usage=usage)
 o.add_option('-i','--interactive',action='store_true',default=False)
 o.add_option('-s','--stage',action='append',default=None)
+o.add_option('-d','--flag-dead-pixels',action='store_true',default=False)
 o.add_option('--summary',action='store_true',default=False,help=
              "For bias ramps, plot only the final bias choice.")
 o.add_option('-m','--format',default=None,help=
@@ -139,7 +140,11 @@ for stage in opts.stage:
     elif stage in ['sq1_ramp', 'sq1_ramp_check', 'sq1_ramp_tes']:
         s.reduce()
         print ' -> plotting'
+        if opts.flag_dead_pixels:
+            masks = ast.util.get_all_dead_masks(tuning)
+        else:
+            masks = None
         s.plot(plot_file='%s/%s_%s' % (odir, basename, stage),
-               format=opts.format)
+               format=opts.format,dead_masks=masks)
     else:
         print ' -> pass'
