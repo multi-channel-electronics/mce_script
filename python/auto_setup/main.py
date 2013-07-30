@@ -566,15 +566,6 @@ IDL auto_setup_squids."""
                   'sq1_ramp_tes',
                   'operate']
         
-    # ramp tes bias and see open loop response?
-    if tuning.get_exp_param("sq1_ramp_tes_bias") == 0 or short != 0:
-        stages.remove('sq1_ramp_tes')
-
-    # skip sq1 ramp check unless requested:
-    if tuning.get_exp_param("sq1_ramp_check", missing_ok = True,
-            default = 1) == 0:
-        stages.remove('sq1_ramp_check')
-
     if first_stage == None:
         if short == 1:
             first_stage = 'sq1_servo'
@@ -590,7 +581,18 @@ IDL auto_setup_squids."""
 
     s0, s1 = stages.index(first_stage), stages.index(last_stage)
     stages = stages[s0:s1+1]
-    
+
+    # ramp tes bias and see open loop response?
+    if tuning.get_exp_param("sq1_ramp_tes_bias") == 0 or short != 0:
+        if 'sq1_ramp_tes' in stages:
+            stages.remove('sq1_ramp_tes')
+
+    # skip sq1 ramp check unless requested:
+    if tuning.get_exp_param("sq1_ramp_check", missing_ok = True,
+            default = 1) == 0:
+        if 'sq1_ramp_check' in stages:
+            stages.remove('sq1_ramp_check')
+
     for c in rcs:
         print "Processing rc%s" % str(c)
         if c == 's':
