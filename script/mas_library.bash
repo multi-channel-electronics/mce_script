@@ -167,15 +167,30 @@ function repeat_string {
 
 function find_max {
     # prints the maximum input parameter, e.g.
-    #   find_max 3 5 9 0 -1 0 3
+    #   find_max 3 5 9 0 1 0 3
     # will echo 9
     local max=$1
-    while ! shift; do
+    while [ $# -gt 1 ]; do
+        shift
         if [ $1 -gt $max ]; then
             max=$1
         fi
     done
     echo $max
+}
+
+function find_min {
+    # prints the minimum input parameter, e.g.
+    #   find_min 3 5 9 0 1 0 3
+    # will echo 0
+    local min=$1
+    while [ $# -gt 1 ]; do
+        shift
+        if [ $1 -lt $min ]; then
+            min=$1
+        fi
+    done
+    echo $min
 }
 
 
