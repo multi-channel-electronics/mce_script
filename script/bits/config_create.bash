@@ -98,6 +98,8 @@ echo "wb cc user_word $user_word" >> $mce_script
 # Readout Cards
 #----------------------------------------------
 for rc in 1 2 3 4; do
+    max_flux_quantum=0
+    min_gaini=999999
     [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
     [ "${hardware_rc[$(( $rc - 1 ))]}" == "0" ] && continue
 
@@ -136,6 +138,12 @@ for rc in 1 2 3 4; do
         chan=$(( $c + $ch_ofs ))
         dead_ofs=$(( ($c + $ch_ofs)*$array_width ))
 
+        if [ "${columns_off[$chan]}" != "1" -a $chan -lt $num_rows ]; then
+            if [ ${servo_i[$chan]} -lt $min_gaini ]; then
+                min_gaini=${servo_i[$chan]}
+            fi
+        fi
+
         p_terms=( `repeat_string ${servo_p[$chan]} $array_width` )
         i_terms=( `repeat_string ${servo_i[$chan]} $array_width` )
         d_terms=( `repeat_string ${servo_d[$chan]} $array_width` )
@@ -171,8 +179,12 @@ for rc in 1 2 3 4; do
         r_off=$(( $array_width * $chan ))
 
         if [ "${config_flux_quanta_all}" != "0" ]; then
+            max_flux_quantum=`find_max ${mas_flux_quantum} ${flux_quanta_all[@]:$r_off:$array_width}`
             echo "wb rc$rc flx_quanta$c ${flux_quanta_all[@]:$r_off:$array_width}" >> $mce_script
         else
+            if [ ${flux_quanta[$chan]} -gt ${max_flux_quantum} ]; then
+                max_flux_quantum=${flux_quanta[$chan]}
+            fi
             repeat_string "${flux_quanta[$chan]}" $AROWS "wb rc$rc flx_quanta$c" >> $mce_script
         fi
 
@@ -190,8 +202,19 @@ for rc in 1 2 3 4; do
 
     echo "wb rc$rc en_fb_jump $flux_jumping" >> $mce_script
 
+    # integral clamp
 
-
+    if [ "$config_integral_clamp" == "1" ]; then
+        # don't divide by zero
+        if [ $min_gaini == "0" ]; then
+            integral_clamp=0
+        elif [ $flux_jumping == "1" ]; then
+            integral_clamp=$(printf %i $(echo "$integral_clamp_factor * 127 * 4096 * $max_flux_quantum / $min_gaini" | bc))
+        else
+            integral_clamp=$(printf %i $(echo "$integral_clamp_factor * 8192 * 4096 / $min_gaini" | bc))
+        fi
+        echo "wb rc$rc integral_clamp $integral_clamp" >> $mce_script
+    fi
 done
 
 # echo "Other cards: time=" `print_elapsed $create_start` >&2

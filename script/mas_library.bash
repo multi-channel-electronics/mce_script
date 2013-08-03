@@ -149,7 +149,7 @@ function replace_values {
     orig=( $1 )
     news=( $2 )
     for i in `seq 0 $(( ${#news[@]} - 1 ))` ; do
-	orig[$(( $i + $3 ))]=${news[$i]}
+        orig[$(( $i + $3 ))]=${news[$i]}
     done
     echo ${orig[@]}
 }
@@ -160,9 +160,22 @@ function repeat_string {
 
     echo -n "$3 "
     for a in `seq 1 $2`; do
-	echo -n "$1 "
+        echo -n "$1 "
     done
     echo $4
+}
+
+function find_max {
+    # prints the maximum input parameter, e.g.
+    #   find_max 3 5 9 0 -1 0 3
+    # will echo 9
+    local max=$1
+    while ! shift; do
+        if [ $1 -gt $max ]; then
+            max=$1
+        fi
+    done
+    echo $max
 }
 
 
@@ -171,7 +184,7 @@ function repeat_string {
 
 function health_clear {
     # Should not fail if MCE has been reset
-    
+
     # Example:
     return 0
 }
