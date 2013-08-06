@@ -179,10 +179,11 @@ for rc in 1 2 3 4; do
         r_off=$(( $array_width * $chan ))
 
         if [ "${config_flux_quanta_all}" != "0" ]; then
-           min_flux_quantum=`find_min ${mas_flux_quantum} ${flux_quanta_all[@]:$r_off:$num_rows}`
+           min_flux_quantum=`find_min_positive ${mas_flux_quantum} ${flux_quanta_all[@]:$r_off:$num_rows}`
             echo "wb rc$rc flx_quanta$c ${flux_quanta_all[@]:$r_off:$num_rows}" >> $mce_script
         else
-            if [ ${flux_quanta[$chan]} -gt ${min_flux_quantum} ]; then
+            if [ ${flux_quanta[$chan]} -lt ${min_flux_quantum} \
+              -a ${flux_quanta[$chan]} -gt 0]; then
                 min_flux_quantum=${flux_quanta[$chan]}
             fi
             repeat_string "${flux_quanta[$chan]}" $AROWS "wb rc$rc flx_quanta$c" >> $mce_script

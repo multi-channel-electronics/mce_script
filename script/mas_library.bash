@@ -193,6 +193,20 @@ function find_min {
     echo $min
 }
 
+function find_min_positive {
+    # prints the minimum positive input parameter, e.g.
+    #   find_min_positive 3 5 9 0 1 0 3
+    # will echo 1
+    local min=$1
+    while [ $# -gt 1 ]; do
+        shift
+        if [ $1 -lt $min -a $1 -gt 0 ]; then
+            min=$1
+        fi
+    done
+    echo $min
+}
+
 
 # HEALTH FIXES - return 0 if fix probably succeeded
 
