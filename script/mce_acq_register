@@ -84,6 +84,11 @@ file_data.update(zip(
         ['ctime', 'acq_type', 'filename', 'n_frames', 'log_note'],
         args))
 
+file_data['array_id'] = open('/data/cryo/array_id').readline().strip()
+file_data['basename'] = file_data['filename'].split('/')[-1]
+if file_data['log_note'] == 'None':
+    file_data['log_note'] = ''
+
 # Load that cfg file!
 cfg = DefaultingConfig()
 cfg.default_section = 'default'
@@ -105,7 +110,7 @@ file_data['runfilename'] = file_data['filename'] + '.run'
 
 # Sensible defaults
 last_tune_file = os.path.join(mas_path.data_root(), 'last_squid_tune')
-last_iv_file = os.path.join(mas_path.data_root(), 'last_iv_det_data')
+last_iv_file = os.path.join(mas_path.data_root(), 'last_iv.out')
 
 last_tune_file = cfg.getstr('last_tune_file', last_tune_file)
 last_iv_file = cfg.getstr('last_iv_file', last_tune_file)
