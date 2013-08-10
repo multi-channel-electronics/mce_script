@@ -41,7 +41,7 @@ from optparse import OptionParser
 simple_delist = lambda x: x.split()
 
 class DefaultingConfig(SafeConfigParser):
-    default_section = 'default'
+    default_section = 'defaults'
     active_section = None
     # This actually isn't that much smarter.
     def __init__(self, filename=None):
@@ -76,6 +76,8 @@ def printe(msg):
 o = OptionParser(usage=USAGE)
 o.add_option('--config-file', help=
              "Specify config file from which to get defaults.")
+o.add_option('--cloned-runfile', action='store_true', help=
+             "Suppress writes to runfile.")
 o.add_option('--verbose', action='store_true')
 opts, args = o.parse_args()
 
@@ -91,8 +93,9 @@ if file_data['log_note'] == 'None':
 
 # Load that cfg file!
 cfg = DefaultingConfig()
-cfg.default_section = 'default'
+cfg.default_section = 'defaults'
 cfg.active_section = file_data['acq_type']
+
 if opts.config_file == None:
     opts.config_file = os.path.join(mas_path.config_dir(),
                                     'mce_acq_reg.cfg')
@@ -106,28 +109,34 @@ elif opts.verbose:
 ## Runfile prep
 ##
 
-file_data['runfilename'] = file_data['filename'] + '.run'
+if not opts.cloned_runfile:
+    # For safety, don't even set it.
+    file_data['runfilename'] = file_data['filename'] + '.run'
 
 # Sensible defaults
 last_tune_file = os.path.join(mas_path.data_root(), 'last_squid_tune')
 last_iv_file = os.path.join(mas_path.data_root(), 'last_iv.out')
 
 last_tune_file = cfg.getstr('last_tune_file', last_tune_file)
-last_iv_file = cfg.getstr('last_iv_file', last_tune_file)
+last_iv_file = cfg.getstr('last_iv_file', last_iv_file)
 
-if cfg.getint('add_tune_block', 0):
+if cfg.getint('add_tune_block', 0) and not opts.cloned_runfile:
     if os.path.exists(last_tune_file):
         err = os.system('cat "%s" >> %s' %
                         (last_tune_file, file_data['runfilename']))
         if err != 0:
             printe('add_tune_block failed')
+    else:
+        printe('last_tune_file "%s" does not exists.' % last_tune_file)
 
-if cfg.getint('add_iv_block', 0):
+if cfg.getint('add_iv_block', 0) and not opts.cloned_runfile:
     if os.path.exists(last_iv_file):
         err = os.system('cat "%s" >> %s' %
                         (last_iv_file, file_data['runfilename']))
         if err != 0:
             printe('add_iv_block failed')
+    else:
+        printe('last_iv_file "%s" does not exists.' % last_iv_file)
 
 ##
 ## Links?

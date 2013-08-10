@@ -46,9 +46,12 @@ def link_file(source, dest):
 
 #def register_file(filename, frame_count, t, index, opts):
 def register_file(ctime, filename, n_frames,
-                  note='', reg_type='auto'):
-    p = subprocess.Popen('mce_acq_register %i %s %s %i "%s"' % \
-                               (ctime, reg_type, filename, n_frames, note),
+                  note='', reg_type='auto', cloned_runfile=False):
+    options = ''
+    if cloned_runfile:
+        options += ' --cloned-runfile'
+    p = subprocess.Popen('mce_acq_register %s %i %s %s %i "%s"' % 
+                         (options, ctime, reg_type, filename, n_frames, note),
                          shell=True)
     output = p.communicate()
     s = p.returncode
@@ -121,8 +124,10 @@ class Cloner:
                     link_file(runfile,filename+'.run')
                     n_reg = min(self.block_size, self.n_frames - index*self.block_size)
                     if self.acq_reg:
-                        print 'regin', index, n_reg
-                        register_file(t, filename, n_reg, note=self.note, reg_type='clone')
+                        cloned_runfile = (index!=0)
+                        register_file(t, filename, n_reg, note=self.note,
+                                      reg_type=self.suffix,
+                                      cloned_runfile=cloned_runfile)
                 idleness = 0
                 index += 1
             else:
@@ -141,6 +146,7 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
     details['ctime'] = '%i' % int(time.time())
     details['suffix'] = suffix
     details['data_dir'] = mas_path.data_dir()
+    details['data_root'] = mas_path.data_root()
     details['n_frames'] = n_frames
     details['rc'] = 'rc%s' % rc
     details['rc_num'] = '%s' % rc
@@ -164,12 +170,18 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
     else:
         details['seq_arg'] = ''
 
+    acq_link = cfg.getstr('link', '')
+    if acq_link == None:
+        acq_link = ''
     details['acq_cmd'] = acq_command
     details['filename_template'] = cfg.getstr('filename','%(ctime)s_dat') % details
     details['filename'] = details['filename_template'] % details
+    details['acq_link'] = acq_link % details
     details['runfilename'] = '%(filename)s.run' % details
     details['script_name'] = '%(temp_base)sauto_acq.scr' % details
 
+    lines.append('acq_multi_begin')
+    lines.append('acq_link %(acq_link)s' % details)
     lines.append('%(acq_cmd)s %(filename)s %(rc)s %(seq_arg)s' % details)
     lines.append('acq_go %(n_frames)i' % details)
 
@@ -229,7 +241,10 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
 
     else:
         # For real
-        os.system('mce_cmd -qf %(script_name)s' % details)
+        cmd = 'mce_cmd -qf %(script_name)s' % details
+        err = os.system(cmd)
+        if err != 0:
+            raise RuntimeError, "mce_cmd failed with error %i; tried: %s" % (err, cmd)
 
 if __name__ == '__main__':
     
