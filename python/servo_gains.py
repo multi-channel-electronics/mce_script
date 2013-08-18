@@ -43,12 +43,27 @@ for target in args:
         sq2 = aset.SQ2Servo.join([aset.SQ2Servo(f) \
                                       for f in fs.stage_all('sq2_servo')])
         sq2.tuning = tuning
-    for s in [-1, +1]:
-        sq2.reduce(slope=s)
-        s1s_gains = 1./sq2.analysis['lock_slope'] / s2s_gains
-        print 'SQ1 servo critical gain (sq2_slope=%i):' % s
-        print pretty(s1s_gains)
-        print
+        for s in [-1, +1]:
+            sq2.reduce(slope=s)
+            s1s_gains = 1./sq2.analysis['lock_slope'] / s2s_gains
+            print 'SQ1 servo critical gain (sq2_slope=%i):' % s
+            print pretty(s1s_gains)
+            print
 
-    print target
+    if 'sq1_ramp' in opts.stage:
+        sq = aset.SQ1Ramp.join([aset.SQ1Ramp(f)
+                                for f in fs.stage_all('sq1_ramp')])
+        sq.tuning = tuning
+        sq.reduce()
+        for direction in ['up', 'dn']:
+            crit_gains = -4096./sq.analysis['lock_%s_slope' % direction]
+            crit_gains[np.isnan(crit_gains) + np.isinf(crit_gains)] = 0.
+            # Reformat
+            n_row, n_col = sq.data_shape[:2]
+            crit_gains.shape = (n_row, n_col)
+            print 'Full chain critical gains by column:'
+            for col, col_data in enumerate(crit_gains.transpose()):
+                print 'Column %i' % col
+                print pretty(col_data, fmt='%8.2f')
+            print
 
