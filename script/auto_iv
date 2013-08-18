@@ -95,7 +95,7 @@ o.add_option('--analysis-file')
 
 o.add_option('--no-bias',action='store_true')
 
-o.add_option('--do-plots', type=int, default=1)
+o.add_option('--do-plots', type=int, default=0)
 o.add_option('--do-analysis', type=int, default=1)
 o.add_option('--do-link', type=int, default=1)
 
@@ -104,12 +104,27 @@ o.add_option('--auto-log', default=None)
 
 opts, args = o.parse_args()
 
+default_config_file = os.path.join(mas_path.config_dir(), 'mce_auto.cfg')
+cfg = maa.DefaultingConfig(default_config_file)
+cfg.active_section = 'auto_iv'
+cfg.default_section = 'default'
+if opts.auto_log == None:
+    opts.auto_log = cfg.getstr('auto_log', '').strip()
+    if opts.auto_log == '':
+        opts.auto_log = None
+
 # Use reg-note as an indicator that we should auto-log
 if opts.auto_log == None and opts.reg_note == '':
     opts.auto_log = '/dev/null'
 
 alog = maa.AutoLogger(opts.auto_log, 'auto_iv')
 alog.start_msg()
+
+# This is dumb
+translations = {'analysis': 'analyze'}
+for k in ['first_stage', 'last_stage', 'stage']:
+    v = getattr(opts, k)
+    setattr(opts, k, translations.get(v, v))
 
 # Let "args" do some obvious things
 if len(args) > 0:
@@ -118,8 +133,6 @@ if len(args) > 0:
     if opts.stage == 'plot':
         opts.stage = 'analyze'
         opts.do_analysis = 0
-    elif opts.stage == 'analysis':
-        opts.stage = 'analyze' # translate
     if opts.stage == 'go':
         opts.stage = None  # trigger full thing
         if len(args) > 1:

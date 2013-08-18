@@ -57,9 +57,16 @@ class AutoLogger:
                    'STOP')
 
     def write(self, msg, info='INFO'):
+        if self.log_file == None:
+            return
         if len(msg) == 0 or msg[-1] != '\n':
             msg = msg + '\n'
-        fout = open(self.log_file, 'a')
+        try:
+            fout = open(self.log_file, 'a')
+        except IOError:
+            print 'Failed to open %s, disabling auto-log.' % self.log_file
+            self.log_file = None
+            return
         kw = {'msg': msg,
               'script_id': self.script_id,
               'info': info}

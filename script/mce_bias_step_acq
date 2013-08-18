@@ -11,7 +11,7 @@ TES (or heater) bias lines.  It will cause the bias to step between
       [ current bias ] and [ current bias + depth ]
 
 To pass an observing log id to the registration program, you can use
-the MAS_LOGID environment variable or pass --log-note=xxxx.
+the MAS_LOGID environment variable or pass --reg-note=xxxx.
 
 Ramp parameters are specified in a config file (probably
 $MAS_CONFIG/bias_step.cfg), but all settings can be overridden from
@@ -135,8 +135,8 @@ if opts.dwell == None:
 if opts.frames == None:
     opts.frames = cfg.getint(opts.array_id, 'frames', 2000)
 
-if opts.log_note == None:
-    opts.log_note = os.getenv('MAS_LOGID', '')
+if opts.reg_note == None:
+    opts.reg_note = os.getenv('MAS_LOGID', '')
 
 if opts.readout_rounding == None:
     opts.readout_rounding = cfg.getint(opts.array_id, 'readout_rounding', 1)
@@ -213,7 +213,7 @@ for bc in opts.bc:
         'ctime': str(int(time.time())),
         'ctime0': str(ctime0),
         'n_frames': opts.frames,
-        'log': opts.log_note,
+        'log': opts.reg_note,
         'data_dir': mas_path.data_dir(),
         }
     this_data['filename'] = opts.filename % this_data

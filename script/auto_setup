@@ -4,6 +4,10 @@
 import auto_setup as ast
 import mce_auto_assist as maa
 
+from auto_setup.util.mas_path import mas_path
+mas_path = mas_path()
+
+import os
 import subprocess
 from optparse import OptionParser
 
@@ -58,6 +62,16 @@ o.add_option('--reg-note', default=None)
 o.add_option('--auto-log', default=None)
 
 opts, args = o.parse_args()
+
+default_config_file = os.path.join(mas_path.config_dir(), 'mce_auto.cfg')
+cfg = maa.DefaultingConfig(default_config_file)
+
+cfg.active_section = 'auto_setup'
+cfg.default_section = 'default'
+if opts.auto_log == None:
+    opts.auto_log = cfg.getstr('auto_log', '').strip()
+    if opts.auto_log == '':
+        opts.auto_log = None
 
 if opts.auto_log == None and opts.reg_note == None:
     opts.auto_log = '/dev/null'
