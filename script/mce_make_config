@@ -85,6 +85,10 @@ cat_onto(fout, script_source + 'config_create.bash')
 cat_onto(fout, script_source + 'config_run.bash')
 
 del fout
+try:
+    os.chmod(opts.config_script, 0775) # set group rw.
+except:
+    print "Failed to change config script permissions!"
 
 # Execution for all
 perms = os.stat(opts.config_script)[stat.ST_MODE]

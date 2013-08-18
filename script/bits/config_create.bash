@@ -15,6 +15,10 @@ mce_script=${MAS_TEMP}/`whoami`_config_mce${MAS_MCE_DEV}.scr
 # Remove existing script
 [ -e "$mce_script" ] && rm -f "$mce_script"
 
+# New file, group rw
+umask 002
+touch "$mce_script"
+
 # For raveled 2d arrays
 AROWS=${array_width}
 
