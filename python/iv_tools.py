@@ -98,7 +98,7 @@ class IVData:
         self.mcefile = MCEFile(filename, runfile=runfile)
         self.runfile = self.mcefile.runfile
         self.mcedata = self.mcefile.Read(row_col=True,
-                                         do_unwrap=True,
+                                         unwrap=True,
                                          unfilter='DC').data
         self.data_cols = np.array(self.mcefile._NameChannels(row_col=True)[1])
         # Also load the list of TES bias values... this has got to go.

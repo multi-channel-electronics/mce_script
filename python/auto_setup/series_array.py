@@ -174,7 +174,7 @@ class SARamp(servo.SquidData):
             an[k+'_x'] = self.fb[an[k+'_idx'] + scale]
 
         # Sub-sample to nearest integer feedback, rescale slopes based on d_fb
-        an['lock_x'] += float(self.d_fb) * an['lock_didx']
+        an['lock_x'] += (float(self.d_fb) * an['lock_didx']).astype('int')
         an['lock_slope'] /= self.d_fb
 
         self.analysis.update(an)

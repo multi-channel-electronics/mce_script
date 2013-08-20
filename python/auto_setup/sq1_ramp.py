@@ -319,7 +319,7 @@ class SQ1Ramp(util.RCData):
             format = self.tuning.get_exp_param('tuning_plot_format')
 
         # Plot plot plot
-        servo.plot(self.fb, self.data, (nr, nc),
+        return servo.plot(self.fb, self.data, (nr, nc),
                    self.analysis, plot_file,
                    shape=(8,4),
                    img_size=(900, 800),

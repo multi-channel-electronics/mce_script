@@ -415,7 +415,11 @@ def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
     # Produce plots
     masks = util.get_all_dead_masks(tuning)
     if tuning.get_exp_param('tuning_do_plots'):
-        ramps.plot(dead_masks=masks)
+        plot_out = ramps.plot(dead_masks=masks)
+        try:
+            tuning.register_plots(*plot_out['plot_files'])
+        except:
+            tuning.log.write('plot_reg failed because plot_out = %s\n' % str(plot_out))
 
     # Return analysis stuff so it can be stored in .sqtune...
     return ramps
