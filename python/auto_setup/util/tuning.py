@@ -236,7 +236,8 @@ class tuningData:
             note = self.reg_note
         if note == None:
             note = ''
-        cmd = ["acq_register", ctime, type, filename, numpts, note]
+        cmd = ["mce_acq_register", ctime, type, filename, numpts, note]
+
         return self.run(cmd)
 
     def register_plots(self, *args, **kwargs):

@@ -198,6 +198,8 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
             os.system('echo runfile runfile runfile > %(runfilename)s' % details)
         else:
             os.system('mce_status > %(runfilename)s' % details)
+            os.system('frameacq_stamp %(rc_num)s %(filename)s %(n_frames)i > '
+                      '%(runfilename)s' % details)
 
     #
     # If file-sequencing, optionally fork a clone_sequencer to generate hard links

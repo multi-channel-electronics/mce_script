@@ -19,6 +19,10 @@ start_ctime=`print_ctime`
 
 echo "START : $SCRNAME : $start_time" | $LOGGER
 
+## Recovers U0106 massive fails
+#echo Hard reset of PCI card
+#dsp_cmd -qx reset_pci
+#sleep 1
 echo Resetting MCE
 mce_cmd -qx mce_reset
 sleep 2

@@ -175,10 +175,10 @@ if do_stage('ramp'):
         o.exit(1)
     opts.ramp_file = '%s/%s' % (mas_path.data_dir(), opts.ramp_file)
     # Register acquisition
-    #rf = MCERunfile(opts.ramp_file+'.run')
-    #n_frames = rf.Item('FRAMEACQ', 'DATA_FRAMECOUNT', array=False, type='int')
-    #os.system('mce_acq_register %i iv %s %i "%s"' % \
-    #              (ctime, opts.ramp_file, n_frames, opts.reg_note))
+    rf = MCERunfile(opts.ramp_file+'.run')
+    n_frames = rf.Item('FRAMEACQ', 'DATA_FRAMECOUNT', array=False, type='int')
+    os.system('mce_acq_register %i iv %s %i "%s"' % \
+                  (ctime, opts.ramp_file, n_frames, opts.reg_note))
 
 #
 #  Analyze the IV curve?

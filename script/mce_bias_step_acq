@@ -226,7 +226,7 @@ for bc in opts.bc:
     
     # Register the acquisition
     #acq_register $ct bias_step $MAS_DATA/$filename $n_points "$MAS_LOGID"
-    os.system('acq_register %(ctime)s bias_step %(data_dir)s/%(filename)s '
+    os.system('mce_acq_register %(ctime)s bias_step %(data_dir)s/%(filename)s '
               '%(n_frames)i "%(log)s"' %
               this_data)
     
