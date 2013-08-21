@@ -527,6 +527,7 @@ IDL auto_setup_squids."""
 
     # Create data and analysis directories
     tuning.make_dirs()
+    shutil.copy2(tuning.exp_file, tuning.data_dir)
 
     # Register plots for offload
     tuning.register_plots(init=True)

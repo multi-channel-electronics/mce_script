@@ -9,6 +9,10 @@ def _load(filename):
     return array(data).transpose()
 
 def load_bias_file(filename):
+    """
+    Load rows of data from a text file.  Return the first half of the
+    columns as one array, and the second half as a second array.
+    """
     data = _load(filename)
     n_cols = data.shape[0]/2
     return data[:n_cols,:], data[n_cols:,:]

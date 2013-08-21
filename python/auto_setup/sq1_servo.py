@@ -89,7 +89,7 @@ def acquire(tuning, rc, filename=None, fb=None,
     n_frames = rf.Item('par_ramp', 'par_step loop1 par1', type='int')[2] * \
         rf.Item('par_ramp', 'par_step loop2 par1', type='int')[2]
     
-    tuning.register(acq_id, 'tune_servo', fullname, n_frames)
+    tuning.register(acq_id, 'tune_sq1_servo', fullname, n_frames)
     
     return True, {'basename': acq_id,
                   'filename': fullname }

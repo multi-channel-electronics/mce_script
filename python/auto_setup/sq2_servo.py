@@ -81,7 +81,7 @@ def acquire(tuning, rc, filename=None, fb=None,
     n_frames = rf.Item('par_ramp', 'par_step loop1 par1', type='int')[2] * \
         rf.Item('par_ramp', 'par_step loop2 par1', type='int')[2]
     
-    tuning.register(acq_id, 'tune_servo', fullname, n_frames)
+    tuning.register(acq_id, 'tune_sq2_servo', fullname, n_frames)
     
     return True, {'basename': acq_id,
                   'filename': fullname }
@@ -141,7 +141,9 @@ class SQ2Servo(servo.SquidData):
         # Natural order
         if bias_ramp:
             self.data.shape = (len(self.rows), len(self.cols), n_bias, n_fb)
+            self.error.shape = (len(self.rows), len(self.cols), n_bias, n_fb)
             self.data = self.data.transpose([2, 0, 1, 3])
+            self.error = self.error.transpose([2, 0, 1, 3])
         self.data_shape = self.data.shape
         self.data = self.data.reshape(-1, n_fb)
         self.error = self.error.reshape(-1, n_fb)
