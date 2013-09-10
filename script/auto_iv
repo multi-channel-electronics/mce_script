@@ -214,8 +214,9 @@ if do_stage('bias'):
     if err != 0:
         printe('biasing stage failed [%i], exiting.' % err)
         o.exit(1)
-    # Link it?
-    if opts.do_link:
+    # Link it?  Not if we're using the link as the source analysis...
+    if opts.do_link and (true_path(opts.analysis_file) != \
+                             true_path(last_iv_link)):
         link_exists = True
         if not os.path.exists(last_iv_link): # could be a broken link...
             try:
