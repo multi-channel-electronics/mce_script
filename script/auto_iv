@@ -226,5 +226,8 @@ if do_stage('bias'):
         if link_exists:
             os.remove(last_iv_link)
         os.symlink(true_path(opts.analysis_file), last_iv_link)
+    # Delay or whatever?
+    delay = cfg.getfloat('bias_delay_post', 0)
+    time.sleep(delay)
 
 alog.stop_msg()
