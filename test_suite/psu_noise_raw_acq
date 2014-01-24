@@ -1,45 +1,47 @@
 #!/bin/bash
 
-#initialise environment
-if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
-  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
-  exit 1
-else
-  eval $(${MAS_VAR} -s)
+cd $MAS_DATA
+mce_cmd -qx wb ac enbl_mux 0 
+
+rcnum="$1"
+chnum="$2"
+ana=$3
+if [ "$chnum" == "" ] || [ "$rcnum" == "" ]; then
+    echo "Usage:"
+    echo "  $0 rc_num channel [analyze]"
+    echo
+    echo "Output will be placed in $MAS_DATA/<time>"
+    exit 1
 fi
 
-set_directory
-cd $MAS_DATA
-mce_reconfig
-mce_zero_bias
-mce_cmd -qx wb ac enbl_mux 0 
-mce_cmd -x wb cc data_rate 6
-rcnum=$1
-chnum=$2
-filesnum=$3
-if [ "x$chnum" = "x" ] || [ $chnum -lt 0 ] || [ $chnum -gt 7 ]; then
-	chnum=0
-fi 
-if [ "x$rcnum" = "x" ] || [ $rcnum -lt 1 ] || [ $rcnum -gt 4 ]; then
-	rcnum=1
-fi
-if [ "x$filesnum" = "x" ] || [ $filesnum -lt 0 ] || [ $filesnum -gt 1000 ]; then
-	echo "setting filesnum to 10"
-	filesnum=10
-fi
-a=`date +%H%M`
+case "x$ana" in
+    xanalyze|x)
+	;;
+    *)
+	echo "analyze argument should be \"analyze\" or blank."
+	exit 1
+	;;
+esac
+    
+a=`date +%H%M%S`
 b=`date +%Y%m%d`
-echo "rc = $rcnum, ch = $chnum, files = $filesnum, dest = $a"
-mkdir $a
-for i in `seq 1 $filesnum `; do
-    ns=`date +%N`
-    mce_raw_acq_1col $rcnum $chnum "" $ns $a ""
-    #sleep 1
+echo "rc = $rcnum, ch = $chnum, dest = $a"
+
+for rc in $rcnum; do
+    for ch in $chnum; do
+	echo Getting rc$rc channel $ch ...
+	dest=${a}_rc${rc}_$ch
+	mkdir $MAS_DATA/$dest
+	for i in `seq 1 10 `; do
+	    mce_raw_acq_1col $rc $ch "" "" $dest/ ""
+	    sleep 1
+	done
+	# Analysis?
+	if [ "$ana" == "analyze" ]; then
+	    python $MAS_PYTHON/raw_power/spectrum_fit.py $MAS_DATA/$dest \
+		--plot $MAS_DATA/${dest}.png | tee $MAS_DATA/${dest}.txt
+	fi
+    done
 done
-cd $a
-echo "Converting to ascii"
-mce_bin2asc.py `ls *raw* |grep -v ".run"`
-cd ..
-echo "SCPing"
-scp -q -r $a gpd@hyper.phas.ubc.ca:~scuba2/public_html/sc2mce/system/psu/test_res/switching_noise/testing_data/UBC/$b/
+
 echo "Done"
