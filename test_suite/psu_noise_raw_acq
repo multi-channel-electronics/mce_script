@@ -6,6 +6,8 @@ mce_cmd -qx wb ac enbl_mux 0
 rcnum="$1"
 chnum="$2"
 ana=$3
+sn=$4
+
 if [ "$chnum" == "" ] || [ "$rcnum" == "" ]; then
     echo "Usage:"
     echo "  $0 rc_num channel [analyze]"
@@ -25,6 +27,7 @@ esac
     
 a=`date +%H%M%S`
 b=`date +%Y%m%d`
+a=$b\_$a\_$sn
 echo "rc = $rcnum, ch = $chnum, dest = $a"
 
 for rc in $rcnum; do
