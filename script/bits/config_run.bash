@@ -13,6 +13,12 @@ if ! [ -e "$mce_script" ]; then
     exit 1
 fi
 
-mce_cmd -qf $mce_script
+err_line=( `mce_cmd -qf $mce_script` )
+if [ "$?" != "0" ]; then 
+    line_no=${err_line[1]}
+    echo -e -n "Error on line $line_no of $mce_script:\n    "
+    sed ${line_no}'q;d' $mce_script
+    exit 1
+fi
 
 #END config_run.bash
