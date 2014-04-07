@@ -407,13 +407,6 @@ def hack_svg_viewbox(src, dest):
     md.writexml(fout)
     del fout
 
-try:
-    from pyPdf import PdfFileWriter, PdfFileReader
-    from svglib.svglib import svg2rlg
-    from reportlab.graphics import renderPDF
-except:
-    print 'Failed to load PDF collation libraries.'
-
 
 class pdfCollator:
     """
@@ -424,6 +417,10 @@ class pdfCollator:
         self.dest = dest
 
     def collate(self, remove_temp=True, remove_sources=False):
+        from pyPdf import PdfFileWriter, PdfFileReader
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPDF
+            
         # Make temporary folder
         dest_dir, _ = os.path.split(self.dest)
         if not os.path.exists(dest_dir):
