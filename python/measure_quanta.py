@@ -14,6 +14,8 @@ o.add_option('-m','--median',action='store_true',default=False,
              dest='do_median',help='replace zeros with column median')
 o.add_option('--span',type=float,default=1.5,
              help='minimum number of phi0 one can expect to find in the data.')
+o.add_option('--sub-ramp',type=int,default=None,
+             help='for multi-bias ramps, select index of ramp to use for measurement.')
 opts, args = o.parse_args()
 if len(args) != 2:
     o.error('Provide exactly two arguments.')
@@ -50,10 +52,17 @@ else:
 sq = ramps[0].join(ramps)
 
 periods = []
-if stage == 'sa_ramp':
-    if sq.bias_style == 'ramp':
+if sq.bias_style == 'ramp':
+    print 'Multi-bias detected'
+    if opts.sub_ramp == None:
+        print 'Selecting best bias values for each column (use --sub-ramp to force one).'
         sq.reduce1()
-        sq = sq.subselect()
+        sq = sq.select_biases(ic_factor=1)
+    else:
+        print 'Selecting bias at index %i' % opts.sub_ramp
+        sq = sq.split()[opts.sub_ramp]
+
+if stage == 'sa_ramp':
     lead = 0
 else:
     lead = 10  # skip the pre-servo
