@@ -197,7 +197,7 @@ class SQ1Ramp(util.RCData):
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
 
-    def reduce1(self, rule='y_space'):
+    def reduce1(self, rule='y_space_sorted'):
         """
         Finds curve amplitudes, locking levels, locking points.
         Creates analysis elements
@@ -224,13 +224,26 @@ class SQ1Ramp(util.RCData):
             if len(Tex[i]) == 0:
                 Tex[i] = [0, 1]
 
+        clear_lims = False
         if rule=='x_space':
             # Find widest region between extrema
             dT = [ x[1:] - x[:-1] for x in Tex ]
             widx = [ argmax(x) for x in dT ]
             lims = [ (x[i], x[i+1]) for x,i in zip(Tex, widx) ]
         elif rule == 'y_space':
-            # Find largest y-separation between local extrema
+            # Find largest y-separation between adjacent local extrema
+            lims = []
+            for T_set, yy in zip(Tex, y):
+                z = [(yy[x], x) for x in T_set]
+                dz = [a[0] - b[0] for a, b in zip(z[1:],z[:-1])]
+                idx = argmax(dz)
+                lims.append((z[idx][1], z[idx+1][1]))
+        elif rule == 'y_space_sorted':
+            # Take y coordinates of all extrema, sort them, and
+            # identify the largest uninterrupted interval.  This can
+            # help avoid multi-locking in some cases.  We do not
+            # bother obtaining "lims" in this case.
+            clear_lims = True
             lims = []
             for T_set, yy in zip(Tex, y):
                 z = sorted([(yy[x], x) for x in T_set])
@@ -238,10 +251,10 @@ class SQ1Ramp(util.RCData):
                 idx = argmax(dz)
                 lims.append((z[idx][1], z[idx+1][1]))
 
-
-        # Compute suggested ADC offset based on these.
         adc_offset = array([(yy[a]+yy[b])/2 for (a,b),yy in zip(lims,y)])
-        
+        if clear_lims:
+            lims = [(0,0)] * len(lims)
+
         # Good enough
         lock_left, lock_right = array(lims).transpose()
     
@@ -277,20 +290,25 @@ class SQ1Ramp(util.RCData):
         #left = result['left_idx'] - x_offset
         targets = result['lock_y']
         for word, sgn in [('up', 1), ('dn',-1)]:
-            ok, idx, sl = [zeros(y.shape[0], x) for x in ['bool','int','float']]
+            ok, idx, sl, nl = [zeros(y.shape[0], x) for x in ['bool','int','float','int']]
             for i, (yy, t) in enumerate(zip(y, targets)):
                 rg = (len(yy)/4, len(yy))
                 o, d, s = lock_stats(yy, target=t, slope_points=scale/2, slope=sgn,
                                      range=rg)
-                if d > len(yy): d = len(yy)
-                if d < 0: d = 0
-                ok[i], idx[i], sl[i] = o, d, s
+                d = max(0,min(len(yy)-1, d)) # Move in bounds.
+                # Get curve regions
+                regs = array(servo.get_curve_regions(yy))
+                regs[regs>=len(yy)] = len(yy)-1
+                regs = yy[regs] - t
+                n = ((regs[1:]*regs[:-1] < 0) * (regs[1:]*sgn > 0)).sum()
+                ok[i], idx[i], sl[i], nl[i] = o, d, s, n
             idx[idx<abs_lims[0]] = abs_lims[0]
             idx[idx>abs_lims[1]] = abs_lims[1]
             result['lock_%s_idx'%word] = idx + x_offset
             result['lock_%s_slope'%word] = sl / self.d_fb
             result['lock_%s_ok'%word] = ok.astype('int')
             result['lock_%s_x'%word] = self.fb[result['lock_%s_idx'%word]]
+            result['lock_%s_count'%word] = nl
         return result
 
     def reduce(self):
@@ -319,7 +337,7 @@ class SQ1Ramp(util.RCData):
             format = self.tuning.get_exp_param('tuning_plot_format')
 
         # Plot plot plot
-        return servo.plot(self.fb, self.data, (nr, nc),
+        servo.plot(self.fb, self.data, (nr, nc),
                    self.analysis, plot_file,
                    shape=(8,4),
                    img_size=(900, 800),
@@ -340,18 +358,24 @@ class SQ1Ramp(util.RCData):
         def get(key):
             return self.analysis[key].reshape(self.data_shape[-3:-1]).transpose()
         data = [
-            {'label': 'Col%i_squid_vphi_p2p',
+            {'label': 'vphi_p2p_C%02i',
              'data': get('max_y') - get('min_y'),
              'style': 'col_row', 'format': '%i', },
-            {'label': 'lockrange_C%02i',
-             'data': get('right_idx') - get('left_idx'),
+            {'label': 'lock_range_C%02i',
+             'data': get('right_x') - get('left_x'),
              'style': 'col_row', 'format': '%i', },
-            {'label': 'lockslope_down_C%02i',
+            {'label': 'lock_slope_down_C%02i',
              'data': get('lock_dn_slope'),
              'style': 'col_row', 'format': '%.3f', },
-            {'label': 'lockslope_up_C%02i',
+            {'label': 'lock_slope_up_C%02i',
              'data': get('lock_up_slope'),
              'style': 'col_row', 'format': '%.3f', },
+            {'label': 'lock_count_dn_C%02i',
+             'data': get('lock_dn_count'),
+             'style': 'col_row', 'format': '%i', },
+            {'label': 'lock_count_up_C%02i',
+             'data': get('lock_up_count'),
+             'style': 'col_row', 'format': '%i', },
 #            {'label': 'Col%i_squid_multilock',
 #             'data': get(''),
 #             'style': 'col_row', 'format': '%i', },

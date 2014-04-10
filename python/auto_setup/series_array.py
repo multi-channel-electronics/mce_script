@@ -206,9 +206,9 @@ class SARamp(servo.SquidData):
         data = [
             {'label': 'vphi_p2p',
              'data': get('y_span')},
-            {'label': 'lockrange',
-             'data': get('right_idx') - get('left_idx')},
-            {'label': 'lockslope',
+            {'label': 'lock_range',
+             'data': get('right_x') - get('left_x')},
+            {'label': 'lock_slope',
              'data': get('lock_slope'),
              'format': '%.3f', },
             {'label': 'lock_count',
