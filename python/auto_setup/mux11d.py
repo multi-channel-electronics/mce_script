@@ -62,20 +62,14 @@ def do_rs_servo(tuning, rc, rc_indices):
 
     # Also load default sq1_bias and make sure it will apply in
     # fast-switching mode as well.
-    if tuning.get_exp_param('config_mux11d_use_default_sq1_bias_set',
-                            default=0, missing_ok=True):
-        # Per row, column.
-        tuning.copy_exp_param('default_sq1_bias_set', 'sq1_bias_set')
-    else:
-        # Expand one value per column to all rows.
-        sq1_bias = tuning.get_exp_param('default_sq1_bias')
-        nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
-        bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, nr).\
-            transpose() # r,c
-        nc = min(len(sq1_bias), bias_set.shape[1])
-        bias_set[:,:nc] = sq1_bias[:nc]
-        tuning.set_exp_param('sq1_bias', sq1_bias)
-        tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
+    sq1_bias = tuning.get_exp_param('default_sq1_bias')
+    nr = tuning.get_exp_param('array_width') # number of rows sq1_bias_set
+    bias_set = tuning.get_exp_param('sq1_bias_set').reshape(-1, nr).\
+        transpose() # r,c
+    nc = min(len(sq1_bias), bias_set.shape[1])
+    bias_set[:,:nc] = sq1_bias[:nc]
+    tuning.set_exp_param('sq1_bias', sq1_bias)
+    tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
 
     optimize = tuning.get_exp_param('optimize_rowsel_servo')
     if optimize == -1:
