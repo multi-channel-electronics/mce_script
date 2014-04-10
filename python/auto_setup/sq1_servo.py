@@ -281,6 +281,7 @@ class SQ1Servo(servo.SquidData):
         return self.analysis
 
     def reduce(self, slope=None, lock_amp=True):
+        self.reduce1()
         self._check_data()
         self._check_analysis(existence=True)
         
@@ -310,8 +311,8 @@ class SQ1Servo(servo.SquidData):
         an['lock_x'] += (d_fb * an['lock_didx']).astype('int')
         an['lock_slope'] /= d_fb
 
-        self.analysis = an
-        return an
+        self.analysis.update(an)
+        return self.analysis
 
     def select_biases(self, bias_idx=None, assoc=None, ic_factor=None):
         """
@@ -408,7 +409,28 @@ class SQ1Servo(servo.SquidData):
         idx = self.analysis['select_row_sel']
         rs.analysis = {'lock_x': self.bias[idx]}
         return rs
-        
+
+    def sqtune_report(self):
+        """
+        Return description of results for runfile block.
+        """
+        def get(key):
+            return self.analysis[key].reshape(self.data_shape[-3:-1]).transpose()
+        data = [
+            {'label': 'vphi_p2p_C%02i',
+             'data': get('y_span'),
+             'style': 'col_row'},
+            {'label': 'lockrange_C%02i',
+             'data': get('right_idx') - get('left_idx'),
+             'style': 'col_row'},
+            {'label': 'lockslope_C%02i',
+             'data': get('lock_slope'),
+             'style': 'col_row', 'format': '%.3f', },
+            {'label': 'lock_count_C%02i',
+             'data': get('lock_count'),
+             'style': 'col_row'},
+            ]
+        return {'block': 'SQUID_SQ1_SERVO', 'data': data}
 
 class SQ1ServoSA(SQ1Servo):
     stage_name = 'SQ1ServoSA'

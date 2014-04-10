@@ -202,8 +202,8 @@ class SQ1Ramp(util.RCData):
         Finds curve amplitudes, locking levels, locking points.
         Creates analysis elements
                {min,max}_y
-               {left,,right}_idx
-               lock_{idx,y}
+               {left,right}_idx
+               lock_{idx,y,count}
         """
         self._check_data()
         # Analyze every single stupid rampc curve
@@ -343,13 +343,13 @@ class SQ1Ramp(util.RCData):
             {'label': 'Col%i_squid_vphi_p2p',
              'data': get('max_y') - get('min_y'),
              'style': 'col_row', 'format': '%i', },
-            {'label': 'Col%i_squid_lockrange',
+            {'label': 'lockrange_C%02i',
              'data': get('right_idx') - get('left_idx'),
              'style': 'col_row', 'format': '%i', },
-            {'label': 'Col%i_squid_lockslope_down',
+            {'label': 'lockslope_down_C%02i',
              'data': get('lock_dn_slope'),
              'style': 'col_row', 'format': '%.3f', },
-            {'label': 'Col%i_squid_lockslope_up',
+            {'label': 'lockslope_up_C%02i',
              'data': get('lock_up_slope'),
              'style': 'col_row', 'format': '%.3f', },
 #            {'label': 'Col%i_squid_multilock',
@@ -359,7 +359,7 @@ class SQ1Ramp(util.RCData):
 #             'data': get(),
 #             'style': 'col_row', 'format': '%i', },
             ]
-        return data
+        return {'block': 'SQUID_SQ1_RAMP', 'data': data}
 
 class SQ1RampTes(SQ1Ramp):
     xlabel = 'TES bias / 1000'

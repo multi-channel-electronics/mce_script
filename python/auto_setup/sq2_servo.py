@@ -213,8 +213,8 @@ class SQ2Servo(servo.SquidData):
         an['lock_x'] += (d_fb * an['lock_didx']).astype('int')
         an['lock_slope'] /= d_fb
 
-        self.analysis = an
-        return an
+        self.analysis.update(an)
+        return self.analysis
 
     def select_biases(self, bias_idx=None, assoc=None, ic_factor=None):
         """
@@ -251,6 +251,24 @@ class SQ2Servo(servo.SquidData):
         rs.analysis = {'lock_x': self.bias[idx]}
         return rs
 
+    def sqtune_report(self):
+        """
+        Return description of results for runfile block.
+        """
+        def get(key):
+            return self.analysis[key].ravel()
+        data = [
+            {'label': 'vphi_p2p',
+             'data': get('y_span')},
+            {'label': 'lockrange',
+             'data': get('right_idx') - get('left_idx')},
+            {'label': 'lockslope',
+             'data': get('lock_slope'),
+             'format': '%.3f', },
+            {'label': 'lock_count',
+             'data': get('lock_count')},
+            ]
+        return {'block': 'SQUID_SQ2_SERVO', 'data': data}
 
 class SQ2ServoSummary(servo.RampSummary):
     xlabel = 'SQ2 BIAS'

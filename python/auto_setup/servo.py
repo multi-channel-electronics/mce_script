@@ -167,6 +167,19 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
                                         n_points=scale,
                                         min_index=i_left, max_index=i_right)
         dx = zeros(y.shape[0])
+    
+    n_locks = []
+    for ok, yy, lidx in zip(oks, y, lock_idx):
+        if not ok:
+            n = 0
+        else:
+            # find all slopy regions
+            locks = [array([max(0,x[0]), min(len(yy)-1,x[1])])
+                     for x in get_curve_regions(yy, slopes=True, extremality=extremality)
+                     if x[0] != x[1]]
+            # count the regions that cross the lock point
+            n = sum([(min(yy[x])<yy[lidx] and max(yy[x])>yy[lidx]) for x in locks])
+        n_locks.append(n)
 
     return {'lock_idx': lock_idx,
             'lock_didx': dx,
@@ -175,6 +188,7 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
             'slope': slope,
             'left_idx': i_left,
             'right_idx': i_right,
+            'lock_count': array(n_locks),
             'ok': array(oks)
             }
 
@@ -819,6 +833,10 @@ if __name__ == '__main__':
     print 'Expected: ', N/array(F)
     lp = get_lock_points(y, slope=array([1,1,1,-1]))
     print 'Lock-x: ', lp['lock_idx']
+    reg = []
+    for yy in y:
+        reg.append(get_curve_regions(yy, slopes=True))
+        print 'Crossings: ', reg[-1]
     print 'Plotting...'
     fp = biggles.Table(2,2)
     for i in range(4):

@@ -173,8 +173,8 @@ class SARamp(servo.SquidData):
         for k in ['lock', 'left', 'right']:
             an[k+'_x'] = self.fb[an[k+'_idx'] + scale]
 
-        # Sub-sample to nearest integer feedback, rescale slopes based on d_fb
-        an['lock_x'] += (float(self.d_fb) * an['lock_didx']).astype('int')
+        # Convert position and slope to feedback units.
+        an['lock_x'] += float(self.d_fb) * an['lock_didx']
         an['lock_slope'] /= self.d_fb
 
         self.analysis.update(an)
@@ -197,6 +197,24 @@ class SARamp(servo.SquidData):
         rs.analysis = {'lock_x': self.bias[idx]}
         return rs
 
+    def sqtune_report(self):
+        """
+        Return description of results for runfile block.
+        """
+        def get(key):
+            return self.analysis[key].reshape(self.data_shape[-3:-1]).ravel()
+        data = [
+            {'label': 'vphi_p2p',
+             'data': get('y_span')},
+            {'label': 'lockrange',
+             'data': get('right_idx') - get('left_idx')},
+            {'label': 'lockslope',
+             'data': get('lock_slope'),
+             'format': '%.3f', },
+            {'label': 'lock_count',
+             'data': get('lock_count')},
+            ]
+        return {'block': 'SQUID_SA_RAMP', 'data': data}
 
 class SARampSummary(servo.RampSummary):
     xlabel = 'SA BIAS'

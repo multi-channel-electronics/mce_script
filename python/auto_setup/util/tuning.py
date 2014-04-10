@@ -184,31 +184,60 @@ class tuningData:
             if (flush):
                 self.log.flush()
 
-    def write_sqtune(self, filename=None, sq1_ramp=None, link=False):
+    def write_sqtune(self, filename=None, sq_data=None,
+                     append=True, rcs=None, block=None):
         def compose_col_row(label, data, format='%f'):
             s = ''
             for i, d in enumerate(data):
                 s += '<%s> ' % (label % i)
                 s += ' '.join([format % r for r in d]) + '\n'
             return s
+        def compose_vector(label, data, format='%f'):
+            s = '<%s> ' % (label)
+            s += ' '.join([format %r for r in data]) + '\n'
+            return s
 
         if filename == None:
             filename = self.sqtune_file
-        done = sq1_ramp != None
-        f = open(filename, 'w')
-        f.write("<SQUID>\n")
-        f.write("<SQ_tuning_completed> %i\n" % int(done))
-        f.write("<SQ_tuning_date> %s\n" % self.date)
-        f.write("<SQ_tuning_dir> %s\n" % self.name)
-        if sq1_ramp != None:
-            for item in sq1_ramp.sqtune_report():
-                s = item['style']
-                if s == 'col_row':
-                    f.write(compose_col_row(item['label'], item['data'],
-                                            format=item['format']))
-                else:
-                    raise RuntimeError, 'unknown item style "%s"' % s
-        f.write("</SQUID>\n")
+        if sq_data == None:
+            # Basic info
+            if block == None:
+                block = 'SQUID_INIT'
+            is_mux11d = self.get_exp_param('hardware_mux11d', 0) == 1
+            data = \
+                '<SQ_tuning_date> %s\n' % self.date + \
+                '<SQ_tuning_dir> %s\n' % self.name + \
+                '<SQ_tuning_hardware> %s\n' % {False: 'classic',
+                                               True:  'mux11d'}[is_mux11d]
+            if rcs != None:
+                if rcs[0] == 's':
+                    rcs = self.rc_list()
+                cols = []
+                for r in rcs:
+                    cols = cols + [(r-1)*8+c for c in range(8)]
+                data = data + \
+                    '<SQ_RCs> %s\n' % ' '.join(['%i' % x for x in rcs]) + \
+                    '<SQ_columns> %s\n' % ' '.join(['%i' % x for x in cols])
+            # Package...
+            data = [{'style': 'raw', 'data': data}]
+        if sq_data != None:
+            sq_data = sq_data.sqtune_report()
+            if block == None:
+                block = sq_data['block']
+            data = sq_data['data']
+        f = open(filename, 'a' if append else 'w')
+        f.write("<%s>\n" % block)
+        for item in data:
+            s, fmt = item.get('style', 'vector'), item.get('format', '%i')
+            if s == 'vector':
+                f.write(compose_vector(item['label'], item['data'], format=fmt))
+            elif s == 'col_row':
+                f.write(compose_col_row(item['label'], item['data'], format=fmt))
+            elif s == 'raw':
+                f.write(item['data'])
+            else:
+                raise RuntimeError, 'unknown item style "%s"' % s
+        f.write("</%s>\n" % block)
         f.close()
         
         #this isn't updated if the user specified a data_dir when initialising

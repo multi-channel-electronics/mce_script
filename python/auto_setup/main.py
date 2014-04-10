@@ -19,7 +19,7 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
         tuning.write_note(note)
 
     # initialise the squid tuning results file
-    tuning.write_sqtune(link=True)
+    tuning.write_sqtune(rcs=rcs, append=False)
 
     # Check the MCE initialization state -- in case of recent power
     # cycle.
@@ -195,7 +195,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False, write_default=False):
         plot_out = sa.plot()
         tuning.register_plots(*plot_out['plot_files'])
 
-    return {"status": 0, "column_adc_offset": target}
+    return {'status': 0, 'column_adc_offset': target, 'sq_data': sa}
 
 
 def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
@@ -271,7 +271,7 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     tuning.set_exp_param('sq2_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
-    return {"status": 0}
+    return {'status': 0, 'sq_data': sq}
 
 
 def prepare_sq1_servo(tuning):
@@ -362,7 +362,7 @@ def do_sq1_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     tuning.set_exp_param('sq2_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
-    return 0
+    return {'status': 0, 'sq_data': sq}
 
 
 def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
@@ -420,9 +420,11 @@ def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
             tuning.register_plots(*plot_out['plot_files'])
         except:
             tuning.log.write('plot_reg failed because plot_out = %s\n' % str(plot_out))
+        ramps.plot(dead_masks=masks)
+
 
     # Return analysis stuff so it can be stored in .sqtune...
-    return ramps
+    return {'status': 0, 'sq_data': ramps}
 
 
 def do_sq1_ramp_tes(tuning, rcs, tune_data, init=True):
@@ -451,7 +453,7 @@ def do_sq1_ramp_tes(tuning, rcs, tune_data, init=True):
         ramps.plot(dead_masks=masks)
 
     # Return analysis stuff so it can be stored in .sqtune...
-    return ramps
+    return {'status': 0, 'sq_data': ramps}
 
 
 def operate(tuning):
@@ -598,7 +600,12 @@ IDL auto_setup_squids."""
         if 'sq1_ramp_check' in stages:
             stages.remove('sq1_ramp_check')
 
-    for c in rcs:
+    if len(rcs) != 1:
+        raise RuntimeError, \
+            "Tuning of misc. RCs no longer supported.  Pick a single RC, or use RCS."
+    else:
+        # This indentation left in for clarity of commit diff.  Remove me some day.
+        c = rcs[0]
         print "Processing rc%s" % str(c)
         if c == 's':
             rc_indices = array(tuning.column_list())
@@ -609,17 +616,20 @@ IDL auto_setup_squids."""
             sa_dict = do_sa_ramp(tuning, c, rc_indices,
                                  ramp_sa_bias=ramp_sa_bias,
                                  write_default=write_default_bias)
+            tuning.write_sqtune(sq_data=sa_dict['sq_data'])
         if 'sq2_servo' in stages:
             s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data,
                                    write_default=write_default_bias)
+            tuning.write_sqtune(sq_data=s2_dict['sq_data'])
             if (s2_dict["status"] != 0):
                 return s2_dict["status"]
         if 'sq1_servo' in stages:
             prepare_sq1_servo(tuning)
-            e = do_sq1_servo(tuning, c, rc_indices, tune_data,
-                             write_default=write_default_bias)
-            if (e != 0):
-                return e
+            s1_dict = do_sq1_servo(tuning, c, rc_indices, tune_data,
+                                   write_default=write_default_bias)
+            tuning.write_sqtune(sq_data=s1_dict['sq_data'])
+            if (s1_dict["status"] != 0):
+                return s1_dict["status"]
 
     if 'rs_servo' in stages:
         rs = mux11d.do_rs_servo(tuning, rcs, tune_data)
@@ -629,13 +639,14 @@ IDL auto_setup_squids."""
 
     if 'sq1_ramp' in stages:
         # sq1 ramp
-        sq1 = do_sq1_ramp(tuning, rcs, tune_data)
-        tuning.write_sqtune(sq1_ramp=sq1)
+        sq1_dict = do_sq1_ramp(tuning, rcs, tune_data)
+        tuning.write_sqtune(sq_data=sq1_dict['sq_data'])
 
     if 'sq1_ramp_check' in stages:
         # sq1 ramp check
-        sq1 = do_sq1_ramp(tuning, rcs, tune_data, ramp_check=True)
-        tuning.write_sqtune(sq1_ramp=sq1)
+        sq1_dict = do_sq1_ramp(tuning, rcs, tune_data, ramp_check=True)
+        tuning.write_sqtune(sq_data=sq1_dict['sq_data'],
+                            block='SQUID_SQ1_RAMPC')
 
     if 'sq1_ramp_tes' in stages:
         # open-loop ramping of the TES bias
