@@ -173,9 +173,14 @@ class SARamp(servo.SquidData):
         for k in ['lock', 'left', 'right']:
             an[k+'_x'] = self.fb[an[k+'_idx'] + scale]
 
-        # Convert position and slope to feedback units.
+        # Measure flux quantum
+        width = self.data.shape[-1] / 4
+        phi0 = servo.period(self.data, width=width)
+
+        # Convert position, slope, phi0 to feedback units.
         an['lock_x'] += float(self.d_fb) * an['lock_didx']
         an['lock_slope'] /= self.d_fb
+        an['phi0'] = float(self.d_fb) * phi0
 
         self.analysis.update(an)
         return self.analysis
@@ -206,6 +211,8 @@ class SARamp(servo.SquidData):
         data = [
             {'label': 'vphi_p2p',
              'data': get('y_span')},
+            {'label': 'vphi_phi0',
+             'data': get('phi0')},
             {'label': 'lock_range',
              'data': get('right_x') - get('left_x')},
             {'label': 'lock_slope',

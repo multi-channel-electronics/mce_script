@@ -302,14 +302,20 @@ class SQ1Servo(servo.SquidData):
         n_fb = len(self.fb)
         an = servo.get_lock_points(self.data, scale=n_fb/40,
                                    lock_amp=lock_amp, slope=slope)
+
         # Add feedback keys
         for k in ['lock', 'left', 'right']:
             an[k+'_x'] = self.fb[an[k+'_idx']]
 
-        # Tweak feedback values and rescale slopes
+        # Measure flux quantum
+        width = self.data.shape[-1] / 4
+        phi0 = servo.period(self.data, width=width)
+
+        # Tweak feedback values and rescale slopes and phi0
         d_fb = self.fb[1] - self.fb[0]
         an['lock_x'] += (d_fb * an['lock_didx']).astype('int')
         an['lock_slope'] /= d_fb
+        an['phi0'] = float(self.d_fb) * phi0
 
         self.analysis.update(an)
         return self.analysis
@@ -419,6 +425,9 @@ class SQ1Servo(servo.SquidData):
         data = [
             {'label': 'vphi_p2p_C%02i',
              'data': get('y_span'),
+             'style': 'col_row'},
+            {'label': 'vphi_phi0_C%02i',
+             'data': get('phi0'),
              'style': 'col_row'},
             {'label': 'lock_range_C%02i',
              'data': get('right_x') - get('left_x'),

@@ -276,6 +276,8 @@ class SQ1Ramp(util.RCData):
         """
         Measures slopes at lock points, creating analysis elements
                lock_{up,down}_{idx,x,sl,ok}
+
+        Also gets phi0.
         """
         self._check_data()
         
@@ -309,6 +311,11 @@ class SQ1Ramp(util.RCData):
             result['lock_%s_ok'%word] = ok.astype('int')
             result['lock_%s_x'%word] = self.fb[result['lock_%s_idx'%word]]
             result['lock_%s_count'%word] = nl
+
+        width = self.data.shape[-1] / 4
+        phi0 = servo.period(self.data, width=width)
+        result['phi0'] = phi0 * self.d_fb
+
         return result
 
     def reduce(self):
@@ -360,6 +367,9 @@ class SQ1Ramp(util.RCData):
         data = [
             {'label': 'vphi_p2p_C%02i',
              'data': get('max_y') - get('min_y'),
+             'style': 'col_row', 'format': '%i', },
+            {'label': 'vphi_phi0_C%02i',
+             'data': get('phi0'),
              'style': 'col_row', 'format': '%i', },
             {'label': 'lock_range_C%02i',
              'data': get('right_x') - get('left_x'),
