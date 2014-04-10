@@ -197,7 +197,7 @@ class SQ1Ramp(util.RCData):
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
 
-    def reduce1(self, rule='y_space_sorted'):
+    def reduce1(self, rule=None):
         """
         Finds curve amplitudes, locking levels, locking points.
         Creates analysis elements
@@ -205,6 +205,11 @@ class SQ1Ramp(util.RCData):
                {left,right}_idx
                lock_{idx,y,count}
         """
+        if rule == None:
+            rule = self.tuning.get_exp_param('sq1_ramp_locking_rule',
+                                             default='y_space_sorted')
+        print rule
+
         self._check_data()
         # Analyze every single stupid rampc curve
         scale = max([len(self.fb)/40, 1])
@@ -269,6 +274,7 @@ class SQ1Ramp(util.RCData):
         for k in ['lock', 'left', 'right']:
             result[k+'_idx'] += x_offset
             result[k+'_x'] = self.fb[result[k+'_idx']]
+        result['rule'] = rule
         self.analysis = result
         return self.analysis
 
@@ -318,8 +324,8 @@ class SQ1Ramp(util.RCData):
 
         return result
 
-    def reduce(self):
-        self.reduce1()
+    def reduce(self, rule=None):
+        self.reduce1(rule=rule)
         self.reduce2()
         return self.analysis
 
