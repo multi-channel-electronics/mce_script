@@ -183,7 +183,17 @@ for rc in 1 2 3 4; do
         r_off=$(( $array_width * $chan ))
 
         if [ "${config_flux_quanta_all}" != "0" ]; then
-           min_flux_quantum=`find_min_positive ${mas_flux_quantum} ${flux_quanta_all[@]:$r_off:$num_rows}`
+	    if [ "$config_dead_tes" == "0" ]; then
+		for r in `seq 0 $(( $num_rows - 1 ))`; do
+		    if [ "${dead_detectors[$(( $r_off + $r ))]}" == "0" \
+			-a ${flux_quanta_all[$(( $r_off + $r ))]} -lt $min_flux_quantum \
+			-a ${flux_quanta_all[$(( $r_off + $r ))]} -gt 0 ]; then
+			min_flux_quantum=${flux_quanta_all[$(( $r_off + $r ))]}
+		    fi
+		done
+	    else
+		min_flux_quantum=`find_min_positive ${min_flux_quantum} ${flux_quanta_all[@]:$r_off:$num_rows}`
+	    fi
             echo "wb rc$rc flx_quanta$c ${flux_quanta_all[@]:$r_off:$num_rows}" >> $mce_script
         else
             if [ ${flux_quanta[$chan]} -lt ${min_flux_quantum} \
