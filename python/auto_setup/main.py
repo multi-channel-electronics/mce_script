@@ -57,47 +57,50 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
         for i,x in enumerate(cfg_tes_bias_idle):
             tuning.cmd("wra tes bias %i %s" % (i, x))
 
-    # FIXME: you should not clobber the biases here, and also call
-    # this routine whenever auto_setup starts.  Because, e.g., you
-    # should be allowed to tune the SQ2 without changing the SA bias.
-
     # Load squid biases from config file default parameters
+    sa_bias = tuning.get_exp_param("default_sa_bias")
     sq2_bias = tuning.get_exp_param("default_sq2_bias")
     sq1_bias = tuning.get_exp_param("default_sq1_bias")
     sq1_bias_off = tuning.get_exp_param("default_sq1_bias_off")
 
-    # Set SA and SQ2 to default biases
-    tuning.copy_exp_param("default_sa_bias", "sa_bias")
-    tuning.copy_exp_param("default_sq2_bias", "sq2_bias")
+    if 0:
+        # Set SA and SQ2 to default biases
+        tuning.copy_exp_param("default_sa_bias", "sa_bias")
+        tuning.copy_exp_param("default_sq2_bias", "sq2_bias")
 
-    # Set SQ1 off
-    tuning.clear_exp_param("sq1_bias")
-    tuning.clear_exp_param("sq1_bias_off")
+        # Set SQ1 off
+        tuning.clear_exp_param("sq1_bias")
+        tuning.clear_exp_param("sq1_bias_off")
 
-    # data_mode and servo_mode and write.
-    prepare_mce(tuning, run_now=True)
+        # if the ssa and sq2 biases were previously off the system waits for
+        # thermalisation
 
-    # if the ssa and sq2 biases were previously off the system waits for
-    # thermalisation
+        if (check_bias and on_bias == 0):
+            print "Waiting for thermalization."
+            time.sleep(tuning.get_exp_param('tuning_therm_time'))
 
-    if (check_bias and on_bias == 0):
-        print "Waiting for thermalization."
-        time.sleep(tuning.get_exp_param('tuning_therm_time'))
+    return {'ramp_sa_bias': ramp_sa_bias, 'sq1_bias': sq1_bias,
+            'sq1_bias_off': sq1_bias_off, 'sq2_bias': sq2_bias,
+            'sa_bias': sa_bias, 'sa_bias_cold': (on_bias==0)}
 
-    return {"ramp_sa_bias": ramp_sa_bias, "sq1_bias": sq1_bias,
-            "sq1_bias_off": sq1_bias_off, "sq2_bias": sq2_bias}
-
-def prepare_mce(tuning, run_now=True):
+def set_basic_mce_params(tuning,
+                         servo_mode=1,
+                         flux_jumping=0,
+                         data_mode=0,
+                         adc_offset_all=None,
+                         run_now=False):
     """
-    Perform the minimal MCE configuration necessary in order to
-    perform tuning ramps/servos.
-
-    Basically, just set the data_mode and disable the MCE servo.
+    Helper function to set a few common parameters.
     """
-    tuning.set_exp_param("servo_mode", 1)     # fb_const
-    tuning.set_exp_param("flux_jumping", 0)   # safer
-    tuning.set_exp_param("data_mode", 0)      # error mode.
-    tuning.write_config(run_now=run_now)
+    tuning.set_exp_param("servo_mode", servo_mode)
+    tuning.set_exp_param("flux_jumping", flux_jumping)
+    tuning.set_exp_param("data_mode", data_mode)
+
+    if not adc_offset_all is None:
+        tuning.set_exp_param("config_adc_offset_all", int(adc_offset_all))
+
+    if run_now:
+        tuning.write_config(run_now=run_now)
 
 
 #  do_*
@@ -108,7 +111,7 @@ def prepare_mce(tuning, run_now=True):
 #  the data analyzed.  The results of the analysis are then used to
 #  update the experiment.cfg file and MCE with new set/lock points.
 
-def prepare_sa_ramp(tuning, cols=None):
+def prepare_sa_ramp(tuning, tune_data, cols=None):
     """
     Prepare the MCE to run the SA ramp.
     """
@@ -116,12 +119,9 @@ def prepare_sa_ramp(tuning, cols=None):
     if cols == None:
         cols = array(tuning.column_list())
     
-    # Disable servo and set data_mode to error only.
-    tuning.set_exp_param("data_mode", 0)
-    tuning.set_exp_param("servo_mode", 1)
+    set_basic_mce_params(tuning, adc_offset_all=0)
 
-    # Set the ADC_offsets to 0
-    tuning.set_exp_param("config_adc_offset_all", 0)
+    # Also zero out the per-column ADC offsets.
     tuning.set_exp_param_range("adc_offset_c", cols, cols*0)
 
     # Set SQ2 and SQ1 biases to 0
@@ -131,7 +131,7 @@ def prepare_sa_ramp(tuning, cols=None):
 
     # Set the SA bias and offset to the default values
     offset_ratio = tuning.get_exp_param("sa_offset_bias_ratio")
-    def_sa_bias = tuning.get_exp_param("default_sa_bias")
+    def_sa_bias = tune_data['sa_bias']
     def_sa_offset = (def_sa_bias * offset_ratio).astype('int')
     tuning.set_exp_param_range("sa_bias", cols, def_sa_bias[cols])
     tuning.set_exp_param_range("sa_offset", cols, def_sa_offset[cols])
@@ -198,7 +198,28 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False, write_default=False):
     return {'status': 0, 'column_adc_offset': target, 'sq_data': sa}
 
 
-def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
+def prepare_sq2_servo(tuning, tune_data, cols=None):
+    """
+    Prepare the MCE to run the SQ2 servo.
+    """
+    # Get columns relevant to this tuning
+    if cols == None:
+        cols = array(tuning.column_list())
+
+    # Be sure to restore per-column adc_offset.
+    set_basic_mce_params(tuning, adc_offset_all=0)
+
+    # Set SQ1 biases to 0
+    tuning.clear_exp_param('sq1_bias')
+    tuning.clear_exp_param('sq1_bias_off')
+
+    # Set SQ2 bias from tune_data.
+    tuning.set_exp_param_range('sq2_bias', cols, tune_data['sq2_bias'][cols])
+
+    # Update settings.
+    tuning.write_config()
+
+def do_sq2_servo(tuning, rc, rc_indices, write_default=False):
     # Sets the initial SA fb (found in the previous step or set to mid-range)
     # for the SQ2 servo
     sa_fb_init = tuning.get_exp_param('sa_fb')
@@ -206,15 +227,6 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     for x in sa_fb_init:
         f.write("%i\n" % x)
     f.close()
-
-    # Set data mode, servo mode, turn off sq1 bias, set default sq2 bias
-    tuning.set_exp_param("data_mode", 0)
-    tuning.set_exp_param("servo_mode", 1)
-    tuning.set_exp_param("sq1_bias", zeros([len(tune_data["sq1_bias"])]))
-    tuning.set_exp_param("sq1_bias_off",
-        zeros([len(tune_data["sq1_bias_off"])]))
-    tuning.set_exp_param_range("sq2_bias", rc_indices,
-            tune_data["sq2_bias"][rc_indices])
 
     # Update settings, acquire servo
     tuning.write_config()
@@ -259,7 +271,6 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     # Write the sq2 bias choice too?
     if bias_ramp:
         tuning.set_exp_param_range("sq2_bias", rc_indices, sq.bias)
-        tune_data["sq2_bias"][rc_indices] = sq.bias
         if write_default:
             tuning.copy_exp_param("sq2_bias", "default_sq2_bias")
 
@@ -274,23 +285,21 @@ def do_sq2_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     return {'status': 0, 'sq_data': sq}
 
 
-def prepare_sq1_servo(tuning):
-    # Standard
-    tuning.set_exp_param("data_mode", 0)
-    tuning.set_exp_param("servo_mode", 1)
+def prepare_sq1_servo(tuning, tune_data):
+    """
+    Prepare the MCE to run the SQ1 servo.
+    """
+    # Use the per-column adc_offset values.
+    set_basic_mce_params(tuning, adc_offset_all=0)
 
     # Enable SQ1 bias
-    tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
-    tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
+    tuning.set_exp_param('sq1_bias', tune_data['sq1_bias'])
+    tuning.set_exp_param('sq1_bias_off', tune_data['sq1_bias_off'])
 
-    # Set the ADC_offsets to their per-column values
-    tuning.set_exp_param("config_adc_offset_all", 0)
-
-    # Commit
     tuning.write_config()
 
 
-def do_sq1_servo(tuning, rc, rc_indices, tune_data, write_default=False):
+def do_sq1_servo(tuning, rc, rc_indices, write_default=False):
    
     # super_servo means collecting all-row servo data for fast sq2 switching
     fast_sq2 = tuning.get_exp_param('config_fast_sq2')
@@ -353,7 +362,6 @@ def do_sq1_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     # Write the sq1 bias choice too?
     if bias_ramp:
         tuning.set_exp_param("sq1_bias", sq.bias)
-        tune_data["sq1_bias"] = sq.bias
         if write_default:
             tuning.copy_exp_param("sq1_bias", "default_sq1_bias")
 
@@ -365,14 +373,16 @@ def do_sq1_servo(tuning, rc, rc_indices, tune_data, write_default=False):
     return {'status': 0, 'sq_data': sq}
 
 
-def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
-    tuning.set_exp_param("data_mode", 0)
-    tuning.set_exp_param("servo_mode", 1)
-    tuning.set_exp_param("config_adc_offset_all", int(ramp_check))
-    tuning.set_exp_param("sq1_bias", tune_data["sq1_bias"])
-    tuning.set_exp_param("sq1_bias_off", tune_data["sq1_bias_off"])
+def prepare_sq1_ramp(tuning, ramp_check=False):
+    """
+    Prepare the MCE to run the SQ1 servo.
+    """
+    # Set up the per-column adc_offset values, unless this is the ramp_check
+    set_basic_mce_params(tuning, adc_offset_all=int(ramp_check))
     tuning.write_config()
 
+
+def do_sq1_ramp(tuning, rcs, init=True, ramp_check=False):
     # Don't correct for sample_num!
     samp_num = tuning.get_exp_param("default_sample_num")
     array_width = tuning.get_exp_param("array_width")
@@ -427,7 +437,7 @@ def do_sq1_ramp(tuning, rcs, tune_data, init=True, ramp_check=False):
     return {'status': 0, 'sq_data': ramps}
 
 
-def do_sq1_ramp_tes(tuning, rcs, tune_data, init=True):
+def do_sq1_ramp_tes(tuning, rcs, init=True):
     # Just make sure we're in open-loop
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
@@ -467,13 +477,6 @@ def operate(tuning):
     for param in ['servo_p', 'servo_i', 'servo_d', 'flux_jumping',
                   'data_mode']:
         tuning.copy_exp_param('default_%s'%param, param)
-
-    # Disable dog-housed column biases
-    columns_off = tuning.get_exp_param("columns_off")
-    bad_columns = columns_off.nonzero()[0]
-    if len(bad_columns) > 0:
-        tuning.set_exp_param_range("sa_bias", bad_columns, 0*bad_columns)
-        tuning.set_exp_param_range("sq2_bias", bad_columns, 0*bad_columns)
 
     # Compile dead detector mask
     print "Assembling dead detector mask."
@@ -612,20 +615,21 @@ IDL auto_setup_squids."""
         else:
             rc_indices = 8 * (int(c) - 1) + arange(8)
         if 'sa_ramp' in stages:
-            prepare_sa_ramp(tuning, cols=rc_indices)
+            prepare_sa_ramp(tuning, tune_data, cols=rc_indices)
             sa_dict = do_sa_ramp(tuning, c, rc_indices,
                                  ramp_sa_bias=ramp_sa_bias,
                                  write_default=write_default_bias)
             tuning.write_sqtune(sq_data=sa_dict['sq_data'])
         if 'sq2_servo' in stages:
-            s2_dict = do_sq2_servo(tuning, c, rc_indices, tune_data,
+            prepare_sq2_servo(tuning, tune_data, cols=rc_indices)
+            s2_dict = do_sq2_servo(tuning, c, rc_indices,
                                    write_default=write_default_bias)
             tuning.write_sqtune(sq_data=s2_dict['sq_data'])
             if (s2_dict["status"] != 0):
                 return s2_dict["status"]
         if 'sq1_servo' in stages:
-            prepare_sq1_servo(tuning)
-            s1_dict = do_sq1_servo(tuning, c, rc_indices, tune_data,
+            prepare_sq1_servo(tuning, tune_data)
+            s1_dict = do_sq1_servo(tuning, c, rc_indices,
                                    write_default=write_default_bias)
             tuning.write_sqtune(sq_data=s1_dict['sq_data'])
             if (s1_dict["status"] != 0):
@@ -639,18 +643,21 @@ IDL auto_setup_squids."""
 
     if 'sq1_ramp' in stages:
         # sq1 ramp
-        sq1_dict = do_sq1_ramp(tuning, rcs, tune_data)
+        prepare_sq1_ramp(tuning)
+        sq1_dict = do_sq1_ramp(tuning, rcs)
         tuning.write_sqtune(sq_data=sq1_dict['sq_data'])
 
     if 'sq1_ramp_check' in stages:
         # sq1 ramp check
-        sq1_dict = do_sq1_ramp(tuning, rcs, tune_data, ramp_check=True)
+        prepare_sq1_ramp(tuning, ramp_check=True)
+        sq1_dict = do_sq1_ramp(tuning, rcs, ramp_check=True)
         tuning.write_sqtune(sq_data=sq1_dict['sq_data'],
                             block='SQUID_SQ1_RAMPC')
 
     if 'sq1_ramp_tes' in stages:
         # open-loop ramping of the TES bias
-        tes = do_sq1_ramp_tes(tuning, rcs, tune_data)
+        prepare_sq1_ramp(tuning, ramp_check=True)
+        tes = do_sq1_ramp_tes(tuning, rcs)
 
     if 'frametest' in stages:
         # lock check
