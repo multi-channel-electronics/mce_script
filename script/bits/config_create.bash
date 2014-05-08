@@ -101,6 +101,15 @@ echo "wb cc user_word $user_word" >> $mce_script
 #----------------------------------------------
 # Readout Cards
 #----------------------------------------------
+## Mask out SA and SQ2 bias for bad columns.
+vals=${sa_bias[@]}
+mask=${columns_off[@]}
+sa_bias=( `mask_values "$vals" "$mask" 1 0` )
+
+vals=${sq2_bias[@]}
+mask=${columns_off[@]}
+sq2_bias=( `mask_values "$vals" "$mask" 1 0` )
+
 for rc in 1 2 3 4; do
     min_flux_quantum=999999
     max_gaini=0

@@ -154,6 +154,23 @@ function replace_values {
     echo ${orig[@]}
 }
 
+function mask_values {
+    # arguments are
+    #         "VALS ..." "FLAGS ..." bad_flag mark_val
+    #
+    # Loops through pairs (val,flag) and replaces VAL with mark_val if
+    # FLAG == bad_flag.  Then prints them.
+    VALS=( $1 )
+    FLAGS=( $2 )
+    bad_flag="$3"
+    mark_val="$4"
+    n=${#VALS[@]}
+    for i in `seq 0 $(( $n - 1 ))`; do
+        [ "${FLAGS[i]}" == $bad_flag ] && VALS[i]=$mark_val
+    done
+    echo ${VALS[@]}
+}
+
 function repeat_string {
     # arguments are token, repeat count, prefix, postfix, e.g.
     # repeat_string "hat" 8 "here are a bunch of hats: " ""
