@@ -24,11 +24,11 @@ echo Running $CONFIG
 $CONFIG || exit 1
 
 # Only mess with TES if tes_bias_do_reconfig=1.
-do_tes=`mas_param -s $EXPT get tes_bias_do_reconfig | sed 's/\ //g'`
-echo x${do_tes}x
-if [ "$do_tes" == "1" ]; then
+# ... and reconfig_use_auto_iv=1
+do_tes0=`mas_param -s $EXPT get tes_bias_do_reconfig | sed 's/\ //g'`
+do_tes1=`mas_param -s $EXPT get reconfig_use_auto_iv | sed 's/\ //g'`
+if [ "$do_tes0" == "1" ] && [ "$do_tes1" == "1" ]; then
     last_iv=${MAS_DATA_ROOT}/last_iv.out
-    echo $last_iv
     if ! [ -e $last_iv ]; then
 	echo Could not find last IV analysis file $last_iv 
 	exit 1
