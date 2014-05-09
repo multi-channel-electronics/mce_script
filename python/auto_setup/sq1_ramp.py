@@ -166,6 +166,9 @@ class SQ1Ramp(util.RCData):
         synth.fb = args[0].fb.copy()
         synth.d_fb = args[0].d_fb
 
+        synth.bias_style = args[0].bias_style
+        synth.bias = args[0].bias
+
         # Join data systematically
         util.RCData.join(synth, args)
         return synth
@@ -196,6 +199,9 @@ class SQ1Ramp(util.RCData):
         fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
         self.d_fb = d_fb
         self.fb = fb0 + arange(n_fb) * d_fb
+        # We don't generally consider the bias at this stage
+        self.bias_style = None
+        self.bias = None            
 
     def reduce1(self, rule=None):
         """
