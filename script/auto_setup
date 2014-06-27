@@ -12,7 +12,9 @@ import subprocess
 from optparse import OptionParser
 
 stage_list = ['sa_ramp', 'sq2_servo', 'sq1_servo', 'sq1_ramp',
-              'sq1_ramp_tes', 'operate']
+              'sq1_ramp_tes', 'operate',
+              'rs_servo', 'sq1_servo_sa']
+
 
 o = OptionParser(usage="""
 %prog [options]
