@@ -128,9 +128,9 @@ class SARamp(servo.SquidData):
         if reduce_rows:
             self.reduce_rows()
 
-    def reduce(self, slope=None):
+    def reduce(self, slope=None, x_adjust=None):
         self.reduce1()
-        self.reduce2(slope=slope)
+        self.reduce2(slope=slope, x_adjust=x_adjust)
         return self.analysis
 
     def reduce2(self, slope=None, x_adjust=None):
@@ -156,7 +156,7 @@ class SARamp(servo.SquidData):
 
         if x_adjust == None:
             x_adjust = self.tuning.get_exp_param('sa_ramp_safb_adjust',
-                                                 default=0)
+                                                 default=0, missing_ok=True)
             if hasattr(x_adjust, '__getitem__'):
                 x_adjust = x_adjust[self.cols]
 
