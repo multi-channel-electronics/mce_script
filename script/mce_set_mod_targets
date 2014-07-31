@@ -92,7 +92,7 @@ RF_BLOCK = """<ramp_selections>
 
 rf_out = None
 if opts.script_mode:
-    rf_out = open(sys.stdout, 'w')
+    rf_out = sys.stdout
 elif opts.runfile != None:
     rf_out = open(opts.runfile, 'a')
 elif opts.runfile_truncate != None:
