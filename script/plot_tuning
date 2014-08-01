@@ -130,6 +130,10 @@ for stage in opts.stage:
                 rs = s.ramp_summary()
                 rs.plot(plot_file='%s/%s_%s_summary' % (odir, basename, stage),
                         format=opts.format)
+                # Per-SQ1 bias summary.
+                if hasattr(rs, 'plot_all'):
+                    rs.plot_all(plot_file='%s/%s_%s_summary' % (odir, basename, stage),
+                                format=opts.format)
             s = s.select_biases()
         s.reduce(slope=slope)
         print ' -> plotting summary'

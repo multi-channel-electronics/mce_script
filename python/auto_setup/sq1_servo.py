@@ -630,3 +630,47 @@ class SQ1ServoSummary(servo.RampSummary):
             }
 
                       
+    def plot_all(self, plot_file=None, format=None, data_attr=None):
+        if plot_file == None:
+            plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
+                                         (self.data_origin['basename']))
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format',
+                                               default='png')
+
+        if data_attr == None:
+            data_attr = 'y_span'
+        data = self.data[data_attr]
+    
+        _, nrow, ncol, nbias = self.data_shape
+        if self.bias_assoc == 'row':
+            plot_shape = (nrow, ncol)
+            data = data.reshape(nrow, ncol, nbias)
+            ok = self.data['ok'].reshape(nrow, ncol, nbias)
+        else:
+            plot_shape = (nrow, ncol)
+            data = data.reshape(nrow, ncol, nbias).transpose(1,0,2)
+            ok = self.data['ok']
+            
+        pl = util.plotGridder(plot_shape,
+                              plot_file,
+                              title=self.data_origin['basename'],
+                              xlabel=self.xlabel,
+                              ylabel=self.ylabels[data_attr],
+                              target_shape=(4,2),
+                              rowcol_labels=True,
+                              format=format)
+            
+        an = self.analysis
+        for r, c, ax in pl:
+            if r >= plot_shape[1]:
+                continue
+            x = self.fb/1000.
+            #for i in xrange(ncurves):
+            ax.add(biggles.Curve(x, data[r,c]/1000.))
+            if 'lock_x' in an:
+                ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
+
+        return {
+            'plot_files': pl.plot_files,
+            }
