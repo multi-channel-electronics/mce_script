@@ -36,6 +36,7 @@ if len(args) != 1:
 
 # Messaging
 printv = iv_tools.logger(opts.verbosity)
+seterr(divide='ignore') # numpy - suppress /0 warnings.
 
 # Source data
 filename = args[0]
@@ -93,7 +94,8 @@ else:
 
 printv('Analyzing...', 1)
 iv_data = iv_tools.IVBranches((n_row, n_col))
-iv_data.analyze_curves(filedata)
+supercond_thresh = ar_par.get('supercond_thresh', 5e-3)  # This is not a good default.
+iv_data.analyze_curves(filedata, deriv_thresh=supercond_thresh)
 ok_rc = zip(*iv_data.ok.nonzero())
 
 # Using the branch analysis in iv_data, and the resistances in Rshunt
@@ -127,14 +129,15 @@ bias_points_dac = (bias_points_dac/bstep).round().astype('int')*bstep
 # Evaluate perRn of each det at the chosen bias point
 bias_points_dac_ar = bias_points_dac[bias_lines].reshape(1,n_col)
 set_data = iv_tools.adict(
-    ['index', 'perRn', 'v_tes', 'i_tes', 'p_tes', 'resp', 'keep_rec'],
-    [int, float, float, float, float, float, bool],
+    ['index', 'R', 'perRn', 'v_tes', 'i_tes', 'p_tes', 'resp', 'keep_rec'],
+    [int, float, float, float, float, float, float, bool],
     (n_row, n_col))
 
 for r,c in ok_rc:
     i = (filedata.bias_dac <= bias_points_dac[bias_lines[c]]).nonzero()[0]
     if len(i) == 0: continue
     set_data.index[r,c] = i[0]
+    set_data.R[r,c] = filedata.tes_R[r,c,i[0]]
     set_data.perRn[r,c] = filedata.tes_fracRn[r,c,i[0]]
     set_data.v_tes[r,c] = filedata.tes_v[r,c,i[0]]
     set_data.i_tes[r,c] = filedata.tes_i[r,c,i[0]]
@@ -261,6 +264,10 @@ if opts.plot_dir != None and not opts.summary_only:
                 if len(idx) == 0: continue
                 x, y = filedata.tes_P[r,c,idx], filedata.tes_R[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max()*1.1)
+                # Show bias point on the R plot.
+                if iv_data.ok[r,c]:
+                    y_at_bias = set_data.R[r,c]
+                    p.add(bg.Curve(xl, [y_at_bias, y_at_bias], type='dashed'))
             elif pc == 2:
                 if fr != None:
                     fr.xlabel = 'TES BIAS (DAC/1000)'

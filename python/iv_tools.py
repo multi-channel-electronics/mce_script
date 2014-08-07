@@ -300,14 +300,14 @@ def load_array_params(filename=None, array_name=None):
 SCALE = .100  # uV
 
 def analyze_IV_curve(bias, fb,
-                     deriv_thresh=5e-6,
+                     deriv_thresh=5e-3,
                      scale=SCALE,
                      ):
     results = {'ok': False}
     n = bias.shape[0]
     i = 0
-    dy = fb[1:] - fb[:-1]
     dbias = -np.mean(bias[1:] - bias[:-1])
+    dy = (fb[1:] - fb[:-1]) / dbias
     span = max(5, int(scale/dbias))
     supercon, transend = None, None
     # Look at all places where the derivative is positive.
