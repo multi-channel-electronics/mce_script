@@ -73,6 +73,8 @@ o.add_option('--frames', type=int, help=
              "Number of frames to acquire.")
 o.add_option('--reg-note', help=
              "Data to pass to acquisition register.")
+o.add_option('--register', type=int, help=
+             "Set to 1 or 0 depending on whether you want to call mce_acq_register.")
 o.add_option('--readout-rounding', type=int, default=None, help=
              "Specify whether the stepping rate should be rounded to be an "
              "even multiple of the readout rate.")
@@ -115,6 +117,9 @@ if opts.bc == None:
 if opts.filename == None:
     opts.filename = cfg.getstr(opts.array_id, 'filename',
                                '%(ctime0)s_%(bias_card)s_step')
+    custom_filename = False
+else:
+    custom_filename = True
 
 ## We're not ready for this yet...
 #if not '/' in opts.filename:
@@ -138,8 +143,18 @@ if opts.frames == None:
 if opts.reg_note == None:
     opts.reg_note = os.getenv('MAS_LOGID', '')
 
+if opts.register == None:
+    opts.register = cfg.getint(opts.array_id, 'register', 1)
+
 if opts.readout_rounding == None:
     opts.readout_rounding = cfg.getint(opts.array_id, 'readout_rounding', 1)
+
+if custom_filename and opts.register != 0:
+    print 'You have asked for a weird filename, but also for db registration.'
+    print 'You need to pick one.  Either use the default file naming, or pass'
+    print 'the --no-db option.  (Or submit a feature request...)'
+    raise RuntimeError, "Filename/database conflict."
+
 
 #
 # Preparation 
@@ -167,26 +182,12 @@ if opts.readout_rounding:
         (dwell_cycles, data_period)
 
 # Disable MCE internal commanding
-#mce_cmd -qx wb cc internal_cmd_mode 0
 mce.write('cc', 'internal_cmd_mode', 0)
 
 # Set everything up except ramp_card_addr
 ## The card and parameter to step can, in principal be extracted from
 ## mce_status -g output.  For now, we hard code them :O
 ## Card id's will be 7,8,9 for bc1,2,3.  "mod_val" param is 0x27
-##bias_card = int(bc[2]) + 6
-##bias_para = 0x27
-#
-## Set mod_val ramp parameters
-##mce_cmd -qx wb cc ramp_param_id  $bias_para
-##mce_cmd -qx wb cc ramp_card_addr $bias_card
-##mce_cmd -qx wb cc ramp_step_period $step_period
-##mce_cmd -qx wb cc ramp_min_val     $bias_lo
-##mce_cmd -qx wb cc ramp_max_val     $bias_hi
-##mce_cmd -qx wb cc ramp_step_size   $step_depth
-## ramp_step_data_num is the number of data to issue per ramp step command
-## 1 is right for mod_val.
-##mce_cmd -qx wb cc ramp_step_data_num 1
 
 for k, v in [
     #('ramp_card_addr', int(bc[2]) + 6),
@@ -199,8 +200,7 @@ for k, v in [
     ]:
     mce.write('cc', k, v)
 
-# Use data mode 1, unfiltered 32-bit feedback
-#mce_cmd -qx wb rca data_mode 1
+# Probably data mode 1; unfiltered 32-bit feedback
 mce.data_mode(opts.data_mode)
 
 #
@@ -212,6 +212,7 @@ for bc in opts.bc:
         'bias_card': bc,
         'ctime': str(int(time.time())),
         'ctime0': str(ctime0),
+        'db_ctime': str(ctime0),
         'n_frames': opts.frames,
         'log': opts.reg_note,
         'data_dir': mas_path.data_dir(),
@@ -219,39 +220,31 @@ for bc in opts.bc:
     this_data['filename'] = opts.filename % this_data
 
     # Zero mod_val and set the mod_val targets:
-    #mce_cmd -qx wb bc$bc mod_val 0
-    #mce_set_mod_targets tes bias --select bc$bc bias
     mce.write(bc, 'mod_val', [0])
     os.system('mce_set_mod_targets tes bias --select %s bias' % bc)
     
     # Register the acquisition
-    #acq_register $ct bias_step $MAS_DATA/$filename $n_points "$MAS_LOGID"
-    os.system('mce_acq_register %(ctime)s bias_step %(data_dir)s/%(filename)s '
-              '%(n_frames)i "%(log)s"' %
-              this_data)
+    if opts.register != 0:
+        os.system('mce_acq_register %(db_ctime)s bias_step %(data_dir)s/%(filename)s '
+                  '%(n_frames)i "%(log)s"' %
+                  this_data)
     
     mce.write('cc', 'ramp_card_addr', int(bc[2]) + 6)
 
 
     # Enable the ramp and acquire
-    #mce_cmd -qx wb cc internal_cmd_mode 2
     mce.write('cc', 'internal_cmd_mode', 2)
 
-    #update_userword s
     # Acquire.
     os.system('mce_run %(filename)s %(n_frames)i s' % this_data)
     
     # Disable ramp, write mod_val to 0 to restore bias.
-    #mce_cmd -qx wb cc internal_cmd_mode 0
-    #mce_cmd -qx sleep 50000
-    #mce_cmd -qx wb bc$bc mod_val 0
     time.sleep(.05)
     mce.write('cc', 'internal_cmd_mode', 0)
     time.sleep(.05)
     mce.write(bc, 'mod_val', 0)
     
 # Restore data_mode
-#mce_cmd -qx wb rca data_mode ${last_data_mode[0]}
 mce.data_mode(int(data_mode_before))
 
 print 'Finished'
