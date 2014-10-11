@@ -1,4 +1,4 @@
-/* (C) 2013 D. V. Wiebe
+/* (C) 2013, 2014 D. V. Wiebe
  *
  *************************************************************************
  *
@@ -34,8 +34,12 @@
 
 #include <defile.h>
 
+#define MAS_CHUNK_SIZE 50000 /* frames per file chunk */
+
 /* the only runfile version we're willing to deal with */
 #define MAS_RF_VERSION 2
+
+#define EOF_CHECK_TIME 10 /* check every tenth of a second */
 
 /* frame status word bits */
 #define MAS_FSW_LAST_FRM 0x00000001 /* bit 0 */
@@ -144,9 +148,12 @@ struct runfile {
 };
 
 /* yay for globals */
+static int not_symlink;
+static int sequence;
 static int fdind = -1;
 static struct df_fdef fdef;
 static int mas_rcs[4];
+static long long mas_offset;
 static struct runfile_block *mas_rf_header;
 static int mas_fd = -1;
 static struct runfile rf = { 0, NULL };
@@ -173,7 +180,7 @@ static struct {
 } mas_rf_data;
 
 /* public strings; see defile-input(7) */
-#define DEFILE_MAS_COPYRIGHT "Copyright (C) 2013 D. V. Wiebe"
+#define DEFILE_MAS_COPYRIGHT "Copyright (C) 2013, 2014 D. V. Wiebe"
 #define DEFILE_MAS_CONTACT \
   "For contact information, see http://cmbr.phas.ubc.ca/mcewiki/"
 #define DEFILE_MAS_DESCRIPTION "MCE-MAS flat-file data"
@@ -233,35 +240,37 @@ static int mas_probe(const char *name)
   return 1;
 }
 
-static void mas_close_flatfile(void)
+static void mas_close_flatfile(int clear_metadata)
 {
   int i, j;
 
   if (mas_fd >= 0)
     close(mas_fd);
 
-  for (i = 0; i < rf.nblock; ++i) {
-    for (j = 0; j < rf.block[i].ntag; ++j) {
-      free(rf.block[i].tag[j].name);
-      if (rf.block[i].tag[j].spec) {
-        free(rf.block[i].tag[j].spec[0]);
-        free(rf.block[i].tag[j].spec);
+  if (clear_metadata) {
+    for (i = 0; i < rf.nblock; ++i) {
+      for (j = 0; j < rf.block[i].ntag; ++j) {
+        free(rf.block[i].tag[j].name);
+        if (rf.block[i].tag[j].spec) {
+          free(rf.block[i].tag[j].spec[0]);
+          free(rf.block[i].tag[j].spec);
+        }
+        if (rf.block[i].tag[j].data) {
+          free(rf.block[i].tag[j].data[0]);
+          free(rf.block[i].tag[j].data);
+        }
       }
-      if (rf.block[i].tag[j].data) {
-        free(rf.block[i].tag[j].data[0]);
-        free(rf.block[i].tag[j].data);
-      }
+      free(rf.block[i].tag);
     }
-    free(rf.block[i].tag);
+    free(rf.block);
+    rf.block = NULL;
+    rf.nblock = 0;
   }
-  free(rf.block);
-  rf.block = NULL;
-  rf.nblock = 0;
 }
 
 static int mas_clean(void)
 {
-  mas_close_flatfile();
+  mas_close_flatfile(1);
 
   if (mas_pathname)
     free(mas_pathname);
@@ -609,6 +618,8 @@ static int runfile_read(const char *base)
 
   sprintf(runfile, "%s.run", base);
 
+  sequence = -1;
+  mas_offset = 0;
   stream = fopen(runfile, "rt");
   if (stream == NULL) {
     if (errno == ENOENT) { /* not found -- maybe its a sequenced file? */
@@ -618,6 +629,9 @@ static int runfile_read(const char *base)
       if (len > 4 && isdigit(runfile[len - 1]) && isdigit(runfile[len - 2]) &&
           isdigit(runfile[len - 3]) && runfile[len - 4] == '.') {
         /* let's assume it's a sequenced file and try again */
+        sequence = runfile[len - 1] - '0' + 10 * (runfile[len - 2] - '0')
+          + 100 * (runfile[len - 3] - '0');
+        mas_offset = sequence * MAS_CHUNK_SIZE;
         strcpy(runfile + len - 3, "run");
         stream = fopen(runfile, "rt");
       }
@@ -1004,6 +1018,44 @@ static int read_datafile(char *data, size_t *size)
   return 0;
 }
 
+/* try to find another chunk.  If it finds one, updates global mas_flatfile
+ * and returns non-zero */
+static int mas_find_next_chunk()
+{
+  char *new_flatfile;
+  struct stat stat_buf;
+  size_t len;
+
+  /* not a file sequenced flatfile */
+  if (sequence == -1)
+    return 0;
+
+  /* sanity check */
+  len = strlen(mas_flatfile);
+  if (len < 3)
+    return 0;
+
+  /* The sequence number is always three zero-padded decimal digits at the end
+   * of mas_flatfile */
+  new_flatfile = strdup(mas_flatfile);
+  if (new_flatfile == NULL) {
+    df_printf(DF_PRN_ERR, "out of memory");
+    df_exit(1, 1);
+  }
+
+  sprintf(new_flatfile + len - 3, "%03i", sequence + 1);
+
+  /* check for the file */
+  if (stat(new_flatfile, &stat_buf) < 0)
+    return 0;
+
+  /* it's there */
+  sequence++;
+  free(mas_flatfile);
+  mas_flatfile = new_flatfile;
+  return 1;
+}
+
 /* check whether (global) mas_pathname is a symlink;  if it is, reutrn the
  * canonical name in (global) mas_flatfile, otherwise just copy mas_pathname to
  * mas_flatfile; returns whether the symlink changed */
@@ -1014,8 +1066,13 @@ static int mas_check_symlink(int retry)
   char *target = NULL;
   ssize_t n;
 
+  /* we've already checked */
+  if (not_symlink)
+    return 0;
+
   if (lstat(mas_pathname, &stat_buf) < 0) {
-    df_printf(DF_PRN_ERR, "unable to stat %s: %s", mas_pathname, strerror(errno));
+    df_printf(DF_PRN_ERR, "unable to stat %s: %s", mas_pathname,
+        strerror(errno));
     df_exit(1, 1);
   }
 
@@ -1023,8 +1080,10 @@ static int mas_check_symlink(int retry)
    * mas_pathname from a symlink to a real file (or vice-versa) while defile's
    * running.
    */
-  if (!S_ISLNK(stat_buf.st_mode))
+  if (!S_ISLNK(stat_buf.st_mode)) {
+    not_symlink = 1;
     return 0;
+  }
 
   target = malloc(stat_buf.st_size + 1);
   if (target == NULL) {
@@ -1191,31 +1250,34 @@ static void mas_metadata(void)
 
 /* returns nframes; on error exits with error code ret (1 for the first
  * flatfile; zero when cycling, so that the previous conversion is kept) */
-static long long mas_load_flatfile(struct frame_header *fh, int follow, int ret)
+static long long mas_load_flatfile(struct frame_header *fh, int new_acq,
+    int follow, int ret)
 {
   struct stat stat_buf;
 
-  /* read and parse the runfile */
-  if (runfile_read(mas_flatfile))
-    df_exit(ret, 1);
+  if (new_acq) {
+    /* read and parse the runfile */
+    if (runfile_read(mas_flatfile))
+      df_exit(ret, 1);
 
-  /* load the frameacq data from the runfile */
-  if (load_frameacq())
-    df_exit(ret, 1);
+    /* load the frameacq data from the runfile */
+    if (load_frameacq())
+      df_exit(ret, 1);
 
-  /* runfile header */
-  mas_rf_header = runfile_find_block("HEADER");
-  if (mas_rf_header == NULL) {
-    df_printf(DF_PRN_ERR, "missing required HEADER block in runfile.\n");
-    df_exit(ret, 1);
-  }
+    /* runfile header */
+    mas_rf_header = runfile_find_block("HEADER");
+    if (mas_rf_header == NULL) {
+      df_printf(DF_PRN_ERR, "missing required HEADER block in runfile.\n");
+      df_exit(ret, 1);
+    }
 
-  /* check CC fw_rev */
-  uint32_t cc_fw_rev = runfile_param_long("cc", "fw_rev", 0);
-  if (cc_fw_rev < 0x5000000) {
-    df_printf(DF_PRN_ERR, "Unsupported clock card firmware revision: 0x%X\n",
-        cc_fw_rev);
-    df_exit(ret, 1);
+    /* check CC fw_rev */
+    uint32_t cc_fw_rev = runfile_param_long("cc", "fw_rev", 0);
+    if (cc_fw_rev < 0x5000000) {
+      df_printf(DF_PRN_ERR, "Unsupported clock card firmware revision: 0x%X\n",
+          cc_fw_rev);
+      df_exit(ret, 1);
+    }
   }
 
   /* open the data file */
@@ -1224,6 +1286,8 @@ static long long mas_load_flatfile(struct frame_header *fh, int follow, int ret)
     df_perror(DF_PRN_ERR, "open");
     df_exit(ret, 1);
   }
+
+  df_printf(DF_PRN_INFO, "Reading %s\n", mas_flatfile);
 
   /* load the header of the first frame */
   load_frameheader(fh, follow);
@@ -1255,6 +1319,9 @@ static long long mas_load_flatfile(struct frame_header *fh, int follow, int ret)
       df_perror(DF_PRN_WARN, "stat");
     else
       nframes = stat_buf.st_size / framesize;
+
+    if (sequence > 0)
+      nframes += sequence * MAS_CHUNK_SIZE;
   }
 
   /* figure out the packing */
@@ -1306,10 +1373,12 @@ static long long mas_load_flatfile(struct frame_header *fh, int follow, int ret)
  * thread) */
 static int mas_entry(const struct df_config *config)
 {
+  long long skip;
   struct frame_header fh;
   char *fr;
   size_t size;
-  int follow, eof, eof_count;
+  int follow, eof, eof_count, last_pass, new_file;
+  int have_fh = 1;
 
   /* cleanup function */
   df_on_abort(mas_clean);
@@ -1332,7 +1401,7 @@ static int mas_entry(const struct df_config *config)
   mas_check_symlink(0);
 
   /* open and verify the input */
-  long long nframes = mas_load_flatfile(&fh, follow, 1);
+  long long nframes = mas_load_flatfile(&fh, 1, follow, 1);
 
   /* finally, we can spin up defile */
   if (df_init(nframes, mas_rf_data.rate, mas_flatfile))
@@ -1341,19 +1410,62 @@ static int mas_entry(const struct df_config *config)
   /* create the metadata */
   mas_metadata();
 
+  /* deal with a skip */
+  skip = df_get_offset();
+
+  if (skip > mas_offset) { /* time to skip stuff */
+    /* figure out if we need a new chunk */
+    if (sequence != -1) {
+      int new_sequence = skip / MAS_CHUNK_SIZE;
+      if (sequence != new_sequence) {
+        sequence = new_sequence;
+        sprintf(mas_flatfile + strlen(mas_flatfile) - 3, "%03i", sequence);
+
+        /* close old chunk; open new */
+        mas_close_flatfile(0);
+
+        nframes = mas_load_flatfile(&fh, 0, follow, 0);
+
+        /* update total input length */
+        df_update_length(nframes, 0);
+      }
+
+      /* adjust skip within this chunk */
+      skip %= MAS_CHUNK_SIZE;
+    }
+
+    if (skip > 0) {  
+      /* need to advance in this file and invalidate the frame header */
+      if (lseek(mas_fd, skip * fdef.framesize, SEEK_SET) < 0) {
+        df_perror(DF_PRN_ERR, "open");
+        df_exit(1, 1);
+      }
+      have_fh = 0;
+    }
+  } else if (mas_offset > 0) {
+    /* inform defile of the starting frame */
+    df_set_offset(mas_offset);
+  }
+
   /* OK Go */
   if (df_ready("checksum"))
     df_exit(1, 1);
 
-  /* frame loop */
   fr = malloc(fdef.framesize);
 
+  /* file loop */
   for (;;) {
     /* copy the header to the first frame of data */
+    last_pass = 0;
     eof_count = 0;
-    size = sizeof(fh);
-    memcpy(fr, &fh, size);
+    new_file = 0;
+    if (have_fh) {
+      size = sizeof(fh);
+      memcpy(fr, &fh, size);
+    } else
+      size = 0;
 
+    /* chunk loop */
     for (;;) {
       for (eof = read_datafile(fr, &size); !eof; eof = read_datafile(fr, &size))
       {
@@ -1362,34 +1474,53 @@ static int mas_entry(const struct df_config *config)
         size = 0; /* reset frame buffer */
       }
 
-      if (!follow)
-        goto DONE;
-
       df_check_abort();
 
-      /* check for a change in symlink */
-      if (eof_count++ > 0) {
-        if (mas_check_symlink(0)) {
+      /* check for a change in file or symlink */
+      if (eof_count++ > EOF_CHECK_TIME) {
+        if (!last_pass) { /* haven't already checked */
+          new_file = 0;
+
+          if (mas_find_next_chunk())
+            new_file = 1;
+
+          /* Symlink checking only occurs in follow mode */
+          if (follow && mas_check_symlink(0))
+            new_file = 2;
+
+          if (new_file)
+            last_pass = 1;
+          else /* no new file in non-follow mode means we're done */
+            goto DONE;
+        } else {
           /* new flatfile */
-          mas_close_flatfile(); 
+          mas_close_flatfile(new_file == 2 ? 1 : 0); 
 
           /* open and verify the new input */
-          long long nframes = mas_load_flatfile(&fh, follow, 0);
+          long long nframes = mas_load_flatfile(&fh, new_file == 2 ? 1 : 0,
+              follow, 0);
+          have_fh = 1;
 
-          /* cycle the output */
-          if (df_reinit(nframes, mas_rf_data.rate, mas_flatfile,
-                DF_REINIT_SAVE))
-          {
-            df_exit(1, 1);
+          if (new_file == 1) {
+            /* increment nframes in non-follow mode */
+            df_update_length(nframes, 1);
+          } else {
+            /* cycle the output on new symlink */
+            if (df_reinit(nframes, mas_rf_data.rate, mas_flatfile,
+                  DF_REINIT_SAVE))
+            {
+              df_exit(1, 1);
+            }
+
+            /* create the metadata */
+            mas_metadata();
+
+            /* and go again */
+            if (df_ready("checksum"))
+              df_exit(1, 1);
           }
 
-          /* create the metadata */
-          mas_metadata();
-
-          /* and go again */
-          if (df_ready("checksum"))
-            df_exit(1, 1);
-
+          /* back to the top of the file loop */
           break;
         }
       }
