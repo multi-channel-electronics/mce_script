@@ -1403,9 +1403,15 @@ static int mas_entry(const struct df_config *config)
   /* open and verify the input */
   long long nframes = mas_load_flatfile(&fh, 1, follow, 1);
 
+  if (sequence != -1) /* hide chunk number */
+    mas_flatfile[strlen(mas_flatfile) - 4] = 0;
+
   /* finally, we can spin up defile */
   if (df_init(nframes, mas_rf_data.rate, mas_flatfile))
     df_exit(1, 1);
+
+  if (sequence != -1) /* restore chunk number */
+    mas_flatfile[strlen(mas_flatfile) - 4] = '.';
 
   /* create the metadata */
   mas_metadata();
@@ -1506,11 +1512,18 @@ static int mas_entry(const struct df_config *config)
             df_update_length(nframes, 1);
           } else {
             /* cycle the output on new symlink */
+
+            if (sequence != -1) /* hide chunk number */
+              mas_flatfile[strlen(mas_flatfile) - 4] = 0;
+
             if (df_reinit(nframes, mas_rf_data.rate, mas_flatfile,
                   DF_REINIT_SAVE))
             {
               df_exit(1, 1);
             }
+
+            if (sequence != -1) /* restore chunk number */
+              mas_flatfile[strlen(mas_flatfile) - 4] = '.';
 
             /* create the metadata */
             mas_metadata();
