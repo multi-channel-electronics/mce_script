@@ -19,6 +19,19 @@ class mce_control(MCE):
         self.n_chan = MCE_CHANS  # whatever.
         self.rc_list = ['rc%i'%(i+1) for i in range(self.n_rc)]
 
+    def init_data(self):
+        """
+        Set "cc rcs_to_report_data" to match the installed readout
+        cards.  Do this if your .read_data keeps failing because you
+        didn't run an auto_setup.
+        """
+        self.init()
+        rcs_rep = 0
+        for rc in self.rc_list:
+            i = int(rc[-1]) - 1
+            rcs_rep |= (1<<(5-i))
+        self.write('cc', 'rcs_to_report_data', [rcs_rep])
+
     """
     Data acquisition.
     """
@@ -176,6 +189,23 @@ class mce_control(MCE):
 
     def fb_const(self, fb=None):
         return self.io_readwrite('sq1', 'fb_const', fb)
+
+    def adc_offset(self, adc_offset=None):
+        return self.io_rc_array_2d('adc_offset%i', adc_offset)
+
+
+    """
+    Access to bias and feedback.
+    """
+    def sa_bias(self, bias):
+        return self.io_readwrite('sa', 'bias', bias)
+
+    def sa_offset(self, offset):
+        return self.io_readwrite('sa', 'offset', offset)
+
+    def sa_fb(self, fb):
+        return self.io_readwrite('sa', 'fb', fb)
+
 
 
     """
