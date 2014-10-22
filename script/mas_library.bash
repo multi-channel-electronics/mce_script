@@ -224,6 +224,22 @@ function find_min_positive {
     echo $min
 }
 
+function apply_mask {
+    # arguments are "VALS..." "FLAGS..." bad_flag mark_val
+    #
+    # Loops through pairs (val,flag) replaces VAL with mark_val if
+    # FLAG == bad_flag
+    VALS=( $1 )
+    FLAGS=( $2 )
+    bad_flag="$3"
+    mark_val="$4"
+    n=`echo $1 | wc -w`
+    for i in `seq 0 $(( $n - 1 ))`; do
+	[ "${FLAGS[i]}" == $bad_flag ] && VALS[i]=$mark_val
+    done
+    echo ${VALS[@]}
+    }
+
 
 # HEALTH FIXES - return 0 if fix probably succeeded
 
