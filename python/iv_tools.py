@@ -124,13 +124,16 @@ class IVData:
         ## TES current, per unit FB DAC voltage
         self.di_dfb = 1 / (ar_par['M_ratio']*Rfb)
 
+        ## Get the bias configuration, which includes per-channel sign
+        ## of the feedback -> power conversion.  Another way to do
+        ## this would be to put it directly into dfb_ddac.
+        line_map = BiasLineMapping.from_array_params(ar_par).for_IV_data(self)
+
         ## Vectors
         self.bias_v = self.bias_dac * self.dbias_ddac
-        self.fb_v = self.mcedata * \
-            ar_par['fb_normalize'][self.data_cols].reshape(1,-1,1) * \
-            self.dfb_ddac
+        self.fb_v = self.mcedata * line_map.sign[:,:,None] * self.dfb_ddac
 
-    def compute_tes(self, iv_data, ar_par, Rshunt,
+    def compute_tes(self, iv_data, ar_par, Rshunt, bias_map,
                     update_iv_data=True):
         """
         Use IVPartition results in iv_data and TESShunts data in
@@ -141,9 +144,9 @@ class IVData:
         fb_v0 = iv_data.norm_offset.reshape((self.n_row,self.n_col,1))
         self.tes_i = 1e6 * self.di_dfb * (self.fb_v - fb_v0)
         ## Use shunt to get TES voltage
-        Rb = ar_par['Rbias_arr_total'][ar_par['bias_lines'][self.data_cols]]
-        self.tes_v = 1e6 * Rshunt.R.reshape(nr, nc,1) * \
-            (self.bias_v.reshape(1,1,-1)/Rb.reshape(1,-1,1) - self.tes_i*1e-6)
+        Rb = ar_par['Rbias_arr_total'][bias_map.virt_line]
+        self.tes_v = 1e6 * Rshunt.R[:,:,None] * \
+            (self.bias_v[None,None,:]/Rb[:,:,None] - self.tes_i*1e-6)
         ## The resistance vector; just the ratio of voltage to current.
         self.tes_R = self.tes_v / self.tes_i
         ## The power
@@ -174,8 +177,9 @@ class IVData:
         self.tes_fracRn = self.tes_R / iv_data.R_norm.reshape((nr, nc, 1))
         ## Responsivity as function of bias, including FB sign correction.
         self.resp = self.di_dfb * self.dfb_ddac * 1e-6*self.tes_v * \
-            (1 - Rshunt.R.reshape((nr, nc, 1))/self.tes_R) / \
-            ar_par['fb_normalize'][self.data_cols].reshape(-1, 1)
+            (1 - Rshunt.R.reshape((nr, nc, 1))/self.tes_R)
+        if ar_par.get('preserve_resp_sign', False):
+            self.resp *= bias_map.sign[:,:,None]
 
     def get_setpoints(self, iv_data, target):
         setpoints = np.zeros(self.tes_fracRn.shape[:2], dtype='int')
@@ -264,6 +268,86 @@ class TESShunts:
             self.R[(data_cols >= 24)*~shunts_ok] = 0.0007
         return self
 
+class BiasLineMapping(object):
+    """
+    Encapsulate sufficient information to go back and forth between
+    (row,col), data, and TES bias line mappings.  In cases where n_row
+    is not explicitly specified, n_row = 1 is assumed.
+    """
+    def __init__(self, n_row, n_col, n_line):
+        self.n_row = n_row
+        self.n_col = n_col
+        self.n_line = n_line
+        self.phys_line = np.zeros((n_row, n_col), int)
+        self.virt_line = np.zeros((n_row, n_col), int)
+        self.mask = np.zeros((n_row, n_col), bool)
+        self.sign = np.ones((n_row, n_col), int)
+        self.optim = np.zeros((n_row, n_col), bool)
+
+    def for_IV_data(self, filedata):
+        # Sub-select columns and (possibly) expand from n_row=1 to filedata.n_row.
+        n_row, n_col = filedata.n_row, filedata.n_col
+        # New object with structure to match data
+        output = self.__class__(n_row, n_col, self.n_line)
+        for attr in ['phys_line', 'virt_line', 'mask', 'sign', 'optim']:
+            self_data, output_data = getattr(self, attr), getattr(output, attr)
+            if self.n_row == 1:
+                # Simple expansion
+                output_data[:,:] = self_data[0,filedata.data_cols]
+            else:
+                # Mask / collapse
+                output_rows = np.arange(output.n_row)
+                row_mask = (output_rows < self.n_row)
+                output_data[row_mask,:] = self_data[output_rows[row_mask]]\
+                    [:,filedata.data_cols]
+        return output
+
+    def phys_line_mask(self, line):
+        return (self.phys_line == line) * self.mask
+
+    def virt_line_mask(self, line):
+        return (self.virt_line == line) * self.mask
+
+    @classmethod
+    def from_array_params(cls, ar_par):
+        n_line = ar_par['n_bias_lines']
+
+        if ar_par['bias_line_scheme'] == 'per-column':
+            line_map = ar_par['bias_lines']
+            n_row, n_col = 1, len(line_map)
+            line_data = ar_par['bias_lines'][None,:]
+            self = cls(n_row, n_col, n_line)
+            self.mask[:,:] = True
+            self.phys_line[:,:] = line_data % n_line
+            self.virt_line[:,:] = line_data.copy()
+            self.sign[:,:] = np.ones((n_row,n_col))
+            self.optim[:,:] = True
+
+        elif ar_par['bias_line_scheme'] == 'per-detector':
+            scheme_file = os.path.join(
+                os.path.split(ar_par['source_file'])[0],
+                ar_par['bias_line_filename'])
+            row, col, line, renorm, optim = read_ascii(
+                scheme_file,comment_chars='#').astype('int')
+            n_row, n_col = row.max()+1, col.max()+1
+            self = cls(n_row, n_col, n_line)
+            self.mask[row,col] = True
+            self.phys_line[row,col] = line % n_line
+            self.virt_line[row,col] = line
+            self.sign[row,col] = renorm
+            self.optim[row,col] = optim
+
+        else:
+            raise ValueError, "unknown bias_line_scheme = '%s'" % \
+                ar_par['bias_line_scheme']
+
+        # Also allow a per-column sign correction to the signal.
+        if 'fb_normalize' in ar_par:
+            self.sign *= ar_par['fb_normalize'][None,:]
+
+        return self
+
+
 class logger:
     def __init__(self, verbosity=0, indent=True):
         self.v = verbosity
@@ -291,6 +375,9 @@ def load_array_params(filename=None, array_name=None):
     cfg['Rbias_arr_total'] = cfg['Rbias_arr'] +  cfg['Rbias_cable']
     ## Include 50 ohms from RC.
     cfg['Rfb_total'] = cfg['Rfb'] + 50.
+    # Check/add "bias_line_map_scheme"
+    if not 'bias_line_scheme' in cfg:
+        cfg['bias_line_scheme'] = 'per-column'
     return cfg
 
 

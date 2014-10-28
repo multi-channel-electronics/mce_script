@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os, sys, time
+import numpy as np
 from numpy import *
 from mce_data import MCEFile, unwrap
 from auto_setup.util import mas_path
@@ -72,6 +73,9 @@ filedata.compute_physical(ar_par)
 # The size of the problem
 n_row, n_col, n_pts = filedata.mcedata.shape
 
+# Set up array with bias line associated with each detector.
+bias_map = iv_tools.BiasLineMapping.from_array_params(ar_par).for_IV_data(filedata)
+
 # Read shunt data?
 if ar_par['use_Rshunt_file'] != 0:
     # Split format string into tokens
@@ -100,7 +104,7 @@ ok_rc = zip(*iv_data.ok.nonzero())
 
 # Using the branch analysis in iv_data, and the resistances in Rshunt
 # and ar_par, compute loading properties of each TES.
-filedata.compute_tes(iv_data, ar_par, Rshunt)
+filedata.compute_tes(iv_data, ar_par, Rshunt, bias_map)
 
 # Evaluate set points at target bias and lo, hi points
 setpoints = array([
@@ -113,11 +117,12 @@ setpoints = array([
 setpoints_dac = filedata.bias_dac[setpoints]
 
 # Choose a bias for each bias line.
-n_lines = ar_par['n_bias_lines']
-bias_lines = ar_par['bias_lines'][filedata.data_cols] % n_lines
-bias_points_dac = zeros(n_lines, dtype='float')
-for line in range(n_lines):
-    select = (bias_lines==line).reshape(1, n_col) * iv_data.ok
+bias_points_dac = zeros(bias_map.n_line, dtype='float')
+for line in range(bias_map.n_line):
+    # Consider detectors from this line...
+    select = bias_map.phys_line_mask(line)
+    # ... that have valid IV analysis and have been flagged for use in optimization.
+    select *= iv_data.ok * bias_map.optim
     dac = setpoints_dac[0,select]
     select = (dac>0)*(dac < 20000)
     bias_points_dac[line] = median(dac[select])
@@ -127,14 +132,14 @@ bstep = ar_par['bias_step']
 bias_points_dac = (bias_points_dac/bstep).round().astype('int')*bstep
 
 # Evaluate perRn of each det at the chosen bias point
-bias_points_dac_ar = bias_points_dac[bias_lines].reshape(1,n_col)
+bias_points_dac_ar = bias_points_dac[bias_map.phys_line]
 set_data = iv_tools.adict(
     ['index', 'R', 'perRn', 'v_tes', 'i_tes', 'p_tes', 'resp', 'keep_rec'],
     [int, float, float, float, float, float, float, bool],
     (n_row, n_col))
 
 for r,c in ok_rc:
-    i = (filedata.bias_dac <= bias_points_dac[bias_lines[c]]).nonzero()[0]
+    i = (filedata.bias_dac <= bias_points_dac[bias_map.phys_line[r,c]]).nonzero()[0]
     if len(i) == 0: continue
     set_data.index[r,c] = i[0]
     set_data.R[r,c] = filedata.tes_R[r,c,i[0]]
@@ -146,10 +151,8 @@ for r,c in ok_rc:
 
 # Kill the bad ones though
 set_data.resp[~iv_data.ok] = 0.
-set_data.resp /= ar_par['fb_normalize'][filedata.data_cols]
 
 # Cutting, cutting.
-
 ok = iv_data.ok
 p, r = set_data.p_tes[ok], set_data.perRn[ok]
 p0,p1 = ar_par['psat_cut']
@@ -169,7 +172,7 @@ if printv.v >= 1:
     if opts.with_rshunt_bug:
         print 'Rshunt bug is in!.'
     print 'Recommended biases for target of %10.4f Rn' % ar_par['per_Rn_bias']
-    for l in range(n_lines):
+    for l in range(bias_map.n_line):
         print 'Line %2i = %6i' % (l, bias_points_dac[l])
     print
     print 'Cut limits at recommended biases:'
@@ -292,7 +295,7 @@ if opts.plot_dir != None and not opts.summary_only:
                     yl = max(yl[0], 2*y_norm[0]-y_norm[1]), \
                         min(yl[1], 2*y_norm[1]-y_norm[0])
                 # Selected bias value
-                xb = bias_points_dac[bias_lines[c]] / 1000.
+                xb = bias_points_dac[bias_map.phys_line[r,c]] / 1000.
                 p.add(bg.Curve([xb,xb],yl,type='dashed'))
             elif pc == 9:
                 # Shunt I vs shunt V (super-cond)
@@ -332,20 +335,25 @@ if opts.plot_dir != None:
 
 
     # Loop over bias lines.
-    for tes_idx in range(ar_par['n_bias_lines']):
+    for tes_idx in range(bias_map.n_line):
 
         # First summary plot:
         #  Count of dets on transition vs. bias
-        s = ok * (bias_lines == tes_idx)
+        s_all = ok * bias_map.phys_line_mask(tes_idx)
+        s_other = s_all * ~bias_map.optim
+        s_opt = s_all * bias_map.optim
         r0,r1 = ar_par['per_Rn_cut']
         n = []
         bi = arange(0, len(filedata.bias_dac), 10)
         for b in bi:
             RR = get_R_crossing(b)
-            n.append((s * (r0 <= RR) * (RR < r1)).sum())
-        n = array(n)
+            n.append(((s_opt * (r0 <= RR) * (RR < r1)).sum(),
+                      (s_other * (r0 <= RR) * (RR < r1)).sum()))
+
+        n = np.transpose(n)
         pl.figure()
-        pl.plot(filedata.bias_dac[bi], n)
+        pl.plot(filedata.bias_dac[bi], n[0])
+        pl.plot(filedata.bias_dac[bi], n[1])
         # Show the chosen bias too
         pl.axvline(bias_points_dac[tes_idx], color='k', ls='dashed')
         pl.xlabel('TES BIAS (DAC)')
@@ -354,6 +362,7 @@ if opts.plot_dir != None:
         pl.savefig(os.path.join(opts.plot_dir, 'IV_det_count_%02i.png' % tes_idx))
 
         # Second summary plot:
+        n = n[0]
         #  For interesting biases, show %Rn distribution.
         if n.max() == 0:
             continue
@@ -376,10 +385,15 @@ if opts.plot_dir != None:
         RR = [get_R_crossing(t) for t in targetb]
 
         pl.clf()
+        rbins = arange(0., 1.01, .05)
         for i,t in enumerate(targets):
             pl.subplot(ntarg, 1, 1+i)
-            y = RR[i][s]
-            pl.hist(y.ravel(), bins=arange(0., 1.01, .05))
+
+            if s_all.sum() > 0:
+                pl.hist(RR[i][s_all], bins=rbins, color='green')
+            if s_opt.sum() > 0:
+                pl.hist(RR[i][s_opt], bins=rbins, color='blue')
+
             y0 = pl.ylim()[1]
             pl.text(0.5, y0*.9, 'BIAS = %5i' % t,
                     va='top', ha='center', fontsize=11)
