@@ -259,9 +259,12 @@ class SQ1Ramp(util.RCData):
             for T_set, yy in zip(Tex, y):
                 z = sorted([(yy[x], x) for x in T_set])
                 dz = [a[0] - b[0] for a, b in zip(z[1:],z[:-1])]
-                idx = argmax(dz)
-                lims.append((z[idx][1], z[idx+1][1]))
-
+                if len(dz) == 0:
+                    lims.append((0,0))
+                else:
+                    idx = argmax(dz)
+                    lims.append((z[idx][1], z[idx+1][1]))
+                
         adc_offset = array([(yy[a]+yy[b])/2 for (a,b),yy in zip(lims,y)])
         if clear_lims:
             lims = [(0,0)] * len(lims)
