@@ -73,7 +73,9 @@ def do_rs_servo(tuning, rc, rc_indices):
 
     optimize = tuning.get_exp_param('optimize_rowsel_servo')
     if optimize == -1:
-        # Don't even run it.
+        # Don't run it, but set the SQ1 bias muxing
+        tuning.set_exp_param("config_fast_sq1_bias", 1)
+        tuning.write_config()
         return
 
     # Prepare for servo
@@ -217,6 +219,31 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     # Enable fast switching.
     tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
     tuning.set_exp_param("config_fast_sq1_bias", 1)
+    super_servo = tuning.get_exp_param('config_mux11d_all_rows')
+    fb_set = tuning.get_exp_param('sa_fb_set').reshape(-1, nr).\
+        transpose() # r,c
+
+    fb_col = tuning.get_exp_param('sa_fb')
+    
+    # Determine the SA FB for each column, and if possible for each detector.
+    cols = sq.cols
+    phi0 = tuning.get_exp_param('sa_flux_quanta')[cols]
+    phi0[phi0<=0] = 65536 # kill empty flux_quanta
+    if super_servo:
+        n_row, n_col = sq.data_shape[-3:-1]
+        fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col) % phi0
+        # Get chosen row on each column
+        rows = tuning.get_exp_param('mux11d_row_choice')[cols]
+        fb_col[cols] = array([ fb_set[r,c] for r,c in zip(rows, cols) ]) % phi0
+    else:
+        # Analysis gives us SA FB for chosen row of each column.
+        fb_col[cols] = sq1_data['lock_y'] % phi0
+        n_row = tuning.get_exp_param('default_num_rows')
+        fb_set[:,cols] = sq1_data['lock_y'] % phi0
+        
+    # Save results, but remove flux quantum
+    tuning.set_exp_param('sa_fb', fb_col)
+    tuning.set_exp_param('sa_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
     return 0

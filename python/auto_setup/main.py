@@ -351,7 +351,7 @@ def do_sq1_servo(tuning, rc, rc_indices, write_default=False):
         n_row, n_col = sq.data_shape[-3:-1]
         fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col) % phi0
         # Get chosen row on each column
-        rows = tuning.get_exp_param('sq2_rows')[cols]
+        rows = tuning.get_exp_param('mux11d_row_choice')[cols]
         fb_col[cols] = array([ fb_set[r,c] for r,c in zip(rows, cols) ]) % phi0
     else:
         # Analysis gives us SQ2 FB for chosen row of each column.
