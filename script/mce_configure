@@ -1,0 +1,579 @@
+#!/usr/bin/env python
+"""
+This is intended as a replacement to the bash-based script/bits MCE
+configuration system.
+"""
+
+import numpy as np
+import os, sys
+
+import auto_setup as ast
+
+mas_path = ast.util.mas_path()
+exp_file = mas_path.experiment_file()
+
+print '# Speed up configFile!'
+cfg = ast.config.configFile(exp_file)
+
+import mce_control
+
+AROW = cfg['array_width']
+def cfg_2d(key, n_rows=None):
+    output = cfg[key].reshape(AROW, -1)
+    if n_rows is None:
+        return output
+    return output[:n_rows,:]
+
+class ScriptOutput:
+    def read(self, card, param, count=-1, offset=0, array=True):
+        pass
+    def write(self, card, param, data, offset=None):
+        data = np.asarray(data)
+        if data.ndim == 0:
+            data = [data]
+        if offset is None:
+            print 'wb %s %s %s' % (card, param,
+                                   ' '.join(map(str,data)))
+        else:
+            print 'wra %s %s %i %s' % (card, param, offset,
+                                       ' '.join(map(str,data)))
+    
+
+s_out = ScriptOutput()
+W = s_out.write
+
+"""
+#START config_create.bash
+
+#initialise environment
+if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
+  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary."
+  exit 1
+else
+  eval $(${MAS_VAR} -s)
+fi
+
+create_start=`print_ctime`
+
+mce_script=${MAS_TEMP}/`whoami`_config_mce${MAS_MCE_DEV}.scr
+
+# Remove existing script
+[ -e "$mce_script" ] && rm -f "$mce_script"
+
+# New file, group rw
+umask 002
+touch "$mce_script"
+
+# For raveled 2d arrays
+AROWS=${array_width}
+
+"""
+choices = {}
+
+## Fast-switching modes
+hardware_mux11d = cfg.get('hardware_mux11d', 0)
+hardware_bac = cfg.get('hardware_bac', 0)
+hardware_fast_sq2 = cfg.get('hardware_fast_sq2', hardware_bac)
+
+## Readout card in rectangle mode?
+hardware_rect = cfg.get('hardware_rect', 0)
+
+# Fundamental timing.
+W('sys', 'row_len', cfg['row_len'])
+W('sys', 'num_rows', cfg['num_rows'])
+
+nrr = cfg['num_rows_reported']
+if hardware_rect == 0:
+    W('cc', 'num_rows_reported', nrr)
+else:
+    W('cc', 'num_rows_reported', nrr)
+    W('cc', 'num_cols_reported', 8)
+    W('rca', 'num_rows_reported', nrr)
+    W('rca', 'num_cols_reported', 8)
+    W('rca', 'readout_row_index', 0)
+    W('rca', 'readout_col_index', 0)
+
+#----------------------------------------------
+# Clock Card
+#----------------------------------------------
+
+syncbox_prefix = 'sb%i_' % cfg['config_sync']
+for k in ['select_clk', 'use_dv', 'use_sync']:
+    k1 = syncbox_prefix + k
+    W('cc', k, cfg[k1])
+W('cc', 'data_rate', cfg['data_rate'])
+W('cc', 'ret_dat_s', [1,1])
+
+"""
+if [ "$hardware_rect" != "0" ]; then
+    # Assemble bits for choosing readout cards to report data
+    bit=0x20  # RC1
+    rc_bits=0
+    for i in `seq 0 3`; do
+        if [ "${hardware_rc_data[$i]}" != "0" ]; then
+            rc_bits=$(( $rc_bits + $bit ))
+        fi
+        bit=$(( $bit / 2 ))
+    done
+    echo "wb cc rcs_to_report_data $rc_bits" >> $mce_script
+fi
+"""
+if hardware_rect:
+    rc_bits = sum([in_use << (5-rc_index) for (rc_index,in_use) in
+                   enumerate(cfg['hardware_rc_data'])])
+    W('cc', 'rcs_to_report_data', rc_bits)
+
+"""
+# Write cc user_word based on array_id - this shows up in frame data
+user_word=0
+if [ -e "${MAS_DATA_ROOT}/array_id" ]; then
+    array_id=`cat ${MAS_DATA_ROOT}/array_id`
+    user_word=`awk "($$1 == \"$array_id\") {print $$2}" $MAS_CONFIG/array_list`
+    [ "$user_word" == "" ] && user_word=0
+fi
+echo "wb cc user_word $user_word" >> $mce_script
+"""
+array_id = open(os.path.join(mas_path.data_root(),
+                             'array_id')).readline().strip()
+try:
+    for line in open(os.path.join(mas_path.config_dir(),
+                                  'array_list')):
+        left, equals, right = line.split()
+        if left == array_id:
+            user_word = int(right)
+except:
+    user_word = 0
+
+W('cc', 'user_word', user_word)
+
+
+#----------------------------------------------
+# Readout Cards
+#----------------------------------------------
+"""
+## Mask out SA and SQ2 bias for bad columns.
+vals=${sa_bias[@]}
+mask=${columns_off[@]}
+sa_bias=( `mask_values "$vals" "$mask" 1 0` )
+vals=${sq2_bias[@]}
+mask=${columns_off[@]}
+sq2_bias=( `mask_values "$vals" "$mask" 1 0` )
+"""
+
+columns_on = ~cfg['columns_off'].astype(bool)
+#W('sa' , 'bias', cfg['sa_bias' ] * columns_on)
+#W('sq2', 'bias', cfg['sq2_bias'] * columns_on)
+
+
+"""
+for rc in 1 2 3 4; do
+    min_flux_quantum=999999
+    max_gaini=0
+    [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+    [ "${hardware_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+
+    ch_ofs=$(( ($rc-1)*8 ))
+#    echo "Readout card $rc: time=" `print_elapsed $create_start` >&2
+"""
+
+COLS_PER_RC = 8
+
+servo_gains = {}
+servo_active = np.ones((AROW, len(cfg['servo_i'])), bool)
+if not cfg['config_frail_tes']:
+    servo_active *= (cfg_2d('frail_detectors')==0)
+if not cfg['config_dead_tes']:
+    servo_active *= (cfg_2d('dead_detectors')==0)
+
+for servo in ['p','i','d']:
+    servo_gains[servo] = cfg['servo_'+servo][None,:] * servo_active
+
+flux_quanta = np.ones((AROW,1), int) * cfg['flux_quanta']
+if cfg['config_flux_quanta_all']:
+    flux_quanta = cfg_2d('flux_quanta_all')
+
+adc_offset = np.ones((AROW,1), int) * cfg['adc_offset_c'] / cfg['sample_num']
+if cfg['config_adc_offset_all']:
+    adc_offset = cfg_2d('adc_offset_cr')
+
+rc_select = (cfg['hardware_rc']!=0)*(cfg['config_rc']!=0)
+for rc_i in rc_select.nonzero()[0]:
+    rc = 'rc%i' % (rc_i+1)  # Yes, rc_i=0 -> 'rc1'.
+    col_start = (rc_i  )*COLS_PER_RC
+    col_end   = (rc_i+1)*COLS_PER_RC
+    """
+    echo "wb rc$rc readout_row_index $readout_row_index" >> $mce_script
+    echo "wb rc$rc readout_col_index 0" >> $mce_script
+    echo "wb rc$rc sample_dly   $sample_dly" >> $mce_script
+    echo "wb rc$rc sample_num   $sample_num" >> $mce_script
+    echo "wb rc$rc fb_dly       $fb_dly" >> $mce_script
+    echo "wb rc$rc fb_const    " `repeat_string $fb_const 8` >> $mce_script
+    echo "wb rc$rc data_mode    $data_mode" >> $mce_script
+    echo "wb rc$rc sa_bias      ${sa_bias[@]:$ch_ofs:8}" >> $mce_script
+    echo "wb rc$rc offset       ${sa_offset[@]:$ch_ofs:8}" >> $mce_script
+    """
+    # We did this already.
+    W(rc, 'readout_row_index', cfg['readout_row_index'])
+    W(rc, 'readout_col_index', 0)
+    W(rc, 'sample_dly', cfg['sample_dly'])
+    W(rc, 'sample_num', cfg['sample_num'])
+    W(rc, 'fb_dly', cfg['fb_dly'])
+    W(rc, 'fb_const', [cfg['fb_const']]*COLS_PER_RC)  # scalar, duplicated
+    W(rc, 'data_mode', cfg['data_mode'])
+    W(rc, 'sa_bias', cfg['sa_bias'][col_start:col_end])
+    W(rc, 'offset', cfg['sa_offset'][col_start:col_end])
+
+    """
+    # Don't auto-servo columns flagged in "columns_off"
+    if [ "$servo_mode" == "3" ]; then
+        echo -n "wb rc$rc servo_mode  "
+        for c in `seq 0 7`; do
+            chan=$(( $c + $ch_ofs ))
+            if [ "${columns_off[$chan]}" == "1" ]; then
+                echo -n " 1"
+            else
+                echo -n " 3"
+            fi
+        done
+        echo
+    else
+        # Servo modes other than 3 are not affected by columns_off
+        echo "wb rc$rc servo_mode   " `repeat_string $servo_mode 8`
+    fi >> $mce_script
+    """
+    servo_mode = np.zeros(COLS_PER_RC, int)
+    servo_mode[:] = cfg['servo_mode']
+    if servo_mode[0] == 3:
+        servo_mode[~columns_on[col_start:col_end]] = 1
+    W(rc, 'servo_mode', servo_mode)
+
+    def Wn(key, values):
+        for i,c in enumerate(range(col_start, col_end)):
+            W(rc, '%s%i' %(key,i), values[:,c])
+            
+
+    """
+    # Servo parameters, including dead and frail detector turn-offs
+    for c in `seq 0 7`; do
+        chan=$(( $c + $ch_ofs ))
+        dead_ofs=$(( ($c + $ch_ofs)*$array_width ))
+
+        if [ "${columns_off[$chan]}" != "1" -a $chan -lt $num_rows ]; then
+            if [ ${servo_i[$chan]} -gt $max_gaini ]; then
+                max_gaini=${servo_i[$chan]}
+            fi
+        fi
+    """
+    max_gain_i = (cfg['servo_i'] * columns_on)[col_start:col_end].max()
+
+    """
+        p_terms=( `repeat_string ${servo_p[$chan]} $array_width` )
+        i_terms=( `repeat_string ${servo_i[$chan]} $array_width` )
+        d_terms=( `repeat_string ${servo_d[$chan]} $array_width` )
+
+        if [ "$config_frail_tes" == "0" ]; then
+            for r in `seq 0 $(( $array_width - 1 ))`; do
+                if [ "${frail_detectors[$(( $dead_ofs + $r ))]}" != "0" ]; then
+                    p_terms[$r]=$frail_servo_p
+                    i_terms[$r]=$frail_servo_i
+                    d_terms[$r]=$frail_servo_d
+                fi
+            done
+        fi
+
+        if [ "$config_dead_tes" == "0" ]; then
+            for r in `seq 0 $(( $array_width - 1 ))`; do
+                if [ "${dead_detectors[$(( $dead_ofs + $r ))]}" != "0" ]; then
+                    p_terms[$r]=0
+                    i_terms[$r]=0
+                    d_terms[$r]=0
+                fi
+            done
+        fi
+
+        echo "wb rc$rc gainp$c ${p_terms[@]}" >> $mce_script
+        echo "wb rc$rc gaini$c ${i_terms[@]}" >> $mce_script
+        echo "wb rc$rc gaind$c ${d_terms[@]}" >> $mce_script
+    done
+    """
+    # (n_row, n_col)
+    for servo in ['p','i','d']:
+        Wn('gain'+servo, servo_gains[servo])
+    
+    """
+    # Flux jump quanta, and enable/disable
+    for c in `seq 0 7`; do
+        chan=$(( $c +  $ch_ofs ))
+        r_off=$(( $array_width * $chan ))
+
+        if [ "${config_flux_quanta_all}" != "0" ]; then
+	    if [ "$config_dead_tes" == "0" ]; then
+		for r in `seq 0 $(( $num_rows - 1 ))`; do
+		    if [ "${dead_detectors[$(( $r_off + $r ))]}" == "0" \
+131
+			-a ${flux_quanta_all[$(( $r_off + $r ))]} -lt $min_flux_quantum \
+			-a ${flux_quanta_all[$(( $r_off + $r ))]} -gt 0 ]; then
+			min_flux_quantum=${flux_quanta_all[$(( $r_off + $r ))]}
+		    fi
+		done
+	    else
+		min_flux_quantum=`find_min_positive ${min_flux_quantum} ${flux_quanta_all[@]:$r_off:$num_rows}`
+	    fi
+            echo "wb rc$rc flx_quanta$c ${flux_quanta_all[@]:$r_off:$num_rows}" >> $mce_script
+        else
+            if [ ${flux_quanta[$chan]} -lt ${min_flux_quantum} \
+              -a ${flux_quanta[$chan]} -gt 0 ]; then
+                min_flux_quantum=${flux_quanta[$chan]}
+            fi
+            repeat_string "${flux_quanta[$chan]}" $AROWS "wb rc$rc flx_quanta$c" >> $mce_script
+        fi
+    """
+    
+    Wn('flx_quanta', flux_quanta)
+
+    # Min flux quantum for active channels on this card.
+    min_q_rc = (flux_quanta*servo_active)[:,col_start:col_end]
+    if np.any(min_q_rc):
+        min_q_rc = min(min_q_rc[min_q_rc>0])
+    else:
+        min_q_rc = 0
+
+    """
+        if [ "${config_adc_offset_all}" != "0" ]; then
+            echo "wb rc$rc adc_offset$c ${adc_offset_cr[@]:$r_off:$array_width}" >> $mce_script
+        else
+            repeat_string "${adc_offset_divided[$chan]}" $AROWS "wb rc$rc adc_offset$c" >> $mce_script
+        fi
+    done
+    """
+    Wn('adc_offset', adc_offset)
+
+    """
+    # Readout filter
+    if [ "$config_filter" == "1" ]; then
+        echo "wb rca fltr_coeff ${filter_params[@]}" >> $mce_script
+    fi
+
+    echo "wb rc$rc en_fb_jump $flux_jumping" >> $mce_script
+    """
+    if cfg['config_filter']:
+        W('rca', 'fltr_coeff', cfg['filter_params'])
+    
+    W(rc, 'en_fb_jump', cfg['flux_jumping'])
+
+    """
+    # integral clamp
+
+    if [ "$config_integral_clamp" == "1" ]; then
+        # don't divide by zero
+        if [ $max_gaini == "0" ]; then
+            integral_clamp=0
+        elif [ $flux_jumping == "1" ]; then
+            integral_clamp=$(printf %i $(echo "$integral_clamp_factor * 127 * 4096 * $min_flux_quantum / $max_gaini" | bc))
+        else
+            integral_clamp=$(printf %i $(echo "$integral_clamp_factor * 8192 * 4096 / $max_gaini" | bc))
+        fi
+        echo "wb rc$rc integral_clamp $integral_clamp" >> $mce_script
+    fi
+done
+    """
+    if cfg.get('config_integral_clamp'):
+        if cfg['flux_jumping']:
+            clamp = min_flux_quantum * 127
+        else:
+            clamp = 8192
+        if max_gain_i == 0:
+            clamp = 0
+        else:
+            clamp = clamp * 8192 * cfg['integral_clamp_factor'] / max_gain_i
+        W(rc, 'integral_clamp', clamp)
+
+# echo "Other cards: time=" `print_elapsed $create_start` >&2
+
+#----------------------------------------------
+# Address Card
+#----------------------------------------------
+"""
+if [ "$hardware_mux11d" == "0" ]; then
+    echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
+    echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
+else
+    echo "wb row select ${row_select[@]}" >> $mce_script
+    echo "wb row deselect ${row_deselect[@]}" >> $mce_script
+fi
+
+echo "wb ac row_dly   $row_dly" >> $mce_script
+echo "wb ac row_order ${row_order[@]}" >> $mce_script
+echo "wb ac enbl_mux  1" >> $mce_script
+"""
+
+if not hardware_mux11d:
+    W('ac', 'on_bias', cfg['sq1_bias'])
+    W('ac', 'off_bias', cfg['sq1_bias_off'])
+else:
+    W('row', 'select', cfg['row_select'])
+    W('row', 'deselect', cfg['row_deselect'])
+
+W('ac', 'row_dly', cfg['row_dly'])
+W('ac', 'row_order', cfg['row_order'])
+W('ac', 'enbl_mux', 1)
+
+"""
+# Set the TES biases via the "tes bias" virtual address
+if [ "$tes_bias_do_reconfig" != "0" ]; then
+    echo "wb tes bias ${tes_bias[@]}" >> $mce_script
+fi
+"""
+if cfg['tes_bias_do_reconfig']:
+    W('tes', 'bias', cfg['tes_bias'])
+
+#----------------------------------------------
+# Bias Cards - use functional mappings!
+#----------------------------------------------
+
+# Set enbl_mux before writing per-column values, since DACs need to be
+# kicked once after enbl_mux is turned off.
+
+"""
+# For biasing address card, set the correct mux_mode and row_order
+# But only if we're not mux11d.
+if [ "$hardware_mux11d" == "0" ]; then
+
+    if [ "$hardware_fast_sq2" == "1" ]; then
+        echo "wb bac row_order ${row_order[@]}" >> $mce_script
+        echo "wb bac enbl_mux 2" >> $mce_script
+    fi
+
+    # For new bias card in fast_sq2 mode, set enbl_mux for all columns
+    if [ "$hardware_fast_sq2" == "2" ]; then
+        for rc in 1 2 3 4; do
+            [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+            ch_ofs=$(( ($rc-1)*8 ))
+            echo "wra sq2 enbl_mux $ch_ofs `repeat_string $config_fast_sq2 8`" >> $mce_script
+        done
+    fi
+fi
+"""
+if not hardware_mux11d:
+    if hardware_fast_sq2 == 1:
+        W('bac', 'row_order', cfg['row_order'])
+        W('bac', 'enbl_mux', 2)
+    elif hardware_fast_sq2 == 2:
+        for rc_i in rc_select.nonzero()[0]:
+            rc = 'rc%i' % (rc_i+1)  # Yes, rc_i=0 -> 'rc1'.
+            W(rc, 'enbl_mux', [cfg['config_fast_sq2']]*COLS_PER_RC)
+
+"""
+#Still only write the relevant columns depending on readout card configuration
+for rc in 1 2 3 4; do
+    [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+
+    ch_ofs=$(( ($rc-1)*8 ))
+
+    if [ "$hardware_mux11d" == "0" ]; then
+
+        echo "wra sa  fb    $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"
+        echo "wra sq2 bias  $ch_ofs  ${sq2_bias[@]:$ch_ofs:8}"
+
+        # SQ2 feedback
+        if [ "$config_fast_sq2" == "0" ]; then
+            if [ "$hardware_fast_sq2" == "1" ]; then
+                # Emulate bias card with a BAC
+                for a in `seq 0 7`; do
+                    c=$(( $ch_ofs + $a ))
+                    repeat_string "${sq2_fb[$c]}" $AROWS "wb bac fb_col$c"
+                done
+            else
+                # People still use bias cards?
+                echo "wra sq2 fb    $ch_ofs  ${sq2_fb[@]:$ch_ofs:8}"
+            fi
+        else
+            # BAC and new bias card firmware support sq2 fb_col%
+            for a in `seq 0 7`; do
+                row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
+                echo "wb sq2 fb_col$(( $a + $ch_ofs )) ${sq2_fb_set[@]:$row_ofs:$AROWS}"
+            done
+        fi
+    else
+        # SA FB, possibly fast-switching
+        echo "wra sa enbl_mux $ch_ofs `repeat_string $config_fast_sa_fb 8`"
+        if [ "$config_fast_sa_fb" == "1" ]; then
+            for a in `seq 0 7`; do
+                row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
+                echo "wb sa fb_col$(( $a + $ch_ofs )) ${sa_fb_set[@]:$row_ofs:$AROWS}"
+            done
+        else
+            echo "wra sa fb $ch_ofs  ${sa_fb[@]:$ch_ofs:8}"
+        fi
+        # SQ1 bias, possibly fast-switching
+        echo "wra sq1 enbl_mux $ch_ofs `repeat_string $config_fast_sq1_bias 8`"
+        if [ "$config_fast_sq1_bias" == "1" ]; then
+            for a in `seq 0 7`; do
+                row_ofs=$(( ($ch_ofs+$a) * $AROWS ))
+                echo "wb sq1 bias_col$(( $a + $ch_ofs )) ${sq1_bias_set[@]:$row_ofs:$AROWS}"
+            done
+        else
+            echo "wra sq1 bias $ch_ofs  ${sq1_bias[@]:$ch_ofs:8}"
+        fi
+    fi >> $mce_script
+done
+"""
+
+for rc_i in rc_select.nonzero()[0]:
+    rc = 'rc%i' % (rc_i+1)  # Yes, rc_i=0 -> 'rc1'.
+    col_start = (rc_i  )*COLS_PER_RC
+    col_end   = (rc_i+1)*COLS_PER_RC
+
+    def Ws(sq, key, values):
+        for i,c in enumerate(range(col_start, col_end)):
+            W(sq, '%s%i' %(key,c), values[:,c])
+
+    if not hardware_mux11d:
+        W(rc, 'sa' , 'fb'  , cfg['sa_fb'   ][col_start:col_end])
+        W(rc, 'sq2', 'bias', cfg['sq2_bias'][col_start:col_end])
+        if cfg['config_fast_sq2']:
+            Ws('sq2', 'fb_col', cfg_2d('sq2_fb_set'))
+        else:
+            # Single value for whole column
+            if hardware_fast_sq2 == 1:
+                #Emulate bias card with a BAC
+                for c in range(col_start, col_end):
+                    W('bac', 'fb_col%i' % c, [cfg['sq2_fb'][c]]*AROW)
+            else:
+                W('sq2', 'fb', cfg['sq2_fb'][col_start:col_end],
+                  offset=col_start)
+    else:
+        # mux11d
+        W('sa', 'enbl_mux', [cfg['config_fast_sa_fb']]*COLS_PER_RC,
+          offset=col_start)
+
+        if cfg['config_fast_sa_fb']:
+            Ws('sq1', 'fb_col', cfg_2d('sa_fb_set'))
+        else:
+            W('sq1', 'fb', cfg['sa_fb'][col_start:col_end],
+              offset=col_start)
+
+        W('sq1', 'enbl_mux', [cfg['config_fast_sq1_bias']]*COLS_PER_RC,
+          offset=col_start)
+
+        if cfg['config_fast_sq1_bias']:
+            Ws('sq1', 'bias_col', cfg_2d('sa_fb_set'))
+        else:
+            W('sq1', 'bias', cfg['sq1_bias'][col_start:col_end],
+              offset=col_start)
+            
+                
+"""
+# Servo loop re-init
+
+for rc in 1 2 3 4; do
+    [ "${config_rc[$(( $rc - 1 ))]}" == "0" ] && continue
+    echo "wb rc$rc flx_lp_init 1" >> $mce_script
+done
+
+#END config_create.bash
+"""
+
+for rc_i in rc_select.nonzero()[0]:
+    rc = 'rc%i' % (rc_i+1)  # Yes, rc_i=0 -> 'rc1'.
+    W(rc, 'flx_lp_init', 1)
