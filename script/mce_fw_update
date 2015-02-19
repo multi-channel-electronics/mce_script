@@ -2,12 +2,13 @@
 # The following code is copied from Bryce Burger's sof2jam script
 
 if [ "$#" -lt "2" ]; then
-    echo "Usage:   $0 <device> <jamfilename> "
+    echo "Usage:   $0 <device> <jamfilename> [jamfreq]"
     echo "  device        one of:"
     echo "          FPGA:   for temporary firmware (sof)"
     echo "          EPC16:  for permanent firmware on any card other than RC Rev. E (pof)"
     echo "          EPCS64: for permanent firmware on RC Rev. E (jic)"
     echo "  jamfilename   either an absolute pathname, or a file in \$MCE_JAM_DIR"
+    ehco "  jamfreq is the internal clocking frequency."
     exit 1
 fi
 
@@ -33,6 +34,10 @@ JAM_DIR=$MCE_JAM_DIR
 JAM_FILE=$2
 START_TIME=`date +%s`
 
+if [ "$3" != "" ] ; then
+    JAM_FREQ=$3
+fi
+
 if ! [ -r $JAM_FILE ] && [ "$JAM_DIR" != "" ]; then
     echo "File not found in current directory, looking in $JAM_DIR"
     JAM_FILE=$JAM_DIR/$JAM_FILE
@@ -46,23 +51,37 @@ fi
 
 echo " MCE firmware revisions prior to firmware update:"
 print_fw_rev
+cmd1=true
+cmd2=true
 
 case "$DEVICE" in
     EPC16)
-	mce_jam -u -f800000 -aprogram -dDO_VERIFY=0 $JAM_FILE
+	cmd1="mce_jam -u -f${JAM_FREQ:-800000} -aprogram -dDO_VERIFY=0 $JAM_FILE"
 	;;
     EPCS64)
-	mce_jam -u -f8000000 -aconfigure $JAM_FILE && \
-	    mce_jam -u -f100000 -aprogram -dDO_VERIFY=0 $JAM_FILE
+	cmd1="mce_jam -u -f${JAM_FREQ:-8000000} -aconfigure $JAM_FILE"
+	cmd2="mce_jam -u -f${JAM_FREQ:-100000} -aprogram -dDO_VERIFY=0 $JAM_FILE"
 	;;
     FPGA)
-	mce_jam -u -f8000000 -aconfigure $JAM_FILE
+	cmd1="mce_jam -u -f${JAM_FREQ:-8000000} -aconfigure $JAM_FILE"
 	;;
     *)
 	echo "Error: device=$DEVICE is not a valid device."
 	echo "  Use FPGA or EPC16 or EPCS64 to specify the device"
+	exit 1
 	;;
 esac
+
+for cmd in "$cmd1" "$cmd2"; do 
+    echo "Executing: $cmd"
+    $cmd
+    err=$?
+    echo "mce_jam exits with code ${err}."
+    if [ "${err}" != 0 ]; then
+	exit 1
+    fi
+    echo
+done
 
 echo " Configuration complete."
 
