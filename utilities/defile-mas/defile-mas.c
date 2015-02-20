@@ -1,4 +1,4 @@
-/* (C) 2013, 2014 D. V. Wiebe
+/* (C) 2013, 2014, 2015 D. V. Wiebe
  *
  *************************************************************************
  *
@@ -156,6 +156,7 @@ static int mas_rcs[4];
 static long long mas_offset;
 static struct runfile_block *mas_rf_header;
 static int mas_fd = -1;
+static char *mas_fr;
 static struct runfile rf = { 0, NULL };
 static char *mas_flatfile = NULL;
 static char *mas_pathname = NULL;
@@ -180,7 +181,7 @@ static struct {
 } mas_rf_data;
 
 /* public strings; see defile-input(7) */
-#define DEFILE_MAS_COPYRIGHT "Copyright (C) 2013, 2014 D. V. Wiebe"
+#define DEFILE_MAS_COPYRIGHT "Copyright (C) 2013, 2014, 2015 D. V. Wiebe"
 #define DEFILE_MAS_CONTACT \
   "For contact information, see http://cmbr.phas.ubc.ca/mcewiki/"
 #define DEFILE_MAS_DESCRIPTION "MCE-MAS flat-file data"
@@ -261,6 +262,7 @@ static void mas_close_flatfile(int clear_metadata)
         }
       }
       free(rf.block[i].tag);
+      free(rf.block[i].name);
     }
     free(rf.block);
     rf.block = NULL;
@@ -272,11 +274,9 @@ static int mas_clean(void)
 {
   mas_close_flatfile(1);
 
-  if (mas_pathname)
-    free(mas_pathname);
-
-  if (mas_flatfile)
-    free(mas_flatfile);
+  free(mas_fr);
+  free(mas_pathname);
+  free(mas_flatfile);
 
   return 0;
 }
@@ -851,6 +851,7 @@ static int mas_data_mode_supported(int data_mode)
 static void mas_add_string(const char *name, const char *value, int frag)
 {
   char spec[4096];
+  spec[4094] = '\0';
   snprintf(spec, 4094, "%s STRING \"%s\"", name, value);
   /* terminate truncated strings */
   if (spec[4094]) {
@@ -1046,8 +1047,10 @@ static int mas_find_next_chunk()
   sprintf(new_flatfile + len - 3, "%03i", sequence + 1);
 
   /* check for the file */
-  if (stat(new_flatfile, &stat_buf) < 0)
+  if (stat(new_flatfile, &stat_buf) < 0) {
+    free(new_flatfile);
     return 0;
+  }
 
   /* it's there */
   sequence++;
@@ -1375,7 +1378,6 @@ static int mas_entry(const struct df_config *config)
 {
   long long skip;
   struct frame_header fh;
-  char *fr;
   size_t size;
   int follow, eof, eof_count, last_pass, new_file;
   int have_fh = 1;
@@ -1457,7 +1459,7 @@ static int mas_entry(const struct df_config *config)
   if (df_ready("checksum"))
     df_exit(1, 1);
 
-  fr = malloc(fdef.framesize);
+  mas_fr = malloc(fdef.framesize);
 
   /* file loop */
   for (;;) {
@@ -1467,16 +1469,17 @@ static int mas_entry(const struct df_config *config)
     new_file = 0;
     if (have_fh) {
       size = sizeof(fh);
-      memcpy(fr, &fh, size);
+      memcpy(mas_fr, &fh, size);
     } else
       size = 0;
 
     /* chunk loop */
     for (;;) {
-      for (eof = read_datafile(fr, &size); !eof; eof = read_datafile(fr, &size))
+      for (eof = read_datafile(mas_fr, &size); !eof;
+          eof = read_datafile(mas_fr, &size))
       {
         eof_count = 0;
-        df_push_frame(fdind, 1, fr, 1);
+        df_push_frame(fdind, 1, mas_fr, 1);
         size = 0; /* reset frame buffer */
       }
 
