@@ -605,7 +605,8 @@ static int runfile_toke(char *tag, char **spec, char **data, int lineno)
 static int runfile_read(const char *base)
 {
   FILE *stream;
-  char *runfile = malloc(strlen(base) + sizeof(".run"));
+  size_t len = strlen(base);
+  char *runfile = malloc(len + sizeof(".run"));
   char buffer[1024];
   struct runfile_block *block = NULL;
   struct runfile_tag *tag = NULL;
@@ -623,8 +624,6 @@ static int runfile_read(const char *base)
   stream = fopen(runfile, "rt");
   if (stream == NULL) {
     if (errno == ENOENT) { /* not found -- maybe its a sequenced file? */
-      size_t len = strlen(base);
-      
       /* look for a three digit extension with a preceding '.' */
       if (len > 4 && isdigit(runfile[len - 1]) && isdigit(runfile[len - 2]) &&
           isdigit(runfile[len - 3]) && runfile[len - 4] == '.') {
@@ -1323,7 +1322,7 @@ static long long mas_load_flatfile(struct frame_header *fh, int new_acq,
     else
       nframes = stat_buf.st_size / framesize;
 
-    if (sequence > 0)
+    if (new_acq && sequence > 0)
       nframes += sequence * MAS_CHUNK_SIZE;
   }
 
@@ -1376,9 +1375,9 @@ static long long mas_load_flatfile(struct frame_header *fh, int new_acq,
  * thread) */
 static int mas_entry(const struct df_config *config)
 {
-  long long skip;
+  long long skip, nframes;
   struct frame_header fh;
-  size_t size;
+  size_t size = 0;
   int follow, eof, eof_count, last_pass, new_file;
   int have_fh = 1;
 
@@ -1403,17 +1402,19 @@ static int mas_entry(const struct df_config *config)
   mas_check_symlink(0);
 
   /* open and verify the input */
-  long long nframes = mas_load_flatfile(&fh, 1, follow, 1);
+  nframes = mas_load_flatfile(&fh, 1, follow, 1);
 
-  if (sequence != -1) /* hide chunk number */
-    mas_flatfile[strlen(mas_flatfile) - 4] = 0;
+  if (sequence != -1) { /* hide chunk number */
+    size = strlen(mas_flatfile) - 4;
+    mas_flatfile[size] = 0;
+  }
 
   /* finally, we can spin up defile */
   if (df_init(nframes, mas_rf_data.rate, mas_flatfile))
     df_exit(1, 1);
 
   if (sequence != -1) /* restore chunk number */
-    mas_flatfile[strlen(mas_flatfile) - 4] = '.';
+    mas_flatfile[size] = '.';
 
   /* create the metadata */
   mas_metadata();
