@@ -39,11 +39,6 @@ import re
 import sys,os
 import numpy
 
-try:
-    from mce import mce
-except ImportError:
-    print 'Could not load mce module; mce commanding will be disabled.'
-
 import mce_internal
 
 def abort_msg(text, error=20):
@@ -97,7 +92,7 @@ if __name__ == '__main__':
             abort_msg('Specify a waveform source, or special waveform.')
 
     # We will probably need an MCE.
-    m = mce()
+    m = mce_internal.mce()
 
     # Handle command
     for action in actions:

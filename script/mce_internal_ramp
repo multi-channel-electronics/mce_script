@@ -55,11 +55,6 @@ import subprocess as sp
 import re
 import sys,os
 
-try:
-    from mce import mce
-except ImportError:
-    print 'Could not load mce module; mce commanding will be disabled.'
-
 import mce_internal
 
 def abort_msg(text, error=20):
@@ -112,7 +107,7 @@ if __name__ == '__main__':
             abort_msg('Provide either --target or --stage to specify target.')
 
     # We will probably need an MCE.
-    m = mce()
+    m = mce_internal.mce()
 
     # Handle command
     for action in actions:

@@ -8,7 +8,7 @@ import re
 import sys,os
 
 try:
-    from mce import mce
+    from pymce.compat import old_mce as mce
 except ImportError:
     print 'Could not load mce module; mce commanding will be disabled.'
 
