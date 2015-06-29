@@ -122,8 +122,13 @@ class RSServo(servo.SquidData):
             if lo and len(r) >= 3:
                 hi = r[2]
             if lo and hi:
-                # Watch for ramps (max->min and min->max), flat-liners.
-                ok = not ((lo[0] == 0) and (hi[-1] == len(y)))
+
+                # Throw out ramps (max->min and min->max), flat-liners,
+                # and very low amplitude responses. 
+
+                minResponse=500  # WARNING - emperical value!
+                ok = not ((lo[0] == 0) and (hi[-1] == len(y))) and (abs(y[hi[0]]-y[lo[0]]) > minResponse)
+
                 # May as well get the apparent local extrema.
                 pairs.append((argmin(y[lo[0]:lo[1]]) + lo[0],
                               argmax(y[hi[0]:hi[1]]) + hi[0]))
@@ -173,8 +178,12 @@ class RSServo(servo.SquidData):
             sel = zeros((2,n_row),'int')
             for r in range(n_row):
                 if any(ok[r]):
-                    # Just take left-most valid value...
-                    sel[:,r] = sel1[r,ok[r]][0], sel0[r,ok[r]][0]
+                    # Take the average (not median or left-most) row select
+                    # value.  This helps when magnetic fields shift some of the
+                    # column's row select responses
+
+                    sel[:,r] = np.average(sel1[r,ok[r]]), np.average(sel0[r,ok[r]])
+
         # Store those 
         self.analysis['sel_idx_row'] = sel[0]
         self.analysis['desel_idx_row'] = sel[1]
