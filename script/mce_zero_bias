@@ -31,6 +31,10 @@ n_tes_bias=`command_reply rb tes bias | wc -w`
 
 rc_flags=( `mas_param -s $expt get hardware_rc` )
 
+# 1 if mux11d, 0 if not
+mux11d_hardware=`mas_param -s $expt get hardware_mux11d`
+array_width=`mas_param -s $expt get array_width`
+
 # Funny 'if' is so we can pipe output into mce_cmd. Don't issue mce
 # commands inside this block!
 if [ "x" == "x" ]; then
@@ -38,9 +42,25 @@ if [ "x" == "x" ]; then
     repeat_string "0" 41 "wb ac on_bias"
     repeat_string "0" 41 "wb ac off_bias"
     echo "wb ac enbl_mux 1"
+
+    # this conditional added for mux11d exception 
+    if [ "${mux11d_hardware}" -ne "1" ]; then
+	repeat_string "0" $n_columns "wb sq2 fb"
+	repeat_string "0" $n_columns "wb sq2 bias"
+    else
+	# mux11d stuff
+	repeat_string "0" $n_columns "wb sq1 bias"
+	
+	repeat_string "0" $array_width "wb bc1 enbl_mux"
+        repeat_string "0" $array_width "wb bc2 enbl_mux"
+        repeat_string "0" $array_width "wb bc3 enbl_mux"
+	for bc in 1 2 3; do
+            for c in `seq 0 31`; do
+		repeat_string "0" $array_width "wb bc${bc} fb_col$c"
+	    done
+        done
+    fi
     
-    repeat_string "0" $n_columns "wb sq2 fb"
-    repeat_string "0" $n_columns "wb sq2 bias"
     repeat_string "0" $n_columns "wb sa fb"
     repeat_string "0" $n_columns "wb sa bias"
     repeat_string "0" $n_columns "wb sa offset"
@@ -55,7 +75,7 @@ if [ "x" == "x" ]; then
     for rc in 1 2 3 4; do
 	if [ "${rc_flags[$(( $rc - 1 ))]}" != "0" ]; then
 	    for c in `seq 0 7`; do
-		repeat_string "0" 41 "wb rc$rc adc_offset$c"
+		repeat_string "0" $array_width "wb rc$rc adc_offset$c"
 	    done
 	fi
     done
@@ -74,7 +94,15 @@ fi
 
 echo -n "SA biases:  "
 command_reply rb sa bias
-echo -n "SQ2 biases: "
-command_reply rb sq2 bias
+
+# this conditional added for mux11d exception
+if [ "${mux11d_hardware}" -ne "1" ]; then
+    echo -n "SQ2 biases: "
+    command_reply rb sq2 bias
+else
+    echo -n "SQ1 biases: "
+    command_reply rb sq1 bias
+fi
+
 echo -n "TES biases: "
 command_reply rb tes bias

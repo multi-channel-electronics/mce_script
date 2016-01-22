@@ -250,8 +250,12 @@ if [ "$hardware_mux11d" == "0" ]; then
     echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
     echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
 else
-    echo "wb row select ${row_select[@]}" >> $mce_script
-    echo "wb row deselect ${row_deselect[@]}" >> $mce_script
+    # Must take ac row order into account ... row select/deselect are
+    # really just synonyms for ac on_bias/off_bias
+    for rs in `seq 0 $((${#row_order[@]}-1))`; do
+	echo "wra ac on_bias ${row_order[${rs}]} ${row_select[${rs}]}" >> $mce_script
+	echo "wra ac off_bias ${row_order[${rs}]} ${row_deselect[${rs}]}" >> $mce_script
+    done
 fi
 
 echo "wb ac row_dly   $row_dly" >> $mce_script
