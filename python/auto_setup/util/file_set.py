@@ -19,7 +19,7 @@ class FileSet(dict):
             ('sq1rampc','sq1_ramp_check'),
             ('sq1ramptes','sq1_ramp_tes'),
             ('rsservo','rs_servo'),
-            ('sq1servosa','sq1_servo_sa'),
+            ('sq1servo_sa','sq1_servo_sa'),
             ]:
             self[name] = {}
             stage_files = glob('%s/*%s' % (folder, tag))

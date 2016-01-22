@@ -197,7 +197,7 @@ class SQ1Servo(servo.SquidData):
 
         # Fix me: runfile always indicates bias was ramped, even though it usually wasn't
         bias_ramp = (rf.Item('par_ramp', 'par_title loop1 par1', \
-                                 array=False).strip() == 'sq1bias')
+                             array=False).strip() == 'sq1bias')
         if bias_ramp:
             bias0, d_bias, n_bias = rf.Item('par_ramp', 'par_step loop1 par1', type='int')
             fb0, d_fb, n_fb = rf.Item('par_ramp', 'par_step loop2 par1', type='int')
@@ -448,9 +448,10 @@ class SQ1ServoSA(SQ1Servo):
                'error': 'Error / 1000'}
 
     bias_assoc = 'rowcol'
-
+    
     def __init__(self, filename=None, tuning=None):
         SQ1Servo.__init__(self, filename=filename, tuning=tuning)
+
         self.super_servo = None
 
     def read_data(self, filename):
@@ -462,10 +463,13 @@ class SQ1ServoSA(SQ1Servo):
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
 
+        # This fixes a collision in SQ1Servo inheritance
+        self.bias_assoc = 'rowcol'
+
         # Determine columns, biases, feedbacks involved in servo
         self.load_ramp_params('RB sq1 bias')
-        # Biases will be one-per-column if it's a ramp
-        if self.bias_style == 'ramp':
+        # If there was no ramp, then bias data is in col format
+        if self.bias_style =='select':
             self.bias_assoc = 'col'
 
         # Prime
@@ -474,9 +478,10 @@ class SQ1ServoSA(SQ1Servo):
         # Attempt load after counting bias/fb steps
         self._read_super_bias(filename)
 
+        # Need to think about super_servo more, and what it means for sq1_servo_sa;
         # If not super-servoing, our bias data is per-column
-        if not self.super_servo:
-            self.bias_assoc = 'col'
+        #if not self.super_servo:
+        #    self.bias_assoc = 'col'
 
     def split(self):
         sq = SQ1Servo.split(self)
@@ -517,8 +522,11 @@ class SQ1ServoSA(SQ1Servo):
         self.reg = reg
         self.analysis['ok'] = ok
 
-        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
-        self.analysis['y_span'] = span
+        mx, mn = amax(self.data, axis=-1),amin(self.data, axis=-1)
+        self.analysis['y_max'] = mx
+        self.analysis['y_min'] = mn
+        self.analysis['y_span'] = mx - mn
+
         if self.bias_style == 'ramp':
             # Identify bias index of largest response in each row
             #select = span.reshape(self.data_shape[:-1]).max(axis=-1).argmax(axis=0)

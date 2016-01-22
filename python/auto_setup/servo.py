@@ -346,7 +346,10 @@ def plot(x, y, y_rc, lock_points, plot_file,
         if insets != None:
             ax.add(biggles.PlotLabel(0., 0., insets[i],
                                          halign='left',valign='bottom'))
-        ax.add(biggles.Curve(x/1000., y[i]/1000.))
+        if x.shape==y.shape:
+            ax.add(biggles.Curve(x[i]/1000., y[i]/1000.))
+        else:
+            ax.add(biggles.Curve(x/1000., y[i]/1000.))
 
         if scale_style == 'roll-off':
             # Prevent small signals from causing large tick labels
@@ -358,7 +361,10 @@ def plot(x, y, y_rc, lock_points, plot_file,
             hi, lo = amax(y[i]) / 1000., amin(y[i]) / 1000.
             dx = (hi - lo)*.1
             ax.yrange = lo - dx, hi + dx
-            ax.xrange = x[0]/1000., x[-1]/1000.
+            if x.shape==y.shape:
+                ax.xrange = x[i][0]/1000., x[i][-1]/1000.
+            else:
+                ax.xrange = x[0]/1000., x[-1]/1000.                
 
     pl.cleanup()
     return {
@@ -624,8 +630,10 @@ class SquidData(util.RCData):
         s.bias_style = 'select'
         s.bias_assoc = assoc
 
-        def get_curves(key, idx0, idx1):
+        def get_curves(key, idx0, idx1, assoc=None):
             d = getattr(self, key).reshape(n_bias, n_row, n_col, n_fb)
+            if assoc=='rowcol':
+                d = getattr(self, key).reshape(n_bias, n_row*n_col, n_fb)
             if transpose_row_col:
                 d = d.transpose((0,2,1,3))
             return d[idx0,idx1].reshape(n_member, n_fb)
@@ -633,7 +641,7 @@ class SquidData(util.RCData):
         # Reduced V-phi data
         for k in self.data_attrs:
             setattr(s, k, np.zeros((n_group, n_member, n_fb)))
-
+            
         for i in range(n_group):
             # Keep bias in range
             bias = self.bias[bias_idx][i] * ic_factor
@@ -642,10 +650,11 @@ class SquidData(util.RCData):
             frac = float(s.bias[i] - self.bias[idx0]) / \
                 (self.bias[idx0+1] - self.bias[idx0])
 
+            # chokes if bias_assoc='rowcol'
             # Interpolate between two curves
             for k in self.data_attrs:
-                d0 = get_curves(k, idx0, i)
-                d1 = get_curves(k, idx0+1, i)
+                d0 = get_curves(k, idx0, i, assoc)
+                d1 = get_curves(k, idx0+1, i, assoc)
                 getattr(s, k)[i] = d0*(1-frac) + d1*frac
 
         # Possibly transpose and reshape

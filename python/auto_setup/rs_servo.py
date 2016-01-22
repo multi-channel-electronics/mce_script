@@ -25,8 +25,6 @@ def go(tuning, rc, filename=None):
     lock_points['cols'] = sq.cols
     return lock_points
 
-
-
 class RSServo(servo.SquidData):
     """
     In mux11d tuning, there is one row select (RS) SQUID per detector.
@@ -56,7 +54,34 @@ class RSServo(servo.SquidData):
         if filename != None:
             self.read_data(filename)
 
+        # Setup required for hybrid mux
+        self.ishybrid=None
+        self.hybrid_rs_multipliers=None
+        if self.tuning!=None:
+            self.ishybrid = self.tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True) 
 
+            if self.ishybrid==1:            
+                # If specified, build list of rs multipliers indexed by readout RS to apply later ...
+                mux11d_row_select_multipliers = self.tuning.get_exp_param('mux11d_row_select_multipliers',
+                                                                          missing_ok=True)
+                if mux11d_row_select_multipliers != None:
+                    self.hybrid_rs_multipliers=[]
+                    card_nrs_dict={ 'ac' : 41, 'bc1' : 32, 'bc2' : 32, 'bc3' : 32 }
+                    # These better be present if hybrid muxing
+                    mux11d_row_select_cards=self.tuning.get_exp_param('mux11d_row_select_cards',missing_ok=False)
+                    mux11d_row_select_cards_row0=self.tuning.get_exp_param('mux11d_row_select_cards_row0',missing_ok=False)
+                    mux11d_mux_order=self.tuning.get_exp_param('mux11d_mux_order',missing_ok=False)
+                    for rs in mux11d_mux_order:
+                        for (c,cr) in \
+                        [(card,range(r0,r0+card_nrs_dict[card])) for \
+                         (r0,card) in \
+                         zip(mux11d_row_select_cards_row0,mux11d_row_select_cards)]:
+                            if rs in cr:
+                                hybrid_rs_multiplier=float(mux11d_row_select_multipliers[where(mux11d_row_select_cards==c)])
+                                self.hybrid_rs_multipliers.append(hybrid_rs_multiplier)
+                    # Done building hybrid_rs_multipliers list
+            # Done collecting hybrid mux config
+        
     def read_data(self, filename):
         """
         Loads an rs_servo data set.
@@ -70,7 +95,7 @@ class RSServo(servo.SquidData):
         self.load_ramp_params('RB sq1 bias')
         if self.bias_style == 'select':
             self.bias_assoc = 'col'
-        
+
         # Prime
         self.data_shape = (-1, 1, len(self.cols), len(self.fb))
 
@@ -78,7 +103,7 @@ class RSServo(servo.SquidData):
         self._read_super_bias(filename)
 
         if not self.super_servo:
-            self.bias_assoc = 'col'
+            self.bias_assoc = 'col'        
 
     def split(self):
         sq = servo.SquidData.split(self)
@@ -110,9 +135,13 @@ class RSServo(servo.SquidData):
         # Categorize curve into hi, and lo regions.
         self.reg = [servo.get_curve_regions(y, extrema=True)
                     for y in self.data*slope[:,None]]
+
+        # Optionally, lets select be on upper/lower boundary of RS flux sweep.  Exercise with caution.
+        ok_if_rs_on_upper_bndry=self.tuning.get_exp_param('row_select_can_be_on_upper_boundary',missing_ok=True)
+        
         # Identify first valley, first subsequent peak.
         pairs, oks = [], []
-        for r, y in zip(self.reg, self.data*slope[:,None]):
+        for idx, (r, y) in enumerate(zip(self.reg, self.data*slope[:,None])):
             lo, hi, ok = None, None, False
             while len(r) > 0:
                 if r[1][1] > r[1][0]:
@@ -122,18 +151,39 @@ class RSServo(servo.SquidData):
             if lo and len(r) >= 3:
                 hi = r[2]
             if lo and hi:
+                
+                minResponse = self.tuning.get_exp_param('row_select_minimum_response',missing_ok=True) 
+                if minResponse is None:
+                    # Previous hard-coded empirical value for
+                    # backwards compatible
+                    minResponse=500 
+                    
+                # Throws out very low amplitude responses and flat-liners
+                ok = (abs(y[hi[0]]-y[lo[0]]) > minResponse)
+ 
+                # What bias,row,col is this?  Use to decide from
+                # expt.cfg whether or not select/deselect is allowed
+                # to be on the boundaries.
+                if ok_if_rs_on_upper_bndry!=None:
+                    if self.bias_style == 'select':
+                        (row,col)=np.unravel_index(idx,self.data_shape[-3:-1],order='C')
+                    elif self.bias_style == 'ramp':
+                        (bias,row,col)=np.unravel_index(idx,self.data_shape[:-1],order='C')                    
+                    else:
+                        raise RuntimeError, 'Unable to unravel by row.'
 
-                # Throw out ramps (max->min and min->max), flat-liners,
-                # and very low amplitude responses. 
-
-                minResponse=500  # WARNING - emperical value!
-                ok = not ((lo[0] == 0) and (hi[-1] == len(y))) and (abs(y[hi[0]]-y[lo[0]]) > minResponse)
+                if ok_if_rs_on_upper_bndry is None or ok_if_rs_on_upper_bndry[row]==0:
+                    # Throw out ramps (max->min and min->max)
+                    ok = not ((lo[0] == 0) and (hi[-1] == len(y))) and ok
 
                 # May as well get the apparent local extrema.
                 pairs.append((argmin(y[lo[0]:lo[1]]) + lo[0],
                               argmax(y[hi[0]:hi[1]]) + hi[0]))
             else:
                 pairs.append((0,0))
+
+            # Throw out ramps (max->min and min->max), flat-liners,
+            # and very low amplitude responses.
             oks.append(ok)
         self.analysis['desel_idx'], self.analysis['sel_idx'] = transpose(pairs)
         self.analysis['ok'] = array(oks)
@@ -201,6 +251,19 @@ class RSServo(servo.SquidData):
             if self.bias_style=='ramp':
                 an[k+'_x_row'] = self.fb[an[k+'_idx_row']]
 
+        # Apply hybrid rs multipliers if hybrid mux and they're specified
+        if self.ishybrid==1 and self.hybrid_rs_multipliers != None:
+            dshape = self.data_shape[:-1]
+            n_bias, n_row, n_col = dshape
+
+            for k in ['desel', 'sel']:
+                an_by_row_col=an[k+'_x'].reshape(n_bias,n_row,n_col)
+                
+                for r in range(n_row):
+                    if self.hybrid_rs_multipliers[r]!=1.0: # apply multiplier for plotting
+                        for ibias in range(n_bias):
+                            an_by_row_col[ibias][r]=(an_by_row_col[ibias][r]*self.hybrid_rs_multipliers[r])
+
         # Copy those for plotting
         an['left_x'], an['right_x'] = an['desel_x'], an['sel_x']
         self.analysis = an
@@ -212,7 +275,7 @@ class RSServo(servo.SquidData):
                                          (self.data_origin['basename']))
         if format == None:
             format = self.tuning.get_exp_param('tuning_plot_format')
-
+            
         # Is this a multi-bias ramp?  If so, split down
         if self.bias_style == 'ramp':
             ss = self.split()
@@ -251,10 +314,25 @@ class RSServo(servo.SquidData):
 
         # Default data is self.data
         data = getattr(self, data_attr)
-
+        # array of fb values to pass to plotting
+        fb_arr = self.fb
+        
+        # Hybrid muxing?  If user specified per-RS multipliers, give
+        # plotting an array of fbs
+        if self.ishybrid==1 and self.hybrid_rs_multipliers != None:
+            n_bias=self.data_shape[0]
+            fb_arr = np.reshape([self.fb]*data.shape[0],data.shape)
+            fb_arr_addressed_by_row_col=fb_arr.reshape(self.data_shape)
+            
+            for ibias in range(n_bias):
+                for r in range(n_row):
+                    # Apply multiplier for plotting
+                    if self.hybrid_rs_multipliers[r]!=1.0: 
+                        fb_arr_addressed_by_row_col[ibias][r]=(fb_arr_addressed_by_row_col[ibias][r]*self.hybrid_rs_multipliers[r])
+            
         # Plot plot plot
         return servo.plot(
-            self.fb, data, self.data_shape[-3:-1],
+            fb_arr, data, self.data_shape[-3:-1],
             self.analysis, plot_file,
             lock_levels=False,
             intervals=data_attr != 'error',

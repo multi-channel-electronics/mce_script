@@ -5,6 +5,7 @@ measured SA Ramp and SQ2 servo locking slopes.
 
 
 import auto_setup as aset
+import numpy as np
 
 from optparse import OptionParser
 

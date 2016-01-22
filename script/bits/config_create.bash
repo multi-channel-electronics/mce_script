@@ -246,22 +246,121 @@ done
 #----------------------------------------------
 # Address Card
 #----------------------------------------------
+
+# I wanted to put this below next to ac enbl_mux, but a cryptic
+# comment in the bc section of this script makes it sound like enbl
+# needs to be sent to the bc before sending the values for the DACs.
+# So putting it here, in advance.
+if [ "$mux11d_hybrid_row_select" == "1" ]; then
+    for i in `seq 0 $((${#mux11d_row_select_cards[@]}-1))`; do
+	card=${mux11d_row_select_cards[$i]}
+	r0=${mux11d_row_select_cards_row0[$i]}
+	for j in `seq 3`; do
+	    if [ "$card" == "bc$j" ]; then
+		for k in `seq 0 $((${#mux11d_mux_order[@]}-1))`; do
+		    rsmr0=$((${mux11d_mux_order[k]}-$r0))
+		    if [ \( "${rsmr0}" -ge "0" \) -a \( "${rsmr0}" -lt "32" \) ]; then
+			echo "wra bc2 enbl_mux ${rsmr0} 1" >> $mce_script
+		    fi
+		done
+	    fi
+	done
+    done
+fi
+
+
 if [ "$hardware_mux11d" == "0" ]; then
     echo "wb ac on_bias   ${sq1_bias[@]}" >> $mce_script
     echo "wb ac off_bias  ${sq1_bias_off[@]}" >> $mce_script
 else
-    # Must take ac row order into account ... row select/deselect are
-    # really just synonyms for ac on_bias/off_bias
-    for rs in `seq 0 $((${#row_order[@]}-1))`; do
-	echo "wra ac on_bias ${row_order[${rs}]} ${row_select[${rs}]}" >> $mce_script
-	echo "wra ac off_bias ${row_order[${rs}]} ${row_deselect[${rs}]}" >> $mce_script
-    done
+    if [ "$mux11d_hybrid_row_select" == "1" ]; then
+	## Hybridized muxing - prep ac on_bias/off_bias lines
+	if [ ${#mux11d_row_select_cards[@]} != ${#mux11d_row_select_cards_row0[@]} ]; then
+	    # Nonsensical configuration.  Give up...
+	    echo "Length of mux11d_row_select_cards=(${mux11d_row_select_cards[@]}) and mux11d_row_select_cards_row0=(${#mux11d_row_select_cards_row0[@]}) arrays not equal.  Abort!"
+	    exit 1
+	else 
+	    # Loop through the MCE Cards we're hybridizing the row
+	    # selects over and deal with them one at a time.  Really
+	    # only two cases; AC or BC.
+            for i in `seq 0 $((${#mux11d_row_select_cards[@]}-1))`; do
+		card=${mux11d_row_select_cards[$i]}
+		r0=${mux11d_row_select_cards_row0[$i]}
+
+		## For now, will assume user has correctly spaced r0
+		## for the cards; ie, AC has 41 or more indices
+		## between it and the r0 for the next card, and BCs
+		## have 32 or more indicies between them and the r0
+		## for the next card.
+		
+		#
+		# Configure AC-driven row selects
+		if [ "$card" == "ac" ]; then
+		    # These will be written to ac on_bias and ac
+		    # off_bias
+		    hybrid_ac_on_bias=(`repeat_string 0 41`)
+		    hybrid_ac_off_bias=(`repeat_string 0 41`)
+		    for k in `seq 0 $((${#mux11d_mux_order[@]}-1))`; do
+			rsmr0=$((${mux11d_mux_order[k]}-$r0))
+			if [ \( "${rsmr0}" -ge "0" \) -a \( "${rsmr0}" -lt "41" \) ]; then
+			    # If there is no row select for this
+			    # entry, throw an exception, unless it's
+			    # the AC idle row
+			    if [ ! "$k" -lt "${#row_select[@]}" ]; then
+				if [ "${mux11d_mux_order[k]}" -eq "${mux11d_ac_idle_row}" ]; then
+				    continue
+				fi
+				# Not the AC idle row.  Exception!
+				echo "The row_select (size=${#row_select[@]}) and row_deselect (size=${#row_deselect[@]})"
+				echo "lists are shorter than the mux11d_mux_order (size=${#mux11d_mux_order[@]}) list in"
+				echo "experiment.cfg, and the row with no corresponding select/deselect is *not* the AC"
+				echo "idle row.  (k=${k} r0=${r0} rsmr0=${rsmr0} row_select[$k]=${row_select[$k]}"
+				echo "row_deselect[$k]=${row_deselect[$k]}).  Abort!"
+				exit 1
+			    else
+				hybrid_ac_on_bias[${rsmr0}]=${row_select[$k]}
+				hybrid_ac_off_bias[${rsmr0}]=${row_deselect[$k]}
+			    fi
+			fi
+		    done
+
+		    echo "wb ac on_bias   ${hybrid_ac_on_bias[@]}" >> $mce_script
+		    echo "wb ac off_bias  ${hybrid_ac_off_bias[@]}" >> $mce_script
+		fi
+		# Done configuring AC-driven row selects
+
+		#
+		# Configure BC-driven row selects
+		for j in `seq 3`; do
+		    if [ "$card" == "bc$j" ]; then
+			for k in `seq 0 $((${#mux11d_mux_order[@]}-1))`; do
+			    rsmr0=$((${mux11d_mux_order[k]}-$r0))
+			    if [ \( "${rsmr0}" -ge "0" \) -a \( "${rsmr0}" -lt "32" \) ]; then
+				hybrid_bc_fb_col=(`repeat_string ${row_deselect[$k]} $AROWS`)
+				hybrid_bc_fb_col[$k]=${row_select[$k]}
+				echo "wb bc$j fb_col${rsmr0}   ${hybrid_bc_fb_col[@]}" >> $mce_script
+			    fi
+			done
+		    fi
+		done
+		# Done configuring BC-driven row selects
+		#
+
+	    done
+	fi
+    else # Just using ac on_bias/off_bias to switch mux11d rows
+	# Must take ac row order into account ... row select/deselect
+	# are really just synonyms for ac on_bias/off_bias
+	for rs in `seq 0 $((${#row_order[@]}-1))`; do
+	    echo "wra ac on_bias ${row_order[${rs}]} ${row_select[${rs}]}" >> $mce_script
+	    echo "wra ac off_bias ${row_order[${rs}]} ${row_deselect[${rs}]}" >> $mce_script
+	done
+    fi
 fi
 
 echo "wb ac row_dly   $row_dly" >> $mce_script
 echo "wb ac row_order ${row_order[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
-
 
 # Set the TES biases via the "tes bias" virtual address
 if [ "$tes_bias_do_reconfig" != "0" ]; then
