@@ -412,7 +412,7 @@ class SQ1Servo(servo.SquidData):
         rs.add_data('ok', self.analysis['ok'],
                     ylabel='Curve quality')
         # Turn bias indices into biases; store as analysis.
-        idx = self.analysis['select_row_sel']
+        idx = self.analysis['select_%s_sel'%self.bias_assoc]
         rs.analysis = {'lock_x': self.bias[idx]}
         return rs
 
@@ -525,7 +525,7 @@ class SQ1ServoSA(SQ1Servo):
         mx, mn = amax(self.data, axis=-1),amin(self.data, axis=-1)
         self.analysis['y_max'] = mx
         self.analysis['y_min'] = mn
-        self.analysis['y_span'] = mx - mn
+        self.analysis['y_span'] = span = mx - mn
 
         if self.bias_style == 'ramp':
             # Identify bias index of largest response in each row
@@ -651,14 +651,18 @@ class SQ1ServoSummary(servo.RampSummary):
         data = self.data[data_attr]
     
         _, nrow, ncol, nbias = self.data_shape
-        if self.bias_assoc == 'row':
+        # This code block seems totally wrong.  I have tried to
+        # maintain compatibility but I cared about the rowcol
+        # implementation (SWH).
+        transpose_row_col=(self.bias_assoc not in ['row','rowcol'])
+        if self.bias_assoc in ['row','rowcol']:
             plot_shape = (nrow, ncol)
             data = data.reshape(nrow, ncol, nbias)
             ok = self.data['ok'].reshape(nrow, ncol, nbias)
-        else:
-            plot_shape = (nrow, ncol)
+        else: # this particularly seems wrong
+            plot_shape = (nrow, ncol) # why not (ncol,nrow)?
             data = data.reshape(nrow, ncol, nbias).transpose(1,0,2)
-            ok = self.data['ok']
+            ok = self.data['ok'] # why not transpose this too?
             
         pl = util.plotGridder(plot_shape,
                               plot_file,
@@ -671,13 +675,16 @@ class SQ1ServoSummary(servo.RampSummary):
             
         an = self.analysis
         for r, c, ax in pl:
-            if r >= plot_shape[1]:
+            if r >= plot_shape[(1 if transpose_row_col else 0)]:
                 continue
             x = self.fb/1000.
             #for i in xrange(ncurves):
             ax.add(biggles.Curve(x, data[r,c]/1000.))
             if 'lock_x' in an:
-                ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
+                if self.bias_assoc=='rowcol':
+                    ax.add(biggles.LineX((an['lock_x'].reshape(nrow, ncol))[r,c] / 1000., type='dashed'))
+                else:
+                    ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
 
         return {
             'plot_files': pl.plot_files,

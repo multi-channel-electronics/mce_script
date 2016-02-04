@@ -141,7 +141,17 @@ def prepare_sa_ramp(tuning, tune_data, cols=None):
     if is_mux11d:
         tuning.set_exp_param('config_fast_sa_fb', 0)
         tuning.set_exp_param('config_fast_sq1_bias', 0)
-        
+
+        is_hybrid = \
+          tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True) == 1
+        if is_hybrid:
+            # May want to be more surgical ; but for now, since
+            # hybridization could include BC RSes, need to make sure
+            # these aren't being switched ; for now fix to zero.
+            n_rs = len(tuning.get_exp_param('row_select'))
+            tuning.set_exp_param('row_select', [0]*n_rs)
+            tuning.set_exp_param('row_deselect', [0]*n_rs)
+
     # Update settings.
     tuning.write_config()
 

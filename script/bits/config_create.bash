@@ -260,7 +260,7 @@ if [ "$mux11d_hybrid_row_select" == "1" ]; then
 		for k in `seq 0 $((${#mux11d_mux_order[@]}-1))`; do
 		    rsmr0=$((${mux11d_mux_order[k]}-$r0))
 		    if [ \( "${rsmr0}" -ge "0" \) -a \( "${rsmr0}" -lt "32" \) ]; then
-			echo "wra bc2 enbl_mux ${rsmr0} 1" >> $mce_script
+			echo "wra ${card} enbl_mux ${rsmr0} 1" >> $mce_script
 		    fi
 		done
 	    fi

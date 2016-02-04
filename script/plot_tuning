@@ -126,7 +126,7 @@ for stage in opts.stage:
                              format=opts.format)
             # Flatten ramp to best bias choice
             s.reduce1(slope=slope)
-            if stage in ['sq2_servo', 'sq1_servo']:
+            if stage in ['sq2_servo', 'sq1_servo', 'sq1_servo_sa', 'rs_servo']:
                 rs = s.ramp_summary()
                 rs.plot(plot_file='%s/%s_%s_summary' % (odir, basename, stage),
                         format=opts.format)

@@ -1,5 +1,6 @@
 # vim: ts=4 sw=4 et
 import time, os, glob
+import biggles
 import auto_setup.util as util
 from numpy import *
 import numpy as np
@@ -194,8 +195,10 @@ class RSServo(servo.SquidData):
         For ramp, identify "best" bias, and determine a single set of
         reasonable row select and row deselect flux levels.
         """
-        span = amax(self.data, axis=-1) - amin(self.data, axis=-1)
-        self.analysis['y_span'] = span
+        mx, mn = self.data.max(axis=-1), self.data.min(axis=-1)
+        self.analysis['y_max'] = mx
+        self.analysis['y_min'] = mn
+        span = self.analysis['y_span'] = mx - mn
         if self.bias_style == 'ramp':
             # For clarity?
             dshape = self.data_shape[:-1]
@@ -350,3 +353,76 @@ class RSServo(servo.SquidData):
             kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
                                   (self.data_origin['basename'] + '_err'))
         return self.plot(*args, **kwargs)
+
+    def ramp_summary(self):
+        """
+        If this is an analyzed bias ramp, returns a RampSummary loaded
+        with the amplitudes, max and min values, and bias set points.
+        """
+        rs = RSServoSummary.from_biases(self)
+        rs.add_data('y_span', self.analysis['y_span'],
+                    ylabel='Amplitude (/1000)')
+        rs.add_data('y_max', self.analysis['y_max'],
+                    ylabel='Max error (/1000)')
+        rs.add_data('y_min', self.analysis['y_min'],
+                    ylabel='Min error (/1000)')
+        rs.add_data('ok', self.analysis['ok'],
+                    ylabel='Curve quality')
+        # Turn bias indices into biases; store as analysis.
+        idx = self.analysis['select_%s_sel'%self.bias_assoc]
+        rs.analysis = {'lock_x': self.bias[idx]}
+        return rs
+
+class RSServoSummary(servo.RampSummary):
+    xlabel = 'SQ1 BIAS'
+
+    # Override plot so we can get multiple curves in one frame.  And
+    # because servo.plot is out of hand.
+    
+    def plot(self, plot_file=None, format=None, data_attr=None):
+        if plot_file == None:
+            plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
+                                         (self.data_origin['basename']))
+        if format == None:
+            format = self.tuning.get_exp_param('tuning_plot_format',
+                                               default='png')
+
+        if data_attr == None:
+            data_attr = 'y_span'
+        data = self.data[data_attr]
+    
+        _, nrow, ncol, nbias = self.data_shape
+        if self.bias_assoc == 'row':
+            plot_shape = (1, nrow)
+            ncurves = ncol
+            data = data.reshape(nrow, ncol, nbias)
+            ok = self.data['ok'].reshape(nrow, ncol, nbias)
+        else:
+            plot_shape = (1, ncol)
+            data = data.reshape(nrow, ncol, nbias).transpose(1,0,2)
+            ncurves = nrow
+            ok = self.data['ok']
+            
+        pl = util.plotGridder(plot_shape,
+                              plot_file,
+                              title=self.data_origin['basename'],
+                              xlabel=self.xlabel,
+                              ylabel=self.ylabels[data_attr],
+                              target_shape=(4,2),
+                              row_labels=True,
+                              format=format)
+            
+        an = self.analysis
+        for _, r, ax in pl:
+            if r >= plot_shape[1]:
+                continue
+            x = self.fb/1000.
+            for i in xrange(ncurves):
+                ax.add(biggles.Curve(x, data[r,i]/1000.))
+            if 'lock_x' in an:
+                ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
+
+        return {
+            'plot_files': pl.plot_files,
+            }
+
