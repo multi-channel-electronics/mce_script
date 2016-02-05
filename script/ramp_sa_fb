@@ -148,6 +148,7 @@ if [ $do_bias_ramp -eq 0 ]; then
     mce_ramp -M "acq_config $datafile rc$rc" \
 	-L $ramp_count  -V 0 $ramp_step \
 	    -P "wra sa fb $col_index" $col_count \
+	    -P "sleep $settling_delay_us" 0 \
   	    -P "acq_go 1" 0  >> $tempfile
     
     repeat_string "0" $col_count "wra sa fb $col_index" >> $tempfile
