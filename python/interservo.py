@@ -2,7 +2,12 @@
 # vim: ts=4 sw=4 et
 
 from auto_setup.util import mas_path
-from mce import *
+
+## This is an old script... is it still in use?  We should at least
+## stop using the swig-based wrapper.
+#from mce import *
+from pymce.compat import old_mce as mce
+
 from mce_data import *
 from glob import glob
 import sys, commands
