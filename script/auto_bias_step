@@ -22,6 +22,9 @@ start_ctime=`print_ctime`
 echo "START : $SCRNAME : $start_time" | $LOGGER
 echo "ARGS  : $SCRNAME : $@" | $LOGGER
 
+#Make sure we're not turning on biases full blast...
+mce_check_init -q
+
 mce_bias_step_acq $@
 if [ "$?" != "0" ]; then
     echo $ERRPREF "mce_bias_step_acq returned error!" | $LOGGER
