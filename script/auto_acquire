@@ -20,8 +20,11 @@ from optparse import OptionParser
 from auto_setup.util.mas_path import mas_path
 mas_path = mas_path()
 
+from auto_setup.config import mas_param
+exp_file = mas_path.data_dir() + '/experiment.cfg'
 
-FRAME_RATE=398.724
+MCE_FREQ = 50e6
+DEFAULT_FRAME_RATE = 398.724
 MAX_INDEX=1000
 
 def get_output(cmd):
@@ -65,7 +68,7 @@ class Cloner:
     suffix = 'dat'
     digits = 3
     block_size = 240000
-    frame_rate = FRAME_RATE
+    frame_rate = DEFAULT_FRAME_RATE
     note = ''
     acq_reg = False
     output_dir = '/data/cryo/current_data/'
@@ -76,7 +79,7 @@ class Cloner:
                 raise ValueError, 'unexpected argument %s' % k
             setattr(self, k, v)
         if self.expire_time == None:
-            # Two minutes frace
+            # Two minutes grace
             self.expire_time = self.block_size / self.frame_rate + 120
         self.n_frames = n_frames
         self.basename = filename
@@ -85,7 +88,7 @@ class Cloner:
         
     def new_filename(self, start, index):
         # Get a filename and ctime for the link that has a realistic ctime stamp.
-        t = int(start + self.block_size * index / self.frame_rate)
+        t = int(round(start + self.block_size * index / self.frame_rate))
         # Loop is to make sure we never generate the same filename twice.
         while True:
             candidate = '%s/%010i_%s' % (self.output_dir, t, self.suffix), t
@@ -147,18 +150,39 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
     details['suffix'] = suffix
     details['data_dir'] = mas_path.data_dir()
     details['data_root'] = mas_path.data_root()
-    details['n_frames'] = n_frames
     details['rc'] = 'rc%s' % rc
     details['rc_num'] = '%s' % rc
     details['temp_base'] = '%s/%s_%i__' % \
         (temp_dir, get_output('whoami').strip(), mas_path.fibre_card())
+
+    # Compute the frame rate.
+    timing_nums = [int(mas_param(exp_file, k)) for k in
+                   ['data_rate', 'num_rows', 'row_len']]
+    frame_period = timing_nums[0]*timing_nums[1]*timing_nums[2]
+    frame_rate = MCE_FREQ / frame_period
+
+    # Manipulate the frame count / sequencing interval?
+    acq_seq = cfg.getint('sequence_interval', 0)
+    frame_reference = cfg.getint('frame_count_reference_period', 0)
+
+    if frame_reference not in [0, frame_period]:
+        # Rescale frame count to produce same net timing.
+        new_n_frames = n_frames * frame_reference / frame_period
+        new_acq_seq = n_frames * frame_reference / frame_period
+        if (acq_seq != 0) and (n_frames % acq_seq == 0):
+            # But allow a little rounding to make a nice multiple
+            # of the block size.
+            new_n_frames = new_acq_seq * (n_frames / acq_seq)
+        n_frames = new_n_frames
+        acq_seq = new_acq_seq
+
+    details['n_frames'] = n_frames
 
     # Generate lines for mce_cmd script that runs the acq.
     lines = ['lock_down']
 
     cfg_suffix = ''
     acq_type = cfg.getstr('type', 'flatfile')
-    acq_seq = cfg.getint('sequence_interval', 0)
     
     acq_command = 'acq_config' + \
       {'flatfile': '',
@@ -211,6 +235,7 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
                             output_dir=os.path.split(details['filename'])[0],
                             update_interval=1,
                             block_size=acq_seq,
+                            frame_rate=frame_rate,
                             note=reg_note,
                             suffix=suffix,
                             acq_reg=(cfg.getint('register', 0)))
