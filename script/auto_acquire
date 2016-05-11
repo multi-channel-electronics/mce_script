@@ -168,7 +168,7 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
     if frame_reference not in [0, frame_period]:
         # Rescale frame count to produce same net timing.
         new_n_frames = n_frames * frame_reference / frame_period
-        new_acq_seq = n_frames * frame_reference / frame_period
+        new_acq_seq = acq_seq * frame_reference / frame_period
         if (acq_seq != 0) and (n_frames % acq_seq == 0):
             # But allow a little rounding to make a nice multiple
             # of the block size.
