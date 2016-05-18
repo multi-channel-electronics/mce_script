@@ -3,13 +3,14 @@
 USAGE="""
 %prog flatfile dirfile
 
-Converts MCE flatfile to a dirfile.  Currently just extracts the raw
-data (as int32) and channelizes it.  It would be easy to make this a
-little bit smarter.
+Converts MCE flatfile to a dirfile.  Extracts the raw
+data (as int32) and channelizes it.  It also pulls out 'ramp_value' and 
+supports row and col offsets. 
 """
 
 from mce_data import MCEFile
 from optparse import OptionParser
+import numpy
 import os
 
 class formatFileWriter(file):
@@ -41,9 +42,40 @@ for ifile, ofile in zip(infiles, outfiles):
         os.makedirs(ofile)
     fmt = formatFileWriter(ofile+'/format', 'w')
     rows, cols = d.channels
+
+    # MCE 'readout_row/col_index' param may require extra care
+
+    rowOffset = rows[0]
+    colOffset = cols[0]
+
+    print "row,col offset = ", (rowOffset,colOffset)
+
+
     for r in rows:
         for c in cols:
-            name, data = 'tesdatar%02ic%02i' % (r,c), d.data[r,c].astype('int32')
+            name, data = 'tesdatar%02ic%02i' % (r,c), d.data[r - rowOffset,c - colOffset].astype('int32')
             fmt.write_raw_field(name, data.dtype, 1)
             data.tofile(file=open(ofile+'/'+name, 'w'))
+            num_data = len(data)
+
+    name = 'ramp_value'
+    raw = m.Read(raw_frames=True)
+    rampValues = raw[:,7].astype('int32')
+
+    # Ramp values may be at slower rate if Rect Mode used for 
+    # data.  This will expand ramp values appropriately
+
+    repeat = num_data/len(rampValues)
+
+    print "Expanding ramp values by factor of ", repeat
+
+    rampExpanded = []
+    for orig in rampValues:
+    	for n in xrange(repeat):
+            rampExpanded.append(orig)
+
+    rampExpandedNP = numpy.asarray(rampExpanded).astype('int32')
+
+    fmt.write_raw_field(name, rampExpandedNP.dtype, 1)
+    rampExpandedNP.tofile(file=open(ofile+'/'+name, 'w'))
     del fmt
