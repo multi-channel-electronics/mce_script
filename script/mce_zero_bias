@@ -51,9 +51,9 @@ if [ "x" == "x" ]; then
 	# mux11d stuff
 	repeat_string "0" $n_columns "wb sq1 bias"
 	
-	repeat_string "0" $array_width "wb bc1 enbl_mux"
-        repeat_string "0" $array_width "wb bc2 enbl_mux"
-        repeat_string "0" $array_width "wb bc3 enbl_mux"
+	repeat_string "0" $n_columns "wb bc1 enbl_mux"
+        repeat_string "0" $n_columns "wb bc2 enbl_mux"
+        repeat_string "0" $n_columns "wb bc3 enbl_mux"
 	for bc in 1 2 3; do
             for c in `seq 0 31`; do
 		repeat_string "0" $array_width "wb bc${bc} fb_col$c"

@@ -301,6 +301,12 @@ else
 		    hybrid_ac_on_bias=(`repeat_string 0 41`)
 		    hybrid_ac_off_bias=(`repeat_string 0 41`)
 		    for k in `seq 0 $((${#mux11d_mux_order[@]}-1))`; do
+
+			# don't go higher than # of rows
+                        if [ $k -gt $(( $num_rows - 1 )) ]; then
+                            continue
+                        fi
+
 			rsmr0=$((${mux11d_mux_order[k]}-$r0))
 			if [ \( "${rsmr0}" -ge "0" \) -a \( "${rsmr0}" -lt "41" \) ]; then
 			    # If there is no row select for this
