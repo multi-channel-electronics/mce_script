@@ -8,6 +8,10 @@ Recognized actions:
    Measure the ADC response to changes in SA bias and SA offset and
    estimate an appropriate value to use for sa_offset_bias_ratio.
 
+ test_syncbox
+
+   Check for connection to syncbox.  This only tests for presence of
+   the Manchester clock; it can't see whether configuration is correct.
 """
 
 from mce_control import mce_control as mce
@@ -153,6 +157,21 @@ for action in args:
         if ratio1_min < ratio_mean:
             print 'You have weird ratios.  Seek advice.'
         print 'Recommended sa_offset_bias_ratio: %.3f' % ratio1_min
+
+    elif action == 'test_syncbox':
+        m = mce()
+        for it in [0,1]:
+            sc0 = m.read('cc', 'select_clk')
+            if sc0 is None:
+                print 'MCE error.'
+                break
+            elif sc0[0] == 1:
+                print 'Sync box is connected and select_clk=1.'
+                break
+            elif i == 0:
+                print 'Writing select_clk=1'
+                m.write('cc', 'select_clk', [1])
+                time.sleep(1)
 
     else:
         o.error("I do not know how to '%s'" % action)
