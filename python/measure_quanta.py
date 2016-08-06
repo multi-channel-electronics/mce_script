@@ -16,6 +16,8 @@ o.add_option('--span',type=float,default=1.5,
              help='minimum number of phi0 one can expect to find in the data.')
 o.add_option('--sub-ramp',type=int,default=None,
              help='for multi-bias ramps, select index of ramp to use for measurement.')
+o.add_option('--rescale',type=int,
+             help='rescale quanta by this integer if it would still fit within ~0.75 of DAC range.')
 opts, args = o.parse_args()
 if len(args) != 2:
     o.error('Provide exactly two arguments.')
@@ -82,6 +84,13 @@ print 'Traveling segment of length %i' % width
 p = aset.servo.period(sq.data, width=width)
 
 periods = p * sq.d_fb
+
+if opts.rescale is not None:
+    MAX_QUANTUM = 2**14 * 0.75
+    to_adjust = (periods != 0)
+    n_fit = np.floor(MAX_QUANTUM / periods[to_adjust])
+    to_adjust[to_adjust] *= (n_fit >= opts.rescale)
+    periods[to_adjust] = (opts.rescale * periods[to_adjust])
 
 n_rc = len(periods)/8
 stage_keys = {
