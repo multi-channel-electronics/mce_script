@@ -17,18 +17,26 @@ if [ "$1" != "no_reset" ]; then
     set_directory
 fi
 
-echo "Setting SA and SQ2 biases to default values to pre-warm the SA board."
-
 expt=$MAS_DATA/experiment.cfg
-sa_bias=`mas_param -s $expt get default_sa_bias`
-s2_bias=`mas_param -s $expt get default_sq2_bias`
+mux11d=`mas_param -s $expt get hardware_mux11d | sed 's/\ //g'`
+echo x${mux11d}x
 
+echo "Setting SA bias to default values."
+sa_bias=`mas_param -s $expt get default_sa_bias`
 sa_reply=`command_reply wb sa bias $sa_bias`
-s2_reply=`command_reply wb sq2 bias $s2_bias`
+echo -n "SA biases:  "
+command_reply rb sa bias
+
+if [ "$mux11d" != "1" ]; then
+    echo "Setting SQ2 bias to default values."
+    s2_bias=`mas_param -s $expt get default_sq2_bias`
+    s2_reply=`command_reply wb sq2 bias $s2_bias`
+    echo -n "SQ2 biases: "
+    command_reply rb sq2 bias
+else
+    echo "mux11d active, no SQ2."
+    s2_reply=""
+fi
 
 [ "$sa_reply" == "" ] && [ "$s2_reply" == "" ] || exit 1
 
-echo -n "SA biases:  "
-command_reply rb sa bias
-echo -n "SQ2 biases: "
-command_reply rb sq2 bias
