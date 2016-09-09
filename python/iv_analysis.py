@@ -83,12 +83,11 @@ if ar_par['use_Rshunt_file'] != 0:
     if fmt[0] == 'detector_list':
         # Args are column indices (col, row, Rshunt)
         cols = map(int, fmt[1:])
-        Rshunt = iv_tools.TESShunts.from_columns_file((n_col,n_row), ar_par['Rshunt_filename'])
+        Rshunt = iv_tools.TESShunts.from_columns_file(
+            (n_row,n_col), ar_par['Rshunt_filename'], data_cols=cols)
         Rshunt.R[~Rshunt.ok] = ar_par['default_Rshunt']
         printv('Read %i shunt resistances from %s' % \
                    (Rshunt.ok.sum(), ar_par['Rshunt_filename']), 2)
-    elif fmt[0] == 'act_srdp':
-        Rshunt = iv_tools.TESShunts.for_act((n_col,n_row), ar_par['Rshunt_filename'])
     else:
         raise ValueError, "unknown shunt_format = '%s'" % fmt[0]
 else:

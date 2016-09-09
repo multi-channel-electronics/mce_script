@@ -231,6 +231,11 @@ class TESShunts:
 
     @classmethod
     def from_columns_file(cls, shape, filename, data_cols=[0,1,2]):
+        """
+        Load R from an ascii file.  'shape' should be (n_row, n_col).
+        The `data_cols` should be a list of the columns that
+        correspond to detector column, row, and R in Ohms.
+        """
         self = cls(shape)
         for line in open(filename):
             w = line.split()
@@ -249,23 +254,6 @@ class TESShunts:
             rows, Rs = sd[0].astype('int'), sd[1]
             self.R[rows, c] = Rs
             self.ok[rows, c] = True
-        return self
-
-    @classmethod
-    def for_act(cls, shape, filename_template, data_cols, ar_par,
-                rshunt_bug=False):
-        self = cls.from_srdp_files(shape, filename_template, data_cols)
-        self.ok *= (ar_par['good_shunt_range'][0] < self.R) * \
-            (self.R < ar_par['good_shunt_range'][1])
-        # Sub in default value for bad entries.
-        self.R[~self.ok] = ar_par['default_Rshunt']
-        # Apply that bug?  Off by one row.
-        if rshunt_bug:
-            # This is just going to cause errors...
-            Rshunt.R = Rshunt[:,n_col-1:]
-        # AR3 exception
-        if ar_par['array'] == 'AR3':
-            self.R[(data_cols >= 24)*~shunts_ok] = 0.0007
         return self
 
 class BiasLineMapping(object):
