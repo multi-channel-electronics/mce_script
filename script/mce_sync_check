@@ -1,25 +1,72 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-#initialise environment
-if [ ! -x ${MAS_VAR:=/usr/mce/bin/mas_var} ]; then
-  echo "Cannot find mas_var.  Set MAS_VAR to the full path to the mas_var binary." >&2
-  exit 1
-else
-  eval $(${MAS_VAR} -s)
-fi
+import subprocess as sp
+from mce_control import mce_control
 
-source $MAS_SCRIPT/mas_library.bash
+import os, sys, time
 
-# Get some frames...
-filename=`print_ctime`_sync
-mce_run $filename 1000 s
+def run(cmd):
+    p = sp.Popen(cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+    o,e = p.communicate()
+    return p.returncode, o, e
 
-eat_packets -n 4400 -f $MAS_DATA/$filename > /dev/null
-err=$?
+print 'Setting up MCE.'
+X = run('mce_make_config -x')
+if X[0] != 0:
+    print 'Failed to set up:'
+    print X
+    sys.exit(10)
 
-if [ "$?" != 0 ]; then
-    echo 'Sync number check failed!'
-    exit 1
-fi
 
-echo 'Sync check ok.'
+mce = mce_control()
+# Someday this will crash because data_rate becomes a scalar.
+timing = [mce.data_rate()[0], mce.num_rows(), mce.row_len()]
+frame_freq = 50e6 / (timing[0] * timing[1] * timing[2])
+
+fn = '%i_sync' % (int(time.time()))
+print 'Acquiring data to %s' % fn
+X = run('mce_run %s 2000 s' % fn)
+if X[0] != 0:
+    print 'Failed to acquire data.'
+    print X
+    sys.exit(10)
+
+
+fn_fp = '/data/cryo/current_data/%s' % fn
+X = run('eat_packets -f %s' % fn_fp)
+if X[0] != 0:
+    print 'Failed to analyze data.'
+    print X
+    sys.exit(10)
+
+lines = X[1].split('\n')
+print 'Parsing eat_packets output (%i lines)...' % len(lines)
+print
+if len(lines) > 5:
+    print 'Looks like there were some frame errors.'
+    print
+
+sync0 = None
+for i, line in enumerate(lines):
+    if i == 0:
+        assert line.startswith('Determined')
+    elif i == 1:
+        assert line.startswith('offset')
+    else:
+        w = line.split()
+        if w[0] == 'EOF': continue
+        if w[3] == 'surprise' and w[4] == 'sync_dv':
+            sync0 = int(w[5][:-1])
+            break
+
+print 'MCE is set for frame rate (Hz):     %.3f' % frame_freq
+print 'First sync number is:               %i' % sync0
+print 'That corresponds to sync time (s):  %.6f' % (1.* sync0 / frame_freq)
+
+print
+print 'Cleaning up'
+for f in [fn_fp, fn_fp + '.run']:
+    if os.path.exists(f):
+        print ' removing %s' % f
+        os.remove(f)
+

@@ -333,7 +333,7 @@ if __name__ == '__main__':
     try:
         ret_val = auto_acq(cfg, n_frames, opts.rc, opts.reg_note, opts.suffix)
     except:
-        logger.write('exception during auto_acq!', 'ERROR')
+        logger.write('exception during auto_acq at %s' % time.asctime(), 'ERROR')
         raise
     if ret_val != 'clone':
         logger.stop_msg()
