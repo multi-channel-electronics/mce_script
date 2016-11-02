@@ -91,10 +91,11 @@ for ch in range(ch_start,ch_end):
     command = 'mce_raw_acq_1col %i %i "" "" %s ""' % (rc, ch, ch_dir)
     print "\nExecuting: ", command
     for it in range(0,num_files):
+      command = 'mce_raw_acq_1col %i %i "" %izz %s ""' % (rc, ch, it, ch_dir)
       system(command)
 
   print "\nComputing data for rc", rc, "channel", ch
-  files=glob(path.join(mas_data_dir, ch_dir) + "/*_raw")
+  files=glob(path.join(mas_data_dir, ch_dir) + "/*zz")
 
   alldata = array([], dtype=int16)
   n=zeros(16384, dtype=int32)
