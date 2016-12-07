@@ -122,6 +122,8 @@ MCE_data_modes = { \
                            raw={'n_cols':8, 'offsettable': False}),
     '4': DataMode().define(BitField().define('fb', 14, 18),
                            BitField().define('error', 0, 14)),
+    '5': DataMode().define(BitField().define('fb', 8, 24, 2.**-4),
+                           BitField().define('fj', 0, 8)),
     '9': DataMode().define(BitField().define('fb_filt', 8, 24, 2.**1),
                            BitField().define('fj', 0, 8)),
     '10': DataMode().define(BitField().define('fb_filt', 7, 25, 2.**3),
