@@ -33,14 +33,9 @@ if [ "$do_tes0" == "1" ] && [ "$do_tes1" == "1" ]; then
 	echo Could not find last IV analysis file $last_iv 
 	exit 1
     fi
-    #BIAS=${MAS_DATA_ROOT}/tes_bias_recommended
-    norm_bias=`mas_param -s $EXPT get tes_bias_normal`
-    norm_time=`mas_param -s $EXPT get tes_bias_normal_time`
-
-    echo Biasing tes normal...
-    bias_tess $norm_bias
-    sleep $norm_time
-    echo Biasing tes to recommended values.
+    # auto_iv will set the bias, and drive dets normal provided that
+    # tes_bias_normal and tes_bias_normal_time are set in
+    # experiment.cfg
     auto_iv bias $last_iv || ( \
 	echo "auto_iv failed to set bias."
 	exit 1

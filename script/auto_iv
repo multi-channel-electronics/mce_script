@@ -46,6 +46,9 @@ from mce_data import MCERunfile
 from auto_setup.util import mas_path
 mas_path = mas_path()
 
+from auto_setup.config import mas_param
+exp_file = mas_path.data_dir() + '/experiment.cfg'
+
 stages = ['ramp', 'analyze', 'bias']
 
 def get_stage(stage):
@@ -206,14 +209,41 @@ if do_stage('analyze'):
 #  Apply the lastest biases?
 #
 if do_stage('bias'):
-    from mce_data import MCERunfile
+    # Accumulate operations in a list.
+    cmds = []
+
+    # Drive dets normal before setting bias?
+    norm_biases = mas_param(exp_file, 'tes_bias_normal')
+    if len(norm_biases) != 0:
+        norm_biases = map(int, norm_biases.split())
+        norm_time = float(mas_param(exp_file, 'tes_bias_normal_time'))
+        cmds.append(('bias', norm_biases, 'Driving detectors normal...'))
+        cmds.append(('sleep', norm_time, '... for %.2f s' % norm_time))
+
+    # The last IV biases.
     rf = MCERunfile(opts.analysis_file)
     biases = rf.Item('IV', 'rec_biases', type='int', array=True)
-    cmd = 'bias_tess ' + ' '.join(['%i' % x for x in biases])
-    err = os.system(cmd)
-    if err != 0:
-        printe('biasing stage failed [%i], exiting.' % err)
-        o.exit(1)
+    cmds.append(('bias', biases, 'Setting detector biases.'))
+
+    # Post-delay?
+    delay = cfg.getfloat('bias_delay_post', 0)
+    if delay > 0:
+        cmds.append(('sleep', delay, 'Wait for settling, %.2f s' % delay))
+
+    # Do the biasing.
+    for op, vals, msg in cmds:
+        print msg
+        if op == 'bias':
+            cmd = 'bias_tess ' + ' '.join(['%i' % x for x in biases])
+            err = os.system(cmd)
+            if err != 0:
+                printe('biasing stage failed [%i], exiting.' % err)
+                o.exit(1)
+        elif op == 'sleep':
+            time.sleep(vals)
+        else:
+            raise RuntimeError
+
     # Link it?  Not if we're using the link as the source analysis...
     if opts.do_link and (true_path(opts.analysis_file) != \
                              true_path(last_iv_link)):
@@ -226,8 +256,5 @@ if do_stage('bias'):
         if link_exists:
             os.remove(last_iv_link)
         os.symlink(true_path(opts.analysis_file), last_iv_link)
-    # Delay or whatever?
-    delay = cfg.getfloat('bias_delay_post', 0)
-    time.sleep(delay)
 
 alog.stop_msg()
