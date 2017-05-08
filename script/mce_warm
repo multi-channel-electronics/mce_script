@@ -10,14 +10,20 @@ fi
 
 source $MAS_SCRIPT/mas_library.bash
 
+expt=$MAS_DATA/experiment.cfg
+
 if [ "$1" != "no_reset" ]; then
     echo "Resetting MCE..."
     mce_reset_clean
+    clear_on_warm=`mas_param -s $expt get clear_config_on_warm | sed 's/\ //g'`
+    if [ "$clear_on_warm" == "1" ]; then
+	echo "Removing $expt if it exists."
+	[ -e $expt ] && rm $expt
+    fi
     echo "Setting current_data directory..."
     set_directory
 fi
 
-expt=$MAS_DATA/experiment.cfg
 mux11d=`mas_param -s $expt get hardware_mux11d | sed 's/\ //g'`
 echo x${mux11d}x
 
