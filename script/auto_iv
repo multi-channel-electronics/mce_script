@@ -234,7 +234,7 @@ if do_stage('bias'):
     for op, vals, msg in cmds:
         print msg
         if op == 'bias':
-            cmd = 'bias_tess ' + ' '.join(['%i' % x for x in biases])
+            cmd = 'bias_tess ' + ' '.join(['%i' % x for x in vals])
             err = os.system(cmd)
             if err != 0:
                 printe('biasing stage failed [%i], exiting.' % err)
