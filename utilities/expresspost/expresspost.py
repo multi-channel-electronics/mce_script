@@ -89,7 +89,7 @@ class ArchiveList:
                 self.state = ListState.processed
 
     def MarkProcessed(self, files=None):
-        if files == None:
+        if files is None:
             files = self.files
         self.files_done = self.files_done.union(set(files))
         if set(self.files).difference(set(self.files_done)) == set() and \
@@ -108,7 +108,7 @@ class ArchiveList:
             return set(self.files).difference(self.files_done)
 
     def FullPath(self, files=None):
-        if files==None:
+        if files is None:
             files = self.files
         return [ self.path + '/' + f for f in files ]
        
@@ -130,7 +130,7 @@ class Rsyncer:
             return
 
         # split dest into host and folder...
-        if extra_permissions != None:
+        if extra_permissions is not None:
             host, folder = full_dest.split(':')
             argstr = 'ssh -i %s %s chmod %s %s' % \
                 (self.key, host, extra_permissions, folder)
@@ -151,7 +151,7 @@ def process_options():
 
     (op, ar) = opts.parse_args()
 
-    if op.source_dir == None or op.dest_location == None:
+    if op.source_dir is None or op.dest_location is None:
         print 'Source directory or destination location not specified!'
         return None
 

@@ -35,7 +35,7 @@ else:
 
 # Identify unique card, param pairs.
 pairs = sorted(list(set([(a[2],a[3]) for a in target.maps])))
-if opts.select == None:
+if opts.select is None:
     if opts.script_mode:
         o.error("--script-mode requires target selection with --select.")
     print 'Physical targets for "%s" (use --select ... to configure one):' %\
@@ -93,12 +93,12 @@ RF_BLOCK = """<ramp_selections>
 rf_out = None
 if opts.script_mode:
     rf_out = sys.stdout
-elif opts.runfile != None:
+elif opts.runfile is not None:
     rf_out = open(opts.runfile, 'a')
-elif opts.runfile_truncate != None:
+elif opts.runfile_truncate is not None:
     rf_out = open(opts.runfile, 'w')
 
-if rf_out != None:
+if rf_out is not None:
     # Write RF_BLOCK somewhere.
     rf_out.write(RF_BLOCK)
     del rf_out

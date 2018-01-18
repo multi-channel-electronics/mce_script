@@ -41,18 +41,18 @@ class mce_control(MCE):
         Reads n frames and returns either row 0 only, or the average
         over all rows if avg=True.
 
-        If n==None, returned data have dimensions [n_col].  Otherwise
+        If n is None, returned data have dimensions [n_col].  Otherwise
         they are [n_col, n].
         """
         _n = n
-        if _n == None:
+        if _n is None:
             _n = 1
         d = self.read_data(_n, row_col=True).data
         if avg:
             d = d.mean(axis=0)
         else:
             d = d[0]
-        if n==None:
+        if n is None:
             return d[:,0]
         return d
 
@@ -67,7 +67,7 @@ class mce_control(MCE):
             self.write('rc%i'%rc, param+'%i' % chan, [int(d)]*41)
 
     def io_readwrite(self, card, param, data=None):
-        if data == None:
+        if data is None:
             return np.array(self.read(card, param))
         else:
             return self.write(card, param, data)
@@ -78,7 +78,7 @@ class mce_control(MCE):
         of parameter should be the same accross all cards;
         e.g. row_len and num_rows.  Writes/returns a single value.
         """
-        if data == None:
+        if data is None:
             vals = np.array(self.read('sys', param))
             if not np.all(vals==vals[0]):
                 print '(Warning: inconsistent data for "%s" across sys.)' % \
@@ -94,7 +94,7 @@ class mce_control(MCE):
         sample_num.  Writes/returns a single value (even if each RC
         returns a vector of values).
         """
-        if data == None:
+        if data is None:
             vals = np.array(self.read('rca', param))
             if not np.all(vals==vals[0]):
                 print '(Warning: inconsistent data for "%s" across RCs.)' % \
@@ -111,7 +111,7 @@ class mce_control(MCE):
         
               adc_offset%i
         """
-        if data == None:
+        if data is None:
             # read
             data = []
             for rc in self.rc_list:
@@ -129,7 +129,7 @@ class mce_control(MCE):
         since these tend to have aliases already, such as "sq1
         fb_const".        
         """
-        if data == None:
+        if data is None:
             data = []
             for rc in self.rc_list:
                 data += self.read(rc, param)
@@ -173,7 +173,7 @@ class mce_control(MCE):
         return self.io_rc_sync('flx_lp_init', 1)
 
     def servo_mode(self, mode=None):
-        if mode != None:
+        if mode is not None:
             # Broadcast to all columns
             mode = [mode] * MCE_CHANS
         return self.io_rc_sync('servo_mode', mode)

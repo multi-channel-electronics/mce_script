@@ -46,13 +46,13 @@ class DefaultingConfig(SafeConfigParser):
     # This actually isn't that much smarter.
     def __init__(self, filename=None):
         SafeConfigParser.__init__(self)
-        if filename != None:
+        if filename is not None:
             self.read(filename)
     def get_type(self, type_caster, key, default=None):
         for section in [self.active_section, self.default_section]:
             if self.has_section(section) and self.has_option(section, key):
                 return type_caster(self.get(section, key))
-        if default != None:
+        if default is not None:
             return default
         raise ValueError, 'Unknown config parameter %s:%s' % \
             (section, key)
@@ -96,7 +96,7 @@ cfg = DefaultingConfig()
 cfg.default_section = 'defaults'
 cfg.active_section = file_data['acq_type']
 
-if opts.config_file == None:
+if opts.config_file is None:
     opts.config_file = os.path.join(mas_path.config_dir(),
                                     'mce_acq_reg.cfg')
 if os.path.exists(opts.config_file):

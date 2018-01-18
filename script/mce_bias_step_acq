@@ -34,12 +34,12 @@ class SmarterConfig(SafeConfigParser):
     # This actually isn't that much smarter.
     def __init__(self, filename=None):
         SafeConfigParser.__init__(self)
-        if filename != None:
+        if filename is not None:
             self.read(filename)
     def get_type(self, type_caster, section, key, default=None):
         if self.has_section(section) and self.has_option(section, key):
             return type_caster(self.get(section, key))
-        if default != None:
+        if default is not None:
             return default
         raise ValueError, 'Unknown config parameter %s:%s' % \
             (section, key)
@@ -89,7 +89,7 @@ o.add_option('--array-id', help=
 opts, args = o.parse_args()
 
 # Load config file?
-explicit_config_file = (opts.config_file != None)
+explicit_config_file = (opts.config_file is not None)
 if not explicit_config_file:
     opts.config_file = os.path.join(mas_path.config_dir(), 'bias_step.cfg')
 
@@ -97,7 +97,7 @@ cfg = SmarterConfig()
 if os.path.exists(opts.config_file):
     cfg.read(opts.config_file)
     array_file = os.path.join(mas_path.data_root(), 'array_id')
-    if opts.array_id == None:
+    if opts.array_id is None:
         if os.path.exists(array_file):
             opts.array_id = open(array_file).readline().strip()
         else:
@@ -111,10 +111,10 @@ else:
     opts.array_id = 'default'
 
 # Check and convert options.
-if opts.bc == None:
+if opts.bc is None:
     opts.bc = cfg.getlist(opts.array_id, 'cards', ['bc1','bc2','bc3'])
 
-if opts.filename == None:
+if opts.filename is None:
     opts.filename = cfg.getstr(opts.array_id, 'filename',
                                '%(ctime0)s_%(bias_card)s_step')
     custom_filename = False
@@ -131,22 +131,22 @@ if len(opts.bc) > 1:
             ('%(bias_card)s' in opts.filename)):
         raise RuntimeError, "Invalid filename for multiple bias card acq."
 
-if opts.depth == None:
+if opts.depth is None:
     opts.depth = cfg.getint(opts.array_id, 'depth', 50)
 
-if opts.dwell == None:
+if opts.dwell is None:
     opts.dwell = cfg.getfloat(opts.array_id, 'dwell', 0.5)
 
-if opts.frames == None:
+if opts.frames is None:
     opts.frames = cfg.getint(opts.array_id, 'frames', 2000)
 
-if opts.reg_note == None:
+if opts.reg_note is None:
     opts.reg_note = os.getenv('MAS_LOGID', '')
 
-if opts.register == None:
+if opts.register is None:
     opts.register = cfg.getint(opts.array_id, 'register', 1)
 
-if opts.readout_rounding == None:
+if opts.readout_rounding is None:
     opts.readout_rounding = cfg.getint(opts.array_id, 'readout_rounding', 1)
 
 if custom_filename and opts.register != 0:

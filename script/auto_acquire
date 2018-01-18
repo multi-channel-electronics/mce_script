@@ -78,7 +78,7 @@ class Cloner:
             if not hasattr(self, k):
                 raise ValueError, 'unexpected argument %s' % k
             setattr(self, k, v)
-        if self.expire_time == None:
+        if self.expire_time is None:
             # Two minutes grace
             self.expire_time = self.block_size / self.frame_rate + 120
         self.n_frames = n_frames
@@ -195,7 +195,7 @@ def auto_acq(cfg, n_frames, rc, reg_note, suffix):
         details['seq_arg'] = ''
 
     acq_link = cfg.getstr('link', '')
-    if acq_link == None:
+    if acq_link is None:
         acq_link = ''
     details['acq_cmd'] = acq_command
     details['filename_template'] = cfg.getstr('filename','%(ctime)s_dat') % details
@@ -311,7 +311,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # Load profile
-    if opts.profile == None:
+    if opts.profile is None:
         opts.profile = cfg.getstr('default_profile')
     cfg.active_section = opts.profile
 

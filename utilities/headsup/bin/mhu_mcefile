@@ -79,9 +79,9 @@ class mceFileFollower(clients.HeadsupDataSource):
             # Are we idle / aimless?
             filename = opts['filename']
             if not opts['control_active'] or \
-                    filename == None or \
+                    filename is None or \
                     not os.path.exists(filename):
-                if opts['watch'] == None:
+                if opts['watch'] is None:
                     break
                 time.sleep(opts['watch'] * 5)
                 continue
@@ -119,7 +119,7 @@ class mceFileFollower(clients.HeadsupDataSource):
                     #time.sleep(opts['watch'])
                     #continue
                     break
-                if dshape == None or d.data.shape[:-1] != dshape:
+                if dshape is None or d.data.shape[:-1] != dshape:
                     # Update geometries
                     dshape = d.data.shape[:-1]
                     nrow, ncol = dshape
@@ -200,8 +200,8 @@ if __name__ == '__main__':
         flatfile = defaults['mcefile']
 
     # Load geometries based on cmd line opts
-    if opts.geometry_file != None:
-        if opts.geometry_name == None:
+    if opts.geometry_file is not None:
+        if opts.geometry_name is None:
             opts.geometry_name = \
                 geometries.pixelSetGeometry.get_cp_list(opts.geometry_file)
         geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,k)
@@ -225,7 +225,7 @@ if __name__ == '__main__':
         mp.options['delay'] = .01
         mp.options['watch'] = .01
 
-    if opts.step != None:
+    if opts.step is not None:
         mp.options['step'] = opts.step
     
     while True:

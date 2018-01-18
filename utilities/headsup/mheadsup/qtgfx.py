@@ -18,15 +18,15 @@ class simpleCombo(QtGui.QComboBox):
     def set_items(self, labels=None, items=None, selection=None):
         self.clear()
         self.private_data = []
-        if labels != None:
+        if labels is not None:
             for v in labels:
                 self.addItem(QtCore.QString(v))
                 self.private_data.append((v,v))
-        if items != None:
+        if items is not None:
             for k, v in items:
                 self.addItem(QtCore.QString(v))
                 self.private_data.append((v,k))
-        if selection != None:
+        if selection is not None:
             self.setCurrentIndex(selection)
     def update_items(self, labels=None, items=None):
         """
@@ -37,13 +37,13 @@ class simpleCombo(QtGui.QComboBox):
         current_names = [p[0] for p in self.private_data]
         keepers = [False for i in range(len(current_names))]
         new_data = []
-        if labels != None:
+        if labels is not None:
             for v in labels:
                 if v in current_names:
                     keepers[current_names.index(v)] = True
                 else:
                     new_data.append((v,v))
-        if items != None:
+        if items is not None:
             for k, v in items:
                 if v in current_names:
                     idx = current_names.index(v)
@@ -131,13 +131,13 @@ class GridDisplay(QtGui.QGraphicsObject):
     def set_data(self, data, channel=None):
         # Expects data to be float, 0 to 1.
         data = np.round(data*255).astype('uint8')
-        if self.data == None or data.shape != self.datav.shape:
+        if self.data is None or data.shape != self.datav.shape:
             self.prepareGeometryChange()
             nrow, ncol = data.shape[:2]
             self.data = np.zeros((nrow,ncol,4), 'uint8')
             self.data[...,3] = 255 # alpha
             self.datav = self.data[:,:ncol,:]
-        if channel == None:
+        if channel is None:
             self.datav[...,:3] = data[...,None]
         else:
             self.datav[...,channel] = data
@@ -147,7 +147,7 @@ class GridDisplay(QtGui.QGraphicsObject):
     # Virtual method implementation
     # 
     def boundingRect(self):
-        if self.data != None:
+        if self.data is not None:
             nrow, ncol = self.datav.shape[:2]
             w, h = float(ncol), float(nrow)
         else:
@@ -155,7 +155,7 @@ class GridDisplay(QtGui.QGraphicsObject):
         return QtCore.QRectF(0,0,w,h)
 
     def paint(self, p, *args):
-        if self.data == None:
+        if self.data is None:
             return
         nrow, ncol = self.datav.shape[:2]
         ## Note if you change formats you need to word-align the scan lines.
@@ -212,8 +212,8 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         will be translated into an image based on the active geometry
         description.
         """
-        if self.blip_palette == None or \
-                (self.data != None and data.shape != self.data.shape):
+        if self.blip_palette is None or \
+                (self.data is not None and data.shape != self.data.shape):
             self.prepareGeometryChange()
             nrow, ncol = data.shape[:2]
             self.create_blip_grid(nrow, ncol)
@@ -221,7 +221,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             self.blip_palette.set_channel_families(['purple']*(nrow*ncol))
             self.scene().views()[0].rebound()
         self.data = data
-        if self.data_mask == None:
+        if self.data_mask is None:
             self.update_blips(self.data.ravel())
         else:
             self.update_blips(self.data.ravel()[self.data_mask])
@@ -245,7 +245,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             rotation_mul = 0
             rotation = [rotation]
         # Create the blips
-        if mask == None:
+        if mask is None:
             self.data_mask = None
             indices = range(len(x))
         else:
@@ -311,11 +311,11 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         return self.data_mask
 
     def get_status_text(self):
-        if self.last_hover == None:
+        if self.last_hover is None:
             return 'none'
         idx = self.last_hover
-        if self.channel_names != None:
-            if self.data_mask != None:
+        if self.channel_names is not None:
+            if self.data_mask is not None:
                 name = self.channel_names[self.data_mask][idx]
             else:
                 name = self.channel_names[idx]
@@ -332,13 +332,13 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
     def mousePressEvent(self, ev):
         x, y = ev.pos().x(), ev.pos().y()
         item = self.scene().itemAt(x, y)
-        if item != None:
+        if item is not None:
             self.update_last_click(item)
 
     def hoverMoveEvent(self, ev):
         x, y = ev.pos().x(), ev.pos().y()
         item = self.scene().itemAt(x, y)
-        if item != None:
+        if item is not None:
             self.update_last_hover(item)
 
     def hoverLeaveEvent(self, ev):
@@ -346,7 +346,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
 
     # This is dumb.
     def animateMove(self, new_x=None, new_y=None, t=1.):
-        if new_x == None or len(self.childItems()) != len(new_x):
+        if new_x is None or len(self.childItems()) != len(new_x):
             return
         self._anim_data = {
             'old_pos': ([i.pos().x() for i in self.childItems()],

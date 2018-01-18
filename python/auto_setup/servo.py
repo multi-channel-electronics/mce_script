@@ -99,9 +99,9 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
                     x_adjust=None):
     # By default, we characterize the extrema ignoring the beginning
     # of the curve, since the servo may still be settling.
-    if start == None:
+    if start is None:
         start = y.shape[1]/8
-    if stop == None:
+    if stop is None:
         stop = y.shape[1]
 
     y1, y0 = y[:,start:stop].max(axis=1).astype('float'), \
@@ -151,7 +151,7 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
                           a,b,t,yy in zip(i_left, i_right, target, y)]) \
                           .astype('int')
         # User may need to move the setpoint around, for whatever reason.
-        if x_adjust != None and not all(x_adjust==0):
+        if x_adjust is not None and not all(x_adjust==0):
             lock_idx += x_adjust
             target = array([yy[i] for yy,i in zip(y, lock_idx)])
         # Compute lock slopes and sub-sample the locking X-values.
@@ -161,7 +161,7 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
         lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
     else:  # x
         lock_idx = (i_left + i_right)/2
-        if x_adjust != None:
+        if x_adjust is not None:
             lock_idx += x_adjust
         lock_slope, lock_y = get_slopes(y, lock_idx, intercept='y',
                                         n_points=scale,
@@ -199,9 +199,9 @@ def get_slopes(data, index, n_points=5, min_index=None, max_index=None,
     Fit straight line to data (a 2-d array) in vicinity of index (a
     1-d array).  Return slopes (a 1-d array).
     """
-    if min_index == None:
+    if min_index is None:
         min_index = zeros(data.shape[0])
-    if max_index == None:
+    if max_index is None:
         max_index = [d.shape[-1] for d in data]
     
     fits = []
@@ -213,7 +213,7 @@ def get_slopes(data, index, n_points=5, min_index=None, max_index=None,
         else:
             fits.append(polyfit(sl_idx-i, d[sl_idx], 1))
     fits = array(fits).transpose()
-    if intercept == None:
+    if intercept is None:
         return fits[0]  # slope only
     if intercept == 'y':
         return fits[0], fits[1]
@@ -228,7 +228,7 @@ def period_correlation(y, width=None, normalize=True):
     n, nx = y.shape
     # Remove mean!
     y = y - y.mean(axis=1)[:,None]
-    if width == None:
+    if width is None:
         width = nx / 2
     m = nx - width
     corr = zeros((n, m))
@@ -251,7 +251,7 @@ def period(y, width=None):
     have bad composition multi-lock features.
     """
     n0, n_x = y.shape
-    if width == None:
+    if width is None:
         width = n_x / 8
     p = zeros(n0)
     # Get the correlations, and locate their second minimum
@@ -317,8 +317,8 @@ def plot(x, y, y_rc, lock_points, plot_file,
         slopes = []
         for d in ['', 'up_', 'dn_']:
             m, x0, y0 = [get(d, p) for p in ['slope', 'x', 'y']]
-            if m != None:
-                if y0 == None:
+            if m is not None:
+                if y0 is None:
                     # Use default y-target if separate up/dn aren't there.
                     y0 = get('', 'y')
                 slopes.append(zip(m, x0, y0))
@@ -343,7 +343,7 @@ def plot(x, y, y_rc, lock_points, plot_file,
             for s in slopes:
                 m, x0, y0 = s[i]
                 ax.add(biggles.Slope(m, (x0*scale,y0*scale),type='dashed'))
-        if insets != None:
+        if insets is not None:
             ax.add(biggles.PlotLabel(0., 0., insets[i],
                                          halign='left',valign='bottom'))
         if x.shape==y.shape:
@@ -398,7 +398,7 @@ class SquidData(util.RCData):
         Merge a list of objects of type cls into a new cls.
         """
         synth = target
-        if synth == None:
+        if synth is None:
             synth = cls(tuning=args[0].tuning)
         
         # Borrow most things from the first argument
@@ -418,14 +418,14 @@ class SquidData(util.RCData):
         return synth
 
     def _check_data(self, simple=False):
-        if self.data == None:
+        if self.data is None:
             raise RuntimeError, '%s needs data.' % self.stage_name
         if simple and self.gridded:
             raise RuntimeError, 'Simple %s expected (use split?)' % \
                 self.stage_name
 
     def _check_analysis(self, existence=False):
-        if self.analysis == None:
+        if self.analysis is None:
             if existence:
                 self.analysis = {}
             else:
@@ -458,19 +458,19 @@ class SquidData(util.RCData):
         self.gridded = True
         self.cols = array([i for i in range(n_col)])
         self.rows = array([i for i in range(n_row)])
-        if fb == None:
+        if fb is None:
             fb = arange(self.data.shape[-1])
         self.fb = fb
         self.d_fb = fb[1] - fb[0]
         if len(self.data_shape) > 3:
             self.bias_style = 'ramp'
             self.bias = bias
-            if self.bias == None:
+            if self.bias is None:
                 self.bias = arange(self.data_shape[-3])
         else:
             self.bias_style = 'select'
             self.bias = bias
-            if self.bias == None:
+            if self.bias is None:
                 self.bias = zeros(n_col,'int')
         self.mcefile = None
         self.rf = None
@@ -497,7 +497,7 @@ class SquidData(util.RCData):
         ## is set, it means that that loop1 should be ignored.
         bias_ramp_active = rf.Item('par_ramp', 'par_active loop1 par1',
                                    array=False, type='int')
-        if bias_ramp_active == None:
+        if bias_ramp_active is None:
             bias_ramp_active = bias_ramp
 
         if bias_ramp:
@@ -595,14 +595,14 @@ class SquidData(util.RCData):
             # This object does not contain per-bias data.
             return None # or self?
 
-        if ic_factor == None:
+        if ic_factor is None:
             ic_factor = 1.0;
         
         # How many biases are we selecting here?  This is described
         # bias self.bias_assoc, declared by each subclass.  We will
         # use this to shuffle the array dimensions around so that
         # axis=1 is the axis over which bias will be optimized.
-        if assoc == None:
+        if assoc is None:
             assoc = self.bias_assoc
 
         self.analysis['select_assoc'] = assoc
@@ -621,7 +621,7 @@ class SquidData(util.RCData):
 
         # If the user has not passed in the desired indices into the
         # bias array, try to find it in the analysis.
-        if bias_idx == None:
+        if bias_idx is None:
             k = 'select_%s_sel'%assoc
             bias_idx = self.analysis[k]
 
@@ -706,10 +706,10 @@ class SquidData(util.RCData):
         raise RuntimeError, "this is a virtual method."
 
     def plot(self, plot_file=None, format=None, data_attr='data'):
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format',
                                                default='png')
 
@@ -801,14 +801,14 @@ class RampSummary(SquidData):
         self.ylabels[name] = ylabel
 
     def plot(self, plot_file=None, format=None, data_attr=None):
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
                                          (self.data_origin['basename']))
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format',
                                                default='png')
 
-        if data_attr == None:
+        if data_attr is None:
             data_attr = 'y_span'
         data = self.data[data_attr]
     

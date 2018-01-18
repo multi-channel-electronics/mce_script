@@ -21,7 +21,7 @@ class tuningData:
         # explicitly, the ${MAS_DATA_ROOT}/last_squid_tune symlink isn't updated
         # also, if a data dir is specified, we can't assume it's a directory
         # with a date in it's name, so we just use the current date.
-        if data_dir == None:
+        if data_dir is None:
             data_dir = os.path.realpath(self.paths.data_dir())
             self.no_last_squid_tune = False;
             self.date = os.path.basename(data_dir)
@@ -31,7 +31,7 @@ class tuningData:
 
         # name
         self.the_time = time.time();
-        if name == None:
+        if name is None:
             name = '%10i' % (self.the_time)
         self.name = name
 
@@ -53,7 +53,7 @@ class tuningData:
         self.sqtune_file = os.path.join(self.data_dir, self.name + ".sqtune")
 
         # Experiment configuration
-        if exp_file == None:
+        if exp_file is None:
             exp_file = os.path.join(self.base_dir, 'experiment.cfg')
         self.exp_file = exp_file
         try:
@@ -94,7 +94,7 @@ class tuningData:
         if (no_log):
             log = None
         else:
-            if (not self.openlog_failed and self.log == None):
+            if (not self.openlog_failed and self.log is None):
                 try:
                     self.log = open(self.log_file, "w+")
                     self.log.write("Auto tuning run started "
@@ -137,13 +137,13 @@ class tuningData:
         return cols
 
     def filename(self, rc=None, action=None, ctime=None, absolute=False):
-        if ctime == None:
+        if ctime is None:
             ctime = time.time()
         acq_id = str(int(ctime))
         s = acq_id
-        if rc != None:
+        if rc is not None:
             s += '_RC%s' % (str(rc))
-        if action != None:
+        if action is not None:
             s += '_' + action
 
         if (absolute):
@@ -197,11 +197,11 @@ class tuningData:
             s += ' '.join([format %r for r in data]) + '\n'
             return s
 
-        if filename == None:
+        if filename is None:
             filename = self.sqtune_file
-        if sq_data == None:
+        if sq_data is None:
             # Basic info
-            if block == None:
+            if block is None:
                 block = 'SQUID_INIT'
             is_mux11d = self.get_exp_param('hardware_mux11d', 0) == 1
             data = \
@@ -209,7 +209,7 @@ class tuningData:
                 '<SQ_tuning_dir> %s\n' % self.name + \
                 '<SQ_tuning_hardware> %s\n' % {False: 'classic',
                                                True:  'mux11d'}[is_mux11d]
-            if rcs != None:
+            if rcs is not None:
                 if rcs[0] == 's':
                     rcs = self.rc_list()
                 cols = []
@@ -220,9 +220,9 @@ class tuningData:
                     '<SQ_columns> %s\n' % ' '.join(['%i' % x for x in cols])
             # Package...
             data = [{'style': 'raw', 'data': data}]
-        if sq_data != None:
+        if sq_data is not None:
             sq_data = sq_data.sqtune_report()
-            if block == None:
+            if block is None:
                 block = sq_data['block']
             data = sq_data['data']
         f = open(filename, 'a' if append else 'w')
@@ -249,7 +249,7 @@ class tuningData:
             os.symlink(filename, lst)
 
     def write_note(self, note, filename=None):
-        if filename == None:
+        if filename is None:
             filename = self.note_file
         f = open(filename, "w+")
         f.write("#Note entered with SQUID autotuning data acquisition\n")
@@ -261,9 +261,9 @@ class tuningData:
         return self.run(["mce_cmd", "-q", "-x"] + command.split())
 
     def register(self, ctime, type, filename, numpts, note=None):
-        if note == None:
+        if note is None:
             note = self.reg_note
-        if note == None:
+        if note is None:
             note = ''
         cmd = ["mce_acq_register", ctime, type, filename, numpts, note]
 
@@ -273,7 +273,7 @@ class tuningData:
         if kwargs.get('init', False):
             from plot_reg import plot_registrar
             self.plot_reg = plot_registrar(self.base_dir+'/analysis', self.name)
-        if self.plot_reg == None:
+        if self.plot_reg is None:
             return
         for a in args:
             self.plot_reg.add(os.path.split(a)[1])

@@ -26,13 +26,13 @@ class super_mce(mce):
             self.write('rc%i'%rc, param+'%i' % chan, [int(d)]*41)
 
     def servo_mode(self, mode=None):
-        if mode == None:
+        if mode is None:
             return self.read('rca', 'servo_mode')[0]
         else:
             self.write('rca', 'servo_mode', [mode]*8)
     
     def data_mode(self, mode=None):
-        if mode == None:
+        if mode is None:
             return self.read('rca', 'data_mode')[0]
         else:
             self.write('rca', 'data_mode', [mode])
@@ -44,7 +44,7 @@ class super_mce(mce):
         self.write_columns('flx_quanta', [n]*(self.n_rc*8))
 
     def flux_jumping(self, mode=None):
-        if mode == None:
+        if mode is None:
             return self.read('rca', 'en_fb_jump')[0]
         self.write('rca', 'en_fb_jump', [mode])
 

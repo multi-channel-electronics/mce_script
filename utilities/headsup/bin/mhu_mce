@@ -24,7 +24,7 @@ class mceProducer(clients.dataProducer):
     def tick(self):
         d = self.mce.read_data(1, row_col=True)
         self.d = d
-        if self.field != None:
+        if self.field is not None:
             data = d.extract(self.field, unfilter='DC')[:,:,0]
             dfield = self.field
             if dfield == 'default':
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     opts, args = o.parse_args(defaults=defaults)
     
     mp = mceProducer(opts.server, opts.name, field=opts.data_field)
-    if opts.frame_delay != None:
+    if opts.frame_delay is not None:
         mp.delay = opts.frame_delay
     if opts.run:
         mp.run()

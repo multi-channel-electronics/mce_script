@@ -20,7 +20,7 @@ class x: #dataAnalyzer(clients.dataConsumer):
                 print 'ctrl: updated_keys=', data
             elif op == 'data':
                 dshape = self.controls.get('data_shape', None)
-                if dshape != None:
+                if dshape is not None:
                     data = self.data.pop(0).reshape(dshape)
                     timer.record(1)
             else:

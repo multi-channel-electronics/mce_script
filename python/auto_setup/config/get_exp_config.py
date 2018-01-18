@@ -65,7 +65,7 @@ def mas_param(file, key, type=None, no_singles=False):
     if (status):
         return None
 
-    if type == None or type == 'raw':
+    if type is None or type == 'raw':
         return value.strip()
 
     if type == 'integer': # scalar or vector int
@@ -123,7 +123,7 @@ def get_exp_param(file, key, no_singles=False, missing_ok=False):
     else:
         raise KeyError("unknown experimental parameter: " + key)
     
-    if (not missing_ok and v == None):
+    if (not missing_ok and v is None):
         raise KeyError("key [ " + key + " ] missing from " + file)
 
     return v
@@ -194,7 +194,7 @@ class configFile(dict):
     def __init__(self, filename=None, read=True):
         dict.__init__(self)
         self.filename = filename
-        if self.filename != None:
+        if self.filename is not None:
             self.read(refresh_info=True)
 
     def read_param(self, name):
@@ -204,7 +204,7 @@ class configFile(dict):
         file.
         """
         val = mas_param(self.filename, name)
-        if val == None:
+        if val is None:
             return None
         desc = self.info[name]
         cast = self.casts[desc['type']]
@@ -234,7 +234,7 @@ class configFile(dict):
 
     def get_param(self, name, missing_ok=False, default=None):
         if not name in self:
-            if missing_ok or default != None:
+            if missing_ok or default is not None:
                 return default
             raise ValueError, "key '%s' not found in config file." % name
         if hasattr(self[name], '__copy__'):
@@ -246,7 +246,7 @@ class configFile(dict):
         if hasattr(data, '__copy__'):
             # Don't store references to mutable objects (arrays)
             data = data.copy()
-        if index == None:
+        if index is None:
             self[name] = data
         else:
             # Replace some values, but write them all.
@@ -296,7 +296,7 @@ Please upgrade mas_param to support "info" dumping.  Thanks.
     for dtype in ['string', 'float', 'integer']:
         for k in config_keys[dtype]:
             p = get_exp_param(filename, k, no_singles=True, missing_ok=True)
-            if p == None:
+            if p is None:
                 continue
             is_array = len(p) != 1
             e.info[k] = {'type': dtype,

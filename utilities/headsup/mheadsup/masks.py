@@ -15,11 +15,11 @@ class pixelMask(aie):
 
     def __init__(self, name='mask', shape=None, states=None, data=None):
         self.name = name
-        if data != None:
+        if data is not None:
             self.data = data
             self.shape = shape
         else:
-            if shape == None:
+            if shape is None:
                 shape = (0,)
             self.data = np.zeros(shape, 'int')
 

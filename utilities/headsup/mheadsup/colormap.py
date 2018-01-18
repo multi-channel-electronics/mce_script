@@ -40,19 +40,19 @@ class ColorMap:
                  name='cmap_custom'):
         self.name = name
         self.scale = scale
-        if size != None:
+        if size is not None:
             self.size = size
-        if colors == None:
-            if pivots != None:
+        if colors is None:
+            if pivots is not None:
                 self.pivots = pivots
             self.make_colors()
         else:
             self.colors = colors
 
     def make_colors(self, size=None):
-        if size != None:
+        if size is not None:
             self.size = size
-        if self.size == None:
+        if self.size is None:
             self.size = DEFAULT_COLORMAP_SIZE
         speed = float(len(self.pivots)-1)/(self.size-1)
         self.colors = []
@@ -72,7 +72,7 @@ class ColorMap:
     # Encode / decode from dict (JSON)
 
     def encode(self):
-        if self.colors == None:
+        if self.colors is None:
             return None
         return {'colors': self.colors}
 
@@ -99,6 +99,6 @@ def interpolate_colors(a, b, x, scale=None):
     integer.  In this case the resulting color components are scaled
     by scale, rounded, and truncated.
     """
-    if scale == None:
+    if scale is None:
         return [(_b-_a)*x + _a for _a,_b in zip(a,b)]
     return [int(round(scale*(_a + (_b-_a)*x))) for _a,_b in zip(a,b)]

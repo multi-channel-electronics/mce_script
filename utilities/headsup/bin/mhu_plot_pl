@@ -45,7 +45,7 @@ class pylabPlotter(plotters.displayClient):
             self.data_mask = np.array(self.controls['mask']).astype('bool')
             self.controls['mask_update'] = False
         mask = self.data_mask
-        if mask == None:
+        if mask is None:
             mask = np.ones(data.shape, 'bool')
         if mask.sum() == 0:
             mask[0,0] = True
@@ -54,7 +54,7 @@ class pylabPlotter(plotters.displayClient):
         # Update.
         mask_val = self.controls.get('mask_value', (black+white)/2)
         data = self._norm_data(data, black, white, mask, mask_val)
-        if self.im == None:
+        if self.im is None:
             self.im = pl.imshow(data, vmin=0, vmax=1)
             self.controls['data_shape'] = data.shape
         else:
@@ -69,7 +69,7 @@ class pylabPlotter(plotters.displayClient):
         for i in self.texts['_order']:
             n += 1
             label, text = self.texts[i].get_update()
-            if label == None:
+            if label is None:
                 continue
             update = True
             if not i in self.texts['_gobj']:
@@ -109,12 +109,12 @@ class pylabPlotter(plotters.displayClient):
     def poll(self):
         ok, addr, data = self.do_receive()
 
-        if not ok or addr == None:
+        if not ok or addr is None:
             return False
 
-        if self.data_handler == None:
+        if self.data_handler is None:
             # Try to connect to a stream?
-            if self.stream_list_handler == None:
+            if self.stream_list_handler is None:
                 # We have nothing going on.
                 print 'no handler'
                 return True
@@ -140,21 +140,21 @@ class pylabPointPlotter(pylabPlotter):
         Updates the image, or some aspect of it (scale, zoom, ...).
         """
         im = self.im
-        if data == None:
+        if data is None:
             data = self.last_data
         else:
             self.last_data = data
-        if data == None or self.controls.get('data_shape', None) == None:
+        if data is None or self.controls.get('data_shape', None) is None:
             return
         # Update zoom to match image?
-        if self.last_data == None or self.last_data.shape != data.shape:
+        if self.last_data is None or self.last_data.shape != data.shape:
             im = None # Start over.
         # Update data mask?
         if self.controls.get('mask_update'):
             self.data_mask = np.array(self.controls['mask']).astype('bool')
             self.controls['mask_update'] = False
         mask = self.data_mask
-        if mask == None:
+        if mask is None:
             mask = np.ones(data.shape, 'bool')
         if mask.sum() == 0:
             mask[0,0] = True
@@ -165,10 +165,10 @@ class pylabPointPlotter(pylabPlotter):
         print data.max(), data.min()
         data = self._norm_data(data, black, white, mask, mask_val)
         print ' ', data.max(), data.min()
-        if im == None:
+        if im is None:
             colors = np.zeros((data.size,4))
             colors[:,0] = data.ravel()
-            if self.point_loc == None or len(self.point_loc[0]) != data.size:
+            if self.point_loc is None or len(self.point_loc[0]) != data.size:
                 print 'change',  len(self.point_loc), data.size
                 self.point_loc = gfx.grid_coords(*data.shape)
             x, y = self.point_loc

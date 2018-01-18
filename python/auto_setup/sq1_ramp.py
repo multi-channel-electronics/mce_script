@@ -26,7 +26,7 @@ def go(tuning, rc, filename=None, slope=None, flags=None):
 
 def acquire(tuning, rc, filename=None, check=False):
     # File defaults
-    if filename == None:
+    if filename is None:
         action = 'sq1ramp'
         if check: action = 'sq1rampc'
         filename, acq_id = tuning.filename(rc=rc, action=action)
@@ -55,7 +55,7 @@ def acquire(tuning, rc, filename=None, check=False):
 
 def acquire_tes_ramp(tuning, rc, filename=None):
     # File defaults
-    if filename == None:
+    if filename is None:
         action = 'sq1ramptes'
         filename, acq_id = tuning.filename(rc=rc, action=action)
     else:
@@ -98,7 +98,7 @@ def get_lock_points(data, slope=None, max_points=5, min_spacing=5):
     Find zero-crossings of data.  Return positions, spaced by at least
     min_spacing.
     """
-    if slope == None:
+    if slope is None:
         slope = [1,-1]
     else:
         slope = [slope]
@@ -107,7 +107,7 @@ def get_lock_points(data, slope=None, max_points=5, min_spacing=5):
     for s in slope:
         z.extend(((data[:-1]*s < 0) * (data[1:]*s >= 0)).nonzero()[0])
     z.sort()
-    if min_spacing == None: return array(z)
+    if min_spacing is None: return array(z)
     # Eliminate proximations
     idx = 1
     while idx < min(max_points+1, len(z)):
@@ -125,7 +125,7 @@ def lock_stats(data, target=0., range=None, slope=1.,
     points.
     """
     n_times = len(data)
-    if range == None: range = (0, n_times)
+    if range is None: range = (0, n_times)
     L = get_lock_points(data[range[0]:range[1]]-target, slope=slope)
     ok = len(L) > 0
     if ok: L = L[0]
@@ -151,7 +151,7 @@ class SQ1Ramp(util.RCData):
         self.data = None
         self.analysis = None
         self.tuning = tuning
-        if filename != None:
+        if filename is not None:
             self.read_data(filename)
 
     @classmethod
@@ -174,11 +174,11 @@ class SQ1Ramp(util.RCData):
         return synth
 
     def _check_data(self):
-       if self.data == None:
+       if self.data is None:
             raise RuntimeError, 'sq1_ramp needs data.'
 
     def _check_analysis(self):
-       if self.analysis == None:
+       if self.analysis is None:
             raise RuntimeError, 'sq1_ramp needs analysis.'
 
     def read_data(self, filename):
@@ -211,7 +211,7 @@ class SQ1Ramp(util.RCData):
                {left,right}_idx
                lock_{idx,y,count}
         """
-        if rule == None:
+        if rule is None:
             rule = self.tuning.get_exp_param('sq1_ramp_locking_rule',
                                              default='y_space_sorted')
         print rule
@@ -342,12 +342,12 @@ class SQ1Ramp(util.RCData):
         self._check_data()
         self._check_analysis()
 
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
 
         nr, nc = self.data_shape[-3:-1]
-        if dead_masks != None:
+        if dead_masks is not None:
             insets = ['' for i in range(nr*nc)]
             for dm in dead_masks:
                 for i,d in enumerate(dm.data[:nr,:nc].ravel()):
@@ -355,7 +355,7 @@ class SQ1Ramp(util.RCData):
         else:
             insets = None
 
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format')
 
         # Plot plot plot

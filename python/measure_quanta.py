@@ -56,7 +56,7 @@ sq = ramps[0].join(ramps)
 periods = []
 if sq.bias_style == 'ramp':
     print 'Multi-bias detected'
-    if opts.sub_ramp == None:
+    if opts.sub_ramp is None:
         print 'Selecting best bias values for each column (use --sub-ramp to force one).'
         sq.reduce1()
         sq = sq.select_biases(ic_factor=1)

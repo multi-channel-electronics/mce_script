@@ -12,7 +12,7 @@ def encode_array_row(data, cast):
     return [encode_array_row(d, cast) for d in data]
 
 def encode_array(data):
-    if data == None:
+    if data is None:
         return None
     dtype = data.dtype.name
     if dtype.startswith('string'):
@@ -28,7 +28,7 @@ def encode_array(data):
             '_class': 'ndarray'}
 
 def decode_array(data):
-    if data == None:
+    if data is None:
         return None
     return np.array(data['data'], dtype=data['dtype'])
 
@@ -45,14 +45,14 @@ class arrayInfoEncoder:
     def encode(self):
         import json
         output = {}
-        if self.arrayInfo_simple != None:
+        if self.arrayInfo_simple is not None:
             for k in self.arrayInfo_simple:
                 v = getattr(self, k)
                 if isinstance(v, np.ndarray):
                     v = encode_array(v)
                 output[k] = v
         # Old array support, remove this soon...
-        if self.arrayInfo_arrays != None:
+        if self.arrayInfo_arrays is not None:
             out_ar = {}
             for k in self.arrayInfo_arrays:
                 d = np.asarray(getattr(self, k))
@@ -63,7 +63,7 @@ class arrayInfoEncoder:
     @classmethod
     def decode(cls, data):
         self = cls()
-        if self.arrayInfo_simple != None:
+        if self.arrayInfo_simple is not None:
             for k in self.arrayInfo_simple:
                 v = data.get(k, None)
                 if isinstance(v, dict) and '_class' in v:
@@ -71,7 +71,7 @@ class arrayInfoEncoder:
                         v = decode_array(v)
                 setattr(self, k, v)
         # Old array support
-        if self.arrayInfo_arrays != None:
+        if self.arrayInfo_arrays is not None:
             for k in self.arrayInfo_arrays:
                 d = decode_array(data['_arrays'][k])
                 setattr(self, k, d)

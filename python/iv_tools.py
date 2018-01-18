@@ -28,13 +28,13 @@ class runfile_block:
     
     def write_array(self, key, value, format='%.6f'):
         data_cols = np.arange(value.shape[1])
-        if self.data_cols != None:
+        if self.data_cols is not None:
             data_cols = self.data_cols
         for c in range(value.shape[1]):
             self.write_vector(key % data_cols[c], value[:,c], format)
 
     def close(self):
-        if self.fout != None:
+        if self.fout is not None:
             self.fout.close()
         self.fout
 
@@ -49,7 +49,7 @@ class adict:
     """
     def __init__(self, keys=None, types=None, shape=None):
         self.keys = []
-        if keys != None:
+        if keys is not None:
             self.define(keys, types, shape)
     def define(self, keys, types, shape):
         for k, t in zip(keys,types):
@@ -87,7 +87,7 @@ class IVData:
      .get_setpoints
     """
     def __init__(self, filename=None, biasfile=None, runfile=True):
-        if filename != None:
+        if filename is not None:
             self.read(filename, biasfile, runfile)
 
     def read(self, filename, biasfile=None, runfile=True):
@@ -102,7 +102,7 @@ class IVData:
                                          unfilter='DC').data
         self.data_cols = np.array(self.mcefile._NameChannels(row_col=True)[1])
         # Also load the list of TES bias values... this has got to go.
-        if biasfile == None:
+        if biasfile is None:
             biasfile = filename + '.bias'
         self.bias_dac = read_ascii(biasfile, comment_chars=['<', '#'])[0]
         self.n_row, self.n_col, self.n_pts = self.mcedata.shape
@@ -213,9 +213,9 @@ class IVBranches(adict):
         
     def analyze_curves(self, filedata, rows=None, cols=None, **kwargs):
         ## Analyze only the requested rows and columns...
-        if cols == None:
+        if cols is None:
             cols = range(self.n_col)
-        if rows == None:
+        if rows is None:
             rows = range(self.n_row)
         for c in cols:
             for r in rows:
@@ -349,10 +349,10 @@ class logger:
         return self.write(*args, **kwargs)
 
 def load_array_params(filename=None, array_name=None):
-    if array_name == None:
+    if array_name is None:
         array_name = open(os.path.join(mas_path().data_root(),
             'array_id')).readline().strip()
-    if filename == None:
+    if filename is None:
         filename = os.path.join(mas_path().config_dir(),
                 'array_%s.cfg' % array_name)
     cfg = config.configFile(filename)

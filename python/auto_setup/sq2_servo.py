@@ -30,7 +30,7 @@ def acquire(tuning, rc, filename=None, fb=None,
             bias=None, gain=None, old_servo=False):
 
     # File defaults
-    if filename == None:
+    if filename is None:
         filename, acq_id = tuning.filename(rc=rc, action='sq2servo')
     else:
         try:
@@ -40,7 +40,7 @@ def acquire(tuning, rc, filename=None, fb=None,
 
     if old_servo:
         # Biasing semantics are complicated, fix me.
-        if bias == None:
+        if bias is None:
             bias = tuning.get_exp_param('sq2_servo_bias_ramp')
         change_bias = not (bias == False)
 
@@ -52,11 +52,11 @@ def acquire(tuning, rc, filename=None, fb=None,
             bias = {'start': 0, 'count': 1, 'step': 0 }
 
         # FB
-        if fb == None:
+        if fb is None:
             fb = {}
             for k in ['start','count','step']:
                 fb[k] = tuning.get_exp_param('sq2_servo_flux_%s'%k)
-        if gain == None:
+        if gain is None:
             if rc == 's':
                 rci = 0
             else:
@@ -99,7 +99,7 @@ class SQ2Servo(servo.SquidData):
     def __init__(self, filename=None, tuning=None):
         servo.SquidData.__init__(self, tuning=tuning)
         self.data_attrs.append('error')
-        if filename != None:
+        if filename is not None:
             self.read_data(filename)
 
     def read_data(self, filename, reduce_rows=False):
@@ -179,7 +179,7 @@ class SQ2Servo(servo.SquidData):
         self._check_data()
         self._check_analysis(existence=True)
         
-        if slope == None:
+        if slope is None:
             slope = -sign(self.tuning.get_exp_param('sq1_servo_gain')*
                           self.tuning.get_exp_param('sq2_servo_gain'))
             slope = array(slope[self.cols])
@@ -194,7 +194,7 @@ class SQ2Servo(servo.SquidData):
         else:
             slope = slope[0]
 
-        if x_adjust == None:
+        if x_adjust is None:
             x_adjust = self.tuning.get_exp_param('sq2_servo_sq2fb_adjust',
                                                  default=0)
             if hasattr(x_adjust, '__getitem__'):
@@ -226,7 +226,7 @@ class SQ2Servo(servo.SquidData):
         """
         See servo.SquidData.select_biases for description.
         """
-        if ic_factor == None:
+        if ic_factor is None:
             ic_factor = self.tuning.get_exp_param(
                 'sq2_servo_ic_factor', missing_ok=True, default=None)
         return servo.SquidData.select_biases(

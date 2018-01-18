@@ -64,26 +64,26 @@ if __name__ == '__main__':
 
     # Where are the data coming from?
     fin = None
-    if opts.filename != None:
+    if opts.filename is not None:
         fin = open(opts.filename, 'r')
     elif opts.stdin:
         fin = sys.stdin
-    if fin != None:
+    if fin is not None:
         data = []
         for line in fin:
             w = line.split()
             if len(w) == 0 or w[0][0] == '#': continue
-            if opts.column != None:
+            if opts.column is not None:
                 w = [w[opts.column]]
             data += [int(float(x)) for x in w]
     else:
-        if opts.count == None:
+        if opts.count is None:
             opts.count = mce_internal.AWG_MAX_DATA
-        if opts.sine != None:
+        if opts.sine is not None:
             offset, amp = opts.sine
             data = amp*numpy.sin(2.*numpy.pi*numpy.arange(opts.count) /
                                  opts.count) + offset
-        elif opts.triangle != None:
+        elif opts.triangle is not None:
             offset, amp = opts.triangle
             data = 2.*amp*numpy.arange(opts.count)/opts.count
             data[opts.count/2:] = 2.*amp-data[opts.count/2:]

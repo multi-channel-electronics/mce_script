@@ -45,7 +45,7 @@ if not os.path.exists(odir):
 default_ops = ['sa_ramp', 'sq2_servo', 'sq1_servo', 'sq1_ramp',
                'sq1_ramp_check', 'sq1_ramp_tes', 'rs_servo', 'sq1_servo_sa']
 
-if opts.stage == None:
+if opts.stage is None:
     opts.stage = default_ops
 else:
     for op in opts.stage:
@@ -56,11 +56,11 @@ else:
 tf = ast.util.FileSet(source_dir)
 
 # Do we have an experiment.cfg?
-if opts.config_file == None:
+if opts.config_file is None:
     # There's probably one with the tuning data.
     opts.config_file = tf.get('cfg_file', None)
 
-if opts.config_file == None:
+if opts.config_file is None:
     tuning = None
 else:
     tuning = ast.util.tuningData(exp_file=opts.config_file, data_dir='')
@@ -68,7 +68,7 @@ else:
 slope = opts.default_slope 
 
 def check_slope():
-    if slope == None and tuning == None:
+    if slope is None and tuning is None:
         o.error("No experiment.cfg data could be found for this tuning.  Pass "
                 "in a filename with --config-file, or specify a default locking "
                 "slope with --default-slope.")
@@ -89,7 +89,7 @@ for stage in opts.stage:
     print 'Stage %s' % stage
     # Get the object type for this stage, try to build it.
     cls = class_map.get(stage, None)
-    if cls != None:
+    if cls is not None:
         # Default handling
         ss = [ cls(x, tuning=tuning) for x in tf.stage_all(stage) ]
         if len(ss) == 0:

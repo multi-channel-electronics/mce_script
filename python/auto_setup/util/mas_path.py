@@ -101,7 +101,7 @@ class mas_path:
 
             # if we have to, determine whether we're running on a multiple card
             # setup
-            if self.__data_root__ == None:
+            if self.__data_root__ is None:
                 self.__data_root__ = '/data/mce{0}'.format(self.__fibre_card__)
                 if not os.path.isdir(self.__data_root__):
                     self.__data_rot__ = "/data/cryo"
@@ -123,7 +123,7 @@ class mas_path:
     def experiment_file(self):
         if not self.__exp_cfg__:
             self.__exp_cfg__ = self.__get_path__('experiment-file', None, None)
-            if self.__exp_cfg__ == None:
+            if self.__exp_cfg__ is None:
                 self.__exp_cfg__ = os.path.join(self.data_dir(),
                         "experiment.cfg")
         return self.__exp_cfg__
@@ -134,7 +134,7 @@ class mas_path:
     def hardware_file(self):
         if not self.__mce_cfg__:
             self.__mce_cfg__ = self.__get_path__('hardware-file', None, None)
-            if self.__mce_cfg__ == None:
+            if self.__mce_cfg__ is None:
                 self.__mce_cfg__ = os.path.join(self.etc_dir(),
                         "mce{0}.cfg".format(self.__fibre_card__))
                 if not os.path.isfile(self.__mce_cfg__):

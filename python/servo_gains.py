@@ -25,7 +25,7 @@ o.add_option('-s','--stage',action='append')
 
 opts, args = o.parse_args()
 
-if opts.stage == None:
+if opts.stage is None:
     opts.stage = ['sa_ramp', 'sq2_servo']
 
 for target in args:

@@ -162,7 +162,7 @@ def _rangify(start, count, n, name='items'):
         print 'Warning: %s requested at %i, beyond available %s.' %\
             (name, start, name)
         start = n
-    if count == None:
+    if count is None:
         count = n - start
     if count < 0:
         count = n - start + count
@@ -203,17 +203,17 @@ class SmallMCEFile:
         self.filename = filename      # Full path to file
 
         # Set runfile name
-        if (filename != None) and (runfile == True):
+        if (filename is not None) and (runfile == True):
             self.runfilename = MCERunfile.FindRunfile(filename)
         else:
             self.runfilename = runfile
 
         # If the time is right, compute content and packing
-        if (filename != None) and basic_info:
+        if (filename is not None) and basic_info:
             self._GetPayloadInfo()
         if (self.runfilename != False) and basic_info:
             self._ReadRunfile()
-            if filename != None:
+            if filename is not None:
                 self._GetContentInfo()
 
     def Reset(self):
@@ -248,11 +248,11 @@ class SmallMCEFile:
         """
         data = self.runfile.Item('HEADER', 'RB %s %s'%(card,param), type='int', \
                                  array=array)
-        if data == None and check_sys:
+        if data is None and check_sys:
             # On SCUBA2, some things are stored in sys only.  Blech.
             data = self.runfile.Item('HEADER', 'RB sys %s'%(param),
                                      type='int', array=array)
-            if data != None:
+            if data is not None:
                 data = data[0]
         return data
 
@@ -265,7 +265,7 @@ class SmallMCEFile:
         rcs = [i+1 for i,p in enumerate(self.header['_rc_present']) if p]
         vals = [ self._rfMCEParam('rc%i'%r, param) for r in rcs ]
         for r,v in zip(rcs[1:], vals[1:]):
-            if v == None and vals[0] != None:
+            if v is None and vals[0] is not None:
                 print 'Warning: param \'%s\' not found on rc%i.' % \
                     (param, r)
                 continue
@@ -282,7 +282,7 @@ class SmallMCEFile:
 
         Sets members n_cols, n_rows, divid, data_mode, n_frames.
         """
-        if self.runfile == None:
+        if self.runfile is None:
             if self.runfilename == False:
                 raise RuntimeError, 'Can\'t determine content params without runfile.'
             self._ReadRunfile()
@@ -302,7 +302,7 @@ class SmallMCEFile:
         # Get data_mode information
         self.data_mode = self._GetRCAItem('data_mode')
         dm_data = MCE_data_modes.get('%i'%self.data_mode)
-        if dm_data == None:
+        if dm_data is None:
             dm_data = MCE_data_modes['0']
 
         # For 50 MHz modes, the data is entirely contiguous
@@ -345,7 +345,7 @@ class SmallMCEFile:
 
         Sets members n_ro, n_rc, size_ro, frame_bytes, rc_step.
         """
-        if self.header == None:
+        if self.header is None:
             self._ReadHeader()
         # Compute frame size from header data.
         self.n_rc = self.header['_rc_present'].count(True)
@@ -362,7 +362,7 @@ class SmallMCEFile:
             MCE_DWORD*(self.size_ro * self.n_rc + \
                            self.header['_header_size'] + self.header['_footer_size'])
         # Now stat the file to count the readout frames
-        if self.filename != None:
+        if self.filename is not None:
             # This conditional caginess is for subclassing to MCEBinaryData.
             file_size = stat(self.filename).st_size
             self.n_ro = file_size / self.frame_bytes
@@ -384,11 +384,11 @@ class SmallMCEFile:
         """
         # It's a V6, or maybe a V7.
         format = HeaderFormat()
-        if head_binary == None:
-            if self.filename == None:
+        if head_binary is None:
+            if self.filename is None:
                 raise RuntimeError, 'Can\'t read header without data file.'
             fin = open(self.filename)
-            if offset != None:
+            if offset is not None:
                 fin.seek(offset)
             head_binary = numpy.fromfile(file=fin, dtype='<i4',
                                          count=format.header_size)
@@ -456,7 +456,7 @@ class SmallMCEFile:
         in this data file.  Return as list of (row, col) tuples.  For
         raw mode data, only a list of columns is returned.
         """
-        if self.runfile == None:
+        if self.runfile is None:
             self._ReadRunfile()
         rc_p = self.header['_rc_present']
         rcs = [i for i,p in enumerate(rc_p) if p]
@@ -477,8 +477,8 @@ class SmallMCEFile:
         col_index = [ self._rfMCEParam('rc%i'%(r+1), 'readout_col_index') \
                           for r in rcs ]
         for i in range(len(rcs)):
-            if row_index[i] == None: row_index[i] = 0
-            if col_index[i] == None: col_index[i] = 0
+            if row_index[i] is None: row_index[i] = 0
+            if col_index[i] is None: col_index[i] = 0
         col_index = [ c + r*MCE_COL for r,c in zip(rcs, col_index) ]
 
         if row_col:
@@ -513,7 +513,7 @@ class SmallMCEFile:
         data_in.shape = (n_ro, n_chan / cc_cols, cc_cols)
 
         # Probably should leave the type the same, oops.
-        if dtype == None:
+        if dtype is None:
             dtype = data_in.dtype
 
         # Short-hand some critical sizes and declare output data array
@@ -613,12 +613,12 @@ class SmallMCEFile:
             self._GetContentInfo()
 
         # Allow data_mode override
-        if data_mode != None:
+        if data_mode is not None:
             self.data_mode = data_mode
 
         if cc_indices:
             start *= pack_factor
-            if count != None:
+            if count is not None:
                 count *= pack_factor
 
         # Decode start and count arguments
@@ -641,7 +641,7 @@ class SmallMCEFile:
 
         # Check data mode for processing instructions
         dm_data = MCE_data_modes.get('%i'%self.data_mode)
-        if dm_data == None:
+        if dm_data is None:
             print 'Warning: unimplemented data mode %i, treating as 0.'%self.data_mode
             dm_data = MCE_data_modes['0']
 
@@ -666,10 +666,10 @@ class SmallMCEFile:
         data_out.header = self.header
 
         # Unravel the field= vs. fields=[...] logic
-        if field == None:
+        if field is None:
             field = 'default'
-        force_dict = (fields != None)
-        if fields == None:
+        force_dict = (fields is not None)
+        if fields is None:
             fields = [field]
         elif fields == 'all':
             fields = dm_data.fields
@@ -728,7 +728,7 @@ class MCERunfile:
     def __init__(self, filename=None):
         self.filename = filename
         self.data = {}
-        if filename != None:
+        if filename is not None:
             self.Read(filename)
 
     def Read(self, filename):
@@ -740,7 +740,7 @@ class MCERunfile:
 
         for l in lines:
             key, data = runfile_break(l)
-            if key == None: continue
+            if key is None: continue
 
             if key[0] == '/':
                 if (block_name != key[1:]):
@@ -750,8 +750,8 @@ class MCERunfile:
                 self.data[block_name] = block_data
                 block_name = None
                 block_data = {}
-            elif block_name == None:
-                if data == None or data == '':
+            elif block_name is None:
+                if data is None or data == '':
                     if self.data.has_key(key):
                         raise BadRunfile('duplicate block \'%s\''%key)
                     block_name = key
@@ -786,11 +786,11 @@ class MCERunfile:
         row = first
         while not done:
             g = self.Item(block, key_format % row, array=array, type=type)
-            if g == None:
+            if g is None:
                 break
             result.append(g)
             row = row + 1
-            if count != None and row - first == count:
+            if count is not None and row - first == count:
                 break
         return result
 
@@ -800,7 +800,7 @@ class MCERunfile:
         for i in range(4):
             d = self.Item2d(block, key_format%(i+1), array=array,
                             type=type, first=first, count=count)
-            if d == None:
+            if d is None:
                 return None
             for column in d:
                 rc_data.append(column)
@@ -978,7 +978,7 @@ class MCEButterworth(MCEFilter):
         freqs = numpy.arange(float(n))/n
         freqs[int((n+1)/2):] -= 1.
         spec = self.transfer(freqs, f_samp=1./decimation)
-        if gain0 != None:
+        if gain0 is not None:
             spec *= gain0 / self.gain()
         if inverse:
             spec = 1./spec
@@ -999,13 +999,13 @@ class MCEButterworth(MCEFilter):
         n = data.shape[-1]
         b = [1., 2., 1.]
         # First filter
-        if stages == None or 0 in stages:
+        if stages is None or 0 in stages:
             a = [1., -self.params[0]/2.**14, self.params[1]/2.**14]
             data = scs.lfilter(b, a, data) / 2**self.params[5]
             if truncate:
                 data = numpy.floor(data)
         # Second filter
-        if stages == None or 1 in stages:
+        if stages is None or 1 in stages:
             a = [1., -self.params[2]/2.**14, self.params[3]/2.**14]
             data = scs.lfilter(b, a, data) / 2**self.params[4]
             if truncate:
@@ -1017,7 +1017,7 @@ class MCEButterworth(MCEFilter):
     @classmethod
     def from_params(cls, ftype, fparams):
         params = None
-        if ftype == None or ftype == 0 or ftype == 1:
+        if ftype is None or ftype == 0 or ftype == 1:
             # Classic filter
             params = [32092, 15750, 31238, 14895, 0, 11]
         elif ftype == 2:
@@ -1027,7 +1027,7 @@ class MCEButterworth(MCEFilter):
             # Parametrized
             params = fparams
         # Did this all work out?
-        if params == None or len(params) != 6:
+        if params is None or len(params) != 6:
             raise ValueError, "Invalid filter parameters for ftype='%i'" %\
                 ftype
         return cls(params)
@@ -1043,7 +1043,7 @@ class MCEButterworth(MCEFilter):
             runfile = MCERunfile(runfile)
         # Preferred readout card
         rc = runfile.Item('FRAMEACQ', 'RC')
-        if rc == None:
+        if rc is None:
             rc = 'rc1'
         else:
             rc = 'rc' + rc[0]

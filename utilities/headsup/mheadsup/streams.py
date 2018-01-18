@@ -42,7 +42,7 @@ class StreamListStream(HeadsupStream):
         self.streams.append(stream)
     def remove_stream(self, stream=None, name=None):
         print 'remove ', stream, name
-        if stream == None:
+        if stream is None:
             stream = self.stream_hash.pop(name)
         else:
             del self.stream_hash[stream.name]
@@ -51,8 +51,8 @@ class StreamListStream(HeadsupStream):
         n = 0
         discard = []
         for stream in self.streams:
-            keep = (provider == None or stream.provider != provider) and \
-                (local_provider == None or  \
+            keep = (provider is None or stream.provider != provider) and \
+                (local_provider is None or  \
                          stream.local_provider != local_provider)
             discard.append(not keep)
         n = sum(discard)

@@ -15,7 +15,7 @@ from numpy import *
 
 def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
     # write a note file
-    if (note != None):
+    if (note is not None):
         tuning.write_note(note)
 
     # initialise the squid tuning results file
@@ -40,7 +40,7 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
             on_bias += exit_status
 
     # experiment.cfg setting may force a ramp_sa_bias.
-    if (ramp_sa_bias == None):
+    if (ramp_sa_bias is None):
         ramp_sa_bias = tuning.get_exp_param("sa_ramp_bias")
 
     if (tuning.get_exp_param("tes_bias_do_reconfig") != 0):
@@ -116,7 +116,7 @@ def prepare_sa_ramp(tuning, tune_data, cols=None):
     Prepare the MCE to run the SA ramp.
     """
     # Get columns relevant to this tuning
-    if cols == None:
+    if cols is None:
         cols = array(tuning.column_list())
     
     set_basic_mce_params(tuning, adc_offset_all=0)
@@ -213,7 +213,7 @@ def prepare_sq2_servo(tuning, tune_data, cols=None):
     Prepare the MCE to run the SQ2 servo.
     """
     # Get columns relevant to this tuning
-    if cols == None:
+    if cols is None:
         cols = array(tuning.column_list())
 
     # Be sure to restore per-column adc_offset.
@@ -491,12 +491,12 @@ def operate(tuning):
     # Compile dead detector mask
     print "Assembling dead detector mask."
     mask = util.get_all_dead_masks(tuning, union=True)
-    if mask != None:
+    if mask is not None:
       tuning.set_exp_param("dead_detectors", mask.data.transpose().reshape(-1))
 
     print "Assembling frail detector mask."
     mask = util.get_all_dead_masks(tuning, union=True, frail=True)
-    if mask != None:
+    if mask is not None:
       tuning.set_exp_param("frail_detectors", mask.data.transpose().reshape(-1))
 
     # Write to MCE
@@ -509,7 +509,7 @@ def frametest_check(tuning, rcs, row, column):
     Fix me.
     """
     # Permit row override, or else take it from config
-    if (row == None):
+    if (row is None):
         row = 9
         print "Row = %i is used for frametest_plot by default." % row
 
@@ -548,14 +548,14 @@ IDL auto_setup_squids."""
     tuning.register_plots(init=True)
 
     # set rc list, if necessary
-    if (rcs == None):
+    if (rcs is None):
         print "  Tuning all available RCs."
         rcs = ['s']
 
     # default parameters
-    if ramp_sa_bias == None:
+    if ramp_sa_bias is None:
         ramp_sa_bias = bool(tuning.get_exp_param('sa_ramp_bias'))
-    if check_bias == None:
+    if check_bias is None:
         check_bias = bool(tuning.get_exp_param('tuning_check_bias'))
     write_default_bias = bool(tuning.get_exp_param('write_default_bias',
         missing_ok = 1, default = 0))
@@ -563,7 +563,7 @@ IDL auto_setup_squids."""
     # initialise the auto setup
     tune_data = do_init(tuning, rcs, check_bias, ramp_sa_bias, note)
 
-    if (tune_data == None):
+    if (tune_data is None):
         return 1
 
     if tuning.get_exp_param("hardware_mux11d") == 1:
@@ -586,17 +586,17 @@ IDL auto_setup_squids."""
                   'sq1_ramp_tes',
                   'operate']
         
-    if first_stage == None:
+    if first_stage is None:
         if short == 1:
             first_stage = 'sq1_servo'
         if short == 2:
             first_stage = 'sq1_ramp'
-    if first_stage == None:
+    if first_stage is None:
         first_stage = stages[0]
-    if last_stage == None:
+    if last_stage is None:
         if (tuning.get_exp_param("stop_after_sq1_servo") == 1):
             last_stage = 'sq1_servo'
-    if last_stage == None:
+    if last_stage is None:
         last_stage = stages[-1]
 
     s0, s1 = stages.index(first_stage), stages.index(last_stage)

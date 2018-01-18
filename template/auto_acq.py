@@ -99,17 +99,17 @@ for acq in acq_desc:
         os.system('mce_status > %s' % rf_filename)
         os.system('frameacq_stamp %s %s %i >> %s' % \
                   (details['rc_num'], filename, details['n_frames'], rf_filename))
-        if rf0 == None:
+        if rf0 is None:
             rf0 = rf_filename
     elif rf_type == 'symlink':
-        if rf0 == None:
+        if rf0 is None:
             o.error('Need to create a runfile before symlinking one.')
         os.symlink(rf0, rf_filename)
     else:
         raise
     # If data has a symlink, so should the runfile; just append .run
     slink = acq.get('symlink',None)
-    if slink != None and slink != '':
+    if slink is not None and slink != '':
         slink = (slink % details) +'.run'
         if is_and_is_symlink(slink):
             os.remove(slink)
@@ -145,14 +145,14 @@ for acq in acq_desc:
 
     # Name any symlink
     slink = acq.get('symlink',None)
-    if slink == None or slink == '':
+    if slink is None or slink == '':
         lines.append('acq_link')
     else:
         lines.append('acq_link %s' % (slink % my_det))
 
     # Process options
     opts = acq.get('options', None)
-    if opts != None:
+    if opts is not None:
         # handle special options
         if ftype == 'dirfile':
             have_incfile = 0

@@ -70,12 +70,12 @@ cfg = maa.DefaultingConfig(default_config_file)
 
 cfg.active_section = 'auto_setup'
 cfg.default_section = 'default'
-if opts.auto_log == None:
+if opts.auto_log is None:
     opts.auto_log = cfg.getstr('auto_log', '').strip()
     if opts.auto_log == '':
         opts.auto_log = None
 
-if opts.auto_log == None and opts.reg_note == None:
+if opts.auto_log is None and opts.reg_note is None:
     opts.auto_log = '/dev/null'
 
 alog = maa.AutoLogger(opts.auto_log, 'auto_setup')

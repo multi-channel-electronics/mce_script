@@ -19,11 +19,11 @@ def go(tuning, rc, filename=None):
 
 def acquire(tuning, rc=None, filename=None,
             data_mode=4):
-    if rc == None:
+    if rc is None:
         rc = 'rcs'
 
     # File defaults
-    if filename == None:
+    if filename is None:
         action = 'lock'
         filename, acq_id = tuning.get_filename(rc=rc, action=action)
     else:

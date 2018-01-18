@@ -63,14 +63,14 @@ if __name__ == '__main__':
     o.add_option('--rate', default=10., type=float)
     opts, args = o.parse_args()
 
-    if opts.geometry_file == None:
+    if opts.geometry_file is None:
         shape = (9,9)
         g0 = make_custom_layout(shape)
         g1 = geometries.pixelSetGeometry.for_grid(name='Grid', *shape)
         geoms = [g0, g1]
     else:
         # Load geometry from a file, randomize the data.
-        if opts.geometry_name == None:
+        if opts.geometry_name is None:
             opts.geometry_name = \
                 geometries.pixelSetGeometry.get_cp_list(opts.geometry_file)
         geoms = [geometries.pixelSetGeometry.from_cp(opts.geometry_file,k)

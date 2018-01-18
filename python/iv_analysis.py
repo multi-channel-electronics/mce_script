@@ -43,7 +43,7 @@ seterr(divide='ignore') # numpy - suppress /0 warnings.
 filename = args[0]
 
 # Destination for plots
-if opts.plot_dir == None:
+if opts.plot_dir is None:
     opts.plot_dir = filename + '_data'
 if opts.plot_dir == 'none':
     opts.plot_dir = None
@@ -52,7 +52,7 @@ else:
         os.makedirs(opts.plot_dir)
 
 # Runfile output
-if opts.rf_file == None:
+if opts.rf_file is None:
     opts.rf_file = filename + '.out'
 if opts.rf_file == 'none':
     opts.rf_file = None
@@ -61,7 +61,7 @@ if opts.rf_file == 'none':
 printv('Loading data...', 1)
 filedata = iv_tools.IVData(filename)
 
-if opts.array == None:
+if opts.array is None:
     opts.array = filedata.runfile.Item('FRAMEACQ','ARRAY_ID',array=False).strip()
 
 # Load array description
@@ -186,7 +186,7 @@ if printv.v >= 1:
 #
 
 
-if opts.rf_file != None:
+if opts.rf_file is not None:
     printv('Writing runfile block to %s' % opts.rf_file, 1)
     rf_out = iv_tools.runfile_block(opts.rf_file, data_cols=filedata.data_cols)
     rf_out.write_scalar('IV','')
@@ -213,7 +213,7 @@ printv('Analysis complete (%8.3f)' % (time.time() - t0), 1)
 # Plot :P
 #
 
-if opts.plot_dir != None and not opts.summary_only:
+if opts.plot_dir is not None and not opts.summary_only:
     printv('Plotting all data (%8.3f)' % (time.time() - t0), 1)
 
     from auto_setup.util.plotter import stackedPager
@@ -243,12 +243,12 @@ if opts.plot_dir != None and not opts.summary_only:
                 else:
                     fr.title = ''
             else:
-                fr == None
+                fr is None
             if pc == 0:
                 # TES I vs TES V (transition and normal)
                 #if not valid:
                 #    continue
-                if fr != None:
+                if fr is not None:
                     fr.xlabel = 'V_TES (uV)'
                     fr.ylabel = 'P_TES (pW)'
                 idx = arange(0, iv_data.super_idx0[r,c])
@@ -256,7 +256,7 @@ if opts.plot_dir != None and not opts.summary_only:
                 x, y = filedata.tes_v[r,c,idx], filedata.tes_P[r,c,idx]
                 xl, yl = (0, x.max()), (0, y.max())
             elif pc == 1:
-                if fr != None:
+                if fr is not None:
                     fr.xlabel = 'TES POWER (pW)'
                     fr.ylabel = 'R_EFF (Ohms)'
                 # R_eff vs P (transition and normal)
@@ -271,7 +271,7 @@ if opts.plot_dir != None and not opts.summary_only:
                     y_at_bias = set_data.R[r,c]
                     p.add(bg.Curve(xl, [y_at_bias, y_at_bias], type='dashed'))
             elif pc == 2:
-                if fr != None:
+                if fr is not None:
                     fr.xlabel = 'TES BIAS (DAC/1000)'
                     fr.ylabel = 'FB (DAC/1000)'
                 # Show data with analysis regions
@@ -304,12 +304,12 @@ if opts.plot_dir != None and not opts.summary_only:
                 v_super = 1e6 * bias[idx]/Rbias[c]
                 x, y = v_super, i_super
                 xl, yl = (0, 1e2), (0, 1e2)
-            if x != None and x.shape[0] > 0:
+            if x is not None and x.shape[0] > 0:
                 p.add(bg.Curve(x, y))
-                if xl != None: p.xrange = xl
-                if yl != None: p.yrange = yl
+                if xl is not None: p.xrange = xl
+                if yl is not None: p.yrange = yl
 
-if opts.plot_dir != None:
+if opts.plot_dir is not None:
     printv('Generating summary plots', 1)
 
     import matplotlib
@@ -367,7 +367,7 @@ if opts.plot_dir != None:
             continue
 
         targets = ar_par.get('perRn_plot_target_bins')
-        if targets == None:
+        if targets is None:
             # Base targets on the dets-on-transition results.
             lo, hi = (n > n.max() / 10).nonzero()[0][[-1,0]]
             lo, hi = filedata.bias_dac[bi[lo]], filedata.bias_dac[bi[hi]]

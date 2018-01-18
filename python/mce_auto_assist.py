@@ -15,13 +15,13 @@ class DefaultingConfig(SafeConfigParser):
     # This actually isn't that much smarter.
     def __init__(self, filename=None):
         SafeConfigParser.__init__(self)
-        if filename != None:
+        if filename is not None:
             self.read(filename)
     def get_type(self, type_caster, key, default=None):
         for section in [self.active_section, self.default_section]:
             if self.has_section(section) and self.has_option(section, key):
                 return type_caster(self.get(section, key))
-        if default != None:
+        if default is not None:
             return default
         raise ValueError, 'Unknown config parameter %s:%s' % \
             (section, key)
@@ -40,7 +40,7 @@ class AutoLogger:
     start_time = None
 
     def __init__(self, log_file=None, script_id='<unknown>'):
-        if log_file == None:
+        if log_file is None:
             log_file = os.path.join(mas_path.data_dir(), 'auto_log.txt')
         self.log_file = log_file
         self.script_id = script_id
@@ -57,7 +57,7 @@ class AutoLogger:
                    'STOP')
 
     def write(self, msg, info='INFO'):
-        if self.log_file == None:
+        if self.log_file is None:
             return
         if len(msg) == 0 or msg[-1] != '\n':
             msg = msg + '\n'

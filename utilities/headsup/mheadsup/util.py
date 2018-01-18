@@ -39,12 +39,12 @@ class MainConfig(cp.ConfigParser):
 
     def __init__(self, filename=None):
         cp.ConfigParser.__init__(self)
-        if filename != None:
+        if filename is not None:
             self.filename = filename
         else:
             if os.path.exists(_defaults['config_file']):
                 self.filename = _defaults['config_file']
-        if self.filename != None:
+        if self.filename is not None:
             if not os.path.exists(self.filename):
                 print 'Config file %s not found' % self.filename
             else:
@@ -59,7 +59,7 @@ class MainConfig(cp.ConfigParser):
     def get_server_config(self, key=None):
         if not 'Servers' in self.sections():
             return {}
-        if key == None:
+        if key is None:
             key = self.get('Servers', 'default_server')
         server_list = [x.split() for x in
                        self.get('Servers', 'server_list').split('\n')]
@@ -85,22 +85,22 @@ class ServerConfig(dict):
     def __init__(self, source=None):
         dict.__init__(self)
         self.update(_server_defaults)
-        if source != None:
+        if source is not None:
             self.update(source)
     def get_tunnel_cmd(self):
-        if self['tunnel'] == None:
+        if self['tunnel'] is None:
             return None
         return ['ssh', '-N',
                 '-L%i:%s:%i' % (self['port'], self['host'], self['port']),
                 self['tunnel']]
     def get_server(self):
-        if self['tunnel'] != None:
+        if self['tunnel'] is not None:
             return 'localhost:%i' % self['port']
         return '%s:%i' % (self['host'], self['port'])
 
 
 def get_defaults(target=None):
-    if target == None:
+    if target is None:
         target = {}
     target.update(defaults)
     if defaults.get('host_var') and \
@@ -129,20 +129,20 @@ class upOptionParser(OptionParser):
     def parse_args(self, defaults=None):
         opts, args = OptionParser.parse_args(self)
         opts.server_cfg = ServerConfig()
-        if defaults != None:
+        if defaults is not None:
             opts.server_cfg.update(defaults)
-        if opts.config_file != None:
+        if opts.config_file is not None:
             cfg = MainConfig(opts.config_file)
             scfg = cfg.get_server_config(opts.server_profile)
             if isinstance(scfg, basestring):
                 self.error("Error parsing config %s: %s" % \
                                 (opts.config_file, scfg))
             opts.server_cfg.update(scfg)
-            if opts.port != None:
+            if opts.port is not None:
                 opts.server_cfg['port'] = opts.port
-            if opts.host != None:
+            if opts.host is not None:
                 opts.server_cfg['host'] = opts.host
-            if hasattr(opts, 'tunnel') and opts.tunnel != None:
+            if hasattr(opts, 'tunnel') and opts.tunnel is not None:
                 opts.server_cfg['tunnel'] = opts.tunnel
         return opts, args
 
@@ -167,7 +167,7 @@ casts = {
 }
 
 def get_type_value_pair(dtype, value):
-    if dtype == None:
+    if dtype is None:
         dtype = get_type(value)
         return dtype, str(value)
     return dtype, value
@@ -195,9 +195,9 @@ def load_columns(fin, cols=None, skip=0):
         if len(line) == 0 or line[0] == '#':
             continue
         w = line.split()
-        if n_col == None:
+        if n_col is None:
             n_col = len(w)
-        if cols == None:
+        if cols is None:
             data.append(w)
         else:
             data.append(w[i] for i in cols)
@@ -208,7 +208,7 @@ def load_columns(fin, cols=None, skip=0):
 class logger:
     def __init__(self, default_priority=0, verbosity=None,
                  prefix=''):
-        if verbosity == None:
+        if verbosity is None:
             verbosity = 0
         self.default_priority = default_priority
         self.streams = [(sys.stdout, verbosity)]
@@ -216,11 +216,11 @@ class logger:
 
     def set_verbosity(self, verbosity, stream=None):
         for i in range(len(self.streams)):
-            if stream==None or i==stream:
+            if stream is None or i==stream:
                 self.streams[i] = (s, verbosity)
 
     def log(self, msg, priority=None):
-        if priority == None:
+        if priority is None:
             priority = self.default_priority
         prefix = self.prefix + '(%i):' %(os.getpid()) + ' '*priority
         for s, v in self.streams:

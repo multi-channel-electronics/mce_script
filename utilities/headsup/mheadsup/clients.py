@@ -13,17 +13,17 @@ class HeadsupClient:
     
     def __init__(self, server=None, name=None, log=None,
                  verbosity=None):
-        if isinstance(server, dict) != None:
+        if isinstance(server, dict) is not None:
             server = '%s:%i' % (server['host'], server['port'])
         self.handlers = []
         self.connected = False
         self.encoder = nets.packetFormatV1
-        if log == None:
+        if log is None:
             log = util.logger(verbosity=verbosity)
         self.log = log
-        if name != None:
+        if name is not None:
             self.name = name
-        if server != None:
+        if server is not None:
             self.connect(server)
 
     def __repr__(self):
@@ -34,7 +34,7 @@ class HeadsupClient:
                                       constr, str(self.addr))
 
     def connect(self, addr=None):
-        if addr != None:
+        if addr is not None:
             self.addr = addr
         self.sock, err, msg = nets.get_socket(self.addr)
         if err != 0:
@@ -80,7 +80,7 @@ class HeadsupClient:
         if not self.sock:
             return None
         msg = nets.recv_dahi(self.sock, block=block)
-        if msg == None:
+        if msg is None:
             self.close()
         return msg
 
@@ -96,7 +96,7 @@ class HeadsupClient:
         """
         Issue a subscription request to the server.
         """
-        if server_stream == None:
+        if server_stream is None:
             server_stream = constants.CLIENT_CONTROL_STREAM
         ok, data = self.encoder.encode_packet('control', server_stream,
                                               self.name, '',
@@ -109,7 +109,7 @@ class HeadsupClient:
         """
         Tell the server to stuff it.
         """
-        if server_stream == None:
+        if server_stream is None:
             server_stream = constants.CLIENT_CONTROL_STREAM
         ok, data = self.encoder.encode_packet('control', server_stream,
                                               self.name, '',
@@ -122,7 +122,7 @@ class HeadsupClient:
         """
         Register a single control stream with the server. 
         """
-        if server_stream == None:
+        if server_stream is None:
             server_stream = constants.CLIENT_CONTROL_STREAM
         stream_data = [s.render_basic() for s in stream_list]
         ok, data = self.encoder.encode_packet('control', server_stream,
@@ -142,7 +142,7 @@ class HeadsupClient:
         packet, address and data are the packet address and payload.
         """
         data = self.recv(block=False)
-        if data == None or data == '':
+        if data is None or data == '':
             return True, None, None
         ok, addr, data = self.encoder.decode_packet(data)
         if not ok:
@@ -158,7 +158,7 @@ class HeadsupClient:
             ok, _,_ = handler.handle(addr, data)
             if ok:
                 break
-        if self.client_control_handler != None and \
+        if self.client_control_handler is not None and \
                 self.client_control_handler.status == 'server_close':
             self.log('Received termination from server.')
             self.close()
@@ -208,7 +208,7 @@ class HeadsupDataSource(HeadsupClient):
         json_data = {'data_packing': 'simple',
                      'data_shape': data.shape,
                      'data_type': data.dtype.name}
-        if data == None:
+        if data is None:
             bin_data = None
         else:
             bin_data = data.tostring()
@@ -234,7 +234,7 @@ class HeadsupDataSource(HeadsupClient):
         if not ok:
             return ok, addr, data
         ch = self.control_handler
-        if ch != None:
+        if ch is not None:
             if ch.do_update:
                 self.update_info({},trigger_notify=True)
                 ch.do_update = False
@@ -259,7 +259,7 @@ class HeadsupDataConsumer(HeadsupClient):
                        {'update': self.name}, ptype='control')
 
     def unsubscribe_data(self):
-        if self.data_handler == None:
+        if self.data_handler is None:
             return False
         self.unsubscribe(self.data_handler.stream_name)
         return True

@@ -9,9 +9,9 @@ class DeadMask:
         Provide filename to load dead mask, or pass dimensions in 'shape' to
         create empty mask.  Label may be consumed by plotters, etc.
         """
-        if filename != None:
+        if filename is not None:
             self.read(filename)
-        elif shape != None:
+        elif shape is not None:
             self.shape = shape
             self.data = numpy.zeros(shape, dtype='int')
         self.label = label
@@ -20,7 +20,7 @@ class DeadMask:
         nr = mas_param(filename, 'n_rows', 'integer')
         nc = mas_param(filename, 'n_cols', 'integer')
         d = mas_param(filename, 'mask', 'integer')
-        if nr==None or nc==None or d==None:
+        if nr is None or nc is None or d is None:
             raise RuntimeError, 'Invalid or missing dead_mask file "%s"' % filename
         self.data = d.reshape(nc, nr).transpose()
         self.shape = self.data.shape
@@ -44,7 +44,7 @@ class DeadMask:
 
     def write(self, filename, comment=None):
         f = open(filename, 'w')
-        if comment != None:
+        if comment is not None:
             if comment[-1] != '\n': comment += '\n'
             f.write(comment)
         f.write(self.str())
@@ -56,7 +56,7 @@ class DeadMask:
         unraveling the column-dominant vector after (possibly)
         trimming or extending it to have n_rows rows.
         """
-        if n_rows == None:
+        if n_rows is None:
             n_rows = self.shape[0]
         nr, nc = self.data.shape[0]
         if nr < n_rows:   # pad the data
@@ -76,7 +76,7 @@ def get_all_dead_masks(tuning, union=False, frail=False, silent=False):
         prefix="dead_"
 
     mask_list = tuning.get_exp_param(prefix + "mask_list", missing_ok=True);
-    if (mask_list == None):
+    if (mask_list is None):
         mask_list = ["squid1", "multilock", "jumper", "connection", "tes_short",
                 "other"]
 

@@ -126,7 +126,7 @@ def acquire(tuning, rc, filename=None,
             action_name='', bin_name=None):
 
     # File defaults
-    if filename == None:
+    if filename is None:
         filename, acq_id = tuning.filename(rc=rc, action=action_name)
     else:
         try:
@@ -232,7 +232,7 @@ def do_rs_servo(tuning, rc, rc_indices):
         new_rsel0 = [new_rsel0[0]] * n_rs
 
     # Apply rs multiplier (lives in RSServo)
-    if ishybrid==1 and sq.hybrid_rs_multipliers!=None:
+    if ishybrid==1 and sq.hybrid_rs_multipliers is not None:
         new_rsel1 = [nrs1*hrsmult for (nrs1,hrsmult) in
                      zip(new_rsel1,sq.hybrid_rs_multipliers)]
         new_rsel0 = [nrs0*hrsmult for (nrs0,hrsmult) in

@@ -93,7 +93,7 @@ class plotPager:
 
     def next(self):
         (p, pr, pc), (r, c) = self.iter.next()
-        if p != self.last_page and self.canvas != None:
+        if p != self.last_page and self.canvas is not None:
             self.write_page()
         self.last_page = p
         return r, c, self.get_container(p, pr, pc)
@@ -129,13 +129,13 @@ class bigglesPager(plotPager):
             }
     
     def get_container(self, page, prow, pcol):
-        if self.canvas == None:
+        if self.canvas is None:
             self.get_page(page)
         return self.canvas['plot'][prow,pcol]
 
     def write_page(self):
         c = self.canvas
-        if c == None:
+        if c is None:
             return None
         pr, pc = self.page_shape
         for i in range(pr):
@@ -162,13 +162,13 @@ class stackedPager(bigglesPager):
             }
     
     def get_container(self, page, prow, pcol):
-        if self.canvas == None:
+        if self.canvas is None:
             self.get_page(page)
         return self.canvas['plot'][0,pcol][prow,0]
 
     def write_page(self):
         c = self.canvas
-        if c == None:
+        if c is None:
             return None
         pr, pc = self.page_shape
         c['plot'].write_img(self.img_size[0], self.img_size[1],
@@ -206,7 +206,7 @@ class plotGridder:
         for k, v in zip(kwargs.keys(), kwargs.values()):
             if not k in keys:
                 raise ValueError, "keyword '%s' not valid" % k
-            if v != None:
+            if v is not None:
                 setattr(self, k, v)
             
         # Dimensions of target space
@@ -227,7 +227,7 @@ class plotGridder:
         self.reset()
 
     def cleanup(self):
-        if not self.written and self.canvas != None:
+        if not self.written and self.canvas is not None:
             self._write_hpage()
         ofile = self.filename + '.pdf'
         if self.format == 'pdf' and not os.path.exists(ofile):
@@ -250,9 +250,9 @@ class plotGridder:
         page = biggles.Table(1, M)
         for i in range(M):
             page[0,i] = biggles.FramedArray(N,1)
-            if self.xlabel != None:
+            if self.xlabel is not None:
                 page[0,i].xlabel = self.xlabel
-            if self.ylabel != None:
+            if self.ylabel is not None:
                 page[0,i].ylabel = self.ylabel
             r, c1, _, c2 = self.to_rowcol((v,h,i,0)) + self.to_rowcol((v,h,i,N-1))
             if self.rowcol_labels:
@@ -261,7 +261,7 @@ class plotGridder:
                 page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
             if self.row_labels:
                 page[0,i].title = 'Rows %2i-%2i' % (c1, c2) # :P
-        if self.title != None:
+        if self.title is not None:
             page.title = self.title
         return page
         
@@ -277,7 +277,7 @@ class plotGridder:
                 r, c = self.to_rowcol((v,h,i,j))
                 if self.rowcol_labels:
                     page[j,i].title = 'Row %i Col %i' % (r, c)
-        if self.title != None:
+        if self.title is not None:
             page.title = self.title
         return page
 
@@ -343,12 +343,12 @@ class plotGridder:
         Returns row, column, and biggles plot object.  Use them wisely.
         """
         # Increment indices
-        if self.pointer == None:
+        if self.pointer is None:
             self.pointer = (0,0,0,0)
         else:            
             new_pointer = _carry(self.pointer, self.target_shape[:2] + \
                                      self.target_shape[-2:])
-            if new_pointer[-2:] == (0,0) and self.canvas != None:
+            if new_pointer[-2:] == (0,0) and self.canvas is not None:
                 self._write_hpage()
             self.pointer = new_pointer
 

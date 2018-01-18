@@ -76,9 +76,9 @@ class configAnalysis:
             self.load()
 
     def load(self, command=None, lines=None):
-        if command == None:
+        if command is None:
             command = ['/usr/mce/bin/mce_status','-g']
-        if lines == None:
+        if lines is None:
             p = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
             lines, errs = p.communicate()
             lines = lines.split('\n')
@@ -112,11 +112,11 @@ class configAnalysis:
             if v.card == card and v.param == param:
                 # See if any of the maps work.
                 results = []
-                if len(v.maps) > 1 and count == None:
+                if len(v.maps) > 1 and count is None:
                     return False, 'must specify parameter count for mapped non-trivial virtual map'
                 for m in v.maps:
                     _start, _count, c, p, offset = m
-                    if count != None and count > _count:
+                    if count is not None and count > _count:
                         continue
                     # Recurse until we hit a physical parameter.
                     results.append( self.get_ramp_params(c, p, _start-start, _count,
@@ -149,7 +149,7 @@ class awgAccessor:
     def __init__(self, mce):
         self.mce = mce
     def read(self, n=None, reset=True):
-        if n == None:
+        if n is None:
             n = self.mce.read('cc', 'awg_sequence_length')[0]
         if n > AWG_MAX_DATA:
             n = AWG_MAX_DATA

@@ -48,12 +48,12 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.info.fromTextItemList(self.texts)
         self.info.add_item('frame_rate', 'Incoming rate:', '0.')
         self.info.add_item('display_rate', 'Display rate:', '0.')
-        if img != None:
+        if img is not None:
             self.img.append((img, 'default'))
         
         self.init_gfx(horizontal=horizontal)
         
-        if logger == None:
+        if logger is None:
             logger = util.logger()
         self.log = logger
 
@@ -103,7 +103,7 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             self.data_handler = self.replace_handler(None, self.data_handler)
         else:
             stream_name = self.streamList.get_item(idx)
-            if self.data_handler == None or \
+            if self.data_handler is None or \
                     self.data_handler.stream_name != stream_name:
                 self.subscribe_data(stream_name)
         self.img[0][0].reset()
@@ -117,7 +117,7 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             #self.img[0][0].animateMove(self.geom.coords[0],
             #                           self.geom.coords[1])
             self.img[0][0].create_blips_from_geometry(self.geom)
-            if self.geom.channel_names != None:
+            if self.geom.channel_names is not None:
                 self.img[0][0].channel_names = self.geom.channel_names
             self.geom_mask = self.img[0][0].get_mask()
             
@@ -155,7 +155,7 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         self.streamList.update_items(labels=new_stream_names)
 
     def geom_list_changed(self):
-        if self.data_handler == None:
+        if self.data_handler is None:
             geoms = []
         else:
             geoms = [(s['name'], s) for s in self.data_handler.info.
@@ -187,16 +187,16 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
         if idx >= len(self.img):
             return
         img, _ = self.img[idx]
-        if data == None:
+        if data is None:
             data = self.last_data
 
         self.last_data = data
 
         # Data selection mask
         mask = np.ones(data.shape, 'bool')
-        if self.active_mask != None:
+        if self.active_mask is not None:
             mask *= self.active_mask
-        if self.geom_mask != None:
+        if self.geom_mask is not None:
             mask *= self.geom_mask.reshape(mask.shape)
 
         if self.show_mode == 'data':
@@ -232,7 +232,7 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             anything = False
             while True:
                 ok, addr, data = self.do_receive()
-                if not ok or addr == None:
+                if not ok or addr is None:
                     break
                 anything = True
                 if addr.type != 'data':
@@ -241,13 +241,13 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
                 self.idle_count += 1
                 return
 
-            if self.stream_list_handler != None:
+            if self.stream_list_handler is not None:
                 sh = self.stream_list_handler
                 if sh.changes > 0:
                     self.stream_list_changed()
                     sh.changes = 0
 
-            if self.data_handler == None:
+            if self.data_handler is None:
                 return
 
             if self.data_handler.info_update:
@@ -262,14 +262,14 @@ class qtgPlotter(plotters.displayClient,QtGui.QWidget):
             if n_frames > 0:
                 self.info.set_text('time_frame', '%.1f' % time.time())
                 data = self.data_handler.frames.pop(0)
-                if self.data_mask == None or self.data_mask.shape != data.shape:
+                if self.data_mask is None or self.data_mask.shape != data.shape:
                     self.data_mask = np.ones(data.shape, 'bool')
                     self.mask_list_changed()
 
                 # check for clicks?
-                if self.img[0][0].last_click != None:
+                if self.img[0][0].last_click is not None:
                     idx = self.img[0][0].last_click
-                    if self.geom_mask != None:
+                    if self.geom_mask is not None:
                         idx = self.geom_mask.nonzero()[0][idx]
                     mask_view = self.data_mask.ravel()
                     mask_view[idx] = not mask_view[idx]

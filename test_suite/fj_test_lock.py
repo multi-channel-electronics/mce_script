@@ -29,13 +29,13 @@ class super_mce(mce):
             self.write('rc%i'%rc, param+'%i' % chan, [int(d)]*41)
 
     def servo_mode(self, mode=None):
-        if mode == None:
+        if mode is None:
             return self.read('rca', 'servo_mode')[0]
         else:
             self.write('rca', 'servo_mode', [mode]*8)
     
     def data_mode(self, mode=None):
-        if mode == None:
+        if mode is None:
             return self.read('rca', 'data_mode')[0]
         else:
             self.write('rca', 'data_mode', [mode])
@@ -49,7 +49,7 @@ class super_mce(mce):
         self.write_columns('flx_quanta', [n]*(self.n_rc*8))
 
     def flux_jumping(self, mode=None):
-        if mode == None:
+        if mode is None:
             return self.read('rca', 'en_fb_jump')[0]
         self.write('rca', 'en_fb_jump', [mode])
 
@@ -76,14 +76,14 @@ class column(super_mce):
 
     def _colrow_param(self, param, vals=None, offset=None):
         c, p = 'rc%i'%(self.rc+1), param + '%i'%self.chan
-        if vals == None:
+        if vals is None:
             return self.read(c,p)
         vals = [int(x) for x in vals] # safetyize
         return self.write(c,p,vals)
 
     def _col_param(self, param, val=None):
         c = 'rc%i'%(self.rc+1)
-        if val == None:
+        if val is None:
             return self.read(c,param)[self.chan]
         return self.write(c,param,[val],offset=self.chan)
 
@@ -235,7 +235,7 @@ if __name__ == '__main__':
         t = 0
         data = []
         for i in range(steps):
-            if step_fn != None:
+            if step_fn is not None:
                 step_fn(i)
             time.sleep(delay)
             data.append(m.read_col()[0])

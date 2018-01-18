@@ -46,9 +46,9 @@ class displayClient(clients.HeadsupDataConsumer):
         # should project to 1.
         auto = self.controls.get('autoscale', False)
         black, white = self.controls.get('zrange', (None,None))
-        if auto or black == None:
+        if auto or black is None:
             black = data.min()
-        if auto or white == None:
+        if auto or white is None:
             white = data.max()
         if update_texts:
             self.texts.set_text('zrange_lo', '%.3f' % black)
@@ -57,8 +57,8 @@ class displayClient(clients.HeadsupDataConsumer):
         return auto, black, white
 
     def _norm_data(self, data, black, white, mask=None, mask_val=None):
-        if mask != None and mask.sum() > 0:
-            if mask_val == None:
+        if mask is not None and mask.sum() > 0:
+            if mask_val is None:
                 mask_val = (black+white)/2
             data[~mask] = mask_val
         data = (data - black) / (white-black)
@@ -110,7 +110,7 @@ class displayController: #(clients.dataProducer, dict):
         """
         Toggle autoscaling on the display.
         """
-        if value == None:
+        if value is None:
             return self['autoscale']
         self['autoscale'] = value
         self.post_some(['autoscale'])
@@ -120,10 +120,10 @@ class displayController: #(clients.dataProducer, dict):
         Set z-range on the display, for when not autoscaling.
         """
         post = False
-        if min != None:
+        if min is not None:
             self['zrange'][0] = min
             post = True
-        if max != None:
+        if max is not None:
             self['zrange'][1] = max
             post = True
         if post:
@@ -136,7 +136,7 @@ class displayController: #(clients.dataProducer, dict):
     ##
 
     def set_mask(self, mask=None):
-        if mask == None:
+        if mask is None:
             return self['mask']
         # json doesn't like numpy's ints.
         self['mask'] = [[int(x) for x in y] for y in mask]
@@ -144,18 +144,18 @@ class displayController: #(clients.dataProducer, dict):
 
     def mask_area(self, row=None, col=None, shape=None, unmask=False):
         if 'mask' not in self:
-            if shape != None:
+            if shape is not None:
                 mask = np.zeros(shape, 'bool')
             else:
                 print 'Set mask shape first.'
                 return False
         else:
             mask = np.asarray(self['mask'], 'bool').transpose()
-        if row != None and col != None:
+        if row is not None and col is not None:
             mask[row, col] = False ^ unmask
-        elif row != None:
+        elif row is not None:
             mask[row,:] = False ^ unmask
-        elif col != None:
+        elif col is not None:
             mask[:,col] = False ^ unmask
         else:
             mask[:,:] = False ^ unmask
@@ -216,7 +216,7 @@ class textItem:
         self.name = name
         self.label = label
         self.text = text
-        self.changed = text != None
+        self.changed = text is not None
     def set_text(self, text):
         if text != self.text:
             self.text = text
@@ -269,13 +269,13 @@ class dataScaleProps:
             if self.mode == 'stretch':
                 self.trigger_stretch = True
         # Apply one-time offset
-        if self.z_offset != None:
+        if self.z_offset is not None:
             if data.shape == self.z_offset.shape:
                 data = data - self.z_offset
             else:
                 self.z_offset = None
         # Only masked pixels enter computation
-        if mask != None:
+        if mask is not None:
             data_for_lims = data[mask]
         else:
             data_for_lims = data
@@ -299,9 +299,9 @@ class dataScaleProps:
             scale_lo, scale_hi = self.z_range
         elif self.mode == 'fixed':
             range_lo, range_hi = self.z_range
-            if range_lo != None:
+            if range_lo is not None:
                 scale_lo = range_lo
-            if range_hi != None:
+            if range_hi is not None:
                 scale_hi = range_hi
         
         if scale_hi == scale_lo:
@@ -309,11 +309,11 @@ class dataScaleProps:
         self.last_limits = (scale_lo, scale_hi)
         # Transform
         data = (data-scale_lo)/(scale_hi-scale_lo)
-        if clip_vals == None:
+        if clip_vals is None:
             clip_vals = (0,1)
         data[data<0] = clip_vals[0]
         data[data>1] = clip_vals[1]
-        if mask_val != None and mask != None:
+        if mask_val is not None and mask is not None:
             data[~mask] = mask_val
         return data
     

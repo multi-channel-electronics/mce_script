@@ -22,7 +22,7 @@ def expt_param(key, dtype=None):
     src = mas_path().experiment_file()
     line = commands.getoutput('mas_param -s %s get %s' % (src, key)).rstrip()
     s = line.split(' ')
-    if dtype == None or dtype == 'string':
+    if dtype is None or dtype == 'string':
         return s
     if dtype == 'int':
         return [ int(ss) for ss in s if ss != '']
@@ -33,12 +33,12 @@ def expt_param(key, dtype=None):
 
 def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
     done = False
-    if rows == None:
+    if rows is None:
         rows = [0]*NCOLS
-    if gains == None:
+    if gains is None:
         gains = [0.02]*NCOLS
     # Setup a default exit condition...
-    if steps == None:
+    if steps is None:
         steps = 1
     count = 0
     while not done:
@@ -52,7 +52,7 @@ def reservo(m, param, gains=None, rows=None, steps=None, verbose=False):
         if verbose:
             print 'Applied: ', x_new
         m.write(param[0], param[1], x_new)
-        if steps != None:
+        if steps is not None:
             count += 1
             if count >= steps:
                 done = True
@@ -65,7 +65,7 @@ def set_adcoffset(m, ofs):
 
 def get_historical_offset(folder, stage='ssa', rows=None):
     offsets = []
-    if rows == None:
+    if rows is None:
         rows = [0]*NCOLS
     for rc in range(N_RC):
         file = glob(folder+'/*RC%i_%s.run'%(rc+1,stage))
@@ -82,7 +82,7 @@ def write_adc_offset(m, ofs, fill=True, n_rows=33):
 
     
 def get_line(m, rows=None):
-    if rows == None:
+    if rows is None:
         rows = [0]*NCOLS
     d = m.read_frame(data_only=True)
     return [d[r*NCOLS+c] for (c,r) in enumerate(rows)]
@@ -113,7 +113,7 @@ def main():
         sys.exit(10)
     stage = args[0]
 
-    if opts.tuning == None:
+    if opts.tuning is None:
         print 'Using most recent tuning...'
         try:
             data_root = mas_path().data_root()

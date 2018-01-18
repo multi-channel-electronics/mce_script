@@ -40,7 +40,7 @@ def go(tuning, rc, filename=None, do_bias=None, slope=None):
 
 def acquire(tuning, rc, filename=None, do_bias=None):
     # File defaults
-    if filename == None:
+    if filename is None:
         filename, acq_id = tuning.filename(rc=rc, action='ssa')
     else:
         try:
@@ -49,7 +49,7 @@ def acquire(tuning, rc, filename=None, do_bias=None):
             acq_id = str(time.time())
 
     # Bias ramp default
-    if do_bias == None:
+    if do_bias is None:
         do_bias = tuning.get_exp_param('sa_ramp_bias')
         
     # Execute ramp
@@ -83,7 +83,7 @@ class SARamp(servo.SquidData):
 
     def __init__(self, filename=None, reduce_rows=True, tuning=None):
         servo.SquidData.__init__(self, tuning=tuning)
-        if filename != None:
+        if filename is not None:
             self.read_data(filename, reduce_rows=reduce_rows)
 
     def read_data(self, filename, reduce_rows=True):
@@ -141,7 +141,7 @@ class SARamp(servo.SquidData):
         self._check_analysis(existence=True)
 
         # Convert to 1 slope per column
-        if slope == None:
+        if slope is None:
             slope = -sign(self.tuning.get_exp_param('sq2_servo_gain')[self.cols])
         if not hasattr(slope, '__getitem__'):
             slope = array([slope]*len(self.cols))
@@ -154,7 +154,7 @@ class SARamp(servo.SquidData):
         else:
             slope = slope[0]
 
-        if x_adjust == None:
+        if x_adjust is None:
             x_adjust = self.tuning.get_exp_param('sa_ramp_safb_adjust',
                                                  default=0, missing_ok=True)
             if hasattr(x_adjust, '__getitem__'):
@@ -178,7 +178,7 @@ class SARamp(servo.SquidData):
         phi0 = servo.period(self.data, width=width)
 
         # Convert position, slope, phi0 to feedback units.
-        an['lock_x'] += float(self.d_fb) * an['lock_didx']
+        an['lock_x'] = an['lock_x'] + float(self.d_fb) * an['lock_didx']
         an['lock_slope'] /= self.d_fb
         an['phi0'] = float(self.d_fb) * phi0
 

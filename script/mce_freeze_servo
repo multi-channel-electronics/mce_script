@@ -46,7 +46,7 @@ if len(args) != 1 or args[0] not in STAGES:
     o.error("Provide a single stage argument (%s)." % ','.join(STAGES))
 
 stage = args[0]
-if stage in ['sq1','tes'] and opts.row == None:
+if stage in ['sq1','tes'] and opts.row is None:
     o.error("The %s stage requires a --row argument." % stage)
 
 # A useful function...

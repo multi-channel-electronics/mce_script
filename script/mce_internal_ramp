@@ -78,7 +78,7 @@ if __name__ == '__main__':
     opts, args = o.parse_args()
 
     # Post-process some options...
-    if opts.rc != None:
+    if opts.rc is not None:
         if opts.rc == 's':
             opts.offset = 0
             opts.count = None
@@ -99,9 +99,9 @@ if __name__ == '__main__':
 
     # Check and process arguments
     if 'setup' in actions:
-        if opts.stage != None:
+        if opts.stage is not None:
             card, id = mce_internal.stage_map[opts.stage]
-        elif opts.target != None:
+        elif opts.target is not None:
             card, id = opts.target
         else:
             abort_msg('Provide either --target or --stage to specify target.')
@@ -123,30 +123,30 @@ if __name__ == '__main__':
             if not ok:
                 print results
             else:
-                if opts.count == None: opts.count = -1
+                if opts.count is None: opts.count = -1
                 c_id, p_id, target_count = results
-                if target_count == None:
+                if target_count is None:
                     abort_msg('This register requires that you provide a target --count.')
                 else:
                     print ' Mapped (%s,%s)[%i,%i] to card %#02x, param %#02x, count %i' % \
                         (card,id,opts.offset,opts.count,c_id,p_id,target_count)
             # Determine timing stuff?
-            timing_info = int(opts.step_frames!=None) + int(opts.step_period!=None) +  \
-                int(opts.step_frequency!=None)
+            timing_info = int(opts.step_frames is not None) + int(opts.step_period is not None) +  \
+                int(opts.step_frequency is not None)
             if timing_info != 1:
                 o.error('Provide exactly one option to set the update period.')
             data_rate = m.read('cc', 'data_rate')
             num_rows = m.read('cc', 'num_rows')[0]
             row_len = m.read('cc', 'row_len')[0]
             f_frame = 5e7 / (num_rows * row_len)
-            if opts.step_frames == None:
-                if opts.step_frequency == None:
+            if opts.step_frames is None:
+                if opts.step_frequency is None:
                     opts.step_frequency = 1./opts.step_period
                 opts.step_frames = int(round(f_frame / opts.step_frequency))
             # Is this obviously wrong?
             if opts.step_frames <= 0:
                 abort_msg('Step period is less than 0 frames, aborting.')
-            if opts.range == None:
+            if opts.range is None:
                 opts.range=[0,0,1]
                 print ' Defaulting to range [%i,%i,%i]' % opts.range
 

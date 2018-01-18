@@ -7,12 +7,12 @@ This is an implementation of IDL's DERIV function; it performs
 numerical differentiation using 3-point Lagrangian interpolation.  It
 returns an array of the same length as its input.
 """
-  if (x == None and y == None):
+  if (x is None and y is None):
     raise TypeError, "No data."
-  if (y == None):
+  if (y is None):
     y = x
     x = numpy.arange(y.size)
-  elif (x == None):
+  elif (x is None):
     x = numpy.arange(y.size)
 
   n = x.size

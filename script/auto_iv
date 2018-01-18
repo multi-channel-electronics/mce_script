@@ -111,13 +111,13 @@ default_config_file = os.path.join(mas_path.config_dir(), 'mce_auto.cfg')
 cfg = maa.DefaultingConfig(default_config_file)
 cfg.active_section = 'auto_iv'
 cfg.default_section = 'default'
-if opts.auto_log == None:
+if opts.auto_log is None:
     opts.auto_log = cfg.getstr('auto_log', '').strip()
     if opts.auto_log == '':
         opts.auto_log = None
 
 # Use reg-note as an indicator that we should auto-log
-if opts.auto_log == None and opts.reg_note == '':
+if opts.auto_log is None and opts.reg_note == '':
     opts.auto_log = '/dev/null'
 
 alog = maa.AutoLogger(opts.auto_log, 'auto_iv')
@@ -149,13 +149,13 @@ if len(args) > 0:
         opts.analysis_file = args[1]
 
 # Turn stage choice into a stage range.
-if opts.first_stage == None:
+if opts.first_stage is None:
     opts.first_stage = stages[0]
-if opts.last_stage == None:
+if opts.last_stage is None:
     opts.last_stage = stages[-1]
 
 # Ultimate override...
-if opts.stage != None:
+if opts.stage is not None:
     opts.first_stage = opts.stage
     opts.last_stage = opts.stage
 
@@ -191,7 +191,7 @@ if do_stage('analyze'):
     if opts.do_plots == 0:
         # Do not produce any plots.
         iva_opts += ' --plot-dir=none'
-    if opts.analysis_file == None:
+    if opts.analysis_file is None:
         opts.analysis_file = opts.ramp_file + '.out'
     if opts.do_analysis == 0:
         # Do not regenerate .out analysis file.

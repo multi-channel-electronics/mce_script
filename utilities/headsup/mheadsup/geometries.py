@@ -18,7 +18,7 @@ class pixelSetGeometry(aie):
                        'channel_names']
 
     def __init__(self, name='geom', shape=None):
-        if shape == None:
+        if shape is None:
             shape = (0,)
         self.set_shape(shape)
         self.coords = np.zeros(self.data_shape)
@@ -45,9 +45,9 @@ class pixelSetGeometry(aie):
         """
         Return the pixel positions.
         """
-        if dims == None:
+        if dims is None:
             dims = [i for i in range(self.n_dim)]
-        if idx == None:
+        if idx is None:
             return self.coords[dims]
         return self.coords[dims][:,idx]
 
@@ -190,9 +190,9 @@ class pixelSetGeometry(aie):
         self.n_pix = n_row * n_col
         self.n_dim = 2
         self.data_shape = (n_row, n_col)
-        if x == None:
+        if x is None:
             x = np.arange(n_col)
-        if y == None:
+        if y is None:
             y = np.arange(n_row)
         x = np.asarray(x).reshape((1,-1)).astype('float')
         y = np.asarray(y).reshape((-1,1)).astype('float')
@@ -209,7 +209,7 @@ class pixelSetGeometry(aie):
         self.n_pix = n_pix
         self.n_dim = 2
         self.data_shape = (n_pix, 1)
-        if radius == None:
+        if radius is None:
             radius = 1.2 * n_pix / 2 / np.pi
         theta = 2 * np.pi * np.arange(n_pix) / n_pix
         self.coords = np.array([radius*np.cos(theta), radius*np.sin(theta)])

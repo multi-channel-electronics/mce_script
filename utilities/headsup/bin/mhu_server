@@ -48,7 +48,7 @@ class dataHandler(SocketServer.BaseRequestHandler):
             # Actions to perform on this thread?
             while True:
                 op, data = master.get_action(me)
-                if op == None:
+                if op is None:
                     break
                 if op == 'send':
                     ok, err = nets.send_dahi(me, data)
@@ -57,7 +57,7 @@ class dataHandler(SocketServer.BaseRequestHandler):
                 if op == 'close':
                     break
             data = nets.recv_dahi(me, block=False)
-            if data == None:
+            if data is None:
                 break
             if data == '':
                 time.sleep(.01)
@@ -73,7 +73,7 @@ class dataDistributor:
                  bad_packet_file=None):
         if hasattr(config, 'get_server'):
             config = config.get_server()
-        if config != None:
+        if config is not None:
             self.addr = nets.decode_address(config)
         self.clients = {}
         self.actions = {}
@@ -201,13 +201,13 @@ class dataDistributor:
         self.server.shutdown()
         
     def update_local_subscribers(self, streams=None, clients=None):
-        if streams == None:
+        if streams is None:
             streams = [self.stream_list_stream]
         if self.stream_list_stream in streams:
             # Data to send
             json_data = self.stream_list_stream.render()
             encoder = nets.packetFormatV1
-            if clients == None:
+            if clients is None:
                 clients = self.stream_list_stream.subscribers
             for c in clients:
                 if not c in self.clients:
@@ -246,7 +246,7 @@ class dataDistributor:
                 sd = stream.subscriber_data[sub]
                 rm = sd.get('rate_management', None)
                 ok = False
-                if rm == None:
+                if rm is None:
                     ok = True
                 elif rm == 'decimate':
                     sd['n'] = sd.get('n',0) + 1
@@ -371,7 +371,7 @@ if __name__ == '__main__':
     if opts.port_file:
         open(opts.port_file, 'w').write('%i' % opts.port)
 
-    if opts.server_cfg['tunnel'] != None:
+    if opts.server_cfg['tunnel'] is not None:
         tcmd = opts.server_cfg.get_tunnel_cmd()
         sys.exit(os.system(' '.join(tcmd)))
                   

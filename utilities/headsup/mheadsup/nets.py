@@ -141,10 +141,10 @@ class packetFormatV1:
         @classmethod
         def encode(cls, json_data=None, bin_data=None):
             n1, n2, d1, d2 = 0, 0, '', ''
-            if json_data != None:
+            if json_data is not None:
                 d1 = json.dumps(json_data)
                 n1 = len(d1)
-            if bin_data != None:
+            if bin_data is not None:
                 d2 = bin_data
                 n2 = len(d2)
             payload = array.array('i', [n1, n2]).tostring() + d1 + d2
@@ -193,6 +193,6 @@ class packetFormatV1:
         # Great.
         ablock = cls.addressBlock.decode(addr_data)
         pblock = cls.payloadBlock.decode(payload)
-        ok = (ablock != None) and (pblock != None)
+        ok = (ablock is not None) and (pblock is not None)
         return ok, ablock, pblock
             

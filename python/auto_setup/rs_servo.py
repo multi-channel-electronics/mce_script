@@ -44,7 +44,7 @@ class RSServo(servo.SquidData):
     bias_assoc = 'rowcol'
 
     def __init__(self, filename=None, tuning=None):
-        if tuning == None and filename != None:
+        if tuning is None and filename is not None:
             srcdir = os.path.split(filename)[0]
             tuning = os.path.join(srcdir, 'experiment.cfg')
             if not os.path.exists(tuning):
@@ -52,20 +52,20 @@ class RSServo(servo.SquidData):
         servo.SquidData.__init__(self, tuning=tuning)
         self.super_servo = None
         self.data_attrs.append('error')
-        if filename != None:
+        if filename is not None:
             self.read_data(filename)
 
         # Setup required for hybrid mux
         self.ishybrid=None
         self.hybrid_rs_multipliers=None
-        if self.tuning!=None:
+        if self.tuning is not None:
             self.ishybrid = self.tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True) 
 
             if self.ishybrid==1:            
                 # If specified, build list of rs multipliers indexed by readout RS to apply later ...
                 mux11d_row_select_multipliers = self.tuning.get_exp_param('mux11d_row_select_multipliers',
                                                                           missing_ok=True)
-                if mux11d_row_select_multipliers != None:
+                if mux11d_row_select_multipliers is not None:
                     self.hybrid_rs_multipliers=[]
                     card_nrs_dict={ 'ac' : 41, 'bc1' : 32, 'bc2' : 32, 'bc3' : 32 }
                     # These better be present if hybrid muxing
@@ -118,7 +118,7 @@ class RSServo(servo.SquidData):
         self._check_analysis(existence=True)
 
         # Slope handling
-        if slope == None:
+        if slope is None:
             # Dodge possibility that params are different lengths...
             s1 = self.tuning.get_exp_param('sq1_servo_gain')[self.cols]
             s2 = self.tuning.get_exp_param('rowsel_servo_gain')[self.cols]
@@ -165,7 +165,7 @@ class RSServo(servo.SquidData):
                 # What bias,row,col is this?  Use to decide from
                 # expt.cfg whether or not select/deselect is allowed
                 # to be on the boundaries.
-                if ok_if_rs_on_upper_bndry!=None:
+                if ok_if_rs_on_upper_bndry is not None:
                     if self.bias_style == 'select':
                         (row,col)=np.unravel_index(idx,self.data_shape[-3:-1],order='C')
                     elif self.bias_style == 'ramp':
@@ -255,7 +255,7 @@ class RSServo(servo.SquidData):
                 an[k+'_x_row'] = self.fb[an[k+'_idx_row']]
 
         # Apply hybrid rs multipliers if hybrid mux and they're specified
-        if self.ishybrid==1 and self.hybrid_rs_multipliers != None:
+        if self.ishybrid==1 and self.hybrid_rs_multipliers is not None:
             dshape = self.data_shape[:-1]
             n_bias, n_row, n_col = dshape
 
@@ -273,10 +273,10 @@ class RSServo(servo.SquidData):
         return an
         
     def plot(self, plot_file=None, format=None, data_attr='data'):
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format')
             
         # Is this a multi-bias ramp?  If so, split down
@@ -322,7 +322,7 @@ class RSServo(servo.SquidData):
         
         # Hybrid muxing?  If user specified per-RS multipliers, give
         # plotting an array of fbs
-        if self.ishybrid==1 and self.hybrid_rs_multipliers != None:
+        if self.ishybrid==1 and self.hybrid_rs_multipliers is not None:
             n_bias=self.data_shape[0]
             fb_arr = np.reshape([self.fb]*data.shape[0],data.shape)
             fb_arr_addressed_by_row_col=fb_arr.reshape(self.data_shape)
@@ -380,14 +380,14 @@ class RSServoSummary(servo.RampSummary):
     # because servo.plot is out of hand.
     
     def plot(self, plot_file=None, format=None, data_attr=None):
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
                                          (self.data_origin['basename']))
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format',
                                                default='png')
 
-        if data_attr == None:
+        if data_attr is None:
             data_attr = 'y_span'
         data = self.data[data_attr]
     

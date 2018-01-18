@@ -46,7 +46,7 @@ def acquire(tuning, rc, filename=None, fb=None,
             gain=None, super_servo=False, old_servo=False):
 
     # File defaults
-    if filename == None:
+    if filename is None:
         filename, acq_id = tuning.filename(rc=rc, action='sq1servo')
     else:
         try:
@@ -61,11 +61,11 @@ def acquire(tuning, rc, filename=None, fb=None,
 
     if old_servo:
         # FB
-        if fb == None:
+        if fb is None:
             fb = {}
             for k in ['start','count','step']:
                 fb[k] = tuning.get_exp_param('sq1_servo_flux_%s'%k)
-        if gain == None:
+        if gain is None:
             if rc == 's':
                 rci = 0
             else:
@@ -102,7 +102,7 @@ def acquire_all_row_painful(tuning, rc, filename=None, fb=None,
     rewrite the data as if it were a single servo, to trick everyone.
     """
     # File defaults
-    if filename == None:
+    if filename is None:
         filename, acq_id = tuning.filename(rc=rc, action='sq1servo')
     else:
         try:
@@ -141,7 +141,7 @@ class SQ1Servo(servo.SquidData):
     def __init__(self, filename=None, tuning=None):
         servo.SquidData.__init__(self, tuning=tuning)
         self.data_attrs.append('error')
-        if filename != None:
+        if filename is not None:
             self.read_data(filename)
 
     def _read_super(self, filename):
@@ -285,7 +285,7 @@ class SQ1Servo(servo.SquidData):
         self._check_data()
         self._check_analysis(existence=True)
         
-        if slope == None:
+        if slope is None:
             # Dodge possiblity that params are different lengths...
             s1 = self.tuning.get_exp_param('default_servo_i')[self.cols]
             s2 = self.tuning.get_exp_param('sq1_servo_gain')[self.cols]
@@ -324,17 +324,17 @@ class SQ1Servo(servo.SquidData):
         """
         See servo.SquidData.select_biases for description.
         """
-        if ic_factor == None:
+        if ic_factor is None:
             ic_factor = self.tuning.get_exp_param(
                 'sq1_servo_ic_factor', missing_ok=True, default=None)
         return servo.SquidData.select_biases(
             self, bias_idx=bias_idx, assoc=assoc, ic_factor=ic_factor)
         
     def plot(self, plot_file=None, format=None, data_attr='data'):
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
                                          (self.data_origin['basename']))
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format')
 
         # Is this a multi-bias ramp?  If so, split down
@@ -554,7 +554,7 @@ class SQ1ServoSA(SQ1Servo):
         self._check_data()
         self._check_analysis(existence=True)
         
-        if slope == None:
+        if slope is None:
             # Dodge possiblity that params are different lengths...
             s1 = self.tuning.get_exp_param('default_servo_i')[self.cols]
             s2 = self.tuning.get_exp_param('sq1_servo_gain')[self.cols]
@@ -591,14 +591,14 @@ class SQ1ServoSummary(servo.RampSummary):
     # because servo.plot is out of hand.
     
     def plot(self, plot_file=None, format=None, data_attr=None):
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
                                          (self.data_origin['basename']))
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format',
                                                default='png')
 
-        if data_attr == None:
+        if data_attr is None:
             data_attr = 'y_span'
         data = self.data[data_attr]
     
@@ -639,14 +639,14 @@ class SQ1ServoSummary(servo.RampSummary):
 
                       
     def plot_all(self, plot_file=None, format=None, data_attr=None):
-        if plot_file == None:
+        if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s_summary' % \
                                          (self.data_origin['basename']))
-        if format == None:
+        if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format',
                                                default='png')
 
-        if data_attr == None:
+        if data_attr is None:
             data_attr = 'y_span'
         data = self.data[data_attr]
     

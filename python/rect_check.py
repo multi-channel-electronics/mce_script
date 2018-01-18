@@ -55,7 +55,7 @@ class frameConfig:
         for k, _ in self.mce_params:
             if k == 'barrier':
                 continue
-            if self.params[k] == None:
+            if self.params[k] is None:
                 return None
         # 
         d = {}
@@ -125,13 +125,13 @@ class frameConfig:
                 continue
             if c == 'rca': c = rc
             item = rf.Item('HEADER', 'RB %s %s' % (c, p), type='int')
-            if item == None:
+            if item is None:
                 raise RuntimeError, "Failed to find key for %s %s" % (c,p)
             self.params[k] = item[0]
         self.derive()
 
     def from_mce(self, mce=None):
-        if mce == None:
+        if mce is None:
             mce = self.mce
         for k, p in self.mce_params:
             if k == 'barrier':
