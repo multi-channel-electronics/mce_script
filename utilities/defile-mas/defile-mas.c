@@ -1498,10 +1498,16 @@ static int mas_entry(const struct df_config *config)
           if (follow && mas_check_symlink(0))
             new_file = 2;
 
-          if (new_file)
-            last_pass = 1;
-          else /* no new file in non-follow mode means we're done */
+          if (new_file) {
+            /* We found a new chunk, so MAS must have stopped writing to the old
+             * one.  So: we should only have to attempt reading it one more time
+             * to get all the data out of it. */
+            last_pass = 1; 
+          } else if (!follow) {
+            /* in follow mode, we continue to wait for more data, either in this
+             * chunk or the next.  In non-follow mode, we're done */
             goto DONE;
+          }
         } else {
           /* new flatfile */
           mas_close_flatfile(new_file == 2 ? 1 : 0); 
