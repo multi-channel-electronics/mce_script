@@ -1,4 +1,4 @@
-/* (C) 2013, 2014, 2015 D. V. Wiebe
+/* (C) 2013, 2014, 2015, 2018 D. V. Wiebe
  *
  *************************************************************************
  *
@@ -72,26 +72,35 @@ struct frame_header {
   /* twelve words that get stored: */
   uint32_t status, frame_count, row_len, nrow_reported, data_rate, arz_count;
   uint32_t hdr_vers, ramp_val, ramp_adr, nrow, sync, run_id, user_word;
-  uint32_t header[30];
-  /* the other 30 words-worth that we don't write:
-     uint32_t errno1, t_ac_fpga, t_bc1_fpga, t_bc2_fpga, t_bc3_fpga;
-     uint32_t t_rc1_fpga, t_rc2_fpga, t_rc3_fpga, t_rc4_fpga, t_cc_fpga;
-     uint32_t errno2, t_ac_card, t_bc1_card, t_bc2_card, t_bc3_card;
-     uint32_t t_rc1_card, t_rc2_card, t_rc3_card, t_rc4_card, t_cc_card;
-     uint32_t errno3;
-     uint8_t psuc_vers, psuc_fan1, psuc_fan2, psuc_t1, psuc_t2, psuc_t3;
-     uint16_t psuc_adc_off;
-     uint16_t psuc_v1, psuc_v2, psuc_v3, psuc_v4, psuc_v5;
-     uint16_t psuc_i1, psuc_i2, psuc_i3, psuc_i4, psuc_i5;
-     uint32_t errno4, box_temp;
-  */
+  uint32_t errno1, t_ac_fpga, t_bc1_fpga, t_bc2_fpga, t_bc3_fpga;
+  uint32_t t_rc1_fpga, t_rc2_fpga, t_rc3_fpga, t_rc4_fpga, t_cc_fpga;
+  uint32_t errno2, t_ac_card, t_bc1_card, t_bc2_card, t_bc3_card;
+  uint32_t t_rc1_card, t_rc2_card, t_rc3_card, t_rc4_card, t_cc_card;
+  uint32_t errno3;
+  uint32_t reserved[7]; /* Formerly for PSUC readout */
+  uint32_t errno4;
+  uint32_t box_temp;
 };
 
-#define NHEADER_FIELDS 13
-static const char *header_field[NHEADER_FIELDS] = {
-  "status", "frame_ctr", "row_len", "num_rows_reported", "data_rate",
-  "address0_ctr", "header_version", "ramp_value", "ramp_addr", "num_rows",
-  "sync_box_num", "runfile_id", "userfield"
+#define NHEADER_FIELDS 14
+static struct header_field {
+  const char *name;
+  int offset;
+} header_field_data[NHEADER_FIELDS] = {
+  { "status", 0 },
+  { "frame_ctr", 1 },
+  { "row_len", 2 },
+  { "num_rows_reported", 3 },
+  { "data_rate", 4 },
+  { "address0_ctr", 5 },
+  { "header_version", 6 },
+  { "ramp_value", 7 },
+  { "ramp_addr", 8 },
+  { "num_rows", 9 },
+  { "sync_box_num", 10 },
+  { "runfile_id", 11 },
+  { "userfield", 12 },
+  { "box_temp", 42 }
 };
 
 /* derived field bits */
@@ -181,64 +190,87 @@ static struct {
 } mas_rf_data;
 
 /* public strings; see defile-input(7) */
-#define DEFILE_MAS_COPYRIGHT "Copyright (C) 2013, 2014, 2015 D. V. Wiebe"
+#define DEFILE_MAS_COPYRIGHT "Copyright (C) 2013, 2014, 2015, 2018 D. V. Wiebe"
 #define DEFILE_MAS_CONTACT \
-  "For contact information, see http://cmbr.phas.ubc.ca/mcewiki/"
+  "For contact information, see https://e-mode.phas.ubc.ca/mcewiki/"
 #define DEFILE_MAS_DESCRIPTION "MCE-MAS flat-file data"
 
 /* the probe function: return non-zero if we think "name" is a MAS file */
 static int mas_probe(const char *name)
 {
-  struct stat stat_buf;
+  int i;
   char *run_file;
   char *full_name = df_shell_expand(name);
+  size_t full_name_len;
 
   if (full_name == NULL)
     return 0;
 
-  /* make sure it's a file */
-  if (stat(full_name, &stat_buf)) {
+  /* try opening the data file */
+  mas_fd = open(full_name, O_RDONLY);
+
+  if (mas_fd < 0) {
     free(full_name);
     return 0;
   }
+  close(mas_fd);
 
-  if (!S_ISREG(stat_buf.st_mode)) {
-    free(full_name);
-    return 0;
-  }
-
-  /* look for a run file */
-  run_file = malloc(strlen(full_name) + sizeof(".run") + 1);
+  /* now, look for a run file */
+  full_name_len = strlen(full_name);
+  run_file = malloc(full_name_len + sizeof(".run") + 1);
   if (run_file == NULL) {
     free(full_name);
     return 0;
   }
 
   sprintf(run_file, "%s.run", full_name);
-
-  /* make sure it's a file */
-  if (stat(run_file, &stat_buf)) {
-    free(full_name);
-    free(run_file);
-    return 0;
-  }
-
-  if (!S_ISREG(stat_buf.st_mode)) {
-    free(full_name);
-    free(run_file);
-    return 0;
-  }
-  free(run_file);
-
-  /* try opening it */
-  mas_fd = open(full_name, O_RDONLY);
   free(full_name);
 
-  if (mas_fd < 0)
-    return 0;
+  /* try opening it */
+  mas_fd = open(run_file, O_RDONLY);
+  if (mas_fd >= 0) {
+    /* successful open */
+    free(run_file);
+    close(mas_fd);
+    return 1;
+  }
 
-  close(mas_fd);
-  return 1;
+  /* Opening the runfile didn't work. */
+
+  /* Is it a sequenced file? Check last
+   * three characters of name for digits */
+  for (i = 0; i < 3; ++i)
+    if (run_file[full_name_len - i - 1] < '0'
+        || run_file[full_name_len - i - 1] > '9')
+    {
+      /* Non-digit found */
+      free(run_file);
+      return 0;
+    }
+
+  /* also check for a '.' */
+  if (run_file[full_name_len - 4] != '.') {
+    free(run_file);
+    return 0;
+  }
+  
+  /* Replace the final ### with run, including
+   * trailing NUL */
+  memcpy(run_file + full_name_len - 3, "run", 4);
+
+  /* Now try opening that one */
+  /* try opening it */
+  mas_fd = open(run_file, O_RDONLY);
+  free(run_file);
+
+  if (mas_fd >= 0) {
+    /* successful open */
+    close(mas_fd);
+    return 1;
+  }
+
+  /* Still failed */
+  return 0;
 }
 
 static void mas_close_flatfile(int clear_metadata)
@@ -839,11 +871,18 @@ static void load_frameheader(struct frame_header *fh, int follow)
 
 /* return non-zero if we support this supplied data mode */
 #define DATA_MODE_RAW 12
-static int mas_data_mode_supported(int data_mode)
+static const int mas_data_mode_supported(int data_mode)
 {
   return (data_mode == 0 || data_mode == 1 || data_mode == 2 || data_mode == 4
       || data_mode == 5 || data_mode == 10 || data_mode == 11
       || data_mode == 12);
+}
+
+/* add a field specification with error handling */
+static void mas_add_spec(const char *spec, int frag)
+{
+  if (df_add_spec(spec, frag) < 0)
+    df_exit(1, 1);
 }
 
 /* add a string, with string trucation checking */
@@ -857,8 +896,7 @@ static void mas_add_string(const char *name, const char *value, int frag)
     spec[4094] = '"';
     spec[4095] = 0;
   }
-  if (df_add_spec(spec, frag) < 0)
-    df_exit(1, 1);
+  mas_add_spec(spec, frag);
 }
 
 /* store the runfile data in the dirfile metadata (similar to 'mce_status -d')
@@ -902,27 +940,35 @@ static void write_rf_header(void)
   /* write frameacq stuff, if present */
   if (frameacq.rf_vers == MAS_RF_VERSION) {
     sprintf(spec, "frameacq_rf_vers CONST UINT16 %i", frameacq.rf_vers);
-    if (df_add_spec(spec, rf_frag) < 0)
-      df_exit(1, 1);
+    mas_add_spec(spec, rf_frag);
 
     mas_add_string("frameacq_mas_vers", frameacq.mas_vers, rf_frag);
     mas_add_string("frameacq_array_id", frameacq.array_id, rf_frag);
 
     sprintf(spec, "frameacq_rc CARRAY UINT8 %i %i %i %i", frameacq.rc[0],
         frameacq.rc[1], frameacq.rc[2], frameacq.rc[3]);
-    if (df_add_spec(spec, rf_frag) < 0)
-      df_exit(1, 1);
+    mas_add_spec(spec, rf_frag);
 
     sprintf(spec, "frameacq_framecount CONST INT64 %lli",
         (long long)frameacq.framecount);
-    if (df_add_spec(spec, rf_frag) < 0)
-      df_exit(1, 1);
+    mas_add_spec(spec, rf_frag);
 
     sprintf(spec, "frameacq_ctime CONST INT64 %lli", (long long)frameacq.ctime);
-    if (df_add_spec(spec, rf_frag) < 0)
-      df_exit(1, 1);
+    mas_add_spec(spec, rf_frag);
 
     mas_add_string("frameacq_hostname", frameacq.hostname, rf_frag);
+
+    /* doubly fake time:
+     * - frameacq_ctime doesn't actually indicate when the acquisition started.
+     *   Whatever created the runfile can put anything in there.  Typically it's
+     *   some arbitrary point in time before the acqusition was requested.
+     *   
+     *   So, expect an arbitrary offset.
+     *
+     * - acq_seconds adjusts neither for frames dropped by MAS nor for ARZs
+     *   dropped by the CC
+     */
+    mas_add_spec("frameacq_time LINCOM acq_seconds 1 frameacq_ctime", rf_frag);
   }
 
   for (i = 0; i < mas_rf_header->ntag; ++i) {
@@ -936,7 +982,7 @@ static void write_rf_header(void)
       if (strcmp(cards[c].id, mas_rf_header->tag[i].spec[0]) == 0) {
         if (cards[c].wrote == 0) {
           sprintf(spec, "%s STRING \"%s\"", cards[c].id, cards[c].name);
-          df_add_spec(spec, rf_frag);
+          mas_add_spec(spec, rf_frag);
           cards[c].wrote = 1;
         }
         break;
@@ -986,7 +1032,7 @@ static void write_rf_header(void)
         pos += sprintf(spec + pos, " %li", v);
       }
     }
-    df_add_spec(spec, rf_frag);
+    mas_add_spec(spec, rf_frag);
   }
 }
 
@@ -1156,26 +1202,33 @@ static int mas_check_symlink(int retry)
 static void mas_metadata(void)
 {
   int i, j;
+  struct df_fdef_field *field;
+  struct df_fdef_field *f;
 
   /* store the runfile data in a new fragment */
   write_rf_header();
 
-  /* make the framedef */
-  struct df_fdef_field *field = malloc(sizeof(struct df_fdef_field) *
+  /* field data */
+  field = malloc(sizeof(struct df_fdef_field) *
       (mas_rf_data.nrow * mas_rf_data.ncol + NHEADER_FIELDS + 1));
-  struct df_fdef_field *f;
+
+  /* make the framedef */
   fdef.framesize = (mas_rf_data.nrow * mas_rf_data.ncol + HEADER_LEN + 1)
     * sizeof(uint32_t);
   fdef.n_fields = mas_rf_data.nrow * mas_rf_data.ncol + NHEADER_FIELDS + 1;
   fdef.field = field;
+
+  /* Add header fields */
   for (i = 0; i < NHEADER_FIELDS; ++i) {
     f = field + i;
-    f->name = (char*)header_field[i];
+    f->name = (char*)header_field_data[i].name;
     f->spf = 1;
     f->type = GD_UINT32;
-    f->offset = i * sizeof(uint32_t);
+    f->offset = header_field_data[i].offset * sizeof(uint32_t);
     f->cadence = 0;
   }
+
+  /* Add data fields */
   for (i = 0; i < mas_rf_data.ncol; ++i)
     for (j = 0; j < mas_rf_data.nrow; ++j) {
       f = field + j * mas_rf_data.ncol + i + NHEADER_FIELDS;
@@ -1186,6 +1239,8 @@ static void mas_metadata(void)
       f->offset = sizeof(uint32_t) * (j * mas_rf_data.ncol + i + HEADER_LEN);
       f->cadence = 0;
     }
+
+  /* Add the checksum */
   f = field + mas_rf_data.nrow * mas_rf_data.ncol + NHEADER_FIELDS;
   f->name = "checksum";
   f->spf = 1;
@@ -1193,6 +1248,8 @@ static void mas_metadata(void)
   f->offset = sizeof(uint32_t) * (mas_rf_data.nrow * mas_rf_data.ncol
       + HEADER_LEN);
   f->cadence = 0;
+
+  /* Register framedef */
   fdind = df_add_framedef(&fdef, 1, 0);
 
   /* add data_mode derived fields */
@@ -1206,13 +1263,13 @@ static void mas_metadata(void)
             /* use an /ALIAS? */
             sprintf(spec, "%s_r%02ic%02i LINCOM tesdatar%02ic%02i 1 0",
                 derived[mas_rf_data.data_mode][d].name, j, i, j, i);
-            df_add_spec(spec, 0);
+            mas_add_spec(spec, 0);
             break;
           case DERIV_SCALE:
             sprintf(spec, "%s_r%02ic%02i LINCOM tesdatar%02ic%02i %lg 0",
                 derived[mas_rf_data.data_mode][d].name, j, i, j, i,
                 derived[mas_rf_data.data_mode][d].scale);
-            df_add_spec(spec, 0);
+            mas_add_spec(spec, 0);
             break;
           case DERIV_BIT:
             sprintf(spec, "%s_r%02ic%02i %sBIT tesdatar%02ic%02i %i %i",
@@ -1220,7 +1277,7 @@ static void mas_metadata(void)
                 derived[mas_rf_data.data_mode][d].sign ? "S" : "", j, i,
                 derived[mas_rf_data.data_mode][d].bitnum,
                 derived[mas_rf_data.data_mode][d].numbits);
-            df_add_spec(spec, 0);
+            mas_add_spec(spec, 0);
             break;
           case DERIV_BITSCALE:
             sprintf(spec, "INTER_%s_r%02ic%02i %sBIT tesdatar%02ic%02i %i %i",
@@ -1228,12 +1285,12 @@ static void mas_metadata(void)
                 derived[mas_rf_data.data_mode][d].sign ? "S" : "", j, i,
                 derived[mas_rf_data.data_mode][d].bitnum,
                 derived[mas_rf_data.data_mode][d].numbits);
-            df_add_spec(spec, 0);
+            mas_add_spec(spec, 0);
             sprintf(spec, "%s_r%02ic%02i LINCOM INTER_%s_r%02ic%02i %lg 0",
                 derived[mas_rf_data.data_mode][d].name, j, i,
                 derived[mas_rf_data.data_mode][d].name, j, i,
                 derived[mas_rf_data.data_mode][d].scale);
-            df_add_spec(spec, 0);
+            mas_add_spec(spec, 0);
             break;
           default:
             /* skip */
@@ -1244,10 +1301,13 @@ static void mas_metadata(void)
 
   /* add convenience fields */
   sprintf(spec, "frame_rate CONST FLOAT64 %.16g", mas_rf_data.rate);
-  df_add_spec(spec, 0);
-  /* this just divides the frame number by the frame rate */
+  mas_add_spec(spec, 0);
+
+  /* this just divides the frame number by the frame rate.  More accurate
+   * timing can be obtained by using the address0_ctr found in the frame header.
+   * The downside to that is how quickly it wraps around.  */
   sprintf(spec, "acq_seconds LINCOM INDEX %.16g 0", 1. / mas_rf_data.rate);
-  df_add_spec(spec, 0);
+  mas_add_spec(spec, 0);
 }
 
 /* returns nframes; on error exits with error code ret (1 for the first
