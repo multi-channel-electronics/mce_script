@@ -346,7 +346,7 @@ class SmallMCEFile:
         Sets members n_ro, n_rc, size_ro, frame_bytes, rc_step.
         """
         if self.header is None:
-            self._ReadHeader()
+            self.header = self._ReadHeader()
         # Compute frame size from header data.
         self.n_rc = self.header['_rc_present'].count(True)
         # Payload size (per-RC) is the product of two numbers:
@@ -380,7 +380,7 @@ class SmallMCEFile:
     def _ReadHeader(self, offset=None, head_binary=None):
         """
         Read the frame header at file position 'offset' (bytes),
-        determine its version, and store its data in self.header.
+        determine its version, and return it as a dictionary.
         """
         # It's a V6, or maybe a V7.
         format = HeaderFormat()
@@ -393,14 +393,16 @@ class SmallMCEFile:
             head_binary = numpy.fromfile(file=fin, dtype='<i4',
                                          count=format.header_size)
         # Lookup each offset and store
-        self.header = {}
+        header_dict = {}
         for k in format.offsets:
-            self.header[k] = head_binary[format.offsets[k]]
+            header_dict[k] = head_binary[format.offsets[k]]
         # Provide some additional keys to help determine frame size
-        self.header['_rc_present'] = [(self.header['status'] & (1 << 10+i))!=0 \
+        header_dict['_rc_present'] = [(header_dict['status'] & (1 << 10+i))!=0 \
                                           for i in range(MCE_RC)]
-        self.header['_header_size'] = format.header_size
-        self.header['_footer_size'] = format.footer_size
+        header_dict['_header_size'] = format.header_size
+        header_dict['_footer_size'] = format.footer_size
+
+        return header_dict
 
     def _ReadRunfile(self):
         """
@@ -411,6 +413,26 @@ class SmallMCEFile:
             return None
         self.runfile = MCERunfile(self.runfilename)
         return self.runfile
+    
+    def ReadHeaders(self, count=None, start=0):
+        """
+        Return an dictionaries of lists of header data.  Keyword params:
+
+        count: Maximum number of frames to read, or None for all
+        start: First frame to read
+        """
+        if self.size_ro <= 0:
+            self._GetPayloadInfo()
+
+        # Do the count logic, warn user if something is amiss
+        start, count = _rangify(start, count, self.n_ro, 'frames')
+        
+        # read each header and listify the results:
+        header_list = [self._ReadHeader(offset=fn * self.frame_bytes) for
+                fn in range(start, start + count)]
+
+        # Return the transpose: a dictionary of lists:
+        return dict(zip(header_list[0],zip(*[d.values() for d in header_list])))
 
     def ReadRaw(self, count=None, start=0, raw_frames=False):
         """
