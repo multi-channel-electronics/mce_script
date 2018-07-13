@@ -237,6 +237,10 @@ for rc in 1 2 3 4; do
         else
             integral_clamp=$(printf %i $(echo "$integral_clamp_factor * 8192 * 4096 / $max_gaini" | bc))
         fi
+        # don't overflow
+        if [ $integral_clamp -gt 2147483647 ]; then
+          integral_clamp=2147483647
+        fi
         echo "wb rc$rc integral_clamp $integral_clamp" >> $mce_script
     fi
 done
