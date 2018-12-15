@@ -1,1 +1,1 @@
-m4_define(DF_VERSION, [.r1225])
+m4_define(DF_VERSION, [.r1226])

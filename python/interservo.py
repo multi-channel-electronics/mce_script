@@ -87,12 +87,6 @@ def get_line(m, rows=None):
     d = m.read_frame(data_only=True)
     return [d[r*NCOLS+c] for (c,r) in enumerate(rows)]
 
-def four_to_32(four):
-    thirtytwo = []
-    for one in four:
-        thirtytwo.extend([one]*8)
-    return thirtytwo
-
 def process_options():
     opts = optparse.OptionParser(usage='Usage: %prog [options] stage\n\n' \
                                      '    stage should be one of sq1, sq2, sa')
@@ -139,14 +133,12 @@ def main():
     elif stage == 's2' or stage == 'sq2':
         # This is like sq1servo, but the sq1 are off
         param = ['sq2', 'fb']
-        g = expt_param('sq1servo_gain', dtype='float')
-        gains = four_to_32(g)        
+        gains = expt_param('sq1_servo_gain', dtype='float')
         rows = None
     elif stage == 'sa' or stage == 'ssa':
         # This is like sq2servo, but the sq2 are off
         param = ['sa', 'fb']
-        g = expt_param('sq2servo_gain', dtype='float')
-        gains = four_to_32(g)        
+        gains = expt_param('sq2_servo_gain', dtype='float')
         rows = None
 
     if not opts.quiet:

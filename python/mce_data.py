@@ -270,7 +270,7 @@ class SmallMCEFile:
                     (param, r)
                 continue
             if vals[0] != v:
-                print 'Warning: param \'%s\' is not consistent accross RCs.' % \
+                print 'Warning: param \'%s\' is not consistent across RCs.' % \
                     (param)
                 break
         return vals[0]
@@ -284,11 +284,13 @@ class SmallMCEFile:
         """
         if self.runfile is None:
             if self.runfilename == False:
-                raise RuntimeError, 'Can\'t determine content params without runfile.'
+                raise RuntimeError, \
+                        'Can\'t determine content params without runfile.'
             self._ReadRunfile()
         # In a pinch we could get these params from the runfile.
         if self.size_ro == 0:
-            raise RuntimeError, 'Can\'t determine content params without data file.'
+            raise RuntimeError, \
+                    'Can\'t determine content params without data file.'
         # Switch on firmware revision to determine 'num_cols_reported' support
         fw_rev = self._GetRCAItem('fw_rev')
         if fw_rev >= 0x5000001:
