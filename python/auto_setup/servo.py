@@ -360,6 +360,8 @@ def plot(x, y, y_rc, lock_points, plot_file,
         elif scale_style == 'tight':
             hi, lo = amax(y[i]) / 1000., amin(y[i]) / 1000.
             dx = (hi - lo)*.1
+            if dx <= 0:  # Never set a 0-size yrange.
+                dx = 0.5
             ax.yrange = lo - dx, hi + dx
             if x.shape==y.shape:
                 ax.xrange = x[i][0]/1000., x[i][-1]/1000.
