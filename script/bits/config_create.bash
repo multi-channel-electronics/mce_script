@@ -155,6 +155,9 @@ for rc in 1 2 3 4; do
             if [ ${servo_i[$chan]} -gt $max_gaini ]; then
                 max_gaini=${servo_i[$chan]}
             fi
+            if [ $((-1 * ${servo_i[$chan]})) -gt $max_gaini ]; then
+                max_gaini=$((-1 * ${servo_i[$chan]}))
+            fi
         fi
 
         p_terms=( `repeat_string ${servo_p[$chan]} $array_width` )
