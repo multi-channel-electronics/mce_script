@@ -374,17 +374,29 @@ def load_array_params(filename=None, array_name=None):
 #
 SCALE = .100  # uV
 
-def analyze_IV_curve(bias, fb,
+def analyze_IV_curve(bias0, fb0,
                      deriv_thresh=5e-3,
                      scale=SCALE,
+                     smoother_mode=0,
                      ):
     results = {'ok': False}
+
+    # Curve feature analysis works better with smoothed curves.
+    if smoother_mode == 0:
+        sl, fb = slice(0, len(fb0)), fb0
+        bias = bias0
+    elif smoother_mode == 1:
+        _, sl, fb = smooth(fb0, 4)
+        bias = bias0[sl]
+    else:
+        raise ValueError('Unknown smoother_mode: %i' % smoother_mode)
+
     n = bias.shape[0]
     i = 0
     dbias = -np.mean(bias[1:] - bias[:-1])
     dy = (fb[1:] - fb[:-1]) / dbias
     span = max(5, int(scale/dbias))
-    supercon, transend = None, None
+    transend = None
     # Look at all places where the derivative is positive.
     pos_idx = (dy[:-span]>0).nonzero()[0]
     # Find the first stable such point; that's the transition
@@ -404,7 +416,17 @@ def analyze_IV_curve(bias, fb,
         # Ok if we didn't find the supercond branch.
         transend = len(bias)-2
         #return results
+
+    # Destroy smoothed curves and refer transition indices back to
+    # original inputs.
+    del fb, bias
+    trans += sl.start
+    transend += sl.start
+
+    # Do linear fits on the raw data, not the smoothed data.
+    fb, bias = fb0, bias0
     trans_bias = bias[trans]
+
     normal_idx = ((bias > trans_bias+0.2)).nonzero()[0]
 
     ok = len(normal_idx) > 1
@@ -424,3 +446,38 @@ def analyze_IV_curve(bias, fb,
 
     return results
 
+
+def smooth(fb, target_segs=3, max_kernel=None):
+    """Smooth an input signal using a boxcar filter so that it has a
+    certain number of monotonic segments.  The width of the boxcar is
+    increased dynamically until the target smoothness is reached.
+
+    Arguments:
+      fb: The vector to smooth.
+      target_segs: The target number of monotonic segments (for an IV
+        curve with supercond, tarnsition, and normal branches, this
+        would be 3.
+      max_kernel: The largest smoothing kernel to consider.  Defaults
+        to len(fb)/10.
+
+    Returns (n_segs, slice, smoothed_fb).  The smoothed_fb is
+    typically shortened relative to the input.  The corresponding
+    samples of fb (or other vectors) can be selected using slice.
+    n_segs is the number of segments detected in the returned result;
+    this may be larger than target_segs.
+
+    """
+    if max_kernel is None:
+        max_kernel = len(fb) // 10
+    if max_kernel % 2 == 0:
+        max_kernel -= 1
+    best = None
+    for klen in range(0, max_kernel//2):
+        fb1 = np.convolve(fb, np.ones(klen*2+1), 'valid') / (klen*2+1)
+        dy = np.diff(fb1)
+        sc = (dy[1:]*dy[:-1] < 0).sum()
+        if best is None or sc < best[0]:
+            best = (sc, slice(klen, len(fb)-klen), fb1)
+        if sc <= target_segs:
+            break
+    return best

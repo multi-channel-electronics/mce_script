@@ -98,7 +98,13 @@ else:
 printv('Analyzing...', 1)
 iv_data = iv_tools.IVBranches((n_row, n_col))
 supercond_thresh = ar_par.get('supercond_thresh', 5e-3)  # This is not a good default.
-iv_data.analyze_curves(filedata, deriv_thresh=supercond_thresh)
+supercond_scale = ar_par.get('supercond_scale', 0.100)
+smoother_mode = ar_par.get('iv_tools_smoother', 0)
+
+iv_data.analyze_curves(filedata,
+                       deriv_thresh=supercond_thresh,
+                       scale=supercond_scale,
+                       smoother_mode=smoother_mode)
 ok_rc = zip(*iv_data.ok.nonzero())
 
 # Using the branch analysis in iv_data, and the resistances in Rshunt
