@@ -121,6 +121,12 @@ setpoints = array([
 # Convert to DAC values
 setpoints_dac = filedata.bias_dac[setpoints]
 
+# To prevent application of high currents, user can lower the
+# 'bias_valid_max' parameter.
+bias_valid_range = (0, 20000)
+if ar_par.get('bias_valid_max'):
+    bias_valid_range = (0, ar_par['bias_valid_max'])
+
 # Choose a bias for each bias line.
 bias_points_dac = zeros(bias_map.n_line, dtype='float')
 for line in range(bias_map.n_line):
@@ -129,7 +135,7 @@ for line in range(bias_map.n_line):
     # ... that have valid IV analysis and have been flagged for use in optimization.
     select *= iv_data.ok * bias_map.optim
     dac = setpoints_dac[0,select]
-    select = (dac>0)*(dac < 20000)
+    select = (bias_valid_range[0] < dac)*(dac < bias_valid_range[1])
     bias_points_dac[line] = median(dac[select])
 
 # Round.
