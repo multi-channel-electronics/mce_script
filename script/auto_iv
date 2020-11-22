@@ -5,21 +5,20 @@ USAGE="""%prog [options]
 
 This program does some combination of:
   - ramp      : acquire an IV curve
-  - analyze   : analyze an IV curve
+  - analyze   : analyze an IV curve (and plot various things)
   - bias      : write the recommended biases to the MCE
 
-By default, it does all of those things.  To only do the ramp and
-analysis, pass --no-bias.  You can also do each thing individually.
-Like this:
+By default, it does all of these things.  To only do the ramp and
+analysis, pass --no-bias.  To plot an existing analysis, use the plot
+command.  You can also do each thing individually.  Like this:
 
   %prog ramp [iv_filename]
 
         This will acquire an IV curve.  iv_filename is optional;
         <ctime>_iv is the default.
 
+
   %prog analyze [iv_filename]
-  or
-  %prog analysis [iv_filename]
 
         This will analyze the data in the iv file provided, producing
         plots and the .out analysis output.  Additional options:
@@ -28,6 +27,16 @@ Like this:
 
            --do-analysis=0  suppress analysis (don't rewrite the .out
                             file)
+
+        A short-hand for --do-plots=1 --do-analysis=0 is to run:
+
+           %prog plot [iv_filename]
+
+        By default the analysis output will be written to
+        [iv_filename].out, which could clobber some result; use
+        --analysis-file=... to specify an alternative analysis output
+        file.
+
 
   %prog bias [iv_analysis]
 
@@ -136,6 +145,7 @@ if len(args) > 0:
     if opts.stage == 'plot':
         opts.stage = 'analyze'
         opts.do_analysis = 0
+        opts.do_plots = 1
     if opts.stage == 'go':
         opts.stage = None  # trigger full thing
         if len(args) > 1:
