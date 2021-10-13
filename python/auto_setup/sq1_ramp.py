@@ -1,3 +1,9 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import str
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 import os, time
 from mce_data import MCEFile, MCERunfile
 from numpy import *
@@ -8,7 +14,7 @@ import auto_setup.servo as servo
 def go(tuning, rc, filename=None, slope=None, flags=None):
     ok, ramp_data = acquire(tuning, rc, filename=filename, do_bias=do_bias)
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     s = sq1_ramp(filename)
     s.reduce1()
@@ -91,7 +97,7 @@ def get_lock_slope(data, index, slope_points=5):
     if len(sl_idx) == 0: return 0., 0.
     if len(sl_idx) == 1: return sl_idx[0], 0.
     p = polyfit(sl_idx, data[sl_idx], 1)
-    return -p[1]/p[0], p[0]
+    return old_div(-p[1],p[0]), p[0]
 
 def get_lock_points(data, slope=None, max_points=5, min_spacing=5):
     """
@@ -136,7 +142,7 @@ def lock_stats(data, target=0., range=None, slope=1.,
         if not ok:
             return ok, range[0], 0
         a, m = get_lock_slope(data-target, L+range[0], slope_points=slope_points)
-        if flag: print L, range, a, m
+        if flag: print(L, range, a, m)
         return ok, a, m
 
 
@@ -175,11 +181,11 @@ class SQ1Ramp(util.RCData):
 
     def _check_data(self):
        if self.data is None:
-            raise RuntimeError, 'sq1_ramp needs data.'
+            raise RuntimeError('sq1_ramp needs data.')
 
     def _check_analysis(self):
        if self.analysis is None:
-            raise RuntimeError, 'sq1_ramp needs analysis.'
+            raise RuntimeError('sq1_ramp needs analysis.')
 
     def read_data(self, filename):
         self.mcefile = MCEFile(filename)
@@ -214,13 +220,13 @@ class SQ1Ramp(util.RCData):
         if rule is None:
             rule = self.tuning.get_exp_param('sq1_ramp_locking_rule',
                                              default='y_space_sorted')
-        print rule
+        print(rule)
 
         self._check_data()
         # Analyze every single stupid rampc curve
-        scale = max([len(self.fb)/40, 1])
+        scale = max([old_div(len(self.fb),40), 1])
         y = servo.smooth(self.data, scale)
-        x_offset = scale/2
+        x_offset = old_div(scale,2)
         dy  = y[:,1:] - y[:,:-1]
         y   = y[:,:-1]
 
@@ -265,7 +271,7 @@ class SQ1Ramp(util.RCData):
                     idx = argmax(dz)
                     lims.append((z[idx][1], z[idx+1][1]))
                 
-        adc_offset = array([(yy[a]+yy[b])/2 for (a,b),yy in zip(lims,y)])
+        adc_offset = array([old_div((yy[a]+yy[b]),2) for (a,b),yy in zip(lims,y)])
         if clear_lims:
             lims = [(0,0)] * len(lims)
 
@@ -275,7 +281,7 @@ class SQ1Ramp(util.RCData):
         result = {
             'max_y': amax(y, axis=1),
             'min_y': amin(y, axis=1),
-            'lock_idx': (lock_left + lock_right)/2,
+            'lock_idx': old_div((lock_left + lock_right),2),
             'left_idx': lock_left,
             'right_idx': lock_right,
             'lock_y': adc_offset,
@@ -297,9 +303,9 @@ class SQ1Ramp(util.RCData):
         self._check_data()
         
         # Smooth
-        scale = max([len(self.fb)/40, 1])
+        scale = max([old_div(len(self.fb),40), 1])
         y = servo.smooth(self.data, scale)
-        x_offset = scale/2
+        x_offset = old_div(scale,2)
         abs_lims = [-x_offset, len(self.fb)-x_offset-1]
 
         # Find lock points and slopes
@@ -309,8 +315,8 @@ class SQ1Ramp(util.RCData):
         for word, sgn in [('up', 1), ('dn',-1)]:
             ok, idx, sl, nl = [zeros(y.shape[0], x) for x in ['bool','int','float','int']]
             for i, (yy, t) in enumerate(zip(y, targets)):
-                rg = (len(yy)/4, len(yy))
-                o, d, s = lock_stats(yy, target=t, slope_points=scale/2, slope=sgn,
+                rg = (old_div(len(yy),4), len(yy))
+                o, d, s = lock_stats(yy, target=t, slope_points=old_div(scale,2), slope=sgn,
                                      range=rg)
                 d = max(0,min(len(yy)-1, d)) # Move in bounds.
                 # Get curve regions
@@ -322,12 +328,12 @@ class SQ1Ramp(util.RCData):
             idx[idx<abs_lims[0]] = abs_lims[0]
             idx[idx>abs_lims[1]] = abs_lims[1]
             result['lock_%s_idx'%word] = idx + x_offset
-            result['lock_%s_slope'%word] = sl / self.d_fb
+            result['lock_%s_slope'%word] = old_div(sl, self.d_fb)
             result['lock_%s_ok'%word] = ok.astype('int')
             result['lock_%s_x'%word] = self.fb[result['lock_%s_idx'%word]]
             result['lock_%s_count'%word] = nl
 
-        width = self.data.shape[-1] / 4
+        width = old_div(self.data.shape[-1], 4)
         phi0 = servo.period(self.data, width=width)
         result['phi0'] = phi0 * self.d_fb
 

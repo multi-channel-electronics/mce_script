@@ -1,3 +1,9 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import chr
+from builtins import range
+from builtins import object
+from past.utils import old_div
 usage="""
 %prog [options] action [action, ...]
 
@@ -18,7 +24,7 @@ from mce_control import mce_control as mce
 
 # Kinds of readout card
 
-class RC_revE:
+class RC_revE(object):
     # Overall gain of SA output to ADC input
     output_gain = 202.36
     # SA output voltage per ADC bit
@@ -26,11 +32,11 @@ class RC_revE:
     # SA output voltage per bit of offset DAC
     dVdX_offset = 2.5/2**16 / 45.92
     # SA bias voltage, per bit of bias DAC
-    dVdX_bias = 2.5/2**16
+    dVdX_bias = old_div(2.5,2**16)
     # SA bias resistance (not including cable)
     R_bias = 15000.
 
-class RC_revB:
+class RC_revB(object):
     # Overall gain of SA output to ADC input
     output_gain = 198.9
     # SA output voltage per ADC bit
@@ -38,7 +44,7 @@ class RC_revB:
     # SA output voltage per bit of offset DAC
     dVdX_offset = 2.5/2**16 / 33.90
     # SA bias voltage, per bit of bias DAC
-    dVdX_bias = 2.5/2**16
+    dVdX_bias = old_div(2.5,2**16)
     # SA bias resistance (not including cable)
     R_bias = 15000.
 
@@ -57,7 +63,7 @@ opts, args = o.parse_args()
 for action in args:
     if action == 'measure_sa_offset_ratio':
         m = mce()
-        print 'Saving current configuration...'
+        print('Saving current configuration...')
         sa_bias0 = m.read('sa', 'bias')
         sa_offset0 = m.read('sa', 'offset')
         sample_num = m.read('rca', 'sample_num')[0]
@@ -66,12 +72,12 @@ for action in args:
             card_rev = 2
         servo0, data0 = m.servo_mode(), m.data_mode()
         
-        print 'Setting up...'
+        print('Setting up...')
         n_sa = len(sa_bias0)
         m.servo_mode(0)
         m.data_mode(0)
 
-        print 'Measuring SA bias response...'
+        print('Measuring SA bias response...')
         step = 500
         m.write('sa', 'bias', [0]*n_sa)
         m.write('sa', 'offset', [0]*n_sa)
@@ -86,7 +92,7 @@ for action in args:
         m.write('sa', 'bias', [0]*n_sa)
         y3 = m.read_row()
 
-        print 'Restoring...'
+        print('Restoring...')
         m.write('sa', 'offset', sa_offset0)
         m.write('sa', 'bias', sa_bias0) 
         m.servo_mode(servo0)
@@ -97,79 +103,79 @@ for action in args:
         #d_offset = y1 - y2
         ## This is better because it catches open circuits
         d_offset = (y0 - y3).astype('float') / step / sample_num
-        ratio = d_bias.astype('float') / d_offset
+        ratio = old_div(d_bias.astype('float'), d_offset)
         if any(d_offset==0):
             ratio[d_offset==0] = 0
         
-        print 'SA response (dADC/dBIAS), by column:'
-        for r in range((n_sa+7)/8):
-            print '  ', ' '.join(['%7.3f' % x
-                                  for x in d_bias[r*8:(r+1)*8]])
-        print
+        print('SA response (dADC/dBIAS), by column:')
+        for r in range(old_div((n_sa+7),8)):
+            print('  ', ' '.join(['%7.3f' % x
+                                  for x in d_bias[r*8:(r+1)*8]]))
+        print()
 
-        print 'Offset response (dDC/dOFFSET), by column:'
-        for r in range((n_sa+7)/8):
-            print '  ', ' '.join(['%7.3f' % x
-                                  for x in d_offset[r*8:(r+1)*8]])
-        print
+        print('Offset response (dDC/dOFFSET), by column:')
+        for r in range(old_div((n_sa+7),8)):
+            print('  ', ' '.join(['%7.3f' % x
+                                  for x in d_offset[r*8:(r+1)*8]]))
+        print()
 
         # Analyze those signals
         rc = RC_revs[card_rev]
-        d_offset_pred = rc.dVdX_offset / rc.dVdX_adc
+        d_offset_pred = old_div(rc.dVdX_offset, rc.dVdX_adc)
 
         # Convert d_bias to voltage ratio between SA output (at
         # pre-amp input) and SA bias (at DAC output)
         dVdV_bias = (d_bias * rc.dVdX_adc / rc.dVdX_bias)**-1
         ## Using R_bias, determine R_cable.
-        R_cable = rc.R_bias / (dVdV_bias - 1)
+        R_cable = old_div(rc.R_bias, (dVdV_bias - 1))
 
         ## Flags
-        offset_good = abs(d_offset/d_offset_pred - 1) < .01
+        offset_good = abs(old_div(d_offset,d_offset_pred) - 1) < .01
 
-        print 'Estimated SA cable resistance (rev%s readout card):' % \
-            chr(ord('A')-1+card_rev)
-        for r in range((n_sa+7)/8):
-            print '  ', ' '.join(['%7.1f' % x for x in R_cable[r*8:(r+1)*8]])
-        print
+        print('Estimated SA cable resistance (rev%s readout card):' % \
+            chr(ord('A')-1+card_rev))
+        for r in range(old_div((n_sa+7),8)):
+            print('  ', ' '.join(['%7.1f' % x for x in R_cable[r*8:(r+1)*8]]))
+        print()
 
 
-        print 'Apparent resistance ratios, by column:'
-        for r in range((n_sa+7)/8):
-            print '  ', ' '.join(['%7.3f' % x for x in ratio[r*8:(r+1)*8]])
+        print('Apparent resistance ratios, by column:')
+        for r in range(old_div((n_sa+7),8)):
+            print('  ', ' '.join(['%7.3f' % x for x in ratio[r*8:(r+1)*8]]))
         ratio_mean = ratio[ratio!=0].mean()
-        print
-        print 'The typical ratio is:  %.3f' % ratio_mean
-        print
+        print()
+        print('The typical ratio is:  %.3f' % ratio_mean)
+        print()
 
         # This ratio isn't necessarily what you want to use, you might
         # want to let the floor drop out gradually
-        sa_max = 64000. / step
+        sa_max = old_div(64000., step)
         sa_fall = -8000*sample_num - y0
-        ratio1 = -(sa_fall / sa_max - d_bias) / d_offset
+        ratio1 = old_div(-(old_div(sa_fall, sa_max) - d_bias), d_offset)
         ratio1[d_offset==0] = 0.
-        print 'Suggested sa_offset_bias_ratios, by column:'
-        for r in range((n_sa+7)/8):
-            print '  ', ' '.join(['%7.3f' % x for x in ratio1[r*8:(r+1)*8]])
+        print('Suggested sa_offset_bias_ratios, by column:')
+        for r in range(old_div((n_sa+7),8)):
+            print('  ', ' '.join(['%7.3f' % x for x in ratio1[r*8:(r+1)*8]]))
         ratio1_min = ratio1[ratio1!=0].min()
-        print 'Smallest range-filling ratio: %.3f' % ratio1_min 
+        print('Smallest range-filling ratio: %.3f' % ratio1_min) 
 
         # Rough badness diagnostic
         if ratio1_min < ratio_mean:
-            print 'You have weird ratios.  Seek advice.'
-        print 'Recommended sa_offset_bias_ratio: %.3f' % ratio1_min
+            print('You have weird ratios.  Seek advice.')
+        print('Recommended sa_offset_bias_ratio: %.3f' % ratio1_min)
 
     elif action == 'test_syncbox':
         m = mce()
         for it in [0,1]:
             sc0 = m.read('cc', 'select_clk')
             if sc0 is None:
-                print 'MCE error.'
+                print('MCE error.')
                 break
             elif sc0[0] == 1:
-                print 'Sync box is connected and select_clk=1.'
+                print('Sync box is connected and select_clk=1.')
                 break
             elif i == 0:
-                print 'Writing select_clk=1'
+                print('Writing select_clk=1')
                 m.write('cc', 'select_clk', [1])
                 time.sleep(1)
 

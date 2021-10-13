@@ -1,3 +1,8 @@
+from __future__ import division
+from builtins import zip
+from builtins import range
+from builtins import object
+from past.utils import old_div
 
 #
 # Round here, colors are always 4-tuples.  R,G,B,alpha.  And for the
@@ -30,7 +35,7 @@ DEFAULT_COLORMAP_PIVOTS = COLORMAP_BUILTIN_DICT['purple']
 DEFAULT_COLORMAP_SIZE = 256
 
 
-class ColorMap:
+class ColorMap(object):
     size = DEFAULT_COLORMAP_SIZE
     pivots = DEFAULT_COLORMAP_PIVOTS
     colors = None
@@ -54,7 +59,7 @@ class ColorMap:
             self.size = size
         if self.size is None:
             self.size = DEFAULT_COLORMAP_SIZE
-        speed = float(len(self.pivots)-1)/(self.size-1)
+        speed = old_div(float(len(self.pivots)-1),(self.size-1))
         self.colors = []
         for i in range(self.size-1):
             x = speed*i
@@ -87,7 +92,7 @@ class ColorMap:
     @classmethod
     def get_builtin(cls, name, size=None, scale=None):
         if not name in COLORMAP_BUILTIN_DICT:
-            raise ValueError, "invalid built-in colormap builtin '%s'"%name
+            raise ValueError("invalid built-in colormap builtin '%s'"%name)
         return cls(pivots=COLORMAP_BUILTIN_DICT[name], size=size,
                    scale=scale)
         

@@ -1,3 +1,6 @@
+from __future__ import print_function
+from past.builtins import basestring
+from builtins import object
 import socket
 import array
 import errno
@@ -100,8 +103,8 @@ def decode_address(addr):
 # a JSON structure and a binary block.
 #
 
-class packetFormatV1:
-    class addressBlock:
+class packetFormatV1(object):
+    class addressBlock(object):
         def __init__(self, type='', name='', source='', dest=''):
             self.type = type
             self.name = name
@@ -111,7 +114,7 @@ class packetFormatV1:
         def decode(cls, packet):
             words = packet.split('\x00')
             if len(words) != 5:
-                print 'fail address words'
+                print('fail address words')
                 return None
             t, n, s, d = words[:4]
             self = cls(t,n,s,d)
@@ -119,15 +122,15 @@ class packetFormatV1:
         def encode(self):
             t, n, s, d = self.type, self.name, self.source, self.dest
             return ''.join([x+'\x00' for x in [t,n,s,d]])
-    class payloadBlock:
+    class payloadBlock(object):
         @classmethod
         def decode(cls, packet):
             if len(packet) < 8:
-                print 'payload header'
+                print('payload header')
                 return None
             n1, n2 = array.array('i', packet[:8])
             if len(packet) != n1 + n2 + 8:
-                print 'payload size'
+                print('payload size')
                 return None
             d1, d2 = packet[8:8+n1], packet[8+n1:8+n1+n2]
             self = cls()
@@ -177,13 +180,13 @@ class packetFormatV1:
         # Pre-amble
         if dahi_header:
             if len(data) < 8:
-                print 'header fail'
+                print('header fail')
                 return False, None, None
             code, size = data[:4], array.array('i', data[4:8])[0]
             data = data[8:]
         # Validate...
         if len(data) < 8:
-            print 'no data'
+            print('no data')
             return False, None, None
         # Addressing
         addr_len = array.array('i', data[0:4])[0]

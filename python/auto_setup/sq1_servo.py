@@ -1,3 +1,9 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import range
+from past.utils import old_div
 # vim: ts=4 sw=4 et
 import time, os, glob
 import biggles
@@ -7,7 +13,7 @@ from numpy import *
 import numpy as np
 from mce_data import MCERunfile, MCEFile
 
-import servo
+from . import servo
 
 def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
 
@@ -27,7 +33,7 @@ def go(tuning, rc, filename=None, fb=None, slope=None, gain=None):
     ok, servo_data = acquire(tuning, rc, filename=filename, fb=fb,
                              gain=gain, super_servo=super_servo)
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     sq = SQ1Servo(servo_data['filename'], tuning=tuning)
     lock_points = sq.reduce()
@@ -116,7 +122,7 @@ def acquire_all_row_painful(tuning, rc, filename=None, fb=None,
         ok, r = acquire(tuning, rc, filename=filename+'.r%02i'%row,
                         fb=fb, gain=gain, super_servo=False, old_servo=old_servo)
         if not ok:
-            print r
+            print(r)
             return ok, r
         results.append(r)
 
@@ -172,7 +178,7 @@ class SQ1Servo(servo.SquidData):
         """
         self.error, self.data = util.load_bias_file(filename+'.bias')
         # Awkward indexing...
-        col_idx = self.cols - (amin(self.cols) / 8)*8
+        col_idx = self.cols - (old_div(amin(self.cols), 8))*8
         self.rows = array(self.rf.Item('servo_init', 'row.init', type='int'))[col_idx]
         n_row = 1
         self.gridded = False
@@ -300,7 +306,7 @@ class SQ1Servo(servo.SquidData):
         else:
             slope = slope[0]
         n_fb = len(self.fb)
-        an = servo.get_lock_points(self.data, scale=n_fb/40,
+        an = servo.get_lock_points(self.data, scale=old_div(n_fb,40),
                                    lock_amp=lock_amp, slope=slope)
 
         # Add feedback keys
@@ -308,7 +314,7 @@ class SQ1Servo(servo.SquidData):
             an[k+'_x'] = self.fb[an[k+'_idx']]
 
         # Measure flux quantum
-        width = self.data.shape[-1] / 4
+        width = old_div(self.data.shape[-1], 4)
         phi0 = servo.period(self.data, width=width)
 
         # Tweak feedback values and rescale slopes and phi0
@@ -503,7 +509,7 @@ class SQ1ServoSA(SQ1Servo):
         r = []
         for i in range(len(self.data)):
             reg = servo.get_curve_regions(self.data[i], pairs=True)
-            if i == 100: print reg
+            if i == 100: print(reg)
             # reg will always have at least 4 entries.  Remove any
             # trivial ones though.
             while len(reg) > 0 and reg[0][0] == reg[0][1]:
@@ -569,7 +575,7 @@ class SQ1ServoSA(SQ1Servo):
         else:
             slope = slope[0]
         n_fb = len(self.fb)
-        an = servo.get_lock_points(self.data, scale=n_fb/40,
+        an = servo.get_lock_points(self.data, scale=old_div(n_fb,40),
                                    lock_amp=lock_amp, slope=slope)
 
         # Add feedback keys
@@ -627,11 +633,11 @@ class SQ1ServoSummary(servo.RampSummary):
         for _, r, ax in pl:
             if r >= plot_shape[1]:
                 continue
-            x = self.fb/1000.
-            for i in xrange(ncurves):
-                ax.add(biggles.Curve(x, data[r,i]/1000.))
+            x = old_div(self.fb,1000.)
+            for i in range(ncurves):
+                ax.add(biggles.Curve(x, old_div(data[r,i],1000.)))
             if 'lock_x' in an:
-                ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
+                ax.add(biggles.LineX(old_div(an['lock_x'][r], 1000.), type='dashed'))
 
         return {
             'plot_files': pl.plot_files,
@@ -677,14 +683,14 @@ class SQ1ServoSummary(servo.RampSummary):
         for r, c, ax in pl:
             if r >= plot_shape[(1 if transpose_row_col else 0)]:
                 continue
-            x = self.fb/1000.
+            x = old_div(self.fb,1000.)
             #for i in xrange(ncurves):
-            ax.add(biggles.Curve(x, data[r,c]/1000.))
+            ax.add(biggles.Curve(x, old_div(data[r,c],1000.)))
             if 'lock_x' in an:
                 if self.bias_assoc=='rowcol':
-                    ax.add(biggles.LineX((an['lock_x'].reshape(nrow, ncol))[r,c] / 1000., type='dashed'))
+                    ax.add(biggles.LineX(old_div((an['lock_x'].reshape(nrow, ncol))[r,c], 1000.), type='dashed'))
                 else:
-                    ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
+                    ax.add(biggles.LineX(old_div(an['lock_x'][r], 1000.), type='dashed'))
 
         return {
             'plot_files': pl.plot_files,

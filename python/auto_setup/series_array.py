@@ -1,3 +1,7 @@
+from __future__ import division
+from builtins import str
+from builtins import range
+from past.utils import old_div
 # This is a semitranslation of the IDL auto_setup_squids program.  The
 # intent is to separate that program into three broad parts:
 #
@@ -21,7 +25,7 @@ import auto_setup.servo as servo
 def go(tuning, rc, filename=None, do_bias=None, slope=None):
     ok, ramp_data = acquire(tuning, rc, filename=filename, do_bias=do_bias)
     if not ok:
-        raise RuntimeError, ramp_data['error']
+        raise RuntimeError(ramp_data['error'])
 
     sa = SARamp(ramp_data['filename'], tuning=tuning)
     if sa.bias_style == 'ramp':
@@ -167,14 +171,14 @@ class SARamp(servo.SquidData):
 
         # Analyze all SA curves for lock-points
         an = servo.get_lock_points(y, start=0, slope=slope,
-                                   x_adjust=x_adjust/self.d_fb)
+                                   x_adjust=old_div(x_adjust,self.d_fb))
 
         # Add feedback keys, with shift to counteract smoothing
         for k in ['lock', 'left', 'right']:
             an[k+'_x'] = self.fb[an[k+'_idx'] + scale]
 
         # Measure flux quantum
-        width = self.data.shape[-1] / 4
+        width = old_div(self.data.shape[-1], 4)
         phi0 = servo.period(self.data, width=width)
 
         # Convert position, slope, phi0 to feedback units.

@@ -1,9 +1,14 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import range
+from builtins import object
 # vi: ts=4:sw=4:et
 import os, subprocess, time
 import auto_setup.config as config
-from mas_path import mas_path
+from .mas_path import mas_path
 
-class tuningData:
+class tuningData(object):
     """
     Generic, static data useful to all methods.
     """
@@ -101,10 +106,11 @@ class tuningData:
                         + time.asctime(time.gmtime(self.the_time)) + " UTC\n")
                     self.log.write("Dir:  " + self.base_dir + "\n")
                     self.log.write("Name: " + self.name + "\n")
-                except IOError, (errno, strerror):
-                    print "Unable to create logfile \"{0}\" (errno: {1}; {2})".\
-                            format(self.log_file, errno, strerror)
-                    print "Logging disabled."
+                except IOError as xxx_todo_changeme:
+                    (errno, strerror) = xxx_todo_changeme.args
+                    print("Unable to create logfile \"{0}\" (errno: {1}; {2})".\
+                            format(self.log_file, errno, strerror))
+                    print("Logging disabled.")
                     self.openlog_failed = True
             log = self.log
 
@@ -114,7 +120,7 @@ class tuningData:
           log.flush()
 
         if (self.debug):
-          print "Executing: " + str(args)
+          print("Executing: " + str(args))
 
         s = subprocess.call([str(x) for x in args], stdout=log, stderr=log)
 
@@ -158,8 +164,8 @@ class tuningData:
         try:
             status = self.run(["mce_make_config", self.exp_file,
               self.config_mce_file])
-        except OSError, e:
-            print "Config creation failed:", e
+        except OSError as e:
+            print("Config creation failed:", e)
             return -1
 
         if (status > 0):
@@ -169,8 +175,8 @@ class tuningData:
         if (run_now):
             try:
                 status = self.run([self.config_mce_file])
-            except OSError, e:
-                print "Config run failed:", e
+            except OSError as e:
+                print("Config run failed:", e)
                 return -1
   
         if (status > 0):
@@ -236,7 +242,7 @@ class tuningData:
             elif s == 'raw':
                 f.write(item['data'])
             else:
-                raise RuntimeError, 'unknown item style "%s"' % s
+                raise RuntimeError('unknown item style "%s"' % s)
         f.write("</%s>\n" % block)
         f.close()
         
@@ -271,7 +277,7 @@ class tuningData:
 
     def register_plots(self, *args, **kwargs):
         if kwargs.get('init', False):
-            from plot_reg import plot_registrar
+            from .plot_reg import plot_registrar
             self.plot_reg = plot_registrar(self.base_dir+'/analysis', self.name)
         if self.plot_reg is None:
             return

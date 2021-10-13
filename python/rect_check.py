@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+from __future__ import division
+from __future__ import print_function
+from builtins import object
+from past.utils import old_div
 USAGE="""%prog [options] [runfiles]
 
 Query the MCE, or parse a runfile, to evaluate the sanity of the
@@ -14,7 +18,7 @@ from numpy import *
 MCE_CLOCK = 5e7 # Hz
 MCE_OVERHEAD = 44
 
-class frameConfig:
+class frameConfig(object):
     mce_params = [ \
         ('cc_rcs',  ('cc', 'rcs_to_report_data')),
         ('cc_dec',  ('cc', 'data_rate')),
@@ -60,7 +64,7 @@ class frameConfig:
         # 
         d = {}
         d['f_mux'] = MCE_CLOCK / self.params['cc_cmux'] / self.params['cc_nmux']
-        d['f_ro'] = d['f_mux'] / self.params['cc_dec']
+        d['f_ro'] = old_div(d['f_mux'], self.params['cc_dec'])
         d['n_mux'] = self.params['rc_nr'] * self.params['rc_nc']
         d['n_ro'] = self.params['cc_nr'] * self.params['cc_nc']
         #
@@ -70,51 +74,51 @@ class frameConfig:
         d['in_bounds'] = self.params['rc_r0'] + self.params['rc_nr'] <= \
             self.params['cc_nmux']
         #
-        d['f_sam'] = d['f_ro'] * (d['n_ro'] / d['n_mux'])
+        d['f_sam'] = d['f_ro'] * (old_div(d['n_ro'], d['n_mux']))
         #
         d['dup_bug'] = (self.params['rc_fw'] < 0x5010007) and (
             self.params['rc_nmux']*self.params['rc_cmux'] < 230 + d['n_ro']*2)
         self.derived = d
 
     def report(self):
-        print 'MCE configuration:'
+        print('MCE configuration:')
         for k, (c,p) in self.mce_params:
             if k == 'barrier':
                 break
-            print ' %-8s %-30s %3i' % \
-                (k, '( %s, %s ):'%(c,p), self.params[k])
-        print
-        print 'Framing:'
+            print(' %-8s %-30s %3i' % \
+                (k, '( %s, %s ):'%(c,p), self.params[k]))
+        print()
+        print('Framing:')
         d = self.derived
         def yn(x):
             if x: return 'yes'
             return 'no'
-        print ' RC words stored per mux cycle:         %4i' % d['n_mux']
-        print ' CC words per read-out frame:           %4i' % d['n_ro']
-        print ' CC decimation:                         %4i' % self.params['cc_dec']
-        print
-        print 'Sanity summary:'
-        print ' Contiguous (for high-rate readout)?    %4s' % yn(d['contiguous'])
-        print ' Complete   (all-detector readout)?     %4s' % yn(d['complete'])
-        print ' Bizarro    (a bad thing)?              %4s' % yn(d['bizarro'])
-        print ' Bounded    (a good thing)?             %4s' % yn(d['in_bounds'])
+        print(' RC words stored per mux cycle:         %4i' % d['n_mux'])
+        print(' CC words per read-out frame:           %4i' % d['n_ro'])
+        print(' CC decimation:                         %4i' % self.params['cc_dec'])
+        print()
+        print('Sanity summary:')
+        print(' Contiguous (for high-rate readout)?    %4s' % yn(d['contiguous']))
+        print(' Complete   (all-detector readout)?     %4s' % yn(d['complete']))
+        print(' Bizarro    (a bad thing)?              %4s' % yn(d['bizarro']))
+        print(' Bounded    (a good thing)?             %4s' % yn(d['in_bounds']))
         if d['dup_bug']:
-            print ' Duplicate data bug!                    %4s' % yn(d['dup_bug'])
-        print
-        print 'Timing:'
-        print ' Mux freq:                         %9.2f' % d['f_mux']
-        print ' Mean sampling freq:               %9.2f' % d['f_sam']
-        print ' Read-out freq:                    %9.2f' % d['f_ro']
-        print
-        print 'Data volume:'
-        print ' Frame size (bytes/RC):            %9i' % \
-            (4*(MCE_OVERHEAD + d['n_ro']))
-        print ' Data rate (MB/s/RC):              %9.2f' % \
-            (1.e-6*d['f_ro'] * 4*(MCE_OVERHEAD + d['n_ro']))
+            print(' Duplicate data bug!                    %4s' % yn(d['dup_bug']))
+        print()
+        print('Timing:')
+        print(' Mux freq:                         %9.2f' % d['f_mux'])
+        print(' Mean sampling freq:               %9.2f' % d['f_sam'])
+        print(' Read-out freq:                    %9.2f' % d['f_ro'])
+        print()
+        print('Data volume:')
+        print(' Frame size (bytes/RC):            %9i' % \
+            (4*(MCE_OVERHEAD + d['n_ro'])))
+        print(' Data rate (MB/s/RC):              %9.2f' % \
+            (1.e-6*d['f_ro'] * 4*(MCE_OVERHEAD + d['n_ro'])))
         if d['dup_bug']:
-            print
-            print 'Warning!! your RC firmware has the duplicate data bug;'
-            print '          and this configuration will suffer from it.'
+            print()
+            print('Warning!! your RC firmware has the duplicate data bug;')
+            print('          and this configuration will suffer from it.')
  
     def from_runfile(self, filename):
         rf = MCERunfile(filename)
@@ -126,7 +130,7 @@ class frameConfig:
             if c == 'rca': c = rc
             item = rf.Item('HEADER', 'RB %s %s' % (c, p), type='int')
             if item is None:
-                raise RuntimeError, "Failed to find key for %s %s" % (c,p)
+                raise RuntimeError("Failed to find key for %s %s" % (c,p))
             self.params[k] = item[0]
         self.derive()
 
@@ -152,7 +156,7 @@ if __name__ == '__main__':
     if opts.mce: 
 	from mce_control import MCE as mce
 	if len(args) > 0:
-            print 'Pass runfiles or --mce, not both!'
+            print('Pass runfiles or --mce, not both!')
             sys.exit(1)
         f = frameConfig(mce=mce())
         f.from_mce()

@@ -19,10 +19,12 @@ The structure information is encoded in attributes
              len(rows)==len(cols) is the number of spatial elements.
 
 """
+from builtins import zip
+from builtins import object
 
 import numpy
 
-class RCData:
+class RCData(object):
     def __init__(self, gridded=False,
                  row_attr='rows', col_attr='cols', data_attrs=None):
         if data_attrs is None:
@@ -40,7 +42,7 @@ class RCData:
         self.gridded = items[0].gridded
         for i in items[1:]:
             if i.gridded != self.gridded:
-                raise RuntimeError, 'items for synthesis differ in structure.'
+                raise RuntimeError('items for synthesis differ in structure.')
         if self.gridded:
             # Compute new row and col arrays
             offsets = self._synth_rect_gridded(items)
@@ -51,7 +53,7 @@ class RCData:
             # Check row/col listings for consistency
             for i in items:
                 if len(i.rows) != len(i.cols):
-                    raise RuntimeError, 'some items have inconsistent gridding.'
+                    raise RuntimeError('some items have inconsistent gridding.')
             # Merge row and col arrays
             offsets = self._synth_rect(items)
             # Merge data
@@ -87,7 +89,7 @@ class RCData:
                 offsets.append((len(rows), 0))
                 rows += r
             else:
-                raise RuntimeError, 'incompatible row/col structures.'
+                raise RuntimeError('incompatible row/col structures.')
         self.rows, self.cols = numpy.array(rows), numpy.array(cols)
         return offsets
 
@@ -98,9 +100,9 @@ class RCData:
         for i in items:
             d = getattr(i, attr)
             if d.dtype != dtype:
-                raise RuntimeError, 'data array types differ.'
+                raise RuntimeError('data array types differ.')
             if tuple(i.data_shape[:-3]) != shape_s:
-                raise RuntimeError, 'secret data structure incompatible'
+                raise RuntimeError('secret data structure incompatible')
         # Super data
         nd, nt = len(self.rows), d.shape[-1]
         data = numpy.zeros(shape_s + (nd, nt), dtype=dtype)
@@ -123,9 +125,9 @@ class RCData:
         for i in items:
             d = getattr(i, attr)
             if d.dtype != dtype:
-                raise RuntimeError, 'data array types differ.'
+                raise RuntimeError('data array types differ.')
             if tuple(i.data_shape[:-3]) != shape_s:
-                raise RuntimeError, 'secret data structure incompatible'
+                raise RuntimeError('secret data structure incompatible')
         # Super data
         nr, nc, nt = len(self.rows), len(self.cols), d.shape[-1]
         data = numpy.zeros(shape_s + (nr, nc, nt), dtype=dtype)

@@ -1,3 +1,5 @@
+from __future__ import division
+from past.utils import old_div
 import numpy
 
 def smooth(a, w):
@@ -7,10 +9,10 @@ This is an implementation of IDL's SMOOTH function, except it does
 something slightly less lame with the end points.
 """
   if (a.ndim != 1):
-    raise ValueError, "Input must be single dimensional"
+    raise ValueError("Input must be single dimensional")
 
   if (a.size < w):
-    raise ValueError, "Input must be longer than the smoothing kernel"
+    raise ValueError("Input must be longer than the smoothing kernel")
 
   # the trivial case
   if (w < 3):
@@ -24,6 +26,6 @@ something slightly less lame with the end points.
   s = numpy.r_[2 * a[0] - a[w:1:-1], a, 2 * a[-1]-a[-1:-w:-1]]
 
   # perform the convolution
-  y = numpy.convolve(numpy.ones(w,'d')/w, s, mode='same')
+  y = numpy.convolve(old_div(numpy.ones(w,'d'),w), s, mode='same')
 
   return y[w-1:-w+1]

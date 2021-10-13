@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import object
 #!/usr/bin/python
 
 import os, time
@@ -5,7 +7,7 @@ from glob import glob
 import stat
 import optparse
 
-class WatchSet:
+class WatchSet(object):
     """Track a set of files matching a certain pattern."""
 
     def __init__(self, base_dir, pattern, recursive = False,
@@ -50,13 +52,13 @@ class WatchSet:
     def MarkProcessed(self, sources):
         self.processed = self.processed.union(sources)
 
-class ListState:
+class ListState(object):
     unknown = 0
     open = 1
     closed = 2
     processed = 3
 
-class ArchiveList:
+class ArchiveList(object):
     def __init__(self, filename, read_now = True):
         self.filename = filename
         self.path = os.path.dirname(filename)
@@ -113,7 +115,7 @@ class ArchiveList:
         return [ self.path + '/' + f for f in files ]
        
 
-class Rsyncer:
+class Rsyncer(object):
     def __init__(self, dest, key=None):
         self.dest = dest
         self.key = key
@@ -126,7 +128,7 @@ class Rsyncer:
 
         err = os.spawnv(os.P_WAIT, '/usr/bin/rsync', args)
         if (err != 0):
-            print 'rsync didn\'t like: ', args
+            print('rsync didn\'t like: ', args)
             return
 
         # split dest into host and folder...
@@ -136,7 +138,7 @@ class Rsyncer:
                 (self.key, host, extra_permissions, folder)
             err = os.spawnv(os.P_WAIT, '/usr/bin/ssh', argstr.split())
             if (err != 0):
-                print 'ssh didn\'t like: ', argstr
+                print('ssh didn\'t like: ', argstr)
         
 
 def process_options():
@@ -152,7 +154,7 @@ def process_options():
     (op, ar) = opts.parse_args()
 
     if op.source_dir is None or op.dest_location is None:
-        print 'Source directory or destination location not specified!'
+        print('Source directory or destination location not specified!')
         return None
 
     return op

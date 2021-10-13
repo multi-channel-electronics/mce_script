@@ -1,3 +1,9 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import zip
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import os
 
 import subprocess as sp
@@ -8,7 +14,7 @@ from mce_data import MCEFile
 
 from auto_setup import config
 
-class runfile_block:
+class runfile_block(object):
     """
     Write (especially) numpy arrays to a runfile-block file.
     """
@@ -39,7 +45,7 @@ class runfile_block:
         self.fout
 
 
-class adict:
+class adict(object):
     """
     Just a holder for arrays.  Members of a particular types, but with
     the same shape are added with the "define" method.
@@ -56,7 +62,7 @@ class adict:
             setattr(self, k, np.zeros(shape, dtype=t))
             self.keys.append(k)
     def add_item(self, index, source):
-        for k, v in source.iteritems():
+        for k, v in source.items():
             if k in self.keys:
                 getattr(self,k)[index] = v
 
@@ -69,7 +75,7 @@ def read_ascii(filename, data_start=0, comment_chars=[]):
     return np.transpose(data)
 
 
-class IVData:
+class IVData(object):
     """
     Container for the vectors pertaining to IV curves.  Raw data can
     be loaded from an MCE flatfile, or something.  Based on array
@@ -107,7 +113,7 @@ class IVData:
         self.bias_dac = read_ascii(biasfile, comment_chars=['<', '#'])[0]
         self.n_row, self.n_col, self.n_pts = self.mcedata.shape
         if self.bias_dac.shape[0] != self.n_pts:
-            raise RuntimeError, 'weird .bias file'
+            raise RuntimeError('weird .bias file')
     
     def compute_physical(self, ar_par):
         """
@@ -116,13 +122,13 @@ class IVData:
         """
         # Differentials
         ## TES bias DAC voltage, per DAC unit
-        self.dbias_ddac = ar_par['bias_DAC_volts'] / 2**ar_par['bias_DAC_bits']
+        self.dbias_ddac = old_div(ar_par['bias_DAC_volts'], 2**ar_par['bias_DAC_bits'])
         R33, Rfb = 49.9, ar_par['Rfb_total']
         fb_DAC_volts = ar_par['fb_DAC_amps'] * Rfb * R33 / (R33 + Rfb)
         ## SQ1 FB DAC voltage, per DAC unit
-        self.dfb_ddac = fb_DAC_volts / 2**ar_par['fb_DAC_bits']
+        self.dfb_ddac = old_div(fb_DAC_volts, 2**ar_par['fb_DAC_bits'])
         ## TES current, per unit FB DAC voltage
-        self.di_dfb = 1 / (ar_par['M_ratio']*Rfb)
+        self.di_dfb = old_div(1, (ar_par['M_ratio']*Rfb))
 
         ## Get the bias configuration, which includes per-channel sign
         ## of the feedback -> power conversion.  Another way to do
@@ -146,13 +152,13 @@ class IVData:
         ## Use shunt to get TES voltage
         Rb = ar_par['Rbias_arr_total'][bias_map.virt_line]
         self.tes_v = 1e6 * Rshunt.R[:,:,None] * \
-            (self.bias_v[None,None,:]/Rb[:,:,None] - self.tes_i*1e-6)
+            (old_div(self.bias_v[None,None,:],Rb[:,:,None]) - self.tes_i*1e-6)
         ## The resistance vector; just the ratio of voltage to current.
-        self.tes_R = self.tes_v / self.tes_i
+        self.tes_R = old_div(self.tes_v, self.tes_i)
         ## The power
         self.tes_P = self.tes_v * self.tes_i
         ## More branch analysis...
-        self.ok_rc = zip(*iv_data.ok.nonzero())
+        self.ok_rc = list(zip(*iv_data.ok.nonzero()))
         if update_iv_data:
             ## Estimate R_normal from tes_R
             for r, c in self.ok_rc:
@@ -174,10 +180,10 @@ class IVData:
                 i0 = norm_region.max()
                 iv_data.psat[r,c] = self.tes_P[r,c,i0]
         ## Curves of fraction of R_normal (formerly percent of R normal)
-        self.tes_fracRn = self.tes_R / iv_data.R_norm.reshape((nr, nc, 1))
+        self.tes_fracRn = old_div(self.tes_R, iv_data.R_norm.reshape((nr, nc, 1)))
         ## Responsivity as function of bias, including FB sign correction.
         self.resp = self.di_dfb * self.dfb_ddac * 1e-6*self.tes_v * \
-            (1 - Rshunt.R.reshape((nr, nc, 1))/self.tes_R)
+            (1 - old_div(Rshunt.R.reshape((nr, nc, 1)),self.tes_R))
         if ar_par.get('preserve_resp_sign', False):
             self.resp *= bias_map.sign[:,:,None]
 
@@ -214,9 +220,9 @@ class IVBranches(adict):
     def analyze_curves(self, filedata, rows=None, cols=None, **kwargs):
         ## Analyze only the requested rows and columns...
         if cols is None:
-            cols = range(self.n_col)
+            cols = list(range(self.n_col))
         if rows is None:
-            rows = range(self.n_row)
+            rows = list(range(self.n_row))
         for c in cols:
             for r in rows:
                 det = analyze_IV_curve(filedata.bias_v, filedata.fb_v[r,c],
@@ -224,7 +230,7 @@ class IVBranches(adict):
                 self.add_item((r, c), det)
         
 
-class TESShunts:
+class TESShunts(object):
     def __init__(self, shape):
         self.R = np.zeros(shape, 'float')
         self.ok = np.zeros(shape, 'bool')
@@ -326,8 +332,8 @@ class BiasLineMapping(object):
             self.optim[row,col] = optim
 
         else:
-            raise ValueError, "unknown bias_line_scheme = '%s'" % \
-                ar_par['bias_line_scheme']
+            raise ValueError("unknown bias_line_scheme = '%s'" % \
+                ar_par['bias_line_scheme'])
 
         # Also allow a per-column sign correction to the signal.
         if 'fb_normalize' in ar_par:
@@ -336,15 +342,15 @@ class BiasLineMapping(object):
         return self
 
 
-class logger:
+class logger(object):
     def __init__(self, verbosity=0, indent=True):
         self.v = verbosity
         self.indent = indent
     def write(self, s, level=0):
         if level <= self.v:
             if self.indent:
-                print ' '*level,
-            print s
+                print(' '*level, end=' ')
+            print(s)
     def __call__(self, *args, **kwargs):
         return self.write(*args, **kwargs)
 
@@ -394,8 +400,8 @@ def analyze_IV_curve(bias0, fb0,
     n = bias.shape[0]
     i = 0
     dbias = -np.mean(bias[1:] - bias[:-1])
-    dy = (fb[1:] - fb[:-1]) / dbias
-    span = max(5, int(scale/dbias))
+    dy = old_div((fb[1:] - fb[:-1]), dbias)
+    span = max(5, int(old_div(scale,dbias)))
     transend = None
     # Look at all places where the derivative is positive.
     pos_idx = (dy[:-span]>0).nonzero()[0]
@@ -432,17 +438,17 @@ def analyze_IV_curve(bias0, fb0,
     ok = len(normal_idx) > 1
     if not ok:
         return results
-    results = dict(zip(['ok', 'trans_begin', 'trans_end', 'trans_bias'],
-                       [ok, trans, transend, trans_bias]))
+    results = dict(list(zip(['ok', 'trans_begin', 'trans_end', 'trans_bias'],
+                       [ok, trans, transend, trans_bias])))
     # Fit normal branch
     normfit = np.polyfit(bias[normal_idx], fb[normal_idx], 1)
     Rnorm, offset = normfit
-    results.update(zip(['norm_offset', 'Rnorm', 'norm_idx0', 'norm_idx1'], \
-                           [offset, Rnorm, min(normal_idx), max(normal_idx)]))
+    results.update(list(zip(['norm_offset', 'Rnorm', 'norm_idx0', 'norm_idx1'], \
+                           [offset, Rnorm, min(normal_idx), max(normal_idx)])))
     # Fit super-conducting branch
     superfit = np.polyfit(bias[transend:], fb[transend:], 1)
-    results.update(zip(['super_offset', 'Rsuper', 'super_idx0', 'super_idx1'],
-                       [superfit[1], superfit[0], transend, fb.shape[0]]))
+    results.update(list(zip(['super_offset', 'Rsuper', 'super_idx0', 'super_idx1'],
+                       [superfit[1], superfit[0], transend, fb.shape[0]])))
 
     return results
 
@@ -473,7 +479,7 @@ def smooth(fb, target_segs=3, max_kernel=None):
         max_kernel -= 1
     best = None
     for klen in range(0, max_kernel//2):
-        fb1 = np.convolve(fb, np.ones(klen*2+1), 'valid') / (klen*2+1)
+        fb1 = old_div(np.convolve(fb, np.ones(klen*2+1), 'valid'), (klen*2+1))
         dy = np.diff(fb1)
         sc = (dy[1:]*dy[:-1] < 0).sum()
         if best is None or sc < best[0]:

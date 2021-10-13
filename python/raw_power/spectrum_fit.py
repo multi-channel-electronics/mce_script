@@ -1,10 +1,13 @@
 #!/usr/bin/python
 
+from __future__ import division
+from __future__ import print_function
+from past.utils import old_div
 try:
     from pylab import *
     plotter = 'pylab'
 except:
-    print 'pylab absent, trying biggles.'
+    print('pylab absent, trying biggles.')
     import biggles as bg
     plotter = 'biggles'
 
@@ -28,10 +31,10 @@ def load_raw_file(fn, kill_partial=33, drop_initial=1):
 
 def power(data):
     n = len(data)
-    df = 50.e6 / n
-    p = abs(fft.fft(data)[0:n/2]) / sqrt(50.e6*n)
+    df = old_div(50.e6, n)
+    p = old_div(abs(fft.fft(data)[0:old_div(n,2)]), sqrt(50.e6*n))
     p[0] = 0.
-    f = df * arange(n/2)
+    f = df * arange(old_div(n,2))
     return f, p
 
 def time_series(files, column=0):
@@ -39,7 +42,7 @@ def time_series(files, column=0):
     for fn in files:
         d = load_raw_file(fn)
         if not check_data(d.data):
-            print 'Weird data in %s'%fn
+            print('Weird data in %s'%fn)
         ts.append(d.data[column,:])
     return ts
 
@@ -48,7 +51,7 @@ def spectra(files, column=0):
     for fn in files:
         d = load_raw_file(fn)
         if not check_data(d.data):
-            print 'Weird data in %s'%fn
+            print('Weird data in %s'%fn)
         f, p = power(d.data[column,:65536])
         spectra.append(p)
     return f, array(spectra)
@@ -72,7 +75,7 @@ def model(x, p):
     A, B, f0, beta0, f1, beta1 = p
 #    A, B, f0, f1, f2, f3 = p
 #    return (T_1(B + A*abs(1./(1+1j*(x/f0))/(1+1j*(x/f1))/(1+1j*(x/f2))/(1+1j*(x/f3)))))
-    return (T_1(B + A*abs(1./(1+1j*(x/f0)**beta0)/(1+1j*(x/f1)**beta1)))) # / (1+(x/f2)**beta2))
+    return (T_1(B + A*abs(1./(1+1j*(old_div(x,f0))**beta0)/(1+1j*(old_div(x,f1))**beta1)))) # / (1+(x/f2)**beta2))
 
 def resid(*args):
     p = args[0]
@@ -81,7 +84,7 @@ def resid(*args):
 
 def model_3db(p):
     f = arange(.1e6, 10e6, .1e6)
-    y = model(f, p) / model(f[:1], p)[0]
+    y = old_div(model(f, p), model(f[:1], p)[0])
     idx = (y < 0.5).nonzero()[0][0]
     return f[idx]
 
@@ -95,12 +98,12 @@ if __name__ == '__main__':
     if len(args) == 1 and os.path.isdir(args[0]):
         files = glob('%s/*raw' % args[0])
         if len(files) == 0:
-            print 'No files found in directory "%s"' % args[0]
+            print('No files found in directory "%s"' % args[0])
             sys.exit(1)
     else:
         files = args
         if len(files) == 0:
-            print 'Give directory or filenames.'
+            print('Give directory or filenames.')
             sys.exit(1)
 
     # Column is always 0 for one-RC raw grabs.
@@ -108,9 +111,9 @@ if __name__ == '__main__':
     n_files = len(files)
     ts = time_series(files, column)
 
-    print 'Computing RMS for %i files.' % n_files
+    print('Computing RMS for %i files.' % n_files)
     rr = [t.std() for t in ts]
-    print 'RMS:                     ', mean(rr), ' +- ', std(rr)
+    print('RMS:                     ', mean(rr), ' +- ', std(rr))
         
     # Load spectra, average bin.
     f, p = spectra(files, column)
@@ -125,16 +128,16 @@ if __name__ == '__main__':
     white_level = sqrt(mean(p[:,f<white_cut]**2))
     high_level = sqrt(mean(p[:,f>high_cut]**2))
 
-    print 'White noise (ADC/rtHz):  ', white_level
-    print 'Noise floor (ADC/rtHz):  ', high_level
-    print 'Ratio:                   ', high_level / white_level
+    print('White noise (ADC/rtHz):  ', white_level)
+    print('Noise floor (ADC/rtHz):  ', high_level)
+    print('Ratio:                   ', old_div(high_level, white_level))
 
     # Find 3dB
-    f3db_level = white_level / sqrt(2.)
+    f3db_level = old_div(white_level, sqrt(2.))
     search_cut = 0.5e6
     f3db = f2[((f2 > search_cut)*(y2 <= f3db_level)).nonzero()][0]
 
-    print 'f_3db (MHz):             ', f3db/1e6, 'MHz'
+    print('f_3db (MHz):             ', old_div(f3db,1e6), 'MHz')
 
     # Plot plot plot.
     if plotter == 'pylab':

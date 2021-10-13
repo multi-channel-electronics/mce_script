@@ -2,6 +2,9 @@
 Sometimes you might want to dump a runfile into config options,
 or mas_param calls, or something.
 """
+from __future__ import division
+from builtins import range
+from past.utils import old_div
 
 import sys
 from mce_data import MCERunfile
@@ -34,7 +37,7 @@ for k1, k2 in pairs:
         fout.write(' '.join(['%i'%x for x in d]) + '\n')
     else:
         fout.write('%s = [\n' % k1)
-        nr = (len(d)+7)/8
+        nr = old_div((len(d)+7),8)
         for i in range(nr):
             fout.write(' ' * 10 + ', '.join(['%6i'%x for x in d[i*8:i*8+8]]))
             if i != nr-1:

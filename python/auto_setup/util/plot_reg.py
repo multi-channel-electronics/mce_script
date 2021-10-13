@@ -1,6 +1,7 @@
+from builtins import object
 import os
 
-class plot_registrar:
+class plot_registrar(object):
     def __init__(self, root, child):
         self.filename = os.path.join(root, child, 'mceplots_archive')
         fout = open(self.filename, 'w')

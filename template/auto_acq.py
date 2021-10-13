@@ -178,7 +178,7 @@ for acq in acq_desc:
                 opts['include'] = my_det['incfile'];
         
         # pass any remaining options to mce_cmd
-        for key,val in opts.items():
+        for key,val in list(opts.items()):
             lines.append('acq_option %s %s %s' % (ftype, key, val))
 
     # Construct init line for this output type
@@ -188,7 +188,7 @@ for acq in acq_desc:
     elif ftype == 'dirfile':
         line = 'acq_config_dirfile'
     else:
-        raise ValueError, "unknown type '%s'" % ftype
+        raise ValueError("unknown type '%s'" % ftype)
     if my_det['seq_int'] > 0:
         line += '_fs %(filename)s %(rc)s %(seq_int)i' % my_det
     else:

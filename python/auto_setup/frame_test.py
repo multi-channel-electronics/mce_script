@@ -1,14 +1,18 @@
+from __future__ import print_function
+from builtins import str
+from builtins import range
 import os, time
 from mce_data import MCEFile, MCERunfile
 from numpy import *
 import auto_setup.idl_compat as idl_compat
 import auto_setup.util as util
 import auto_setup.servo as servo
+from functools import reduce
 
 def go(tuning, rc, filename=None):
     ok, frametest = acquire(tuning, rc, filename=filename)
     if not ok:
-        raise RuntimeError, frametest['error']
+        raise RuntimeError(frametest['error'])
 
     lockflags = reduce(tuning, frametest)
     plot(tuning, frametest, lockflags)
@@ -63,7 +67,7 @@ def reduce(tuning, frametest):
 
     # Read data preserving rows/cols dimensioning
     mcefile = MCEFile(datafile)
-    print mcefile.data_mode
+    print(mcefile.data_mode)
     data = mcefile.Read(field='error',row_col=True)
     data = data.data
     n_cols = data.shape[1]

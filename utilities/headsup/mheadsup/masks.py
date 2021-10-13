@@ -1,10 +1,13 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import range
 import numpy as np
 
 """
 Masks.  An enum the same shape as the data.
 """
 
-from encoders import arrayInfoEncoder as aie
+from .encoders import arrayInfoEncoder as aie
 
 class pixelMask(aie):
     """
@@ -28,7 +31,7 @@ class pixelMask(aie):
             if state in self.states:
                 state = self.states.index(state)
             else:
-                print 'unknown state "%s"' % state
+                print('unknown state "%s"' % state)
                 return np.zeros(self.data.shape, 'bool')
         return self.data == state
 
@@ -69,12 +72,12 @@ class pixelMask(aie):
                 i, val = [int(w.pop(0)) for i in range(2)]
                 data[:,i] = val
             else:
-                print 'unknown command %s on line %i of %s' % \
-                    (cmd,line_num,filename)
+                print('unknown command %s on line %i of %s' % \
+                    (cmd,line_num,filename))
                 continue
             if len(w) > 0 and w[0][0] != '#':
-                print 'stray stuff on line %i of %s' % \
-                    (line_num,filename)
+                print('stray stuff on line %i of %s' % \
+                    (line_num,filename))
         # Enough states?
         i_max = data.max()
         while len(states) <= i_max:

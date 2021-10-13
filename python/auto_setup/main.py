@@ -1,11 +1,17 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import zip
+from builtins import str
+from past.utils import old_div
 # vim: ts=4 sw=4 et
-import util
-import series_array
-import sq2_servo
-import sq1_servo
-import sq1_ramp
-import frame_test
-import mux11d
+from . import util
+from . import series_array
+from . import sq2_servo
+from . import sq1_servo
+from . import sq1_ramp
+from . import frame_test
+from . import mux11d
 
 import os
 import time
@@ -36,7 +42,7 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
         for c in check_rcs:
             exit_status = tuning.run(["check_zero", "rc%i" % (c), "sa_bias"])
             if (exit_status > 8):
-                print "check_zero failed with code", exit_status
+                print("check_zero failed with code", exit_status)
             on_bias += exit_status
 
     # experiment.cfg setting may force a ramp_sa_bias.
@@ -76,7 +82,7 @@ def do_init(tuning, rcs, check_bias, ramp_sa_bias, note):
         # thermalisation
 
         if (check_bias and on_bias == 0):
-            print "Waiting for thermalization."
+            print("Waiting for thermalization.")
             time.sleep(tuning.get_exp_param('tuning_therm_time'))
 
     return {'ramp_sa_bias': ramp_sa_bias, 'sq1_bias': sq1_bias,
@@ -161,7 +167,7 @@ def do_sa_ramp(tuning, rc, rc_indices, ramp_sa_bias=False, write_default=False):
     ok, ramp_data = series_array.acquire(tuning, rc,
                                          do_bias=ramp_sa_bias)
     if not ok:
-        raise RuntimeError, ramp_data['error']
+        raise RuntimeError(ramp_data['error'])
 
     sa = series_array.SARamp(ramp_data['filename'], tuning=tuning)
     bias_ramp = sa.bias_style == 'ramp'
@@ -242,7 +248,7 @@ def do_sq2_servo(tuning, rc, rc_indices, write_default=False):
     tuning.write_config()
     ok, servo_data = sq2_servo.acquire(tuning, rc)
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     sq = sq2_servo.SQ2Servo(servo_data['filename'], tuning=tuning)
     bias_ramp = sq.bias_style == 'ramp'
@@ -321,7 +327,7 @@ def do_sq1_servo(tuning, rc, rc_indices, write_default=False):
         ok, servo_data = sq1_servo.acquire(tuning, rc, super_servo=super_servo)
 
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     sq = sq1_servo.SQ1Servo(servo_data['filename'], tuning=tuning)
     bias_ramp = sq.bias_style == 'ramp'
@@ -402,8 +408,8 @@ def do_sq1_ramp(tuning, rcs, init=True, ramp_check=False):
     for rc in rcs:
         ok, info = sq1_ramp.acquire(tuning, rc, check=ramp_check)
         if not ok:
-            raise RuntimeError, 'sq1ramp failed for rc%s (%s)' % \
-                (str(rc), info['error'])
+            raise RuntimeError('sq1ramp failed for rc%s (%s)' % \
+                (str(rc), info['error']))
         ramps.append(sq1_ramp.SQ1Ramp(info['filename']))
 
     # Join into single data/analysis object
@@ -428,7 +434,7 @@ def do_sq1_ramp(tuning, rcs, init=True, ramp_check=False):
     # Sometimes we don't actually want to change anything
     if not ramp_check:
         # Note that adc_offset_cr needs to be corrected for samp_num
-        tuning.set_exp_param('adc_offset_cr', adc/samp_num)
+        tuning.set_exp_param('adc_offset_cr', old_div(adc,samp_num))
         tuning.set_exp_param('config_adc_offset_all', 1)
         tuning.write_config()
 
@@ -458,8 +464,8 @@ def do_sq1_ramp_tes(tuning, rcs, init=True):
     for rc in rcs:
         ok, info = sq1_ramp.acquire_tes_ramp(tuning, rc)
         if not ok:
-            raise RuntimeError, 'sq1ramp failed for rc%s (%s)' % \
-                (str(rc), info['error'])
+            raise RuntimeError('sq1ramp failed for rc%s (%s)' % \
+                (str(rc), info['error']))
         ramps.append(sq1_ramp.SQ1RampTes(info['filename']))
 
     # Join into single data/analysis object
@@ -489,12 +495,12 @@ def operate(tuning):
         tuning.copy_exp_param('default_%s'%param, param)
 
     # Compile dead detector mask
-    print "Assembling dead detector mask."
+    print("Assembling dead detector mask.")
     mask = util.get_all_dead_masks(tuning, union=True)
     if mask is not None:
       tuning.set_exp_param("dead_detectors", mask.data.transpose().reshape(-1))
 
-    print "Assembling frail detector mask."
+    print("Assembling frail detector mask.")
     mask = util.get_all_dead_masks(tuning, union=True, frail=True)
     if mask is not None:
       tuning.set_exp_param("frail_detectors", mask.data.transpose().reshape(-1))
@@ -511,7 +517,7 @@ def frametest_check(tuning, rcs, row, column):
     # Permit row override, or else take it from config
     if (row is None):
         row = 9
-        print "Row = %i is used for frametest_plot by default." % row
+        print("Row = %i is used for frametest_plot by default." % row)
 
     if (len(rcs) < 4):
         for rc in rcs:
@@ -537,8 +543,8 @@ functions to perform an entire auto setup procedure, exactly like the old
 IDL auto_setup_squids."""
 
     tuning = util.tuningData(data_dir=data_dir, reg_note=reg_note, debug=debug)
-    print 'Tuning ctime: %i' % tuning.the_time
-    print 'Tuning date : ' + tuning.date
+    print('Tuning ctime: %i' % tuning.the_time)
+    print('Tuning date : ' + tuning.date)
 
     # Create data and analysis directories
     tuning.make_dirs()
@@ -549,7 +555,7 @@ IDL auto_setup_squids."""
 
     # set rc list, if necessary
     if (rcs is None):
-        print "  Tuning all available RCs."
+        print("  Tuning all available RCs.")
         rcs = ['s']
 
     # default parameters
@@ -614,12 +620,11 @@ IDL auto_setup_squids."""
             stages.remove('sq1_ramp_check')
 
     if len(rcs) != 1:
-        raise RuntimeError, \
-            "Tuning of misc. RCs no longer supported.  Pick a single RC, or use RCS."
+        raise RuntimeError("Tuning of misc. RCs no longer supported.  Pick a single RC, or use RCS.")
     else:
         # This indentation left in for clarity of commit diff.  Remove me some day.
         c = rcs[0]
-        print "Processing rc%s" % str(c)
+        print("Processing rc%s" % str(c))
         if c == 's':
             rc_indices = array(tuning.column_list())
         else:
@@ -671,7 +676,7 @@ IDL auto_setup_squids."""
 
     if 'frametest' in stages:
         # lock check
-        print 'frametest_check to-be-implemented...'
+        print('frametest_check to-be-implemented...')
         #frametest_check(tuning, rcs, row, column)
 
     if 'operate' in stages:
@@ -684,5 +689,5 @@ IDL auto_setup_squids."""
     shutil.copy2(tuning.exp_file, tuning.data_dir)
 
     t_elapsed = time.time() - tuning.the_time
-    print "Tuning complete.  Time elapsed: %i seconds." % t_elapsed
+    print("Tuning complete.  Time elapsed: %i seconds." % t_elapsed)
     return 0

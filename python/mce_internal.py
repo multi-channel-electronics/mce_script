@@ -2,6 +2,9 @@
 Classes and functions for supporting MCE internal ramps (see
 scripts/mce_internal_ramp and scripts/mce_awg).
 """
+from __future__ import print_function
+from builtins import map
+from builtins import object
 
 import subprocess as sp
 import re
@@ -10,7 +13,7 @@ import sys,os
 try:
     from pymce.compat import old_mce as mce
 except ImportError:
-    print 'Could not load mce module; mce commanding will be disabled.'
+    print('Could not load mce module; mce commanding will be disabled.')
 
 def abort_msg(text, error=20):
     sys.stderr.write('Error: %s\n' % text)
@@ -31,7 +34,7 @@ stage_map = {
 }
 
 
-class physicalMap:
+class physicalMap(object):
     def __init__(self, card_name, param_name, param_id, card_ids):
         self.card, self.param, self.p_id, self.c_ids = \
             card_name, param_name, param_id, card_ids
@@ -43,7 +46,7 @@ class physicalMap:
         c_ids = [int(x,0) for x in w[6:]]
         return cls(card, param, p_id, c_ids)
 
-class virtualMap:
+class virtualMap(object):
     def __init__(self, card_name, param_name, maps):
         self.card, self.param, self.maps = \
             card_name, param_name, maps
@@ -65,7 +68,7 @@ class virtualMap:
             maps.append((int(m[0],0), int(m[1],0), c, p, int(m[3],0)))
         return cls(card, param, maps)
 
-class configAnalysis:
+class configAnalysis(object):
     """
     Decode output of mce_status -g.
     """
@@ -142,7 +145,7 @@ Arbitrary waveform generation support.
 AWG_MAX_DATA = 8192
 AWG_BLOCK_SIZE = 32
 
-class awgAccessor:
+class awgAccessor(object):
     """
     Read and write to the CC AWG data area.
     """
@@ -153,7 +156,7 @@ class awgAccessor:
             n = self.mce.read('cc', 'awg_sequence_length')[0]
         if n > AWG_MAX_DATA:
             n = AWG_MAX_DATA
-            print 'Limiting read to %i words' % n
+            print('Limiting read to %i words' % n)
         addr = 0
         if not reset:
             addr = self.get_address()
@@ -167,11 +170,11 @@ class awgAccessor:
             addr += _n
         return data
     def write(self, data, reset=True, set_length=True):
-        data = map(int, data)   # cast for safety
+        data = list(map(int, data))   # cast for safety
         n = len(data)
         if n > AWG_MAX_DATA:
             n = AWG_MAX_DATA
-            print 'Limiting write to %i words' % n
+            print('Limiting write to %i words' % n)
         if set_length:
             self.mce.write('cc', 'awg_sequence_length', [int(n)])
         if reset:

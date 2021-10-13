@@ -1,3 +1,5 @@
+from builtins import map
+from builtins import object
 import numpy as np
 
 """
@@ -8,7 +10,7 @@ json has support for arbitrary object reconstruction...
 
 def encode_array_row(data, cast):
     if data.ndim == 1:
-        return map(cast, data)
+        return list(map(cast, data))
     return [encode_array_row(d, cast) for d in data]
 
 def encode_array(data):
@@ -33,7 +35,7 @@ def decode_array(data):
     return np.array(data['data'], dtype=data['dtype'])
 
 
-class arrayInfoEncoder:
+class arrayInfoEncoder(object):
     """
     Classlet for serializing simple classes to json-ready dictionaries.
 

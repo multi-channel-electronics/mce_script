@@ -1,9 +1,14 @@
+from __future__ import division
+from __future__ import absolute_import
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import os, time
 import auto_setup.util as util
 from numpy import *
 from mce_data import MCERunfile, MCEFile
 
-import servo
+from . import servo
 
 def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
        do_analysis=True):
@@ -11,7 +16,7 @@ def go(tuning, rc, filename=None, fb=None, slope=None, bias=None, gain=None,
     ok, servo_data = acquire(tuning, rc, filename=filename, fb=fb,
                              bias=bias, gain=gain)
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     if not do_analysis:
         return None
@@ -201,16 +206,16 @@ class SQ2Servo(servo.SquidData):
                 x_adjust = x_adjust[self.cols]
 
         n_fb = len(self.fb)
-        an = servo.get_lock_points(self.data, scale=n_fb/40,
+        an = servo.get_lock_points(self.data, scale=old_div(n_fb,40),
                                    lock_amp=lock_amp, slope=slope,
-                                   x_adjust=x_adjust/self.d_fb)
+                                   x_adjust=old_div(x_adjust,self.d_fb))
 
         # Add feedback keys
         for k in ['lock', 'left', 'right']:
             an[k+'_x'] = self.fb[an[k+'_idx']]
 
         # Measure flux quantum
-        width = self.data.shape[-1] / 4
+        width = old_div(self.data.shape[-1], 4)
         phi0 = servo.period(self.data, width=width)
 
         # Tweak feedback values and rescale slopes and phi0

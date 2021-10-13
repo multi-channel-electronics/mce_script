@@ -1,3 +1,9 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import zip
+from builtins import range
+from past.builtins import basestring
+from past.utils import old_div
 import auto_setup.util as util
 from numpy import *
 import numpy as np
@@ -7,7 +13,7 @@ import os
 def smooth(x, scale):
     s = x.shape
     x.shape = (-1, s[-1])
-    y = array([convolve(xx, [1]*scale, mode='valid') for xx in x]) / scale
+    y = old_div(array([convolve(xx, [1]*scale, mode='valid') for xx in x]), scale)
     x.shape = s
     y.shape = s[:-1] + (y.shape[-1],)
     return y
@@ -49,7 +55,7 @@ def get_curve_regions(y, extremality=0.8,
     y0, dy = 0.5*(y1+y0), 0.5*(y1-y0)
     if dy == 0:
         dy = 1
-    y = (y - y0)/dy  # Now in [-1,+1]
+    y = old_div((y - y0),dy)  # Now in [-1,+1]
     # Identify samples in extreme regions.
     n = len(y)
     hi = hstack(((y >  extremality).nonzero()[0], n))
@@ -75,7 +81,7 @@ def get_curve_regions(y, extremality=0.8,
             idx = hi[0]
 
     def pairify():
-        return zip(transitions, transitions[1:]+[len(y)])
+        return list(zip(transitions, transitions[1:]+[len(y)]))
     
     if extrema:
         return pairify()[::2]
@@ -100,14 +106,14 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
     # By default, we characterize the extrema ignoring the beginning
     # of the curve, since the servo may still be settling.
     if start is None:
-        start = y.shape[1]/8
+        start = old_div(y.shape[1],8)
     if stop is None:
         stop = y.shape[1]
 
     y1, y0 = y[:,start:stop].max(axis=1).astype('float'), \
         y[:,start:stop].min(axis=1).astype('float')
-    mids = ((y1+y0)/2).reshape(-1,1)
-    amps = ((y1-y0)/2).reshape(-1,1)
+    mids = (old_div((y1+y0),2)).reshape(-1,1)
+    amps = (old_div((y1-y0),2)).reshape(-1,1)
     amps[amps==0] = 1.
 
     # Copy data, rescaled to +-1 and corrected for slope.
@@ -145,8 +151,8 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
 
     # Lock mid-way in y or x?
     if lock_amp:  # y
-        target = array([yy[a] + yy[b] for yy,a,b in \
-                            zip(y, i_left, i_right)]) / 2
+        target = old_div(array([yy[a] + yy[b] for yy,a,b in \
+                            zip(y, i_left, i_right)]), 2)
         lock_idx = array([a + argmin(abs(yy[a:b+1]-t)) for \
                           a,b,t,yy in zip(i_left, i_right, target, y)]) \
                           .astype('int')
@@ -160,7 +166,7 @@ def get_lock_points(y, scale=5, lock_amp=False, slope=1.,
                                     min_index=i_left, max_index=i_right)
         lock_y = array([yy[i] for i,yy in zip(lock_idx, y)])
     else:  # x
-        lock_idx = (i_left + i_right)/2
+        lock_idx = old_div((i_left + i_right),2)
         if x_adjust is not None:
             lock_idx += x_adjust
         lock_slope, lock_y = get_slopes(y, lock_idx, intercept='y',
@@ -206,8 +212,8 @@ def get_slopes(data, index, n_points=5, min_index=None, max_index=None,
     
     fits = []
     for d, i, lo, hi in zip(data, index, min_index, max_index):
-        sl_idx = arange(max(lo, i-n_points/2),
-                        min(hi, i+(n_points+1)/2))
+        sl_idx = arange(max(lo, i-old_div(n_points,2)),
+                        min(hi, i+old_div((n_points+1),2)))
         if len(sl_idx) < 2:
             fits.append([0.,0.])
         else:
@@ -218,10 +224,10 @@ def get_slopes(data, index, n_points=5, min_index=None, max_index=None,
     if intercept == 'y':
         return fits[0], fits[1]
     if intercept == 'x':
-        x0 = - fits[1] / fits[0]
+        x0 = old_div(- fits[1], fits[0])
         x0[fits[0]==0] = 0.
         return fits[0], x0
-    raise ValueError, 'Invalid intercept request "%s"' % intercept
+    raise ValueError('Invalid intercept request "%s"' % intercept)
 
 
 def period_correlation(y, width=None, normalize=True):
@@ -229,7 +235,7 @@ def period_correlation(y, width=None, normalize=True):
     # Remove mean!
     y = y - y.mean(axis=1)[:,None]
     if width is None:
-        width = nx / 2
+        width = old_div(nx, 2)
     m = nx - width
     corr = zeros((n, m))
     for i in range(m):
@@ -252,7 +258,7 @@ def period(y, width=None):
     """
     n0, n_x = y.shape
     if width is None:
-        width = n_x / 8
+        width = old_div(n_x, 8)
     p = zeros(n0)
     # Get the correlations, and locate their second minimum
     corr = period_correlation(y, width=width, normalize=False)
@@ -290,7 +296,7 @@ def add_curves(ax, x, y, lp, i,
 
 
 def plot(x, y, y_rc, lock_points, plot_file,
-         shape=(4,2), img_size=None, scale=1./1000,
+         shape=(4,2), img_size=None, scale=old_div(1.,1000),
          title=None, xlabel=None, ylabel=None,
          titles=None,
          rows=None, cols=None,
@@ -321,7 +327,7 @@ def plot(x, y, y_rc, lock_points, plot_file,
                 if y0 is None:
                     # Use default y-target if separate up/dn aren't there.
                     y0 = get('', 'y')
-                slopes.append(zip(m, x0, y0))
+                slopes.append(list(zip(m, x0, y0)))
                 
     pl = util.plotGridder(y_rc, plot_file, title=title,
                           xlabel=xlabel, ylabel=ylabel,
@@ -347,26 +353,26 @@ def plot(x, y, y_rc, lock_points, plot_file,
             ax.add(biggles.PlotLabel(0., 0., insets[i],
                                          halign='left',valign='bottom'))
         if x.shape==y.shape:
-            ax.add(biggles.Curve(x[i]/1000., y[i]/1000.))
+            ax.add(biggles.Curve(old_div(x[i],1000.), old_div(y[i],1000.)))
         else:
-            ax.add(biggles.Curve(x/1000., y[i]/1000.))
+            ax.add(biggles.Curve(old_div(x,1000.), old_div(y[i],1000.)))
 
         if scale_style == 'roll-off':
             # Prevent small signals from causing large tick labels
-            hi, lo = amax(y[i])/1000, amin(y[i])/1000
+            hi, lo = old_div(amax(y[i]),1000), old_div(amin(y[i]),1000)
             if hi - lo < 4:
-                mid = (hi+lo)/2
+                mid = old_div((hi+lo),2)
                 ax.yrange = (mid-2, mid+2)
         elif scale_style == 'tight':
-            hi, lo = amax(y[i]) / 1000., amin(y[i]) / 1000.
+            hi, lo = old_div(amax(y[i]), 1000.), old_div(amin(y[i]), 1000.)
             dx = (hi - lo)*.1
             if dx <= 0:  # Never set a 0-size yrange.
                 dx = 0.5
             ax.yrange = lo - dx, hi + dx
             if x.shape==y.shape:
-                ax.xrange = x[i][0]/1000., x[i][-1]/1000.
+                ax.xrange = old_div(x[i][0],1000.), old_div(x[i][-1],1000.)
             else:
-                ax.xrange = x[0]/1000., x[-1]/1000.                
+                ax.xrange = old_div(x[0],1000.), old_div(x[-1],1000.)                
 
     pl.cleanup()
     return {
@@ -421,18 +427,18 @@ class SquidData(util.RCData):
 
     def _check_data(self, simple=False):
         if self.data is None:
-            raise RuntimeError, '%s needs data.' % self.stage_name
+            raise RuntimeError('%s needs data.' % self.stage_name)
         if simple and self.gridded:
-            raise RuntimeError, 'Simple %s expected (use split?)' % \
-                self.stage_name
+            raise RuntimeError('Simple %s expected (use split?)' % \
+                self.stage_name)
 
     def _check_analysis(self, existence=False):
         if self.analysis is None:
             if existence:
                 self.analysis = {}
             else:
-                raise RuntimeError, '%s lacks desired analysis structure.' % \
-                    self.stage_name
+                raise RuntimeError('%s lacks desired analysis structure.' % \
+                    self.stage_name)
 
     def reduce_rows(self):
         """
@@ -546,7 +552,7 @@ class SquidData(util.RCData):
         self.rows = index_set[2,:n_row]
 
     def read_data(self, filename, **kwargs):
-        raise RuntimeError, "this is a virtual method"
+        raise RuntimeError("this is a virtual method")
 
     def split(self):
         """
@@ -619,7 +625,7 @@ class SquidData(util.RCData):
         elif assoc == 'row':
             n_group, n_member = n_row, n_col
         else:
-            raise ValueError, "cannot select_bias with assoc='%'" % assoc
+            raise ValueError("cannot select_bias with assoc='%'" % assoc)
 
         # If the user has not passed in the desired indices into the
         # bias array, try to find it in the analysis.
@@ -649,8 +655,8 @@ class SquidData(util.RCData):
             bias = self.bias[bias_idx][i] * ic_factor
             s.bias[i] = max(self.bias[0], min(bias, self.bias[-1]))
             idx0 = (self.bias[:-1] <= bias).nonzero()[0][-1]
-            frac = float(s.bias[i] - self.bias[idx0]) / \
-                (self.bias[idx0+1] - self.bias[idx0])
+            frac = old_div(float(s.bias[i] - self.bias[idx0]), \
+                (self.bias[idx0+1] - self.bias[idx0]))
 
             # chokes if bias_assoc='rowcol'
             # Interpolate between two curves
@@ -705,7 +711,7 @@ class SquidData(util.RCData):
         return self.analysis
     
     def reduce2(self, slope=None):
-        raise RuntimeError, "this is a virtual method."
+        raise RuntimeError("this is a virtual method.")
 
     def plot(self, plot_file=None, format=None, data_attr='data'):
         if plot_file is None:
@@ -777,7 +783,7 @@ class RampSummary(SquidData):
     def from_biases(cls, parent):
         # Check parent for compatibility
         if parent.bias_style != 'ramp':
-            raise ValueError, "parent is not a bias ramp!"
+            raise ValueError("parent is not a bias ramp!")
         # What do we have here
         n_bias, n_row, n_col, n_fb = parent.data_shape
         self = cls()
@@ -840,15 +846,15 @@ if __name__ == '__main__':
         a, b, p = random() * 1000, (random()-.5)*10000, random()*N
         y.append(a * sin(2*pi*x*f/N+p) + b)
     y = array(y)
-    print 'Periods:  ', period(y)
-    print 'Expected: ', N/array(F)
+    print('Periods:  ', period(y))
+    print('Expected: ', old_div(N,array(F)))
     lp = get_lock_points(y, slope=array([1,1,1,-1]))
-    print 'Lock-x: ', lp['lock_idx']
+    print('Lock-x: ', lp['lock_idx'])
     reg = []
     for yy in y:
         reg.append(get_curve_regions(yy, slopes=True))
-        print 'Crossings: ', reg[-1]
-    print 'Plotting...'
+        print('Crossings: ', reg[-1])
+    print('Plotting...')
     fp = biggles.Table(2,2)
     for i in range(4):
         p = biggles.FramedPlot()
@@ -856,5 +862,5 @@ if __name__ == '__main__':
         p.add(biggles.LineX(x[lp['lock_idx'][i]],type='dashed'))
         p.add(biggles.LineY(lp['lock_y'][i],type='dashed'))
         p.yrange = y[i].min()-10, y[i].max()+10
-        fp[i%2,i/2] = p
+        fp[i%2,old_div(i,2)] = p
     fp.write_img(500,500, 'check_servo.png')

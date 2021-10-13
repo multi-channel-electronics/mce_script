@@ -1,3 +1,6 @@
+from __future__ import print_function
+from builtins import str
+from builtins import map
 import numpy
 import subprocess
 
@@ -57,9 +60,9 @@ def mas_param(file, key, type=None, no_singles=False):
                 stdout=subprocess.PIPE);
         value = p.communicate()[0];
         status = p.wait();
-    except OSError, (errno, strerror):
-        print "Failed to load parameter " + key + \
-            "\n[Errno {0}] {1}".format(errno, strerror)
+    except OSError as e:
+        print("Failed to load parameter " + key + \
+            "\n[Errno {0}] {1}".format(e.errno, e.strerror))
         return None
 
     if (status):
@@ -162,18 +165,18 @@ def get_param_descriptions(file):
         value, err_text = p.communicate()
         if p.wait() != 0:
             raise OSError(1, err_text)
-    except OSError, (errno, strerror):
-        print "Failed to get parameter info table from mas_param\n" \
-            "[Errno {0}] {1}".format(errno, strerror)
+    except OSError as e:
+        print("Failed to get parameter info table from mas_param\n" \
+            "[Errno {0}] {1}".format(e.errno, e.strerror))
         return None
     params = []
     info = {}
     for line in value.split('\n'):
-        w = map(str.strip, line.split(':'))
+        w = list(map(str.strip, line.split(':')))
         if len(w) == 0 or len(w[0]) == 0 or w[0][0] == '#':
             continue
         if len(w) != 4:
-            raise RuntimeError, "Failed to parse mas_param info line %s" % line
+            raise RuntimeError("Failed to parse mas_param info line %s" % line)
         name, dtype, arrayness, size = w[0], w[1], w[2]=='array', int(w[3])
         params.append(name)
         info[name] = {'type': dtype,
@@ -215,7 +218,7 @@ class configFile(dict):
             # Numerical data are space-delimited
             val = val.split()
         if desc['is_array']:
-            val = numpy.array(map(cast, val))
+            val = numpy.array(list(map(cast, val)))
         else:
             val = cast(val[0])
         # Update internal data and return
@@ -236,7 +239,7 @@ class configFile(dict):
         if not name in self:
             if missing_ok or default is not None:
                 return default
-            raise ValueError, "key '%s' not found in config file." % name
+            raise ValueError("key '%s' not found in config file." % name)
         if hasattr(self[name], '__copy__'):
             # Don't expose references to mutable objects (arrays)
             return self[name].copy()
@@ -260,7 +263,7 @@ class configFile(dict):
 
     def merge_from(self, filename, clobber=False, verbose=False):
         src = configFile(filename)
-        for k in src.keys():
+        for k in list(src.keys()):
             if (not k in self) or clobber:
                 self[k] = src[k]
                 self.info[k] = src.info[k]
@@ -270,7 +273,7 @@ class configFile(dict):
     @staticmethod
     def compare(c1, c2):
         results = []
-        c2k = [x for x in c2.keys()]
+        c2k = [x for x in list(c2.keys())]
         for k in sorted(c1.keys()):
             if not k in c2k:
                 results.append((k, 'left only'))
@@ -286,11 +289,11 @@ class configFile(dict):
             
         
 def get_fake_expt(filename):
-    print """
+    print("""
 Creating configFile based on hard-coded experiment.cfg parameters...
 
 Please upgrade mas_param to support "info" dumping.  Thanks.
-"""
+""")
     e = configFile(filename, read=False)
     names, info = [], {}
     for dtype in ['string', 'float', 'integer']:
@@ -314,9 +317,9 @@ if __name__ == '__main__':
     # Unit test...
     fn1 = mas_path().data_dir() + '/experiment.cfg'
     fn2 = './experiment.cfg'
-    print 'load'
+    print('load')
     c1 = configFile(fn1)
     c2 = configFile(fn2)
-    print 'scan'
+    print('scan')
     for x in c1.compare(c1, c2):
-        print x
+        print(x)

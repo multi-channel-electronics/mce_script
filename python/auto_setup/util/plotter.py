@@ -1,3 +1,10 @@
+from __future__ import division
+from builtins import zip
+from builtins import str
+from builtins import map
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import os, shutil
 import distutils.version as dvs
 import biggles
@@ -5,7 +12,7 @@ import biggles
 # assert biggles.__version__ >= 1.6.4
 MIN_BIGGLES = '1.6.4'
 if dvs.StrictVersion(MIN_BIGGLES) > biggles.__version__:
-    raise RuntimeError, 'This package needs biggles %s or so.' % MIN_BIGGLES
+    raise RuntimeError('This package needs biggles %s or so.' % MIN_BIGGLES)
 
 
 def _carry(idx, lim):
@@ -18,10 +25,10 @@ def _div_up(x, y):
     """
     int(ceil(x/y))
     """
-    return (x + y - 1) / y
+    return old_div((x + y - 1), y)
 
 
-class pageIndexer:
+class pageIndexer(object):
     """
     Spread a grid of a certain size over several pages of a smaller size,
     preserving row and column structure.
@@ -40,7 +47,7 @@ class pageIndexer:
         # return page number and page row, col
         dr, dc = self.page_shape
         nr, nc = self.world_shape
-        page_r, page_c = (r/dr), (c/dc)
+        page_r, page_c = (old_div(r,dr)), (old_div(c,dc))
         page = page_r * self.world_pages[1] + page_c
         return (page, r%dr, c%dc)
 
@@ -48,14 +55,14 @@ class pageIndexer:
         self.index = 0
         return self
 
-    def next(self):
+    def __next__(self):
         if self.index >= len(self.indices):
             raise StopIteration
         self.index += 1
         return self.indices[self.index-1]
 
 
-class plotPager:
+class plotPager(object):
     """
     Generic organizer for grouping objects (e.g. plots) onto pages
     in a systematic way.
@@ -91,8 +98,8 @@ class plotPager:
         self.canvas = None
         return self
 
-    def next(self):
-        (p, pr, pc), (r, c) = self.iter.next()
+    def __next__(self):
+        (p, pr, pc), (r, c) = next(self.iter)
         if p != self.last_page and self.canvas is not None:
             self.write_page()
         self.last_page = p
@@ -177,7 +184,7 @@ class stackedPager(bigglesPager):
         return c['filename']
 
 
-class plotGridder:
+class plotGridder(object):
     """
     Schemer for arranging curves for sets of rows and columns onto
     pages of 4x4 (or so) plots.
@@ -203,9 +210,9 @@ class plotGridder:
         for k, v in self.props:
             setattr(self, k, v)
         keys = [a for a,_ in self.props]
-        for k, v in zip(kwargs.keys(), kwargs.values()):
+        for k, v in zip(list(kwargs.keys()), list(kwargs.values())):
             if not k in keys:
-                raise ValueError, "keyword '%s' not valid" % k
+                raise ValueError("keyword '%s' not valid" % k)
             if v is not None:
                 setattr(self, k, v)
             
@@ -314,13 +321,13 @@ class plotGridder:
 
     def index_of(self, row, col):
         V, H, S, M, N = self.target_shape
-        vpage = row / S
-        hpage = col / (M*N)
+        vpage = old_div(row, S)
+        hpage = old_div(col, (M*N))
         if S == 1:
-            major = (col - hpage*(M*N)) / M
+            major = old_div((col - hpage*(M*N)), M)
             minor = (col - hpage*(M*N)) % M
         else:
-            major = (col - (M*N) / S * (row % S)) / M
+            major = old_div((col - (M*N) / S * (row % S)), M)
             minor = (col - (M*N) / S * (row % S)) % M
         return vpage, hpage, major, minor
 
@@ -338,7 +345,7 @@ class plotGridder:
         self.reset()
         return self
 
-    def next(self):
+    def __next__(self):
         """
         Returns row, column, and biggles plot object.  Use them wisely.
         """
@@ -396,8 +403,8 @@ def hack_svg_viewbox(src, dest):
             x, y = float(x), float(y)
             break
     else:
-        raise RuntimeError, "Could not find scale argument"
-    xsize, ysize = int(round(1/x)), int(round(-1/y))
+        raise RuntimeError("Could not find scale argument")
+    xsize, ysize = int(round(old_div(1,x))), int(round(old_div(-1,y)))
     # New coordinate description
     svg_g.setAttribute('transform', 'translate(0 %i) scale(1 -1)' % ysize)
     svg.setAttribute('viewBox', '0 0 %i %i' % (xsize, ysize))
@@ -408,7 +415,7 @@ def hack_svg_viewbox(src, dest):
     del fout
 
 
-class pdfCollator:
+class pdfCollator(object):
     """
     Combine some SVGs into a single PDF.
     """
@@ -424,7 +431,7 @@ class pdfCollator:
         # Make temporary folder
         dest_dir, _ = os.path.split(self.dest)
         if not os.path.exists(dest_dir):
-            raise RuntimeError, "output place %s d.n.e."% dest_dir
+            raise RuntimeError("output place %s d.n.e."% dest_dir)
         temp_dir = dest_dir + '/tmp'
         if not os.path.exists(temp_dir):
             os.mkdir(temp_dir)
@@ -451,5 +458,6 @@ class pdfCollator:
             shutil.rmtree(temp_dir)
         # Remove the source images
         if remove_sources:
-            map(os.remove, self.sources)
+            for f in self.sources:
+                os.remove(f)
         return True
