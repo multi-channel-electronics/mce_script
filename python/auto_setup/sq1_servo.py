@@ -288,6 +288,9 @@ class SQ1Servo(servo.SquidData):
         if slope is None:
             # Dodge possiblity that params are different lengths...
             s1 = self.tuning.get_exp_param('default_servo_i')[self.cols]
+            # Use P gain if I gain is zero and 1 if both are, to avoid a zero slope
+            s1[s1 == 0] = self.tuning.get_exp_param('default_servo_p')[self.cols][s1 == 0]
+            s1[s1 == 0] = 1
             s2 = self.tuning.get_exp_param('sq1_servo_gain')[self.cols]
             slope = -sign(s1*s2)
         if not hasattr(slope, '__getitem__'):
@@ -557,6 +560,9 @@ class SQ1ServoSA(SQ1Servo):
         if slope is None:
             # Dodge possiblity that params are different lengths...
             s1 = self.tuning.get_exp_param('default_servo_i')[self.cols]
+            # Use P gain if I gain is zero and 1 if both are, to avoid a zero slope
+            s1[s1 == 0] = self.tuning.get_exp_param('default_servo_p')[self.cols][s1 == 0]
+            s1[s1 == 0] = 1
             s2 = self.tuning.get_exp_param('sq1_servo_gain')[self.cols]
             slope = -sign(s1*s2)
         if not hasattr(slope, '__getitem__'):
