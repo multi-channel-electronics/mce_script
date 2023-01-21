@@ -175,8 +175,8 @@ class mce_control(MCE):
     def servo_mode(self, mode=None):
         if mode is not None:
             # Broadcast to all columns
-            mode = [mode] * MCE_CHANS
-        return self.io_rc_sync('servo_mode', mode)
+            mode = [mode] * (self.n_chan * self.n_rc)
+        return self.io_readwrite('sq1', 'servo_mode', mode)
 
     def gaini(self, gains=None):
         return self.io_rc_array_2d('gaini%i', gains)

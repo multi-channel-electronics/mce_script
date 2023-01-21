@@ -110,6 +110,11 @@ vals=${sq2_bias[@]}
 mask=${columns_off[@]}
 sq2_bias=( `mask_values "$vals" "$mask" 1 0` )
 
+# Insist that fb_const=-8192 (0V) for bad columns.
+vals="`repeat_string $fb_const 32`"
+mask=${columns_off[@]}
+fb_const=( `mask_values "$vals" "$mask" 1 -8192` )
+
 for rc in 1 2 3 4; do
     min_flux_quantum=999999
     max_gaini=0
@@ -124,7 +129,7 @@ for rc in 1 2 3 4; do
     echo "wb rc$rc sample_dly   $sample_dly" >> $mce_script
     echo "wb rc$rc sample_num   $sample_num" >> $mce_script
     echo "wb rc$rc fb_dly       $fb_dly" >> $mce_script
-    echo "wb rc$rc fb_const    " `repeat_string $fb_const 8` >> $mce_script
+    echo "wb rc$rc fb_const     ${fb_const[@]:$ch_ofs:8}" >> $mce_script
     echo "wb rc$rc data_mode    $data_mode" >> $mce_script
     echo "wb rc$rc sa_bias      ${sa_bias[@]:$ch_ofs:8}" >> $mce_script
     echo "wb rc$rc offset       ${sa_offset[@]:$ch_ofs:8}" >> $mce_script
