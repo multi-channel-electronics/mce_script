@@ -14,8 +14,23 @@ import os
 import time
 import shutil
 from numpy import *
+import numpy as np
 
 from mce_data import MCERunfile
+
+def circular_dist(x, period, v):
+    devs = x - v
+    dir1 = np.abs(devs)
+    dir2 = period - np.abs(devs)
+    return np.min([dir1, dir2], axis=0)
+
+def circular_mad(x, period, v):
+    mindist = circular_dist(x, period, v)
+    return np.median(mindist)
+
+def circular_median(x, period):
+    mindists = [circular_mad(x, period, z) for z in x]
+    return x[np.argmin(mindists)]
 
 def do_init_mux11d(tuning, tune_data):
     
@@ -189,7 +204,7 @@ def do_rs_servo(tuning, rc, rc_indices):
     tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
     tuning.set_exp_param("config_adc_offset_all", 0)
     tuning.set_exp_param("config_fast_sq1_bias", 0)
-    tuning.set_exp_param("config_fast_sa_fb", 1)
+    tuning.copy_exp_param("default_config_fast_sa_fb", "config_fast_sa_fb", default=1)
     tuning.write_config()
 
     if len(rc) != 1:
@@ -274,7 +289,7 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
 #    tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
     tuning.set_exp_param("config_adc_offset_all", 0)
 #    tuning.set_exp_param("config_fast_sq1_bias", 0)
-    tuning.set_exp_param("config_fast_sa_fb", 1)
+    tuning.copy_exp_param("default_config_fast_sa_fb", "config_fast_sa_fb", default=1)
     # If we're to ramp the bias, turn off fast biasing.
     if tuning.get_exp_param("sq1_servo_bias_ramp") == 1:
         tuning.set_exp_param("config_fast_sq1_bias", 0)
@@ -341,7 +356,14 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     cols = sq.cols
     phi0 = tuning.get_exp_param('sa_flux_quanta')[cols]
     phi0[phi0<=0] = 65536 # kill empty flux_quanta
-    if super_servo:
+    is_fast_sa_fb = tuning.get_exp_param("default_config_fast_sa_fb", default=1) == 1
+    if not is_fast_sa_fb:
+        # Take median of column if fast SA switching is turned off
+        num_rows = tuning.get_exp_param('num_rows')
+        lock_yrc = sq.analysis['lock_y'].reshape(num_rows, -1) % phi0[newaxis,:]
+        ncol = lock_yrc.shape[1]
+        fb_col = array([circular_median(lock_yrc[:, col], phi0[col]) for col in range(ncol)])
+    elif super_servo:
         n_row, n_col = sq.data_shape[-3:-1]
         fb_set[:n_row,cols] = sq1_data['lock_y'].reshape(-1, n_col) % phi0
         # Get chosen row on each column
@@ -355,7 +377,8 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
         
     # Save results, but remove flux quantum
     tuning.set_exp_param('sa_fb', fb_col)
-    tuning.set_exp_param('sa_fb_set', fb_set.transpose().ravel())
+    if not is_fast_sa_fb:
+        tuning.set_exp_param('sa_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
     return 0
