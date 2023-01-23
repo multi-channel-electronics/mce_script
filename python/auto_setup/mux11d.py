@@ -178,7 +178,7 @@ def do_rs_servo(tuning, rc, rc_indices):
     optimize = tuning.get_exp_param('optimize_rowsel_servo')
     if optimize == -1:
         # Don't run it, but set the SQ1 bias muxing
-        tuning.set_exp_param("config_fast_sq1_bias", 1)
+        tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
         tuning.write_config()
         return
 
@@ -256,8 +256,8 @@ def do_rs_servo(tuning, rc, rc_indices):
     if optimize == 1:
         tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
 
-    # Enable fast switching.
-    tuning.set_exp_param("config_fast_sq1_bias", 1)
+    # Enable fast switching (if enabled in experiment.cfg)
+    tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
 
     tuning.write_config()
     return 0
@@ -328,9 +328,9 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     else:
         raise HowDidThisHappen
 
-    # Enable fast switching.
+    # Enable fast switching (if enabled in experiment.cfg)
     tuning.set_exp_param('sq1_bias_set', bias_set.transpose().ravel())
-    tuning.set_exp_param("config_fast_sq1_bias", 1)
+    tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
     super_servo = tuning.get_exp_param('config_mux11d_all_rows')
     fb_set = tuning.get_exp_param('sa_fb_set').reshape(-1, nr).\
         transpose() # r,c
