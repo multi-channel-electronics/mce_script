@@ -196,6 +196,9 @@ adc_offset = np.ones((AROW,1), int) * cfg['adc_offset_c'] / cfg['sample_num']
 if cfg['config_adc_offset_all']:
     adc_offset = cfg_2d('adc_offset_cr')
 
+# Duplicated scalar for enabled cols; -8192 (0V) for bad cols
+fb_const = columns_on * cfg['fb_const'] + ~columns_on * -8192
+
 rc_select = (cfg['hardware_rc']!=0)*(cfg['config_rc']!=0)
 for rc_i in rc_select.nonzero()[0]:
     rc = 'rc%i' % (rc_i+1)  # Yes, rc_i=0 -> 'rc1'.
@@ -218,7 +221,7 @@ for rc_i in rc_select.nonzero()[0]:
     W(rc, 'sample_dly', cfg['sample_dly'])
     W(rc, 'sample_num', cfg['sample_num'])
     W(rc, 'fb_dly', cfg['fb_dly'])
-    W(rc, 'fb_const', [cfg['fb_const']]*COLS_PER_RC)  # scalar, duplicated
+    W(rc, 'fb_const', fb_const[col_start:col_end])
     W(rc, 'data_mode', cfg['data_mode'])
     W(rc, 'sa_bias', cfg['sa_bias'][col_start:col_end])
     W(rc, 'offset', cfg['sa_offset'][col_start:col_end])

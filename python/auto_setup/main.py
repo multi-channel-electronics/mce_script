@@ -485,7 +485,7 @@ def operate(tuning):
     # Servo control
     tuning.set_exp_param('servo_mode', 3)
     for param in ['servo_p', 'servo_i', 'servo_d', 'flux_jumping',
-                  'data_mode']:
+                  'data_mode', 'pterm_decay_bits']:
         tuning.copy_exp_param('default_%s'%param, param)
 
     # Compile dead detector mask

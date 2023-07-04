@@ -84,11 +84,11 @@ class tuningData:
     def clear_exp_param(self, key):
         return self.set_exp_param(key, 0*self.get_exp_param(key))
 
-    def copy_exp_param(self, src_key, dest_key):
+    def copy_exp_param(self, src_key, dest_key, missing_ok=False, default=None):
         """
         Copy the value in src_key to dest_key.
         """
-        return self.set_exp_param(dest_key, self.get_exp_param(src_key))
+        return self.set_exp_param(dest_key, self.get_exp_param(src_key, missing_ok=missing_ok, default=default))
 
     def run(self, args, no_log=False):
         if (no_log):
