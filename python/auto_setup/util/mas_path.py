@@ -104,7 +104,7 @@ class mas_path:
             if self.__data_root__ is None:
                 self.__data_root__ = '/data/mce{0}'.format(self.__fibre_card__)
                 if not os.path.isdir(self.__data_root__):
-                    self.__data_rot__ = "/data/cryo"
+                    self.__data_root__ = "/data/cryo"
 
         return self.__data_root__
 

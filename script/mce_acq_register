@@ -86,7 +86,8 @@ file_data.update(zip(
         ['ctime', 'acq_type', 'filename', 'n_frames', 'log_note'],
         args))
 
-file_data['array_id'] = open('/data/cryo/array_id').readline().strip()
+array_id_file = os.path.join(mas_path.data_root(), 'array_id')
+file_data['array_id'] = open(array_id_file).readline().strip()
 file_data['basename'] = file_data['filename'].split('/')[-1]
 if file_data['log_note'] == 'None':
     file_data['log_note'] = ''
