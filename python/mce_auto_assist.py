@@ -1,3 +1,7 @@
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import os
 import time
@@ -5,7 +9,7 @@ import time
 from auto_setup.util.mas_path import mas_path
 mas_path = mas_path()
 
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 
 simple_delist = lambda x: x.split()
 
@@ -23,8 +27,8 @@ class DefaultingConfig(SafeConfigParser):
                 return type_caster(self.get(section, key))
         if default is not None:
             return default
-        raise ValueError, 'Unknown config parameter %s:%s' % \
-            (section, key)
+        raise ValueError('Unknown config parameter %s:%s' % \
+            (section, key))
     def getfloat(self, key, default=None):
         return self.get_type(float, key, default)
     def getint(self, key, default=None):
@@ -34,7 +38,7 @@ class DefaultingConfig(SafeConfigParser):
     def getlist(self, key, default=None):
         return self.get_type(simple_delist, key, default)
 
-class AutoLogger:
+class AutoLogger(object):
     log_file = None
     format_str = '{info} : {script_id} : {msg}'
     start_time = None
@@ -64,7 +68,7 @@ class AutoLogger:
         try:
             fout = open(self.log_file, 'a')
         except IOError:
-            print 'Failed to open %s, disabling auto-log.' % self.log_file
+            print('Failed to open %s, disabling auto-log.' % self.log_file)
             self.log_file = None
             return
         kw = {'msg': msg,

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from glob import glob
 import os
 
@@ -34,7 +35,7 @@ class FileSet(dict):
                         self[name][rc] = f
                         break
                 else:
-                    print 'Unmatched tuning file, %s' % f
+                    print('Unmatched tuning file, %s' % f)
             cfg_file = '%s/experiment.cfg' % folder
             if os.path.exists(cfg_file):
                 self['cfg_file'] = cfg_file

@@ -1,12 +1,13 @@
+from __future__ import absolute_import
 __all__ = ['analyzer', 'constants', 'clients', 'gfx', 'geometries', 'nets',
            'streams', 'plotters', 'util']
 
-import analyzer
-import clients
-import constants
-import gfx
-import geometries
-import nets
-import plotters
-import streams
-import util
+from . import analyzer
+from . import clients
+from . import constants
+from . import gfx
+from . import geometries
+from . import nets
+from . import plotters
+from . import streams
+from . import util

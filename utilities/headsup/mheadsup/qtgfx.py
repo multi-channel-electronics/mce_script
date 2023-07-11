@@ -1,3 +1,9 @@
+from __future__ import division
+from builtins import zip
+from builtins import range
+from past.builtins import basestring
+from past.utils import old_div
+from builtins import object
 from PyQt4 import QtCore, QtGui
 import numpy as np
 
@@ -95,7 +101,7 @@ class infoSummary(QtGui.QWidget):
             self.add_item(t.name, t.label)
 
 
-class mutexHolder:
+class mutexHolder(object):
     def __init__(self, mutex):
         self.mutex = mutex
     def __enter__(self):
@@ -247,13 +253,13 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         # Create the blips
         if mask is None:
             self.data_mask = None
-            indices = range(len(x))
+            indices = list(range(len(x)))
         else:
             self.data_mask = mask
             indices = mask.nonzero()[0]
         for i in indices:
             con = default_shapes.get(form[i*form_mul])
-            item = con(-w/2, -h/2, w, h)
+            item = con(old_div(-w,2), old_div(-h,2), w, h)
             item.setRotation(rotation[i*rotation_mul])
             item.setPos(x[i], -y[i])
             item.setPen(self.blip_pen)
@@ -360,7 +366,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
         self._anim_data['timer'] = timer
         timer.timeout.connect(self._anim)
         x0,x1,y0,y1 = new_x.min()-2, new_x.max()+2, new_y.min()-2, new_y.max()-2
-        timer.start(t / self._anim_data['n_step'])
+        timer.start(old_div(t, self._anim_data['n_step']))
     
     def _anim(self):
         ad = self._anim_data
@@ -377,7 +383,7 @@ class BlipDisplay(QtGui.QGraphicsItemGroup):
             self.scene().views()[0].rebound()
 
 
-class BlipColorPalette:
+class BlipColorPalette(object):
     # Manages a multi-color brush set; e.g. 'red' and 'blue' colormaps
     # from 0 to 255.
     def __init__(self, resolution=256, scale=255.):

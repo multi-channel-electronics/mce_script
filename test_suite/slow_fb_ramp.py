@@ -2,6 +2,9 @@
 Set up feedback servo ramp on (disconnected) RC.  It's best to jumper the
 amp inputs so that there is no drift in the error voltage level.
 """
+from __future__ import division
+from __future__ import print_function
+from past.utils import old_div
 
 from mce import mce
 import numpy
@@ -22,7 +25,7 @@ class super_mce(mce):
     def write_columns(self, param, data):
         # Duplicate values across all rows in each column parameter
         for c, d in enumerate(data):
-            rc, chan = c/8 + 1, c%8
+            rc, chan = old_div(c,8) + 1, c%8
             self.write('rc%i'%rc, param+'%i' % chan, [int(d)]*41)
 
     def servo_mode(self, mode=None):
@@ -51,7 +54,7 @@ class super_mce(mce):
     def dt(self):
         nr, dr, rl = [self.read('cc', k)[0] for k in 
                       ['num_rows', 'data_rate', 'row_len']]
-        return float(nr * dr * rl) / 5e7
+        return old_div(float(nr * dr * rl), 5e7)
 
 if __name__ == '__main__':
     # Get MCE
@@ -66,15 +69,15 @@ if __name__ == '__main__':
 
     # Sample
     d1 = m.read_row(100, True)
-    print '0-sample:'
-    print d1
+    print('0-sample:')
+    print(d1)
     # ADC_offset
-    adc0 = d1 / 10
+    adc0 = old_div(d1, 10)
     m.write_columns('adc_offset', adc0)
     # Re-sample
     d2 = m.read_row(100, True)
-    print 'Check lock:'
-    print d2
+    print('Check lock:')
+    print(d2)
 
     # Set gains to servo at ~ 1000 FB / second
     target = -16300
@@ -85,14 +88,14 @@ if __name__ == '__main__':
     m.write_columns('gaini', ([0]*8)+([1]*8))
     # RC1
 #    m.write_columns('gaini', ([1]*8)+([0]*8))
-    m.write_columns('adc_offset', adc0 - e_gain/10)
+    m.write_columns('adc_offset', adc0 - old_div(e_gain,10))
     m.data_mode(1)
     m.servo_mode(3)
 
     m.init_flux()
-    d3 = m.read_row(100) / 4096
+    d3 = old_div(m.read_row(100), 4096)
     chan = d3[:,8]
-    print chan
+    print(chan)
     plot(chan)
     show()
     

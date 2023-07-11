@@ -1,10 +1,13 @@
+from builtins import str
+from builtins import range
+from builtins import object
 from mheadsup import nets, streams, constants, util
 
 import time
 import numpy
 
 
-class HeadsupClient:
+class HeadsupClient(object):
     name = ''
     connected = False
     client_control_handler = None
@@ -198,7 +201,7 @@ class HeadsupDataSource(HeadsupClient):
         self.info[0] = True
         self.info[1].update(new_info)
         if trigger_notify:
-            self.log('issuing notify' + ' '.join(self.info[1].keys()))
+            self.log('issuing notify' + ' '.join(list(self.info[1].keys())))
             self.send_json(self.stream.name, {'info_update': self.info[1]})
 
     def get_info(self):

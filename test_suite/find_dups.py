@@ -14,6 +14,8 @@ repeated as the first 6 samples of the next frame.  This would be reported as:
           length   prev_frame  frame
               6        -6         0
 """
+from __future__ import print_function
+from builtins import range
 
 from pylab import *
 from mce_data import *
@@ -61,7 +63,7 @@ opts, args = o.parse_args()
 
 for filename in args:
     # Load file
-    print 'Filename: %s' % filename
+    print('Filename: %s' % filename)
     m = MCEFile(filename, runfile=False)
     # Load raw frames, 10 k should be enough.
     rawd = m.Read(raw_frames=1)[:10000]
@@ -70,9 +72,9 @@ for filename in args:
     # Look for duplicates
     runs = hunt(raw)
     n = raw.shape[-1]
-    print ' readout size:    %5i' % n
-    print ' duplicate runs:  %5i' % len(runs) 
+    print(' readout size:    %5i' % n)
+    print(' duplicate runs:  %5i' % len(runs)) 
     if len(runs)>0:
-        print     '      length   prev_frame  frame'
+        print('      length   prev_frame  frame')
         for a,b,c, in runs:
-            print '        %3i       %3i       %3i' % (c, a-n,b)
+            print('        %3i       %3i       %3i' % (c, a-n,b))

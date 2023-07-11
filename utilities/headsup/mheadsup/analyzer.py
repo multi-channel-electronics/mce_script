@@ -1,11 +1,14 @@
 """
 Implement a data consumer using pylab.
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import object
 
 import time
-import clients, nets, util
+from . import clients, nets, util
 
-class x: #dataAnalyzer(clients.dataConsumer):
+class x(object): #dataAnalyzer(clients.dataConsumer):
     def __init__(self, addr=None, name='pylab'):
         clients.dataConsumer.__init__(self, addr, name)
         self.config = {}
@@ -17,7 +20,7 @@ class x: #dataAnalyzer(clients.dataConsumer):
         while self.connected:
             op, data = self.process()
             if op == 'ctrl':
-                print 'ctrl: updated_keys=', data
+                print('ctrl: updated_keys=', data)
             elif op == 'data':
                 dshape = self.controls.get('data_shape', None)
                 if dshape is not None:
@@ -33,5 +36,5 @@ if __name__ == '__main__':
 
     pp = dataAnalyzer(opts.server)
     pp.go()
-    print 'disconnected.'
+    print('disconnected.')
 

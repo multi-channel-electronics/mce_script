@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+from __future__ import division
+from __future__ import print_function
+from builtins import map
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 import os, sys, time
 import numpy as np
 from numpy import *
@@ -82,14 +88,14 @@ if ar_par['use_Rshunt_file'] != 0:
     fmt = ar_par['Rshunt_format'].split()
     if fmt[0] == 'detector_list':
         # Args are column indices (col, row, Rshunt)
-        cols = map(int, fmt[1:])
+        cols = list(map(int, fmt[1:]))
         Rshunt = iv_tools.TESShunts.from_columns_file(
             (n_row,n_col), ar_par['Rshunt_filename'], data_cols=cols)
         Rshunt.R[~Rshunt.ok] = ar_par['default_Rshunt']
         printv('Read %i shunt resistances from %s' % \
                    (Rshunt.ok.sum(), ar_par['Rshunt_filename']), 2)
     else:
-        raise ValueError, "unknown shunt_format = '%s'" % fmt[0]
+        raise ValueError("unknown shunt_format = '%s'" % fmt[0])
 else:
     Rshunt = iv_tools.TESShunts((n_row, n_col))
     Rshunt.R[:,:] = ar_par['default_Rshunt']
@@ -105,7 +111,7 @@ iv_data.analyze_curves(filedata,
                        deriv_thresh=supercond_thresh,
                        scale=supercond_scale,
                        smoother_mode=smoother_mode)
-ok_rc = zip(*iv_data.ok.nonzero())
+ok_rc = list(zip(*iv_data.ok.nonzero()))
 
 # Using the branch analysis in iv_data, and the resistances in Rshunt
 # and ar_par, compute loading properties of each TES.
@@ -140,7 +146,7 @@ for line in range(bias_map.n_line):
 
 # Round.
 bstep = ar_par['bias_step']
-bias_points_dac = (bias_points_dac/bstep).round().astype('int')*bstep
+bias_points_dac = (old_div(bias_points_dac,bstep)).round().astype('int')*bstep
 
 # Evaluate perRn of each det at the chosen bias point
 bias_points_dac_ar = bias_points_dac[bias_map.phys_line]
@@ -181,17 +187,17 @@ for c in range(n_col):
 
 if printv.v >= 1:
     if opts.with_rshunt_bug:
-        print 'Rshunt bug is in!.'
-    print 'Recommended biases for target of %10.4f Rn' % ar_par['per_Rn_bias']
+        print('Rshunt bug is in!.')
+    print('Recommended biases for target of %10.4f Rn' % ar_par['per_Rn_bias'])
     for l in range(bias_map.n_line):
-        print 'Line %2i = %6i' % (l, bias_points_dac[l])
-    print
-    print 'Cut limits at recommended biases:'
-    print '%% R_n   %10.6f %10.6f' % (r0,r1)
-    print 'Po (pW) %10.6f %10.6f' % (p0, p1)
-    print
-    print 'Total good normal branches              =  %4i' % iv_data.ok.sum()
-    print 'Number of detectors within cut limits   =  %4i' % sum(set_data.keep_rec)
+        print('Line %2i = %6i' % (l, bias_points_dac[l]))
+    print()
+    print('Cut limits at recommended biases:')
+    print('%% R_n   %10.6f %10.6f' % (r0,r1))
+    print('Po (pW) %10.6f %10.6f' % (p0, p1))
+    print()
+    print('Total good normal branches              =  %4i' % iv_data.ok.sum())
+    print('Number of detectors within cut limits   =  %4i' % sum(set_data.keep_rec))
 
 #
 # Runfile block !
@@ -287,8 +293,8 @@ if opts.plot_dir is not None and not opts.summary_only:
                     fr.xlabel = 'TES BIAS (DAC/1000)'
                     fr.ylabel = 'FB (DAC/1000)'
                 # Show data with analysis regions
-                y = filedata.mcedata[r,c] / 1000
-                x = filedata.bias_dac / 1000
+                y = old_div(filedata.mcedata[r,c], 1000)
+                x = old_div(filedata.bias_dac, 1000)
                 # Shaded regions; normal, transition, supercond.
                 regions = [(iv_data.norm_idx0[r,c],iv_data.norm_idx1[r,c]),
                            (iv_data.trans_idx[r,c],iv_data.super_idx0[r,c]),
@@ -306,7 +312,7 @@ if opts.plot_dir is not None and not opts.summary_only:
                     yl = max(yl[0], 2*y_norm[0]-y_norm[1]), \
                         min(yl[1], 2*y_norm[1]-y_norm[0])
                 # Selected bias value
-                xb = bias_points_dac[bias_map.phys_line[r,c]] / 1000.
+                xb = old_div(bias_points_dac[bias_map.phys_line[r,c]], 1000.)
                 p.add(bg.Curve([xb,xb],yl,type='dashed'))
             elif pc == 9:
                 # Shunt I vs shunt V (super-cond)
@@ -381,9 +387,9 @@ if opts.plot_dir is not None:
         targets = ar_par.get('perRn_plot_target_bins')
         if targets is None:
             # Base targets on the dets-on-transition results.
-            lo, hi = (n > n.max() / 10).nonzero()[0][[-1,0]]
+            lo, hi = (n > old_div(n.max(), 10)).nonzero()[0][[-1,0]]
             lo, hi = filedata.bias_dac[bi[lo]], filedata.bias_dac[bi[hi]]
-            targets = (lo, hi, (hi-lo) / 4.99)
+            targets = (lo, hi, old_div((hi-lo), 4.99))
 
         # To a range
         targets = arange(*targets)

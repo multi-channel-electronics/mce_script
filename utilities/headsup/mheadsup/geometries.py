@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import map
+from builtins import range
 import os
 import numpy as np
 
@@ -7,7 +12,7 @@ Classes describing layouts and shape of picture elements.
 Also tracking of multiple layouts, encoding, decoding...
 """
 
-from encoders import arrayInfoEncoder as aie
+from .encoders import arrayInfoEncoder as aie
 
 class pixelSetGeometry(aie):
     """
@@ -78,7 +83,7 @@ class pixelSetGeometry(aie):
                  'names': str,
                  }
         data = []
-        for k in casts.keys():
+        for k in list(casts.keys()):
             if k in columns:
                 data.append((k, columns[k],
                              casts[k], translators.get(k,{}),
@@ -116,14 +121,14 @@ class pixelSetGeometry(aie):
 
     @staticmethod
     def get_cp_list(filename):
-        from ConfigParser import ConfigParser
+        from configparser import ConfigParser
         cp = ConfigParser()
         cp.read(filename)
         return cp.sections()
 
     @classmethod
     def from_cp(cls, filename, section='geometry'):
-        from ConfigParser import ConfigParser
+        from configparser import ConfigParser
         cp = ConfigParser()
         cp.read(filename)
         name = cp.get(section, 'name')
@@ -167,13 +172,13 @@ class pixelSetGeometry(aie):
 
         # Rescale pixel coordinates?
         if cp.has_option(section, 'rescale'):
-            rescale = map(float, cp.get(section, 'rescale').split())
+            rescale = list(map(float, cp.get(section, 'rescale').split()))
             for i in range(len(rescale)):
                 self.coords[i] *= rescale[i]
 
         # Read the data shape, or set it to a reasonable thing
         if cp.has_option(section, 'shape'):
-            self.set_shape(map(int, cp.get(section, 'shape').split()))
+            self.set_shape(list(map(int, cp.get(section, 'shape').split())))
         else:
             self.set_shape(len(self.coords[0]))
         # That it all

@@ -1,3 +1,5 @@
+from __future__ import division
+from past.utils import old_div
 from numpy import *
 
 def logbin(f, y, bins=400):
@@ -17,8 +19,8 @@ def logbin(f, y, bins=400):
     df = f[1] - f[0]
     f_max = f[-1] + df
     f_min = f[1]
-    N = log(f_max / f_min)
-    dN = N / bins
+    N = log(old_div(f_max, f_min))
+    dN = old_div(N, bins)
     edges = f_min * exp(dN * arange(bins+1))
     # Frequency counts for norming
     nf = histogram(f, bins=edges)[0]
@@ -26,8 +28,8 @@ def logbin(f, y, bins=400):
     new_f = histogram(f, weights=f, bins=edges)[0]
     new_y = histogram(f, weights=abs(y)**2, bins=edges)[0]
     # Reduce
-    new_f = new_f[nf!=0] / nf[nf!=0]
-    new_y = sqrt(new_y[nf!=0]/nf[nf!=0])
+    new_f = old_div(new_f[nf!=0], nf[nf!=0])
+    new_y = sqrt(old_div(new_y[nf!=0],nf[nf!=0]))
     return new_f, new_y
 
 
@@ -38,8 +40,8 @@ if __name__ == '__main__':
     from todUtils import TOD
     filename = '/scr/queequeg1/colossus/season2/merlin/20081013/1223886429.1234568432.ar1'
     tod = TOD.read(filename, camCol=[5], camRow=[25])
-    x, y = arange(tod.ndata/2, dtype='float') / tod.ndata * 400., \
-           abs(fft(tod.data[0]))[:tod.ndata/2]
+    x, y = arange(old_div(tod.ndata,2), dtype='float') / tod.ndata * 400., \
+           abs(fft(tod.data[0]))[:old_div(tod.ndata,2)]
     x1, y1 = logbin(x, y)
     x2, y2 = logbin(200., y)
     loglog(x, y)

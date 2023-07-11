@@ -1,9 +1,13 @@
+from __future__ import print_function
+from builtins import zip
+from builtins import range
+from builtins import object
 from auto_setup.config import mas_param
 
 import numpy
 import os
 
-class DeadMask:
+class DeadMask(object):
     def __init__(self, filename=None, label='', shape=None):
         """
         Provide filename to load dead mask, or pass dimensions in 'shape' to
@@ -21,7 +25,7 @@ class DeadMask:
         nc = mas_param(filename, 'n_cols', 'integer')
         d = mas_param(filename, 'mask', 'integer')
         if nr is None or nc is None or d is None:
-            raise RuntimeError, 'Invalid or missing dead_mask file "%s"' % filename
+            raise RuntimeError('Invalid or missing dead_mask file "%s"' % filename)
         self.data = d.reshape(nc, nr).transpose()
         self.shape = self.data.shape
 
@@ -87,9 +91,9 @@ def get_all_dead_masks(tuning, union=False, frail=False, silent=False):
     mask_files = [m for m in mask_files if os.path.exists(m)]
     warnos = [m for m in mask_files if not os.path.exists(m)]
     if len(warnos) > 0:
-        print 'Warning: %i of %i mask_files not found:' % (len(warnos), len(mask_files))
+        print('Warning: %i of %i mask_files not found:' % (len(warnos), len(mask_files)))
         for w in warnos:
-            print ' ', w
+            print(' ', w)
     masks = [DeadMask(f, label=l) for f,l in zip(mask_files, mask_list)]
     if union:
         if len(masks) == 0:

@@ -1,8 +1,11 @@
+from __future__ import print_function
+from builtins import str
+from builtins import object
 #vim: ts=4 sw=4 et
 import os
 import subprocess
 
-class mas_path:
+class mas_path(object):
     """
     Path look-up made easy.  You can optionally pass the constructor a fibre
     card number and/or mas.cfg path, and/or mas_var path.  If the 'mas_var'
@@ -193,37 +196,37 @@ class mas_path:
 #test!
 if __name__ == '__main__':
     m = mas_path()
-    print "Default:"
-    print "  Bin Dir   : " + m.bin_dir()
-    print "  Config Dir: " + m.config_dir()
-    print "  Data Root : " + m.data_root()
-    print "  Data Dir  : " + m.data_dir()
-    print "  Etc Dir   : " + m.etc_dir()
-    print "  Expt. File: " + m.experiment_file()
-    print "  Hdwr. File: " + m.hardware_file()
-    print "  IDL Dir   : " + m.idl_dir()
-    print "  MAS Prefix: " + m.mas_prefix()
-    print "  MAS Root  : " + m.mas_root()
-    print "  Python Dir: " + m.python_dir()
-    print "  Script Dir: " + m.script_dir()
-    print "  Temp Dir  : " + m.temp_dir()
-    print "  Templ. Dir: " + m.template_dir()
-    print "  TSuite Dir: " + m.test_suite_dir()
-    print ""
+    print("Default:")
+    print("  Bin Dir   : " + m.bin_dir())
+    print("  Config Dir: " + m.config_dir())
+    print("  Data Root : " + m.data_root())
+    print("  Data Dir  : " + m.data_dir())
+    print("  Etc Dir   : " + m.etc_dir())
+    print("  Expt. File: " + m.experiment_file())
+    print("  Hdwr. File: " + m.hardware_file())
+    print("  IDL Dir   : " + m.idl_dir())
+    print("  MAS Prefix: " + m.mas_prefix())
+    print("  MAS Root  : " + m.mas_root())
+    print("  Python Dir: " + m.python_dir())
+    print("  Script Dir: " + m.script_dir())
+    print("  Temp Dir  : " + m.temp_dir())
+    print("  Templ. Dir: " + m.template_dir())
+    print("  TSuite Dir: " + m.test_suite_dir())
+    print("")
     m = mas_path(mas_var = "/")
-    print "Without MAS_VAR:"
-    print "  Bin Dir   : " + m.bin_dir()
-    print "  Config Dir: " + m.config_dir()
-    print "  Data Root : " + m.data_root()
-    print "  Data Dir  : " + m.data_dir()
-    print "  Etc Dir   : " + m.etc_dir()
-    print "  Expt. File: " + m.experiment_file()
-    print "  Hdwr. File: " + m.hardware_file()
-    print "  IDL Dir   : " + m.idl_dir()
-    print "  MAS Prefix: " + m.mas_prefix()
-    print "  MAS Root  : " + m.mas_root()
-    print "  Python Dir: " + m.python_dir()
-    print "  Script Dir: " + m.script_dir()
-    print "  Temp Dir  : " + m.temp_dir()
-    print "  Templ. Dir: " + m.template_dir()
-    print "  TSuite Dir: " + m.test_suite_dir()
+    print("Without MAS_VAR:")
+    print("  Bin Dir   : " + m.bin_dir())
+    print("  Config Dir: " + m.config_dir())
+    print("  Data Root : " + m.data_root())
+    print("  Data Dir  : " + m.data_dir())
+    print("  Etc Dir   : " + m.etc_dir())
+    print("  Expt. File: " + m.experiment_file())
+    print("  Hdwr. File: " + m.hardware_file())
+    print("  IDL Dir   : " + m.idl_dir())
+    print("  MAS Prefix: " + m.mas_prefix())
+    print("  MAS Root  : " + m.mas_root())
+    print("  Python Dir: " + m.python_dir())
+    print("  Script Dir: " + m.script_dir())
+    print("  Temp Dir  : " + m.temp_dir())
+    print("  Templ. Dir: " + m.template_dir())
+    print("  TSuite Dir: " + m.test_suite_dir())

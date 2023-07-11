@@ -1,14 +1,19 @@
 """
 __main__ style stuff for mux11d tuning.
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import zip
+from builtins import range
 
-import util
-import series_array
-import sq2_servo
-import sq1_servo
-import sq1_ramp
-import rs_servo
-import frame_test
+from . import util
+from . import series_array
+from . import sq2_servo
+from . import sq1_servo
+from . import sq1_ramp
+from . import rs_servo
+from . import frame_test
 
 import os
 import time
@@ -61,47 +66,47 @@ def do_init_mux11d(tuning, tune_data):
                   len(mux11d_mux_order) == \
                    len(tuning.get_exp_param('row_select',missing_ok=False)) == \
                     len(tuning.get_exp_param('row_deselect',missing_ok=False)) ):
-            print """!!! Warning : hybrid muxing w/ different lengths for at least one of
+            print("""!!! Warning : hybrid muxing w/ different lengths for at least one of
                    row_order, mux11d_mux_order, row_select, and row_deselect in
-                   experiment.cfg.  Proceed at your own risk!"""
+                   experiment.cfg.  Proceed at your own risk!""")
         
         # Throw an exception if a card is in mux11d_row_select_cards 2x
         if len(mux11d_row_select_cards)!=len(set(mux11d_row_select_cards)):
-            raise ValueError, """trying to hybrid mux but there are duplicate entries in mux11d_row_select_cards - not supported."""
+            raise ValueError("""trying to hybrid mux but there are duplicate entries in mux11d_row_select_cards - not supported.""")
         if len(mux11d_row_select_cards_row0)!=len(set(mux11d_row_select_cards_row0)):
-            raise ValueError, """trying to hybrid mux but there are duplicate entries in mux11d_row_select_cards_row0 - not supported."""
+            raise ValueError("""trying to hybrid mux but there are duplicate entries in mux11d_row_select_cards_row0 - not supported.""")
         # Make sure cards in mux11d_row_select_cards are doable
         if not set(mux11d_row_select_cards).issubset(['ac','bc1','bc2','bc3']):
-            raise ValueError, """can't mux on one of the cards in
+            raise ValueError("""can't mux on one of the cards in
                                  mux11d_row_select_cards; can only mux on
-                                 ['ac','bc1','bc2','bc3']"""
+                                 ['ac','bc1','bc2','bc3']""")
         # Some functionality right now in mas requires the row0s be in strictly ascending order
         if not list(mux11d_row_select_cards_row0)==sorted(list(mux11d_row_select_cards_row0)):
-            raise ValueError, """trying to hybrid mux but the entries in mux11d_row_select_cards_row0 must be in strictly ascending order."""
+            raise ValueError("""trying to hybrid mux but the entries in mux11d_row_select_cards_row0 must be in strictly ascending order.""")
         if len(mux11d_row_select_cards)!=len(mux11d_row_select_cards_row0):
-            raise ValueError, """len(mux11d_row_select_cards)!=len(mux11d_row_select_cards_row0) : every card being 
-                                 hybrid muxed must be assigned a row0"""
+            raise ValueError("""len(mux11d_row_select_cards)!=len(mux11d_row_select_cards_row0) : every card being 
+                                 hybrid muxed must be assigned a row0""")
             
         # Make sure user didn't request a starting row0 for a card in another card's block of RSes.
         card_nrs_dict={ 'ac' : 41, 'bc1' : 32, 'bc2' : 32, 'bc3' : 32 }
         for (r0,card) in zip(mux11d_row_select_cards_row0,mux11d_row_select_cards):
-            if len(list(set(mux11d_row_select_cards_row0).intersection(range(r0,r0+card_nrs_dict[card]))))>1:
-                raise ValueError, """trying to hybrid mux but overlap detected between RS blocks.  Make sure row0's for cards are 
-                                     correctly spaced in mux11d_row_select_cards_row0."""
+            if len(list(set(mux11d_row_select_cards_row0).intersection(list(range(r0,r0+card_nrs_dict[card])))))>1:
+                raise ValueError("""trying to hybrid mux but overlap detected between RS blocks.  Make sure row0's for cards are 
+                                     correctly spaced in mux11d_row_select_cards_row0.""")
         
         # Make sure there's no RS requested outside of a valid RS block
         for rs in mux11d_mux_order:
             if not any([rs in card_rs_range for card_rs_range in
-                        [range(r0,r0+card_nrs_dict[card]) for (r0,card) in
+                        [list(range(r0,r0+card_nrs_dict[card])) for (r0,card) in
                          zip(mux11d_row_select_cards_row0,mux11d_row_select_cards)]]):
-                raise ValueError, """trying to hybrid mux but
+                raise ValueError("""trying to hybrid mux but
                                      requested rs=%d in mux11d_mux_order, but that rs
-                                     doesn't fall into any defined hybrid rs block!"""%(rs)
+                                     doesn't fall into any defined hybrid rs block!"""%(rs))
 
         # Make sure ac idle row is in AC's RS block (ac idle row is indexed from zero, so it's native to ac row_order)
-        if mux11d_ac_idle_row not in range(0,41):
-            raise ValueError, """trying to hybrid mux but
-                                 mux11d_ac_idle_row must be in [0:40]!"""
+        if mux11d_ac_idle_row not in list(range(0,41)):
+            raise ValueError("""trying to hybrid mux but
+                                 mux11d_ac_idle_row must be in [0:40]!""")
 
         # Build ac row_order for experiment.cfg from mux11d_mux_order
         hybrid_ac_row_order=[]
@@ -128,10 +133,10 @@ def do_init_mux11d(tuning, tune_data):
 
         # Make sure row_order is consistent with mux11d_mux_order
         if any([hro!=ro for (hro,ro) in zip(hybrid_ac_row_order,row_order)]):
-            print """!!! Warning : hybrid muxing but row_order in
+            print("""!!! Warning : hybrid muxing but row_order in
                      experiment.cfg not consistent with mux11d_mux_order.  Will
-                     overwrite row_order based on mux11d_mux_order."""
-            print """!!! hybrid_ac_row_order=',hybrid_ac_row_order"""
+                     overwrite row_order based on mux11d_mux_order.""")
+            print("""!!! hybrid_ac_row_order=',hybrid_ac_row_order""")
             tuning.set_exp_param('row_order', hybrid_ac_row_order)
 
     # Done w/ special hybrid-mux only setup
@@ -208,13 +213,13 @@ def do_rs_servo(tuning, rc, rc_indices):
     tuning.write_config()
 
     if len(rc) != 1:
-        raise ValueError, "this module does not support weird multi-rc tunes"
+        raise ValueError("this module does not support weird multi-rc tunes")
         
     ok, servo_data = acquire(tuning, rc[0], action_name='rsservo',
                              bin_name='rs_servo')
 
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     sq = rs_servo.RSServo(servo_data['filename'], tuning=tuning)
     bias_ramp = sq.bias_style == 'ramp'
@@ -297,13 +302,13 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     tuning.write_config()
 
     if len(rc) != 1:
-        raise ValueError, "this module does not support weird multi-rc tunes"
+        raise ValueError("this module does not support weird multi-rc tunes")
 
     ok, servo_data = acquire(tuning, rc[0], action_name='sq1servo_sa',
                              bin_name='sq1servo_sa')
 
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     sq = sq1_servo.SQ1ServoSA(servo_data['filename'], tuning=tuning)
     bias_ramp = sq.bias_style == 'ramp'

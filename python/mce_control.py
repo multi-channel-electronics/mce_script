@@ -1,3 +1,7 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import range
+from past.utils import old_div
 import numpy as np
 
 import pymce
@@ -63,7 +67,7 @@ class mce_control(MCE):
     def write_columns(self, param, data):
         # Duplicate values across all rows in each column parameter
         for c, d in enumerate(data):
-            rc, chan = c/MCE_CHANS + 1, c%MCE_CHANS
+            rc, chan = old_div(c,MCE_CHANS) + 1, c%MCE_CHANS
             self.write('rc%i'%rc, param+'%i' % chan, [int(d)]*41)
 
     def io_readwrite(self, card, param, data=None):
@@ -81,8 +85,8 @@ class mce_control(MCE):
         if data is None:
             vals = np.array(self.read('sys', param))
             if not np.all(vals==vals[0]):
-                print '(Warning: inconsistent data for "%s" across sys.)' % \
-                    param
+                print('(Warning: inconsistent data for "%s" across sys.)' % \
+                    param)
             return vals[0]
         else:
             self.write('sys', param, data)
@@ -97,8 +101,8 @@ class mce_control(MCE):
         if data is None:
             vals = np.array(self.read('rca', param))
             if not np.all(vals==vals[0]):
-                print '(Warning: inconsistent data for "%s" across RCs.)' % \
-                    param
+                print('(Warning: inconsistent data for "%s" across RCs.)' % \
+                    param)
             return vals[0]
         else:
             self.write('rca', param, data)
@@ -215,13 +219,13 @@ class mce_control(MCE):
     def dt(self):
         nr, dr, rl = [self.read('cc', k)[0] for k in 
                       ['num_rows', 'data_rate', 'row_len']]
-        return float(nr * dr * rl) / 5e7
+        return old_div(float(nr * dr * rl), 5e7)
 
     def mux_rate(self):
         return pymce.const.FREQ / self.row_len() / self.num_rows()
 
     def readout_rate(self):
-        return self.mux_rate() / self.data_rate()
+        return old_div(self.mux_rate(), self.data_rate())
 
     
 

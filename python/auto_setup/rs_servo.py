@@ -1,3 +1,8 @@
+from __future__ import division
+from __future__ import absolute_import
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 # vim: ts=4 sw=4 et
 import time, os, glob
 import biggles
@@ -6,13 +11,13 @@ from numpy import *
 import numpy as np
 from mce_data import MCERunfile, MCEFile
 
-import servo
+from . import servo
 
 def go(tuning, rc, filename=None):
 
     ok, servo_data = acquire(tuning, rc, filename=filename)
     if not ok:
-        raise RuntimeError, servo_data['error']
+        raise RuntimeError(servo_data['error'])
 
     sq = RSServo(servo_data['filename'], tuning=tuning)
     lock_points = sq.reduce()
@@ -74,7 +79,7 @@ class RSServo(servo.SquidData):
                     mux11d_mux_order=self.tuning.get_exp_param('mux11d_mux_order',missing_ok=False)
                     for rs in mux11d_mux_order:
                         for (c,cr) in \
-                        [(card,range(r0,r0+card_nrs_dict[card])) for \
+                        [(card,list(range(r0,r0+card_nrs_dict[card]))) for \
                          (r0,card) in \
                          zip(mux11d_row_select_cards_row0,mux11d_row_select_cards)]:
                             if rs in cr:
@@ -171,7 +176,7 @@ class RSServo(servo.SquidData):
                     elif self.bias_style == 'ramp':
                         (bias,row,col)=np.unravel_index(idx,self.data_shape[:-1],order='C')                    
                     else:
-                        raise RuntimeError, 'Unable to unravel by row.'
+                        raise RuntimeError('Unable to unravel by row.')
 
                 if ok_if_rs_on_upper_bndry is None or ok_if_rs_on_upper_bndry[row]==0:
                     # Throw out ramps (max->min and min->max)
@@ -416,11 +421,11 @@ class RSServoSummary(servo.RampSummary):
         for _, r, ax in pl:
             if r >= plot_shape[1]:
                 continue
-            x = self.fb/1000.
-            for i in xrange(ncurves):
-                ax.add(biggles.Curve(x, data[r,i]/1000.))
+            x = old_div(self.fb,1000.)
+            for i in range(ncurves):
+                ax.add(biggles.Curve(x, old_div(data[r,i],1000.)))
             if 'lock_x' in an:
-                ax.add(biggles.LineX(an['lock_x'][r] / 1000., type='dashed'))
+                ax.add(biggles.LineX(old_div(an['lock_x'][r], 1000.), type='dashed'))
 
         return {
             'plot_files': pl.plot_files,

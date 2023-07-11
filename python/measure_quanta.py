@@ -1,3 +1,7 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import range
+from past.utils import old_div
 import auto_setup as aset
 from auto_setup.util import mas_path
 import numpy as np
@@ -27,13 +31,13 @@ stage = args[1]
 
 # Protect user
 if not tuning_dir[0] == '/' and not os.path.exists(tuning_dir):
-    print 'Cannot find "%s", looking in $MAS_DATA...' % tuning_dir
+    print('Cannot find "%s", looking in $MAS_DATA...' % tuning_dir)
     tuning_dir = mas_path().data_dir() + tuning_dir
 
 fs = aset.util.FileSet(tuning_dir)
 files = fs.stage_all(stage)
 if len(files) == 0:
-    print 'No files found for stage %s' % stage
+    print('No files found for stage %s' % stage)
     sys.exit(1)
 
 if stage == 'sa_ramp':
@@ -49,19 +53,19 @@ elif stage == 'sq1_ramp_tes':
     ramps = [aset.SQ1RampTes(f) for f in files]
     out_format = 'array'
 else:
-    print 'Unsupported stage argument "%s".' % stage
+    print('Unsupported stage argument "%s".' % stage)
 
 sq = ramps[0].join(ramps)
 
 periods = []
 if sq.bias_style == 'ramp':
-    print 'Multi-bias detected'
+    print('Multi-bias detected')
     if opts.sub_ramp is None:
-        print 'Selecting best bias values for each column (use --sub-ramp to force one).'
+        print('Selecting best bias values for each column (use --sub-ramp to force one).')
         sq.reduce1()
         sq = sq.select_biases(ic_factor=1)
     else:
-        print 'Selecting bias at index %i' % opts.sub_ramp
+        print('Selecting bias at index %i' % opts.sub_ramp)
         sq = sq.split()[opts.sub_ramp]
 
 if stage == 'sa_ramp':
@@ -73,13 +77,13 @@ data = sq.data[:,lead:]
 
 # Set the scan width so that there is at least another phi0 available
 n = data.shape[1]
-n_phi0 = int(n / opts.span)
+n_phi0 = int(old_div(n, opts.span))
 width = n - n_phi0            #
-width = max(width, n/8)       # at least n/8!
+width = max(width, old_div(n,8))       # at least n/8!
 width = min(width, n_phi0*2)  # at most 2*phi0 
 
-print 'Keeping %i of %i points' % (n, sq.data.shape[-1])
-print 'Traveling segment of length %i' % width
+print('Keeping %i of %i points' % (n, sq.data.shape[-1]))
+print('Traveling segment of length %i' % width)
 
 p = aset.servo.period(sq.data, width=width)
 
@@ -88,11 +92,11 @@ periods = p * sq.d_fb
 if opts.rescale is not None:
     MAX_QUANTUM = 2**14 * 0.75
     to_adjust = (periods != 0)
-    n_fit = np.floor(MAX_QUANTUM / periods[to_adjust])
+    n_fit = np.floor(old_div(MAX_QUANTUM, periods[to_adjust]))
     to_adjust[to_adjust] *= (n_fit >= opts.rescale)
     periods[to_adjust] = (opts.rescale * periods[to_adjust])
 
-n_rc = len(periods)/8
+n_rc = old_div(len(periods),8)
 stage_keys = {
     'sa_ramp': 'sa_flux_quanta',
     'sq2_servo': 'sq2_flux_quanta',
@@ -113,7 +117,7 @@ if out_format == 'column':
 elif out_format == 'array':
     n_row, n_col = sq.data_shape[-3:-1]
     if periods.size != n_row*n_col:
-        print 'I do not know how to reduce this multi-bias data...'
+        print('I do not know how to reduce this multi-bias data...')
         sys.exit(1)
     periods.shape = (n_row, n_col)
     if opts.do_median:
@@ -135,4 +139,4 @@ elif out_format == 'array':
         else:
             s += ',\n'
         
-print s
+print(s)

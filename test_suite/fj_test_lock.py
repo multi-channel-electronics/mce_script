@@ -3,6 +3,11 @@ Set up locked servo (looped-back) RC.  Manipulate the equilibrium
 feedback by setting adc_offset. 
 MA@UBC This script is modified to apply an ever-increasing ramp to adc_offset and hence sq1fb, so it can be used to test flux-jumping.
 """
+from __future__ import division
+from __future__ import print_function
+from builtins import zip
+from builtins import range
+from past.utils import old_div
 
 from mce import mce
 import numpy
@@ -14,7 +19,7 @@ class super_mce(mce):
         mce.__init__(self, *args, **kwargs)
         self.n_rc = len(self.read('rca', 'fw_rev'))
         # The col_map might need tweaking depending on what rcs are present.
-        self.col_map = range(self.n_rc*8)
+        self.col_map = list(range(self.n_rc*8))
 
     def read_row(self, n=1, avg=False):
         d = numpy.array(self.read_frames(n, data_only=True))[:,:self.n_rc*8]
@@ -25,7 +30,7 @@ class super_mce(mce):
     def write_columns(self, param, data):
         # Duplicate values across all rows in each column parameter
         for c, d in enumerate(data):
-            rc, chan = c/8 + 1, c%8
+            rc, chan = old_div(c,8) + 1, c%8
             self.write('rc%i'%rc, param+'%i' % chan, [int(d)]*41)
 
     def servo_mode(self, mode=None):
@@ -56,7 +61,7 @@ class super_mce(mce):
     def dt(self):
         nr, dr, rl = [self.read('cc', k)[0] for k in 
                       ['num_rows', 'data_rate', 'row_len']]
-        return float(nr * dr * rl) / 5e7
+        return old_div(float(nr * dr * rl), 5e7)
 
 class column(super_mce):
     """
@@ -154,12 +159,12 @@ if __name__ == '__main__':
     # Measure SQ1 FB response
     def col_avg():
         time.sleep(0.1) # let any recent settings set
-        return mean(m.read_col()) / SAMPLE_NUM
+        return old_div(mean(m.read_col()), SAMPLE_NUM)
 
     def check():
-        z1 = m.read_col() / SAMPLE_NUM
+        z1 = old_div(m.read_col(), SAMPLE_NUM)
         time.sleep(0.5)
-        z2 = m.read_col() / SAMPLE_NUM
+        z2 = old_div(m.read_col(), SAMPLE_NUM)
         return (abs(array(z1) - z2) > 100).astype('int')
 
     # Zero point
@@ -173,40 +178,40 @@ if __name__ == '__main__':
     m.fb_const(8191)
     adc1 = col_avg()
     m.fb_const(-8192)
-    print 'SQ1FB range coverage:  %8.2f to %8.2f =  %8.2f' % (adc0, adc1, adc1-adc0)
-    dadc_dfb = (adc1-adc0) / (8191 + 8192)
-    print '  dADC / dFB:          %8.4f' % (dadc_dfb)
-    print '  Critical gain:       %8.2f' % (4096. / dadc_dfb / SAMPLE_NUM)
+    print('SQ1FB range coverage:  %8.2f to %8.2f =  %8.2f' % (adc0, adc1, adc1-adc0))
+    dadc_dfb = old_div((adc1-adc0), (8191 + 8192))
+    print('  dADC / dFB:          %8.4f' % (dadc_dfb))
+    print('  Critical gain:       %8.2f' % (4096. / dadc_dfb / SAMPLE_NUM))
     # Probe ADC response to SA bias
     m.sa_bias(2000)
     adc1 = col_avg()
     m.sa_bias(0)
-    print 'SA range coverage:     %8.2f to %8.2f' % (adc0, adc1)
-    dadc_dsa = (adc1 - adc0) / 2000 
-    print '  dADC / dSA:          %8.4f' % (dadc_dsa)
+    print('SA range coverage:     %8.2f to %8.2f' % (adc0, adc1))
+    dadc_dsa = old_div((adc1 - adc0), 2000) 
+    print('  dADC / dSA:          %8.4f' % (dadc_dsa))
     
     # Probe ADC response to SA offset
     m.sa_offset(2000)
     adc1 = col_avg()
     m.sa_offset(0)
-    print 'SA offset coverage:     %8.2f to %8.2f' % (adc0, adc1)
-    dadc_doff = (adc1 - adc0) / 2000
-    print '  dADC / dOffset:      %8.4f' % (dadc_doff)
+    print('SA offset coverage:     %8.2f to %8.2f' % (adc0, adc1))
+    dadc_doff = old_div((adc1 - adc0), 2000)
+    print('  dADC / dOffset:      %8.4f' % (dadc_doff))
 
     if INIT_ONLY:
-        raise RuntimeError, 'stopping'
+        raise RuntimeError('stopping')
 
     # Set offset/bias to lock near FB=0
     adc = adc0 + dadc_dfb * 8192
     if adc > 0:
-        m.sa_offset(-int(adc / dadc_doff))
+        m.sa_offset(-int(old_div(adc, dadc_doff)))
     else:
-        m.sa_bias(-int(adc / dadc_dsa))
+        m.sa_bias(-int(old_div(adc, dadc_dsa)))
     m.fb_const(0)
     
     # Those should work fine.  Pick a set of target feedbacks
     DAC_OK = 16000# *.93 # don't flux jump immediately
-    targets = -DAC_OK/2 + DAC_OK*arange(ROWS+1)/ROWS
+    targets = old_div(-DAC_OK,2) + DAC_OK*arange(ROWS+1)/ROWS
     targets = array(permute(targets))
     targets[SOURCE_ROW] = -4000
 
@@ -229,7 +234,7 @@ if __name__ == '__main__':
         m.init_servo()
         m.data_mode(1)
         time.sleep(0.1)
-        print 'Lock points: ', m.read_col()[0]/2**12
+        print('Lock points: ', old_div(m.read_col()[0],2**12))
 
     def trace(delay=0.01, steps=100, step_fn=None):
         t = 0
@@ -243,20 +248,20 @@ if __name__ == '__main__':
         return data
         
     def curve(i):
-        NW = STEPS/8
+        NW = old_div(STEPS,8)
         ao = ADC0 + 500*dadc_dfb*i/10 #exp(-(float((i-STEPS/2))/NW)**2)
         a = m.adc_offset()
         a[SOURCE_ROW] = ao
         m.adc_offset(a)
         
     # Run a curve
-    print 'Running a curve...'
+    print('Running a curve...')
     m.n_rc = 1
     m.data_mode(10)
     m.flux_jumping(1)
 
     ADC0 = m.adc_offset()[SOURCE_ROW]
-    DEPTH = (DAC_OK/2 - targets[SOURCE_ROW]) * dadc_dfb
+    DEPTH = (old_div(DAC_OK,2) - targets[SOURCE_ROW]) * dadc_dfb
     STEPS = 1000
     data = trace(delay=0.01, steps=STEPS, step_fn=curve)
     fj = None
@@ -265,32 +270,32 @@ if __name__ == '__main__':
     # Unravel for data mode:
     data_mode = m.data_mode()
     if data_mode == 1:
-        data = data / 2**12
+        data = old_div(data, 2**12)
     elif data_mode == 2:
-        data = data / 1218.
+        data = old_div(data, 1218.)
     elif data_mode == 10:
         fj = data%128 
-        data = ((data/128.)*8.)/ 1218.#drop the fj bits, then account for fitler gain and filter scaling of datamode 10 
+        data = old_div(((old_div(data,128.))*8.), 1218.)#drop the fj bits, then account for fitler gain and filter scaling of datamode 10 
 
         # signed 7 bits
         #for i in range(len(fj[:,SOURCE_ROW])):
         #   if fj[i,SOURCE_ROW] > 63:
         #      fj[i,SOURCE_ROW] -= 128
 
-    print 'Reached grand extreme of ', data[:,0].max()
+    print('Reached grand extreme of ', data[:,0].max())
 
     #
     idx = arange(ROWS-1)
     idx = idx + (idx >= SOURCE_ROW).astype('int') # rows that aren't the source
     ddata = (data - data[:10,:].mean(axis=0))[:,idx]
 
-    print 'Source row:   ', SOURCE_ROW
-    print 'Top 10 departures:'
+    print('Source row:   ', SOURCE_ROW)
+    print('Top 10 departures:')
     deps = abs(ddata).max(axis=0)
     deps = sorted(zip(deps, idx))
     for dep, i in deps[-1:-11:-1]:
-        print '  row %2i   %5f' % (i,dep)
-    print
+        print('  row %2i   %5f' % (i,dep))
+    print()
 
 #   This is added to also acquire feedback and compare.   
     # Convert to adc_offsets
@@ -300,12 +305,12 @@ if __name__ == '__main__':
     m.init_servo()
     m.data_mode(1)
     ADC0 = m.adc_offset()[SOURCE_ROW]
-    DEPTH = (DAC_OK/2 - targets[SOURCE_ROW]) * dadc_dfb
+    DEPTH = (old_div(DAC_OK,2) - targets[SOURCE_ROW]) * dadc_dfb
     STEPS = 1000
     data_fb = trace(delay=0.01, steps=STEPS, step_fn=curve)
     data_mode = m.data_mode()
     if data_mode == 1:
-        data_fb1 = data_fb / 2**12
+        data_fb1 = old_div(data_fb, 2**12)
     data_mode = 10
 #########################################################
 

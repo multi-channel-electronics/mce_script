@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import range
 import sys
 from mce_runfile import *
 
@@ -18,7 +20,7 @@ def check_multilock(filename):
             c = (rc-1)*8 + ch
             for r in range(num_rows):
                 if multi[c][r]*deads[rci][ch][r] != 0:
-                    print c,r,multi[c][r],deads[rci][ch][r]
+                    print(c,r,multi[c][r],deads[rci][ch][r])
                     broken = broken + 1
     return (broken == 0)
 
@@ -26,6 +28,6 @@ if __name__ == '__main__':
     
     for arg in sys.argv[1:]:
         if check_multi(arg):
-            print 'Ok   ' +  arg
+            print('Ok   ' +  arg)
         else:
-            print 'Fail! ' + arg
+            print('Fail! ' + arg)

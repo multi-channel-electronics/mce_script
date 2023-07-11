@@ -1,3 +1,5 @@
+from __future__ import division
+from past.utils import old_div
 import numpy
 
 def deriv(x, y=None):
@@ -8,7 +10,7 @@ numerical differentiation using 3-point Lagrangian interpolation.  It
 returns an array of the same length as its input.
 """
   if (x is None and y is None):
-    raise TypeError, "No data."
+    raise TypeError("No data.")
   if (y is None):
     y = x
     x = numpy.arange(y.size)
@@ -17,7 +19,7 @@ returns an array of the same length as its input.
 
   n = x.size
   if (n != y.size):
-    raise TypeError, "x and y must be the same size"
+    raise TypeError("x and y must be the same size")
 
   #floatify
   xx = x.astype("float")
@@ -29,8 +31,8 @@ returns an array of the same length as its input.
 
   d = numpy.empty([n], dtype="float")
   # middle points
-  d = numpy.roll(y,1) * (x12 / (x01 * x02)) + y * (1. / x12 - 1. / x01) \
-      - numpy.roll(y,-1) * (x01 / (x02 * x12))
+  d = numpy.roll(y,1) * (old_div(x12, (x01 * x02))) + y * (old_div(1., x12) - old_div(1., x01)) \
+      - numpy.roll(y,-1) * (old_div(x01, (x02 * x12)))
 
   # formulae for the first and last points:
   d[0] = y[0] * (x01[1] + x02[1]) / (x01[1] * x02[1]) - y[1] * x02[1] \

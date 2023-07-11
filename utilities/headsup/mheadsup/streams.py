@@ -1,9 +1,14 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import zip
+from builtins import str
+from builtins import object
 from mheadsup import constants
-import util
+from . import util
 
 import numpy
 
-class HeadsupStream:
+class HeadsupStream(object):
     props = ['name', 'provider', 'fun_name', 'local_provider',
              'properties']
     def __init__(self, **kwargs):
@@ -41,7 +46,7 @@ class StreamListStream(HeadsupStream):
         self.stream_hash[name] = stream
         self.streams.append(stream)
     def remove_stream(self, stream=None, name=None):
-        print 'remove ', stream, name
+        print('remove ', stream, name)
         if stream is None:
             stream = self.stream_hash.pop(name)
         else:
@@ -79,9 +84,9 @@ class StreamListStream(HeadsupStream):
         for stream in msg['stream_list']:
             name = stream['name']
             self.streams[name] = HeadsupStream(**stream)
-        print "streams are now: "
+        print("streams are now: ")
         for s in self.streams:
-            print s['name'], s['fun_name']
+            print(s['name'], s['fun_name'])
 
 
 #
@@ -92,7 +97,7 @@ class StreamListStream(HeadsupStream):
 # They should expose the interface defined in _MessageHandler
 #
 
-class _MessageHandler:
+class _MessageHandler(object):
     def handle(self, addr, data):
         """
         Accepts a decoded address and data objects.  Determines
@@ -107,7 +112,7 @@ class _MessageHandler:
         return False, addr, data
 
 
-class ServerMessageHandler:
+class ServerMessageHandler(object):
     """
     Handler for clients that processes messages from the server.
     Includes initial connection negotiation, termination requests,
@@ -134,11 +139,11 @@ class ServerMessageHandler:
             self.status = 'server_close'
         else:
             self.weirds += 1
-            print 'unhandled client control message'
+            print('unhandled client control message')
         return True, addr, data
 
 
-class StreamListStreamHandler:
+class StreamListStreamHandler(object):
     """
     Maintain a list of streams available on a given server.
     """
@@ -155,7 +160,7 @@ class StreamListStreamHandler:
         current_active = [False for s in self.streams]
         for stream in msg['stream_list']:
             stream = HeadsupStream(**dict([(str(k), v)
-                                           for k,v in stream.items()]))
+                                           for k,v in list(stream.items())]))
 
             if stream.name in current_names:
                 i = current_names.index(stream.name)
@@ -171,7 +176,7 @@ class StreamListStreamHandler:
             
         return True, addr, data
 
-class DataHandler:
+class DataHandler(object):
     def __init__(self, stream_name=None):
         self.frames = []
         self.stream_name = stream_name
@@ -201,7 +206,7 @@ class DataHandler:
         return True, addr, data
 
 
-class DataSourceControlHandler:
+class DataSourceControlHandler(object):
     def __init__(self, stream_name):
         self.stream_name = stream_name
         self.do_update = False

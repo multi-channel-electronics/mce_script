@@ -1,7 +1,14 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import json
 import time
 
-import clients
+from . import clients
 import numpy as np
 
 display_defaults = {
@@ -59,9 +66,9 @@ class displayClient(clients.HeadsupDataConsumer):
     def _norm_data(self, data, black, white, mask=None, mask_val=None):
         if mask is not None and mask.sum() > 0:
             if mask_val is None:
-                mask_val = (black+white)/2
+                mask_val = old_div((black+white),2)
             data[~mask] = mask_val
-        data = (data - black) / (white-black)
+        data = old_div((data - black), (white-black))
         data[data<0] = 0
         data[data>1] = 1
         return data
@@ -81,7 +88,7 @@ class displayClient(clients.HeadsupDataConsumer):
 #
 # Needs a rewrite...
 
-class displayController: #(clients.dataProducer, dict):
+class displayController(object): #(clients.dataProducer, dict):
     """
     This class can be used to control a plot window from a client of
     some kind.  It exposes high-level methods that send display
@@ -147,7 +154,7 @@ class displayController: #(clients.dataProducer, dict):
             if shape is not None:
                 mask = np.zeros(shape, 'bool')
             else:
-                print 'Set mask shape first.'
+                print('Set mask shape first.')
                 return False
         else:
             mask = np.asarray(self['mask'], 'bool').transpose()
@@ -184,12 +191,12 @@ class displayController: #(clients.dataProducer, dict):
             self.clear()
         d = json.loads(open(filename).read())
         self.update(d)
-        self.post_some(d.keys())
+        self.post_some(list(d.keys()))
 
     def get_controls(self, timeout=2.):
         self.set_client_var('poll_controls', 1)
         dt = .1
-        for i in range(min(timeout/dt, 1)):
+        for i in range(min(old_div(timeout,dt), 1)):
             op, data = self.process()
             if op == 'ctrl':
                 break
@@ -211,7 +218,7 @@ class displayController: #(clients.dataProducer, dict):
 # Assistance for plotters
 #
 
-class textItem:
+class textItem(object):
     def __init__(self, name, label, text=None):
         self.name = name
         self.label = label
@@ -244,7 +251,7 @@ class textItemList(dict):
 #
 #
 
-class dataScaleProps:
+class dataScaleProps(object):
     z_offset = None
     z_range = (None, None)
 
@@ -308,7 +315,7 @@ class dataScaleProps:
             scale_hi = scale_lo + 1
         self.last_limits = (scale_lo, scale_hi)
         # Transform
-        data = (data-scale_lo)/(scale_hi-scale_lo)
+        data = old_div((data-scale_lo),(scale_hi-scale_lo))
         if clip_vals is None:
             clip_vals = (0,1)
         data[data<0] = clip_vals[0]

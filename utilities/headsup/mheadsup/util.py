@@ -1,3 +1,11 @@
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import zip
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 import os, sys, time
 import numpy as np
 import subprocess
@@ -33,7 +41,7 @@ defaults = {
 
 _defaults = defaults
 
-import ConfigParser as cp
+import configparser as cp
 class MainConfig(cp.ConfigParser):
     filename = None
 
@@ -46,7 +54,7 @@ class MainConfig(cp.ConfigParser):
                 self.filename = _defaults['config_file']
         if self.filename is not None:
             if not os.path.exists(self.filename):
-                print 'Config file %s not found' % self.filename
+                print('Config file %s not found' % self.filename)
             else:
                 self.read(self.filename)
 
@@ -63,7 +71,7 @@ class MainConfig(cp.ConfigParser):
             key = self.get('Servers', 'default_server')
         server_list = [x.split() for x in
                        self.get('Servers', 'server_list').split('\n')]
-        keys, filenames = zip(*[w for w in server_list if len(w) != 0])
+        keys, filenames = list(zip(*[w for w in server_list if len(w) != 0]))
         if not key in keys:
             return 'Unknown server_profile %s' % key
         filename = filenames[keys.index(key)]
@@ -205,7 +213,7 @@ def load_columns(fin, cols=None, skip=0):
 
 
 
-class logger:
+class logger(object):
     def __init__(self, default_priority=0, verbosity=None,
                  prefix=''):
         if verbosity is None:

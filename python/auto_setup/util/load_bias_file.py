@@ -1,3 +1,5 @@
+from __future__ import division
+from past.utils import old_div
 from numpy import *
 
 def _load(filename):
@@ -14,10 +16,10 @@ def load_bias_file(filename):
     columns as one array, and the second half as a second array.
     """
     data = _load(filename)
-    n_cols = data.shape[0]/2
+    n_cols = old_div(data.shape[0],2)
     return data[:n_cols,:], data[n_cols:,:]
 
 def load_super_bias_file(filename):
     data = _load(filename)
-    n_cols = (data.shape[0]-3)/2
+    n_cols = old_div((data.shape[0]-3),2)
     return data[:3], data[3:n_cols+3,:], data[n_cols+3:,:]
