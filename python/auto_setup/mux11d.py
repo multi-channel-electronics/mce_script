@@ -377,7 +377,7 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
         
     # Save results, but remove flux quantum
     tuning.set_exp_param('sa_fb', fb_col)
-    if not is_fast_sa_fb:
+    if is_fast_sa_fb:
         tuning.set_exp_param('sa_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
