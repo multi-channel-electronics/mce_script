@@ -131,6 +131,7 @@ for rc in 1 2 3 4; do
     echo "wb rc$rc fb_dly       $fb_dly" >> $mce_script
     echo "wb rc$rc fb_const     ${fb_const[@]:$ch_ofs:8}" >> $mce_script
     echo "wb rc$rc data_mode    $data_mode" >> $mce_script
+    echo "wb rc$rc pterm_decay_bits    $pterm_decay_bits" >> $mce_script
     echo "wb rc$rc sa_bias      ${sa_bias[@]:$ch_ofs:8}" >> $mce_script
     echo "wb rc$rc offset       ${sa_offset[@]:$ch_ofs:8}" >> $mce_script
 
