@@ -1,0 +1,10 @@
+# Ignore generated file
+id
+
+# Ignore compiled binaries
+utilities/*.o
+utilities/ascii_frame
+utilities/catch_rampers
+utilities/eat_packets
+utilities/extract_frames
+utilities/runfile_scan
