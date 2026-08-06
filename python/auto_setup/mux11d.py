@@ -32,13 +32,41 @@ def circular_median(x, period):
     mindists = [circular_mad(x, period, z) for z in x]
     return x[np.argmin(mindists)]
 
+def do_init_two_level(tuning, tune_data):
+    """
+    Initialize two-level addressing mode.  Validates that ac and ac2
+    parameters are self-consistent:
+      - row_order length == num_rows
+      - ac2_row_order length == ac2_num_rows
+    """
+    num_rows = tuning.get_exp_param('num_rows')
+    ac2_num_rows = tuning.get_exp_param('ac2_num_rows')
+
+    row_order = tuning.get_exp_param('row_order')
+    if len(row_order) != num_rows:
+        raise ValueError, \
+            "two-level: len(row_order) (%d) != num_rows (%d)" % \
+            (len(row_order), num_rows)
+
+    ac2_row_order = tuning.get_exp_param('ac2_row_order')
+    if len(ac2_row_order) != ac2_num_rows:
+        raise ValueError, \
+            "two-level: len(ac2_row_order) (%d) != ac2_num_rows (%d)" % \
+            (len(ac2_row_order), ac2_num_rows)
+
+
 def do_init_mux11d(tuning, tune_data):
-    
+
+    # Two-level addressing check (ac2 chip select)
+    is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
+    if is_two_level == 1:
+        do_init_two_level(tuning, tune_data)
+
     # Are we hybrid muxing?  If so, row_order in experiment.cfg, which
     # is a synonym for ac row_order, should be derived from the
     # contents of mux11d_mux_order.  Do this here, so they're always
     # consistent.
-    ishybrid = tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True)    
+    ishybrid = tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True)
     if ishybrid==1:
 
         # We've been told to hybrid mux.  Better make sure we have all
@@ -172,6 +200,19 @@ def do_rs_servo(tuning, rc, rc_indices):
     Do necessary (but not sufficient) setup so that rsservo will
     work.  Run it, analyze, update experiment.cfg
     """
+    # Two-level addressing: skip the rs_servo acquisition but apply
+    # default row/chip select values and enable switching so the MCE
+    # is left in a fully-configured muxing state for timing verification.
+    is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
+    if is_two_level == 1:
+        tuning.copy_exp_param('default_row_select', 'row_select')
+        tuning.copy_exp_param('default_row_deselect', 'row_deselect')
+        tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
+        tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
+        tuning.write_config()
+        print "two-level: rs_servo skipped; default row/chip select applied, switching active."
+        return 0
+
     # Are we hybrid muxing?
     ishybrid = tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True)
 
@@ -283,6 +324,19 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     Do necessary (but not sufficient) setup so that sq1_servo_sa will
     work.  Run it, analyze, update experiment.cfg
     """
+    # Two-level addressing: skip servo acquisition, apply defaults,
+    # and leave the system in open-loop with both ACs switching.
+    is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
+    if is_two_level == 1:
+        tuning.set_exp_param("data_mode", 0)
+        tuning.set_exp_param("servo_mode", 1)
+        tuning.set_exp_param("config_adc_offset_all", 0)
+        tuning.copy_exp_param("default_config_fast_sa_fb", "config_fast_sa_fb", default=1)
+        tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
+        tuning.write_config()
+        print "two-level: sq1_servo_sa skipped; defaults applied, switching active."
+        return 0
+
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
 #    tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
@@ -377,8 +431,8 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
         
     # Save results, but remove flux quantum
     tuning.set_exp_param('sa_fb', fb_col)
-    if not is_fast_sa_fb:
-        tuning.set_exp_param('sa_fb_set', fb_set.transpose().ravel())
+    #if not is_fast_sa_fb:
+    tuning.set_exp_param('sa_fb_set', fb_set.transpose().ravel())
 
     tuning.write_config()
     return 0

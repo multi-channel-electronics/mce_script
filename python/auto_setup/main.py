@@ -568,13 +568,24 @@ IDL auto_setup_squids."""
 
     if tuning.get_exp_param("hardware_mux11d") == 1:
         # mux11d tuning
-        stages = ['sa_ramp',
-                  'rs_servo',
-                  'sq1_servo_sa',
-                  'sq1_ramp',
-                  'sq1_ramp_check',
-                  'sq1_ramp_tes',
-                  'operate']
+        is_two_level = tuning.get_exp_param("config_two_level",
+                                            missing_ok=True, default=0)
+        if is_two_level == 1:
+            # Two-level addressing: skip ramps that require data
+            # acquisition (sa_ramp, sq1_ramp, sq1_ramp_check, sq1_ramp_tes).
+            # Run rs_servo and sq1_servo_sa which will apply defaults and
+            # leave both ACs switching, then go straight to operate.
+            stages = ['rs_servo',
+                      'sq1_servo_sa',
+                      'operate']
+        else:
+            stages = ['sa_ramp',
+                      'rs_servo',
+                      'sq1_servo_sa',
+                      'sq1_ramp',
+                      'sq1_ramp_check',
+                      'sq1_ramp_tes',
+                      'operate']
         mux11d.do_init_mux11d(tuning,tune_data)
     else:
         # Standard tuning

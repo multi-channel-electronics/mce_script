@@ -41,7 +41,10 @@ config_keys = {
         'flux_quanta_all', 'fb_const', 'sq1_bias', 'sq1_bias_off', 'sq2_bias',
         'sq2_fb', 'sq2_fb_set', 'sa_bias', 'sa_fb', 'sa_offset',
         'config_adc_offset_all', 'adc_offset_c', 'adc_offset_cr',
-        'frail_servo_p', 'frail_servo_d', 'frail_servo_i', 'frail_detectors'] 
+        'frail_servo_p', 'frail_servo_d', 'frail_servo_i', 'frail_detectors',
+        'config_two_level', 'ac_num_rows',
+        'ac2_on_bias', 'ac2_off_bias', 'ac2_row_order', 'ac2_num_rows',
+        'ac2_row_len']
 }
 
 def parse_string_text(s):

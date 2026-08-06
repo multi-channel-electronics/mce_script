@@ -380,6 +380,17 @@ echo "wb ac row_dly   $row_dly" >> $mce_script
 echo "wb ac row_order ${row_order[@]}" >> $mce_script
 echo "wb ac enbl_mux  1" >> $mce_script
 
+# Two-level addressing: configure ac2 as chip select
+if [ "$config_two_level" == "1" ]; then
+    for rs in `seq 0 $((${#ac2_row_order[@]}-1))`; do
+        echo "wra ac2 on_bias ${ac2_row_order[${rs}]} ${ac2_on_bias[${rs}]}" >> $mce_script
+        echo "wra ac2 off_bias ${ac2_row_order[${rs}]} ${ac2_off_bias[${rs}]}" >> $mce_script
+    done
+    echo "wb ac2 row_order ${ac2_row_order[@]}" >> $mce_script
+    echo "wb ac2 row_dly   $row_dly" >> $mce_script
+    echo "wb ac2 enbl_mux  1" >> $mce_script
+fi
+
 # Set the TES biases via the "tes bias" virtual address
 if [ "$tes_bias_do_reconfig" != "0" ]; then
     echo "wb tes bias ${tes_bias[@]}" >> $mce_script
