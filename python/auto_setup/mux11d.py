@@ -245,9 +245,10 @@ def do_cs_servo(tuning, rc, rc_indices):
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
     tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
+    tuning.copy_exp_param('default_sq1_bias_off', 'sq1_bias_off')
     tuning.set_exp_param("config_adc_offset_all", 0)
     tuning.set_exp_param("config_fast_sq1_bias", 0)
-    tuning.set_exp_param("config_fast_sa_fb", 0)
+    tuning.copy_exp_param("default_config_fast_sa_fb", "config_fast_sa_fb", default=1)
     tuning.write_config()
 
     if len(rc) != 1:
@@ -306,21 +307,6 @@ def do_rs_servo(tuning, rc, rc_indices):
     Do necessary (but not sufficient) setup so that rsservo will
     work.  Run it, analyze, update experiment.cfg
     """
-    # Two-level addressing: apply defaults only.  The rs_servo C binary
-    # writes a uniform value to all AC on_bias entries at each sweep step,
-    # which would clobber the per-row on_bias values that config_create
-    # sets up for 2-level muxing.  Until rs_servo is made 2-level-aware,
-    # skip the acquisition and just apply defaults.
-    is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
-    if is_two_level == 1:
-        tuning.copy_exp_param('default_row_select', 'row_select')
-        tuning.copy_exp_param('default_row_deselect', 'row_deselect')
-        tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
-        tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
-        tuning.write_config()
-        print "two-level: rs_servo applied defaults (servo acquisition skipped)."
-        return 0
-
     # Are we hybrid muxing?
     ishybrid = tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True)
 
