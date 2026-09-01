@@ -74,6 +74,15 @@ def do_init_two_level(tuning, tune_data):
             "two-level: len(ac2_row_order) (%d) != ac2_num_rows (%d)" % \
             (len(ac2_row_order), ac2_num_rows)
 
+    ac_num_rows = tuning.get_exp_param('ac_num_rows')
+    row_len = tuning.get_exp_param('row_len')
+    ac2_row_len = tuning.get_exp_param('ac2_row_len')
+    if ac_num_rows * row_len != ac2_num_rows * ac2_row_len:
+        print "WARNING: two-level: ac_num_rows * row_len (%d * %d = %d) != " \
+              "ac2_num_rows * ac2_row_len (%d * %d = %d)" % \
+              (ac_num_rows, row_len, ac_num_rows * row_len,
+               ac2_num_rows, ac2_row_len, ac2_num_rows * ac2_row_len)
+
 
 def do_init_mux11d(tuning, tune_data):
 
