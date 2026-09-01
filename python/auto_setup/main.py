@@ -571,9 +571,13 @@ IDL auto_setup_squids."""
         is_two_level = tuning.get_exp_param("config_two_level",
                                             missing_ok=True, default=0)
         if is_two_level == 1:
-            stages = ['cs_servo',
+            stages = ['sa_ramp',
+                      'cs_servo',
                       'rs_servo',
                       'sq1_servo_sa',
+                      'sq1_ramp',
+                      'sq1_ramp_check',
+                      'sq1_ramp_tes',
                       'operate']
         else:
             stages = ['sa_ramp',
