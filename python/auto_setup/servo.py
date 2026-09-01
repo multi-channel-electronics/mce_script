@@ -328,17 +328,45 @@ def plot(x, y, y_rc, lock_points, plot_file,
                           target_shape=shape, img_size=img_size,
                           col_labels=cl, rowcol_labels=rcl,
                           format=format)
-            
+
+    # Pre-scale data arrays once instead of per-subplot
+    x_s = x * scale
+    y_s = y * scale
+    per_curve_x = (x.shape == y.shape)
+    y_hi = y_s.max(axis=-1)
+    y_lo = y_s.min(axis=-1)
+    if per_curve_x:
+        x_first = x_s[:, 0]
+        x_last = x_s[:, -1]
+    else:
+        x_first_scalar = x_s[0]
+        x_last_scalar = x_s[-1]
+
+    # Pre-extract lock_points scaled values
+    lp_lock_x = lock_points.get('lock_x', None)
+    if lp_lock_x is not None:
+        lp_lock_x = lp_lock_x * scale
+    lp_lock_y = lock_points.get('lock_y', None)
+    if lp_lock_y is not None:
+        lp_lock_y = lp_lock_y * scale
+    lp_left_x = lock_points.get('left_x', None)
+    if lp_left_x is not None:
+        lp_left_x = lp_left_x * scale
+    lp_right_x = lock_points.get('right_x', None)
+    if lp_right_x is not None:
+        lp_right_x = lp_right_x * scale
+
     for r, c, ax in pl:
         if r >= nr or c >= nc: continue
         i = c + r*nc
-        if set_points:
-            ax.add(biggles.LineX(lock_points['lock_x'][i]*scale))
-        if lock_levels:
-            ax.add(biggles.LineY(lock_points['lock_y'][i]*scale))
-        if intervals:
-            ax.add(biggles.LineX(lock_points['left_x'][i]*scale,type='dashed'))
-            ax.add(biggles.LineX(lock_points['right_x'][i]*scale,type='dashed'))
+        if set_points and lp_lock_x is not None:
+            ax.add(biggles.LineX(lp_lock_x[i]))
+        if lock_levels and lp_lock_y is not None:
+            ax.add(biggles.LineY(lp_lock_y[i]))
+        if intervals and lp_left_x is not None:
+            ax.add(biggles.LineX(lp_left_x[i], type='dashed'))
+        if intervals and lp_right_x is not None:
+            ax.add(biggles.LineX(lp_right_x[i], type='dashed'))
         if slopes != False:
             for s in slopes:
                 m, x0, y0 = s[i]
@@ -346,27 +374,26 @@ def plot(x, y, y_rc, lock_points, plot_file,
         if insets is not None:
             ax.add(biggles.PlotLabel(0., 0., insets[i],
                                          halign='left',valign='bottom'))
-        if x.shape==y.shape:
-            ax.add(biggles.Curve(x[i]/1000., y[i]/1000.))
+        if per_curve_x:
+            ax.add(biggles.Curve(x_s[i], y_s[i]))
         else:
-            ax.add(biggles.Curve(x/1000., y[i]/1000.))
+            ax.add(biggles.Curve(x_s, y_s[i]))
 
         if scale_style == 'roll-off':
-            # Prevent small signals from causing large tick labels
-            hi, lo = amax(y[i])/1000, amin(y[i])/1000
+            hi, lo = y_hi[i], y_lo[i]
             if hi - lo < 4:
                 mid = (hi+lo)/2
                 ax.yrange = (mid-2, mid+2)
         elif scale_style == 'tight':
-            hi, lo = amax(y[i]) / 1000., amin(y[i]) / 1000.
+            hi, lo = y_hi[i], y_lo[i]
             dx = (hi - lo)*.1
-            if dx <= 0:  # Never set a 0-size yrange.
+            if dx <= 0:
                 dx = 0.5
             ax.yrange = lo - dx, hi + dx
-            if x.shape==y.shape:
-                ax.xrange = x[i][0]/1000., x[i][-1]/1000.
+            if per_curve_x:
+                ax.xrange = x_first[i], x_last[i]
             else:
-                ax.xrange = x[0]/1000., x[-1]/1000.                
+                ax.xrange = x_first_scalar, x_last_scalar                
 
     pl.cleanup()
     return {

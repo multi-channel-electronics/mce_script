@@ -31,10 +31,21 @@ class pageIndexer:
         self.world_shape = world_shape
         self.world_pages = [_div_up(world_shape[0], page_shape[0]),
                             _div_up(world_shape[1], page_shape[1])]
-        # slowwww
-        self.indices = sorted([(self.index(r, c),(r,c)) \
-                                   for r in range(world_shape[0]) \
-                                   for c in range(world_shape[1])])
+        dr, dc = page_shape
+        nr, nc = world_shape
+        self.indices = []
+        for pr in range(self.world_pages[0]):
+            for pc in range(self.world_pages[1]):
+                page = pr * self.world_pages[1] + pc
+                for lr in range(dr):
+                    r = pr * dr + lr
+                    if r >= nr:
+                        break
+                    for lc in range(dc):
+                        c = pc * dc + lc
+                        if c >= nc:
+                            break
+                        self.indices.append(((page, lr, lc), (r, c)))
 
     def index(self, r, c):
         # return page number and page row, col
@@ -45,14 +56,14 @@ class pageIndexer:
         return (page, r%dr, c%dc)
 
     def __iter__(self):
-        self.index = 0
+        self._iter_idx = 0
         return self
 
     def next(self):
-        if self.index >= len(self.indices):
+        if self._iter_idx >= len(self.indices):
             raise StopIteration
-        self.index += 1
-        return self.indices[self.index-1]
+        self._iter_idx += 1
+        return self.indices[self._iter_idx-1]
 
 
 class plotPager:
@@ -373,39 +384,41 @@ def hack_svg_viewbox(src, dest):
     as the desired image width in pixels.
     """
     import re
-    from xml.dom import minidom
 
-    md = minidom.parse(src)
-    svg = md.childNodes[1]
-    # Find our tags of interest
-    for x in svg.childNodes:
-        if x.nodeName == 'rect' and x.getAttribute('id') =='background':
-            bg_rect = x
-        elif x.nodeName == 'g':
-            svg_g = x
-    # Get transform atoms
-    transforms = svg_g.getAttribute('transform')
-    t_atoms = re.findall('([a-z]*\([^\)]*\))', transforms)
-    # Get the keyword and first two arguments for each transform
-    t_data = [ re.match('([a-zA-z]*)\(([0-9.\-]*)[\ ,]([0-9.\-]*).*\)', t)
-               for t in t_atoms]
-    t_data = [ (t.group(1), t.group(2), t.group(3)) for t in t_data]
-    # The "scale" secretly holds the original libplot image size.
-    for n, x, y in t_data:
-        if n == 'scale':
-            x, y = float(x), float(y)
-            break
-    else:
+    text = open(src).read()
+
+    # Extract scale(sx, sy) from the <g transform="..."> to get pixel dims.
+    m = re.search(r'scale\(([0-9.eE\-]+)[, ]+([0-9.eE\-]+)', text)
+    if m is None:
         raise RuntimeError, "Could not find scale argument"
-    xsize, ysize = int(round(1/x)), int(round(-1/y))
-    # New coordinate description
-    svg_g.setAttribute('transform', 'translate(0 %i) scale(1 -1)' % ysize)
-    svg.setAttribute('viewBox', '0 0 %i %i' % (xsize, ysize))
-    bg_rect.setAttribute('width', str(xsize))
-    bg_rect.setAttribute('height', str(ysize))
+    sx, sy = float(m.group(1)), float(m.group(2))
+    xsize, ysize = int(round(1/sx)), int(round(-1/sy))
+
+    # Replace <g transform="..."> content
+    text = re.sub(
+        r'(<g\s+transform=")[^"]*(")',
+        r'\g<1>translate(0 %i) scale(1 -1)\2' % ysize,
+        text, count=1)
+
+    # Replace viewBox on <svg>
+    text = re.sub(
+        r'(viewBox=")[^"]*(")',
+        r'\g<1>0 0 %i %i\2' % (xsize, ysize),
+        text, count=1)
+
+    # Replace width/height on <rect id="background">
+    text = re.sub(
+        r'(<rect\s+id="background"[^>]*\bwidth=")[^"]*(")',
+        r'\g<1>%i\2' % xsize,
+        text, count=1)
+    text = re.sub(
+        r'(<rect\s+id="background"[^>]*\bheight=")[^"]*(")',
+        r'\g<1>%i\2' % ysize,
+        text, count=1)
+
     fout = open(dest, 'w')
-    md.writexml(fout)
-    del fout
+    fout.write(text)
+    fout.close()
 
 
 class pdfCollator:
