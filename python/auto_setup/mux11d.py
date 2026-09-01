@@ -35,11 +35,30 @@ def circular_median(x, period):
 
 def do_init_two_level(tuning, tune_data):
     """
-    Initialize two-level addressing mode.  Validates that ac and ac2
-    parameters are self-consistent:
+    Initialize two-level addressing mode.  Validates that ac2 is
+    present in mce.cfg (i.e. a second address card in bc3 slot) and
+    that ac/ac2 parameters are self-consistent:
+      - ac2 responds to register reads
       - row_order length == num_rows
       - ac2_row_order length == ac2_num_rows
     """
+    if tuning.cmd("rb ac2 fw_rev") != 0:
+        raise RuntimeError, \
+            "config_two_level=1 but ac2 is not present. " \
+            "Two-level addressing requires a second address card " \
+            "in the bc3 slot (ac2 in mce.cfg card_list)."
+
+    required = ['ac2_num_rows', 'ac2_row_order', 'ac2_on_bias', 'ac2_off_bias']
+    missing = []
+    for key in required:
+        val = tuning.get_exp_param(key, missing_ok=True)
+        if val is None:
+            missing.append(key)
+    if missing:
+        raise ValueError, \
+            "config_two_level=1 but experiment.cfg is missing required " \
+            "parameters: %s" % ', '.join(missing)
+
     num_rows = tuning.get_exp_param('num_rows')
     ac2_num_rows = tuning.get_exp_param('ac2_num_rows')
 
@@ -196,61 +215,12 @@ def acquire(tuning, rc, filename=None,
                   'filename': fullname }
 
 
-def cs_servo_acquire(tuning, rc):
-    """
-    Sweep ac2 on_bias through a range of flux values, collecting
-    SA FB data at each step.  Returns (n_flux, n_rows, n_cols) array.
-    AC row selects must already be deselected before calling this.
-    """
-    from mce_data import MCEFile
-
-    flux_start = tuning.get_exp_param('cs_servo_flux_start')
-    flux_count = tuning.get_exp_param('cs_servo_flux_count')
-    flux_step = tuning.get_exp_param('cs_servo_flux_step')
-
-    ac2_row_order = tuning.get_exp_param('ac2_row_order')
-    unique_cs = sorted(set(ac2_row_order))
-    num_rows = tuning.get_exp_param('num_rows')
-
-    filename, acq_id = tuning.filename(rc=rc, action='csservo')
-    fullname = os.path.join(tuning.base_dir, filename)
-
-    fb = np.array([flux_start + i * flux_step for i in range(flux_count)])
-    all_data = []
-
-    for i in range(flux_count):
-        flux_val = flux_start + i * flux_step
-
-        # Write this flux value to all unique CS addresses
-        for addr in unique_cs:
-            tuning.cmd("wra ac2 on_bias %d %d" % (addr, flux_val))
-
-        # Acquire one frame
-        tmpname = '%s_cstmp' % acq_id
-        status = tuning.run(['mce_run', tmpname, 1, rc])
-        if status != 0:
-            raise RuntimeError, "cs_servo: frame acquisition failed at step %d" % i
-
-        tmpfile = os.path.join(tuning.base_dir, tmpname)
-        mf = MCEFile(tmpfile)
-        frame = mf.Read(row_col=True).data[:, :, 0]  # (n_rows, n_cols)
-        all_data.append(frame)
-
-        # Clean up temp file
-        for ext in ['', '.run']:
-            tf = tmpfile + ext
-            if os.path.exists(tf):
-                os.remove(tf)
-
-    data = np.array(all_data)  # (n_flux, n_rows, n_cols)
-    return data, fb, acq_id, fullname
-
-
 def do_cs_servo(tuning, rc, rc_indices):
     """
     Determine optimal ac2 on_bias and ac2_off_bias values for each
-    chip select address.  Deselects AC row selects, sweeps CS flux,
-    analyzes the response per chip, and updates experiment.cfg.
+    chip select address.  Deselects AC row selects, sweeps CS flux
+    via the cs_servo C binary, analyzes the response per chip, and
+    updates experiment.cfg.
     """
     is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
     if is_two_level != 1:
@@ -258,26 +228,8 @@ def do_cs_servo(tuning, rc, rc_indices):
         return 0
 
     optimize = tuning.get_exp_param('optimize_cs_servo', missing_ok=True, default=0)
-    if optimize == 0:
-        # Expand per-chip defaults to per-row-visit arrays
-        default_on = tuning.get_exp_param('default_ac2_on_bias')
-        default_off = tuning.get_exp_param('default_ac2_off_bias')
-        ac2_row_order = tuning.get_exp_param('ac2_row_order')
-        chip_addrs = sorted(set(ac2_row_order))
-
-        ac2_on = tuning.get_exp_param('ac2_on_bias')
-        ac2_off = tuning.get_exp_param('ac2_off_bias')
-        for ci, addr in enumerate(chip_addrs):
-            if ci < len(default_on):
-                for j in range(len(ac2_row_order)):
-                    if ac2_row_order[j] == addr:
-                        ac2_on[j] = int(default_on[ci])
-                        ac2_off[j] = int(default_off[ci])
-
-        tuning.set_exp_param('ac2_on_bias', ac2_on)
-        tuning.set_exp_param('ac2_off_bias', ac2_off)
-        tuning.write_config()
-        print "cs_servo: optimize_cs_servo=0, applying defaults."
+    if optimize != 1:
+        print "cs_servo: optimize_cs_servo != 1, skipping (ac2 biases from experiment.cfg)."
         return 0
 
     # Save current state
@@ -285,7 +237,6 @@ def do_cs_servo(tuning, rc, rc_indices):
     saved_row_deselect = tuning.get_exp_param('row_deselect')
 
     # Deselect all AC row selects so only CS varies
-    n_rs = len(saved_row_select)
     row_desel = tuning.get_exp_param('default_row_deselect')
     tuning.set_exp_param('row_select', list(row_desel))
     tuning.set_exp_param('row_deselect', list(row_desel))
@@ -303,14 +254,13 @@ def do_cs_servo(tuning, rc, rc_indices):
         raise ValueError, "cs_servo does not support multi-rc tunes"
 
     print "cs_servo: sweeping chip select flux..."
-    data, fb, acq_id, fullname = cs_servo_acquire(tuning, rc[0])
+    ok, servo_data = acquire(tuning, rc[0], action_name='csservo',
+                             bin_name='cs_servo')
 
-    ac2_row_order = tuning.get_exp_param('ac2_row_order')
-    num_rows = tuning.get_exp_param('num_rows')
+    if not ok:
+        raise RuntimeError, servo_data['error']
 
-    # Create CSServo and analyze
-    cs = cs_servo.CSServo(data=data, fb=fb, ac2_row_order=ac2_row_order,
-                          tuning=tuning, origin=acq_id)
+    cs = cs_servo.CSServo(servo_data['filename'], tuning=tuning)
     an = cs.reduce()
 
     if tuning.get_exp_param('tuning_do_plots'):
@@ -318,6 +268,7 @@ def do_cs_servo(tuning, rc, rc_indices):
         tuning.register_plots(*plot_out['plot_files'])
 
     # Expand per-chip on/off to full ac2_on_bias / ac2_off_bias arrays
+    ac2_row_order = tuning.get_exp_param('ac2_row_order')
     chip_addrs = cs.chip_addrs
     cs_on = an['cs_on_bias']
     cs_off = an['cs_off_bias']
@@ -349,6 +300,21 @@ def do_rs_servo(tuning, rc, rc_indices):
     Do necessary (but not sufficient) setup so that rsservo will
     work.  Run it, analyze, update experiment.cfg
     """
+    # Two-level addressing: apply defaults only.  The rs_servo C binary
+    # writes a uniform value to all AC on_bias entries at each sweep step,
+    # which would clobber the per-row on_bias values that config_create
+    # sets up for 2-level muxing.  Until rs_servo is made 2-level-aware,
+    # skip the acquisition and just apply defaults.
+    is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
+    if is_two_level == 1:
+        tuning.copy_exp_param('default_row_select', 'row_select')
+        tuning.copy_exp_param('default_row_deselect', 'row_deselect')
+        tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
+        tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
+        tuning.write_config()
+        print "two-level: rs_servo applied defaults (servo acquisition skipped)."
+        return 0
+
     # Are we hybrid muxing?
     ishybrid = tuning.get_exp_param('mux11d_hybrid_row_select',missing_ok=True)
 
@@ -460,6 +426,19 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     Do necessary (but not sufficient) setup so that sq1_servo_sa will
     work.  Run it, analyze, update experiment.cfg
     """
+    # Two-level addressing: apply defaults only.  The sq1servo_sa binary
+    # has not been validated for 2-level operation with >41 rows.
+    is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
+    if is_two_level == 1:
+        tuning.set_exp_param("data_mode", 0)
+        tuning.set_exp_param("servo_mode", 1)
+        tuning.set_exp_param("config_adc_offset_all", 0)
+        tuning.copy_exp_param("default_config_fast_sa_fb", "config_fast_sa_fb", default=1)
+        tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
+        tuning.write_config()
+        print "two-level: sq1_servo_sa applied defaults (servo acquisition skipped)."
+        return 0
+
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
 #    tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')

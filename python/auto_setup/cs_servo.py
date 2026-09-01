@@ -4,6 +4,7 @@ import biggles
 import auto_setup.util as util
 from numpy import *
 import numpy as np
+from mce_data import MCERunfile, MCEFile
 
 import servo
 
@@ -12,68 +13,76 @@ class CSServo(servo.SquidData):
     """
     Chip-select servo analysis for two-level mux11d addressing.
 
-    Analyzes a chip-select flux sweep where AC2 on_bias is ramped while
-    AC row selects are deselected.  Raw data has shape (n_flux, n_rows,
-    n_cols); rows are grouped by their AC2 address (chip) and averaged
-    to produce (n_flux, n_chips, n_cols).  Finds on/off bias levels per
-    chip, analogous to how RSServo finds row select/deselect.
+    Loads a .bias file produced by the cs_servo C binary, which sweeps
+    ac2 on_bias while servoing SA FB.  Raw data has shape (1, n_rows,
+    n_cols, n_flux); rows are grouped by their AC2 address (chip) and
+    averaged to produce per-chip curves for analysis.
     """
     stage_name = 'CSServo'
     xlabel = 'CS flux / 1000'
-    ylabels = {'data': 'SA FB / 1000'}
+    ylabels = {'data': 'SA FB / 1000',
+               'error': 'Error / 1000'}
     bias_assoc = 'col'
 
-    def __init__(self, data=None, fb=None, ac2_row_order=None,
-                 tuning=None, origin='csservo'):
+    def __init__(self, filename=None, tuning=None):
+        if tuning is None and filename is not None:
+            srcdir = os.path.split(filename)[0]
+            tuning = os.path.join(srcdir, 'experiment.cfg')
+            if not os.path.exists(tuning):
+                tuning = None
         servo.SquidData.__init__(self, tuning=tuning)
-        self.super_servo = False
+        self.super_servo = None
+        self.data_attrs.append('error')
         self.chip_addrs = None
         self.n_chips = 0
-        if data is not None:
-            self._load(data, fb, ac2_row_order, origin)
+        self.chip_data = None
+        if filename is not None:
+            self.read_data(filename)
 
-    def _load(self, data, fb, ac2_row_order, origin):
+    def read_data(self, filename):
+        rf = MCERunfile(filename+'.run')
+        self.rf = rf
+        self.data_origin = {'filename': filename,
+                            'basename': filename.split('/')[-1]}
+
+        # cs_servo has no bias ramp; loop1 is inactive ("none").
+        # Parse as non-ramped: feedback is in loop2.
+        self.load_ramp_params('RB sq1 bias')
+
+        self.data_shape = (-1, 1, len(self.cols), len(self.fb))
+        self._read_super_bias(filename)
+
+    def _group_by_chip(self):
         """
-        data: array of shape (n_flux, n_rows, n_cols) -- raw SA FB at
-              each flux step, for all muxed rows.
-        fb:   1-d array of flux values, length n_flux.
-        ac2_row_order: array of length n_rows giving the AC2 address
-                       for each row visit.
+        Average data across row visits that share the same AC2 address.
+        Stores chip_data with shape (n_chips, n_cols, n_flux).
         """
-        n_flux, n_rows, n_cols = data.shape
-        ac2_row_order = np.asarray(ac2_row_order)
+        if self.chip_data is not None:
+            return
+
+        ac2_row_order = np.asarray(
+            self.tuning.get_exp_param('ac2_row_order'))
         self.chip_addrs = sorted(set(ac2_row_order))
         self.n_chips = len(self.chip_addrs)
 
-        # Average over row visits that share the same chip address.
-        chip_data = np.zeros((n_flux, self.n_chips, n_cols), dtype='float')
+        n_bias, n_row, n_col, n_fb = self.data_shape
+        curves = self.data.reshape(n_bias, n_row, n_col, n_fb)
+
+        # n_bias is always 1 for cs_servo
+        raw = curves[0]  # (n_row, n_col, n_fb)
+        chip_avg = np.zeros((self.n_chips, n_col, n_fb), dtype='float')
         for ci, addr in enumerate(self.chip_addrs):
             mask = (ac2_row_order == addr)
-            chip_data[:, ci, :] = data[:, mask, :].mean(axis=1)
+            chip_avg[ci] = raw[mask].mean(axis=0)
 
-        # Transpose to (n_chips, n_cols, n_flux) then flatten leading
-        # dims so SquidData sees shape (-1, n_fb).
-        self.data_shape = (self.n_chips, n_cols, n_flux)
-        self.data = chip_data.transpose(1, 2, 0)  # (n_chips, n_cols, n_flux)
-        self.data = self.data.reshape(-1, n_flux)
-
-        self.fb = fb
-        self.d_fb = fb[1] - fb[0] if len(fb) > 1 else 1
-        self.bias_style = 'select'
-        self.bias = np.zeros(n_cols, 'int')
-        self.cols = np.arange(n_cols)
-        self.rows = np.arange(self.n_chips)
-        self.gridded = True
-        self.mcefile = None
-        self.rf = None
-        self.data_origin = {'filename': origin, 'basename': origin}
+        self.chip_data = chip_avg
 
     def reduce(self, slope=None):
         self._check_data()
         self._check_analysis(existence=True)
+        self._group_by_chip()
 
-        n_chip, n_col, n_fb = self.data_shape
-        curves = self.data.reshape(n_chip, n_col, n_fb)
+        n_chip, n_col, n_fb = self.chip_data.shape
 
         sel_idx = np.zeros((n_chip, n_col), dtype='int')
         desel_idx = np.zeros((n_chip, n_col), dtype='int')
@@ -81,7 +90,7 @@ class CSServo(servo.SquidData):
 
         for ci in range(n_chip):
             for co in range(n_col):
-                y = curves[ci, co]
+                y = self.chip_data[ci, co]
                 reg = servo.get_curve_regions(y, extrema=True)
                 lo, hi = None, None
                 r = list(reg)
@@ -113,7 +122,6 @@ class CSServo(servo.SquidData):
         self.analysis['sel_idx_chip'] = sel_idx_chip
         self.analysis['desel_idx_chip'] = desel_idx_chip
 
-        # Convert to flux values
         cs_on_bias = self.fb[sel_idx_chip]
         cs_off_bias = self.fb[desel_idx_chip]
 
@@ -133,15 +141,20 @@ class CSServo(servo.SquidData):
 
         self._check_data()
         self._check_analysis()
+        self._group_by_chip()
 
-        n_chip, n_col = self.data_shape[:2]
+        n_chip, n_col = self.chip_data.shape[:2]
+
+        # Flatten chip_data to (n_chip*n_col, n_fb) for servo.plot
+        plot_data = self.chip_data.reshape(-1, self.chip_data.shape[-1])
+
         insets = []
         for ci in range(n_chip):
             for co in range(n_col):
                 insets.append('CS=%d' % self.chip_addrs[ci])
 
         return servo.plot(
-            self.fb, self.data, (n_chip, n_col),
+            self.fb, plot_data, (n_chip, n_col),
             self.analysis, plot_file,
             lock_levels=False,
             intervals=True,
