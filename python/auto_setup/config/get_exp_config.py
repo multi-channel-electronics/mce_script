@@ -44,7 +44,10 @@ config_keys = {
         'frail_servo_p', 'frail_servo_d', 'frail_servo_i', 'frail_detectors',
         'config_two_level', 'ac_num_rows',
         'ac2_on_bias', 'ac2_off_bias', 'ac2_row_order', 'ac2_num_rows',
-        'ac2_row_len']
+        'ac2_row_len',
+        'optimize_cs_servo',
+        'cs_servo_flux_start', 'cs_servo_flux_count', 'cs_servo_flux_step',
+        'default_ac2_on_bias', 'default_ac2_off_bias']
 }
 
 def parse_string_text(s):

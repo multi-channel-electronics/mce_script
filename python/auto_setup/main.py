@@ -571,11 +571,8 @@ IDL auto_setup_squids."""
         is_two_level = tuning.get_exp_param("config_two_level",
                                             missing_ok=True, default=0)
         if is_two_level == 1:
-            # Two-level addressing: skip ramps that require data
-            # acquisition (sa_ramp, sq1_ramp, sq1_ramp_check, sq1_ramp_tes).
-            # Run rs_servo and sq1_servo_sa which will apply defaults and
-            # leave both ACs switching, then go straight to operate.
-            stages = ['rs_servo',
+            stages = ['cs_servo',
+                      'rs_servo',
                       'sq1_servo_sa',
                       'operate']
         else:
@@ -655,6 +652,9 @@ IDL auto_setup_squids."""
             tuning.write_sqtune(sq_data=s1_dict['sq_data'])
             if (s1_dict["status"] != 0):
                 return s1_dict["status"]
+
+    if 'cs_servo' in stages:
+        cs = mux11d.do_cs_servo(tuning, rcs, tune_data)
 
     if 'rs_servo' in stages:
         rs = mux11d.do_rs_servo(tuning, rcs, tune_data)
