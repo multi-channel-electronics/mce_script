@@ -368,6 +368,7 @@ def do_rs_servo(tuning, rc, rc_indices):
         tuning.register_plots(*plot_out['plot_files'])
         plot_out = sq.plot_error()
         tuning.register_plots(*plot_out['plot_files'])
+        sq._ramp_splits = None
 
     if bias_ramp:
         sq.reduce1()
@@ -470,6 +471,7 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
         tuning.register_plots(*plot_out['plot_files'])
         plot_out = sq.plot_error()
         tuning.register_plots(*plot_out['plot_files'])
+        sq._ramp_splits = None
 
     if bias_ramp:
         sq.reduce1()
