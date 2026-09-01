@@ -7,6 +7,7 @@ import subprocess
 config_keys = {
     'string': ['array_id', 'dead_mask_list', 'frail_mask_list'],
     'float': ['sa_offset_bias_ratio', 'sq2_servo_gain', 'sq1_servo_gain',
+        'rowsel_servo_gain', 'cs_servo_gain',
         'tes_bias_normal_time'],
     'integer': ['array_width', 'hardware_rc', 'hardware_sync',
         'hardware_rect', 'hardware_rc_data', 'sb0_select_clk',

@@ -36,6 +36,7 @@ class CSServo(servo.SquidData):
         self.chip_addrs = None
         self.n_chips = 0
         self.chip_data = None
+        self.chip_error = None
         if filename is not None:
             self.read_data(filename)
 
@@ -55,7 +56,7 @@ class CSServo(servo.SquidData):
     def _group_by_chip(self):
         """
         Average data across row visits that share the same AC2 address.
-        Stores chip_data with shape (n_chips, n_cols, n_flux).
+        Stores chip_data and chip_error with shape (n_chips, n_cols, n_flux).
         """
         if self.chip_data is not None:
             return
@@ -66,16 +67,19 @@ class CSServo(servo.SquidData):
         self.n_chips = len(self.chip_addrs)
 
         n_bias, n_row, n_col, n_fb = self.data_shape
-        curves = self.data.reshape(n_bias, n_row, n_col, n_fb)
 
-        # n_bias is always 1 for cs_servo
-        raw = curves[0]  # (n_row, n_col, n_fb)
         chip_avg = np.zeros((self.n_chips, n_col, n_fb), dtype='float')
-        for ci, addr in enumerate(self.chip_addrs):
-            mask = (ac2_row_order == addr)
-            chip_avg[ci] = raw[mask].mean(axis=0)
+        chip_err = np.zeros((self.n_chips, n_col, n_fb), dtype='float')
+
+        for src, dst in [(self.data, chip_avg), (self.error, chip_err)]:
+            curves = src.reshape(n_bias, n_row, n_col, n_fb)
+            raw = curves[0]  # (n_row, n_col, n_fb)
+            for ci, addr in enumerate(self.chip_addrs):
+                mask = (ac2_row_order == addr)
+                dst[ci] = raw[mask].mean(axis=0)
 
         self.chip_data = chip_avg
+        self.chip_error = chip_err
 
     def reduce(self, slope=None):
         self._check_data()
@@ -132,7 +136,7 @@ class CSServo(servo.SquidData):
 
         return self.analysis
 
-    def plot(self, plot_file=None, format=None):
+    def plot(self, plot_file=None, format=None, data_attr='data'):
         if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' %
                                      self.data_origin['basename'])
@@ -145,8 +149,14 @@ class CSServo(servo.SquidData):
 
         n_chip, n_col = self.chip_data.shape[:2]
 
-        # Flatten chip_data to (n_chip*n_col, n_fb) for servo.plot
-        plot_data = self.chip_data.reshape(-1, self.chip_data.shape[-1])
+        # Select data or error for plotting
+        if data_attr == 'error':
+            source = self.chip_error
+        else:
+            source = self.chip_data
+
+        # Flatten to (n_chip*n_col, n_fb) for servo.plot
+        plot_data = source.reshape(-1, source.shape[-1])
 
         insets = []
         for ci in range(n_chip):
@@ -157,10 +167,18 @@ class CSServo(servo.SquidData):
             self.fb, plot_data, (n_chip, n_col),
             self.analysis, plot_file,
             lock_levels=False,
-            intervals=True,
+            intervals=data_attr != 'error',
             insets=insets,
             title=self.data_origin['basename'],
             xlabel=self.xlabel,
-            ylabel=self.ylabels['data'],
+            ylabel=self.ylabels[data_attr],
             format=format,
         )
+
+    def plot_error(self, *args, **kwargs):
+        if not 'data_attr' in kwargs:
+            kwargs['data_attr'] = 'error'
+        if not 'plot_file' in kwargs:
+            kwargs['plot_file'] = os.path.join(self.tuning.plot_dir, '%s' % \
+                                  (self.data_origin['basename'] + '_err'))
+        return self.plot(*args, **kwargs)

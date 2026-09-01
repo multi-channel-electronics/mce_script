@@ -228,8 +228,8 @@ def do_cs_servo(tuning, rc, rc_indices):
         return 0
 
     optimize = tuning.get_exp_param('optimize_cs_servo', missing_ok=True, default=0)
-    if optimize != 1:
-        print "cs_servo: optimize_cs_servo != 1, skipping (ac2 biases from experiment.cfg)."
+    if optimize == -1:
+        print "cs_servo: optimize_cs_servo == -1, skipping."
         return 0
 
     # Save current state
@@ -266,32 +266,38 @@ def do_cs_servo(tuning, rc, rc_indices):
     if tuning.get_exp_param('tuning_do_plots'):
         plot_out = cs.plot()
         tuning.register_plots(*plot_out['plot_files'])
+        plot_out = cs.plot_error()
+        tuning.register_plots(*plot_out['plot_files'])
 
-    # Expand per-chip on/off to full ac2_on_bias / ac2_off_bias arrays
-    ac2_row_order = tuning.get_exp_param('ac2_row_order')
-    chip_addrs = cs.chip_addrs
-    cs_on = an['cs_on_bias']
-    cs_off = an['cs_off_bias']
+    if optimize == 1:
+        # Expand per-chip on/off to full ac2_on_bias / ac2_off_bias arrays
+        ac2_row_order = tuning.get_exp_param('ac2_row_order')
+        chip_addrs = cs.chip_addrs
+        cs_on = an['cs_on_bias']
+        cs_off = an['cs_off_bias']
 
-    ac2_on = tuning.get_exp_param('ac2_on_bias')
-    ac2_off = tuning.get_exp_param('ac2_off_bias')
+        ac2_on = tuning.get_exp_param('ac2_on_bias')
+        ac2_off = tuning.get_exp_param('ac2_off_bias')
 
-    for ci, addr in enumerate(chip_addrs):
-        for j in range(len(ac2_row_order)):
-            if ac2_row_order[j] == addr:
-                ac2_on[j] = int(cs_on[ci])
-                ac2_off[j] = int(cs_off[ci])
+        for ci, addr in enumerate(chip_addrs):
+            for j in range(len(ac2_row_order)):
+                if ac2_row_order[j] == addr:
+                    ac2_on[j] = int(cs_on[ci])
+                    ac2_off[j] = int(cs_off[ci])
 
-    tuning.set_exp_param('ac2_on_bias', ac2_on)
-    tuning.set_exp_param('ac2_off_bias', ac2_off)
+        tuning.set_exp_param('ac2_on_bias', ac2_on)
+        tuning.set_exp_param('ac2_off_bias', ac2_off)
 
     # Restore row selects
     tuning.set_exp_param('row_select', saved_row_select)
     tuning.set_exp_param('row_deselect', saved_row_deselect)
     tuning.write_config()
 
-    print "cs_servo: done. on_bias=%s, off_bias=%s" % (
-        [int(x) for x in cs_on], [int(x) for x in cs_off])
+    if optimize == 1:
+        print "cs_servo: done. on_bias=%s, off_bias=%s" % (
+            [int(x) for x in cs_on], [int(x) for x in cs_off])
+    else:
+        print "cs_servo: done (optimize=0, results not applied)."
     return 0
 
 
