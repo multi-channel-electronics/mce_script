@@ -417,6 +417,7 @@ class SquidData(util.RCData):
         util.RCData.__init__(self)
         self.data = None
         self.analysis = None
+        self._ramp_splits = None
         if isinstance(tuning, basestring):
             tuning = util.tuning.tuningData(exp_file=tuning)
         self.tuning = tuning
@@ -734,6 +735,14 @@ class SquidData(util.RCData):
     def reduce2(self, slope=None):
         raise RuntimeError, "this is a virtual method."
 
+    def _get_ramp_splits(self):
+        if self._ramp_splits is None:
+            ss = self.split()
+            for s in ss:
+                s.reduce()
+            self._ramp_splits = ss
+        return self._ramp_splits
+
     def plot(self, plot_file=None, format=None, data_attr='data'):
         if plot_file is None:
             plot_file = os.path.join(self.tuning.plot_dir, '%s' % \
@@ -744,13 +753,12 @@ class SquidData(util.RCData):
 
         # Is this a multi-bias ramp?  If so, split down
         if self.bias_style == 'ramp':
-            ss = self.split()
+            ss = self._get_ramp_splits()
             plot_files = []
             _format = format
             if format == 'pdf':  # make one big pdf
                 _format = 'svg'
             for i,s in enumerate(ss):
-                s.reduce()
                 p = s.plot(plot_file=plot_file+'_b%02i'%i, format=_format,
                            data_attr=data_attr)
                 plot_files += p['plot_files']

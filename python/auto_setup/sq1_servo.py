@@ -342,13 +342,12 @@ class SQ1Servo(servo.SquidData):
 
         # Is this a multi-bias ramp?  If so, split down
         if self.bias_style == 'ramp':
-            ss = self.split()
+            ss = self._get_ramp_splits()
             plot_files = []
             _format = format
             if format == 'pdf':  # make one big pdf
                 _format = 'svg'
             for i,s in enumerate(ss):
-                s.reduce()
                 p = s.plot(plot_file=plot_file+'_b%02i'%i, format=_format,
                            data_attr=data_attr)
                 plot_files += p['plot_files']
