@@ -428,19 +428,6 @@ def do_sq1_servo_sa(tuning, rc, rc_indices):
     Do necessary (but not sufficient) setup so that sq1_servo_sa will
     work.  Run it, analyze, update experiment.cfg
     """
-    # Two-level addressing: apply defaults only.  The sq1servo_sa binary
-    # has not been validated for 2-level operation with >41 rows.
-    is_two_level = tuning.get_exp_param('config_two_level', missing_ok=True)
-    if is_two_level == 1:
-        tuning.set_exp_param("data_mode", 0)
-        tuning.set_exp_param("servo_mode", 1)
-        tuning.set_exp_param("config_adc_offset_all", 0)
-        tuning.copy_exp_param("default_config_fast_sa_fb", "config_fast_sa_fb", default=1)
-        tuning.copy_exp_param("default_config_fast_sq1_bias", "config_fast_sq1_bias", default=1)
-        tuning.write_config()
-        print "two-level: sq1_servo_sa applied defaults (servo acquisition skipped)."
-        return 0
-
     tuning.set_exp_param("data_mode", 0)
     tuning.set_exp_param("servo_mode", 1)
 #    tuning.copy_exp_param('default_sq1_bias', 'sq1_bias')
