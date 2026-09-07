@@ -386,7 +386,16 @@ if [ "$config_two_level" == "1" ]; then
         echo "wra ac2 on_bias ${ac2_row_order[${rs}]} ${ac2_on_bias[${rs}]}" >> $mce_script
         echo "wra ac2 off_bias ${ac2_row_order[${rs}]} ${ac2_off_bias[${rs}]}" >> $mce_script
     done
-    echo "wb ac2 row_order ${ac2_row_order[@]}" >> $mce_script
+    # ac2 row_order is a per-cs array (one entry per chip select), but the
+    # ac2 row_order hardware register holds one entry per physical row, so
+    # each cs address must be repeated ac_num_rows times in a row.
+    ac2_row_order_full=()
+    for addr in "${ac2_row_order[@]}"; do
+        for i in `seq 1 $ac_num_rows`; do
+            ac2_row_order_full+=("$addr")
+        done
+    done
+    echo "wb ac2 row_order ${ac2_row_order_full[@]}" >> $mce_script
     echo "wb ac2 row_dly   $row_dly" >> $mce_script
     echo "wb ac2 enbl_mux  1" >> $mce_script
 fi

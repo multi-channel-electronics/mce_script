@@ -1,0 +1,15 @@
+# Python bytecode
+*.pyc
+
+# Build artifacts
+*.o
+
+# Built executables
+utilities/ascii_frame
+utilities/catch_rampers
+utilities/eat_packets
+utilities/extract_frames
+utilities/runfile_scan
+
+# Misc
+id

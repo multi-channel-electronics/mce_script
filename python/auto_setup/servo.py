@@ -295,6 +295,7 @@ def plot(x, y, y_rc, lock_points, plot_file,
          titles=None,
          rows=None, cols=None,
          insets=None,
+         insets2=None,
          lock_levels=True,
          set_points=False,
          intervals=False,
@@ -305,11 +306,13 @@ def plot(x, y, y_rc, lock_points, plot_file,
          ):
 
     nr, nc = y_rc
-    cl, rl, rcl = False, False, False
+    cl, rl, rcl, ccl = False, False, False, False
     if label_style == 'col_only':
         cl = True
     elif label_style == 'row_col':
         rcl = True
+    elif label_style == 'chip_col':
+        ccl = True
 
     if slopes == True:
         def get(key, param):
@@ -326,7 +329,7 @@ def plot(x, y, y_rc, lock_points, plot_file,
     pl = util.plotGridder(y_rc, plot_file, title=title,
                           xlabel=xlabel, ylabel=ylabel,
                           target_shape=shape, img_size=img_size,
-                          col_labels=cl, rowcol_labels=rcl,
+                          col_labels=cl, rowcol_labels=rcl, chipcol_labels=ccl,
                           format=format)
 
     # Pre-scale data arrays once instead of per-subplot
@@ -374,6 +377,9 @@ def plot(x, y, y_rc, lock_points, plot_file,
         if insets is not None:
             ax.add(biggles.PlotLabel(0., 0., insets[i],
                                          halign='left',valign='bottom'))
+        if insets2 is not None:
+            ax.add(biggles.PlotLabel(0., 1., insets2[i],
+                                         halign='left',valign='top'))
         if per_curve_x:
             ax.add(biggles.Curve(x_s[i], y_s[i]))
         else:

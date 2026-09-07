@@ -560,7 +560,8 @@ for rc_i in rc_select.nonzero()[0]:
           offset=col_start)
 
         if cfg['config_fast_sq1_bias']:
-            Ws('sq1', 'bias_col', cfg_2d('sa_fb_set'))
+            # Ws('sq1', 'bias_col', cfg_2d('sa_fb_set'))
+            Ws('sq1', 'bias_col', cfg_2d('sq1_bias_set'))
         else:
             W('sq1', 'bias', cfg['sq1_bias'][col_start:col_end],
               offset=col_start)

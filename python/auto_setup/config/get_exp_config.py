@@ -48,6 +48,8 @@ config_keys = {
         'ac2_row_len',
         'optimize_cs_servo',
         'cs_servo_flux_start', 'cs_servo_flux_count', 'cs_servo_flux_step',
+        'cs_servo_bias_ramp', 'cs_servo_bias_start', 'cs_servo_bias_count',
+        'cs_servo_bias_step',
         'default_ac2_on_bias', 'default_ac2_off_bias']
 }
 

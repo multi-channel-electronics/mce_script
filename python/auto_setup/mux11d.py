@@ -77,7 +77,7 @@ def do_init_two_level(tuning, tune_data):
     ac_num_rows = tuning.get_exp_param('ac_num_rows')
     row_len = tuning.get_exp_param('row_len')
     ac2_row_len = tuning.get_exp_param('ac2_row_len')
-    if ac_num_rows * row_len != ac2_num_rows * ac2_row_len:
+    if ac_num_rows * row_len != ac2_row_len:
         print "WARNING: two-level: ac_num_rows * row_len (%d * %d = %d) != " \
               "ac2_row_len (%d)" % \
               (ac_num_rows, row_len, ac_num_rows * row_len, ac2_row_len)
@@ -270,6 +270,22 @@ def do_cs_servo(tuning, rc, rc_indices):
         raise RuntimeError, servo_data['error']
 
     cs = cs_servo.CSServo(servo_data['filename'], tuning=tuning)
+    bias_ramp = cs.bias_style == 'ramp'
+
+    # If multi-bias, plot each one (per-chip plots, one file per bias
+    # index), then collapse to the best sq1_bias per column (based on
+    # peak-to-peak response) before the usual per-chip reduction.
+    if bias_ramp and tuning.get_exp_param('tuning_do_plots'):
+        plot_out = cs.plot()
+        tuning.register_plots(*plot_out['plot_files'])
+        plot_out = cs.plot_error()
+        tuning.register_plots(*plot_out['plot_files'])
+        cs._ramp_splits = None
+
+    if bias_ramp:
+        cs.reduce1()
+        cs = cs.select_biases()
+
     an = cs.reduce()
 
     if tuning.get_exp_param('tuning_do_plots'):
@@ -278,24 +294,22 @@ def do_cs_servo(tuning, rc, rc_indices):
         plot_out = cs.plot_error()
         tuning.register_plots(*plot_out['plot_files'])
 
+    # ac2_row_order, ac2_on_bias, and ac2_off_bias all have one entry per
+    # chip select, addressed in lockstep by config_create.bash's wra loop.
+    ac2_row_order = tuning.get_exp_param('ac2_row_order')
+
     if optimize == 1:
-        # Expand per-chip on/off to full ac2_on_bias / ac2_off_bias arrays
-        ac2_row_order = tuning.get_exp_param('ac2_row_order')
-        chip_addrs = cs.chip_addrs
+        chip_addrs = list(cs.chip_addrs)
         cs_on = an['cs_on_bias']
         cs_off = an['cs_off_bias']
+        on_per_cs = [int(cs_on[chip_addrs.index(addr)]) for addr in ac2_row_order]
+        off_per_cs = [int(cs_off[chip_addrs.index(addr)]) for addr in ac2_row_order]
+    else:
+        on_per_cs = tuning.get_exp_param('default_ac2_on_bias')
+        off_per_cs = tuning.get_exp_param('default_ac2_off_bias')
 
-        ac2_on = tuning.get_exp_param('ac2_on_bias')
-        ac2_off = tuning.get_exp_param('ac2_off_bias')
-
-        for ci, addr in enumerate(chip_addrs):
-            for j in range(len(ac2_row_order)):
-                if ac2_row_order[j] == addr:
-                    ac2_on[j] = int(cs_on[ci])
-                    ac2_off[j] = int(cs_off[ci])
-
-        tuning.set_exp_param('ac2_on_bias', ac2_on)
-        tuning.set_exp_param('ac2_off_bias', ac2_off)
+    tuning.set_exp_param('ac2_on_bias', on_per_cs)
+    tuning.set_exp_param('ac2_off_bias', off_per_cs)
 
     # Restore row selects
     tuning.set_exp_param('row_select', saved_row_select)
@@ -306,7 +320,7 @@ def do_cs_servo(tuning, rc, rc_indices):
         print "cs_servo: done. on_bias=%s, off_bias=%s" % (
             [int(x) for x in cs_on], [int(x) for x in cs_off])
     else:
-        print "cs_servo: done (optimize=0, results not applied)."
+        print "cs_servo: done (optimize=0, on/off_bias set from defaults)."
     return 0
 
 

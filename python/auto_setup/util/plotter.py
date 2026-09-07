@@ -199,6 +199,7 @@ class plotGridder:
         ('ylabel', None),
         ('stacked', True),
         ('rowcol_labels', False),
+        ('chipcol_labels', False),
         ('col_labels', False),
         ('row_labels', False),
         ('force_vlabel', False),
@@ -268,6 +269,8 @@ class plotGridder:
             r, c1, _, c2 = self.to_rowcol((v,h,i,0)) + self.to_rowcol((v,h,i,N-1))
             if self.rowcol_labels:
                 page[0,i].title = 'Row %2i  Cols %2i-%2i' % (r, c1, c2)
+            if self.chipcol_labels:
+                page[0,i].title = 'Chip %2i  Cols %2i-%2i' % (r, c1, c2)
             if self.col_labels:
                 page[0,i].title = 'Cols %2i-%2i' % (c1, c2)
             if self.row_labels:

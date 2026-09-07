@@ -14,9 +14,11 @@ class CSServo(servo.SquidData):
     Chip-select servo analysis for two-level mux11d addressing.
 
     Loads a .bias file produced by the cs_servo C binary, which sweeps
-    ac2 on_bias while servoing SA FB.  Raw data has shape (1, n_rows,
-    n_cols, n_flux); rows are grouped by their AC2 address (chip) and
-    averaged to produce per-chip curves for analysis.
+    ac2 on_bias while servoing SA FB, optionally repeating the sweep
+    over a series of sq1_bias values (cs_servo_bias_ramp).  Raw data
+    has shape (n_bias, n_rows, n_cols, n_flux); rows are grouped by
+    their AC2 address (chip) and averaged to produce per-chip curves
+    for analysis.
     """
     stage_name = 'CSServo'
     xlabel = 'CS flux / 1000'
@@ -46,11 +48,13 @@ class CSServo(servo.SquidData):
         self.data_origin = {'filename': filename,
                             'basename': filename.split('/')[-1]}
 
-        # cs_servo has no bias ramp; loop1 is inactive ("none").
-        # Parse as non-ramped: feedback is in loop2.
+        # loop1 is the (optional) sq1 bias ramp; loop2 is the chip
+        # select flux sweep.
         self.load_ramp_params('RB sq1 bias')
+        if self.bias_style == 'select':
+            self.bias_assoc = 'col'
 
-        self.data_shape = (-1, 1, len(self.cols), len(self.fb))
+        self.data_shape = (len(self.bias), 1, len(self.cols), len(self.fb))
         self._read_super_bias(filename)
 
     def _group_by_chip(self):
@@ -66,16 +70,37 @@ class CSServo(servo.SquidData):
         self.chip_addrs = sorted(set(ac2_row_order))
         self.n_chips = len(self.chip_addrs)
 
-        n_bias, n_row, n_col, n_fb = self.data_shape
+        # data_shape is (n_row, n_col, n_fb) for single-bias data, or
+        # (n_bias, n_row, n_col, n_fb) for an un-collapsed bias ramp
+        # (see mux11d.do_cs_servo, which collapses ramps via
+        # select_biases() before analysis, so n_bias is always 1 here).
+        n_row, n_col, n_fb = self.data_shape[-3:]
+        n_bias = self.data_shape[0] if len(self.data_shape) == 4 else 1
+        if n_bias != 1:
+            raise RuntimeError(
+                'cs_servo bias ramp data must be collapsed with '
+                'select_biases() before analysis.')
+
+        # ac2_row_order has one entry per chip select; the acquired data
+        # has one entry per physical row, with each chip's rows forming a
+        # contiguous block of ac_num_rows rows, so expand ac2_row_order to
+        # match.
+        rows_per_chip = self.tuning.get_exp_param('ac_num_rows')
+        if rows_per_chip * len(ac2_row_order) != n_row:
+            raise RuntimeError(
+                'ac_num_rows (%d) * len(ac2_row_order) (%d) = %d does not '
+                'match the acquired row count (%d); check experiment.cfg.'
+                % (rows_per_chip, len(ac2_row_order),
+                   rows_per_chip * len(ac2_row_order), n_row))
+        row_chip_map = np.repeat(ac2_row_order, rows_per_chip)
 
         chip_avg = np.zeros((self.n_chips, n_col, n_fb), dtype='float')
         chip_err = np.zeros((self.n_chips, n_col, n_fb), dtype='float')
 
         for src, dst in [(self.data, chip_avg), (self.error, chip_err)]:
-            curves = src.reshape(n_bias, n_row, n_col, n_fb)
-            raw = curves[0]  # (n_row, n_col, n_fb)
+            raw = src.reshape(n_row, n_col, n_fb)
             for ci, addr in enumerate(self.chip_addrs):
-                mask = (ac2_row_order == addr)
+                mask = (row_chip_map == addr)
                 dst[ci] = raw[mask].mean(axis=0)
 
         self.chip_data = chip_avg
@@ -143,6 +168,17 @@ class CSServo(servo.SquidData):
         if format is None:
             format = self.tuning.get_exp_param('tuning_plot_format')
 
+        # Multi-bias ramp: split into one single-bias CSServo per bias
+        # index and plot each (mirrors SquidData.plot's ramp handling).
+        if self.bias_style == 'ramp':
+            ss = self._get_ramp_splits()
+            plot_files = []
+            for i, s in enumerate(ss):
+                p = s.plot(plot_file=plot_file+'_b%02i'%i, format=format,
+                           data_attr=data_attr)
+                plot_files += p['plot_files']
+            return {'plot_files': plot_files}
+
         self._check_data()
         self._check_analysis()
         self._group_by_chip()
@@ -158,10 +194,16 @@ class CSServo(servo.SquidData):
         # Flatten to (n_chip*n_col, n_fb) for servo.plot
         plot_data = source.reshape(-1, source.shape[-1])
 
-        insets = []
+        
+        idx = np.arange(n_chip)
+        insets = ['BIAS = %5i' % b for b in self.bias]
+        ## then repeat it as needed
+        insets = np.concatenate([insets for i in idx])
+
+        insets2 = []
         for ci in range(n_chip):
             for co in range(n_col):
-                insets.append('CS=%d' % self.chip_addrs[ci])
+                insets2.append('CS=%d' % self.chip_addrs[ci])
 
         return servo.plot(
             self.fb, plot_data, (n_chip, n_col),
@@ -169,9 +211,11 @@ class CSServo(servo.SquidData):
             lock_levels=False,
             intervals=data_attr != 'error',
             insets=insets,
+            insets2=insets2,
             title=self.data_origin['basename'],
             xlabel=self.xlabel,
             ylabel=self.ylabels[data_attr],
+            label_style='chip_col',
             format=format,
         )
 
